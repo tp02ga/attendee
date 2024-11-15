@@ -20,7 +20,7 @@ Building meeting bots is challenging across all platforms, though some have more
 
 Attendee abstracts away this complexity into a single developer friendly REST API that manages the state and media streams from these bots. If you're a developer building functionality that requires meeting bots, Attendee can save you months of work vs building from scratch.
 
-## API
+## Calling the API
 
 Join a meeting with a POST request to `/sessions`:
 ```
@@ -98,6 +98,21 @@ For more details, follow [this guide](https://developers.zoom.us/docs/meeting-sd
 - Start all the services: `docker compose -f dev.docker-compose.yaml up`
 - After the services have started, run migrations in a separate terminal tab: `docker compose -f dev.docker-compose.yaml exec attendee-app-local python manage.py migrate`
 - Goto localhost:8000 in your browser and create an account
-- The confirmation link will show up in the terminal where you ran `docker compose -f dev.docker-compose.yaml up`. Should look like `http://localhost:8000/accounts/confirm-email/<key>/`.
+- The confirmation link will be written to the server logs in the terminal where you ran `docker compose -f dev.docker-compose.yaml up`. Should look like `http://localhost:8000/accounts/confirm-email/<key>/`.
 - Paste the link into your browser to confirm your account.
 - You should now be able to log in, input your credentials and obtain an API key. API calls should be directed to http://localhost:8000 instead of https://app.attendee.dev.
+
+## Roadmap
+
+- [x] Join and leave Zoom meetings
+- [x] Produce transcripts
+- [ ] Automatically leave meetings
+- [ ] [ZAK token](https://developers.zoom.us/docs/meeting-sdk/auth/#start-meetings-and-webinars-with-a-zoom-users-zak-token) and [Join token](https://developers.zoom.us/docs/api/rest/reference/zoom-api/methods/#operation/meetingLocalRecordingJoinToken) support
+- [ ] Scheduled meetings
+- [ ] Webhooks for state changes
+- [ ] Audio output
+- [ ] Video input / output
+- [ ] Google Meet support
+- [ ] Microsoft Teams support
+
+
