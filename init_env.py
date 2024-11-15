@@ -1,0 +1,18 @@
+from cryptography.fernet import Fernet
+from django.core.management.utils import get_random_secret_key
+
+def generate_encryption_key():
+    return Fernet.generate_key().decode('utf-8')
+
+def generate_django_secret_key():
+    return get_random_secret_key()
+
+def main():
+    bot_key = generate_encryption_key()
+    django_key = generate_django_secret_key()
+    
+    print(f'BOT_CREDENTIALS_ENCRYPTION_KEY={bot_key}')
+    print(f'DJANGO_SECRET_KEY={django_key}')
+
+if __name__ == '__main__':
+    main()

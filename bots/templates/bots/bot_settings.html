@@ -1,0 +1,9 @@
+{% extends 'bots/sidebar.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Bot Settings</h2>
+    {% include 'bots/partials/zoom_credentials.html' with credential_type=zoom_credential_type credentials=zoom_credentials %}
+    {% include 'bots/partials/deepgram_credentials.html' with credential_type=deepgram_credential_type credentials=deepgram_credentials %}
+</div>
+{% endblock %} 
