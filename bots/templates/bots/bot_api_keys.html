@@ -38,8 +38,14 @@
     <!-- Existing API Keys Table -->
 
 <div class="container mt-4">
+
     <div class="table-responsive" id="apiKeysTable">
         {% if api_keys %}
+            <div class="alert alert-info" role="alert">
+                <i class="bi bi-play-circle me-2"></i>
+                Not sure how to use your API key? Check out this 
+                <a href="#" class="alert-link" data-bs-toggle="modal" data-bs-target="#videoTutorialModal">quick video</a>!
+            </div>
             <h2>API Keys</h2>
             <!-- Create Button -->
             <button class="btn btn-primary mb-3 mt-3" 
@@ -113,4 +119,6 @@
         {% endif %}
         </div>
     </div>
+
+    {% include 'bots/partials/video_tutorial_modal.html' with modal_title="Calling the API" loom_url="https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc"  %}
 {% endblock %} 
