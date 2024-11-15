@@ -1,6 +1,6 @@
 # Attendee: Meeting bots made easy
 
-Attendee is an open source API for managing meeting bots on platforms like Zoom or Google Meet. Bring meeting transcripts and recordings into your product in days instead of months.
+Attendee is an open source API for managing meeting bots on platforms like Zoom or Google Meet. Bring meeting transcripts and recordings into your product in days instead of months. Quick demo of how it works [here](https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc).
 
 ## Getting started
 
@@ -87,7 +87,9 @@ developer account.
 - Copy the Client ID and Client Secret from the 'App Credentials' section
 - Go to the Embed tab on the left navigation bar under Features, then select the Meeting SDK toggle.
 
-For more information, follow [this guide](https://developers.zoom.us/docs/meeting-sdk/developer-accounts/)
+For more details, follow [this guide](https://developers.zoom.us/docs/meeting-sdk/developer-accounts/)
+
+or this [loom video](https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc).
 
 ## Running in development mode
 
