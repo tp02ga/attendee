@@ -107,7 +107,7 @@ For more details, follow [this guide](https://developers.zoom.us/docs/meeting-sd
 - [x] Join and leave Zoom meetings
 - [x] Produce transcripts
 - [ ] Automatically leave meetings
-- [ ] [ZAK token](https://developers.zoom.us/docs/meeting-sdk/auth/#start-meetings-and-webinars-with-a-zoom-users-zak-token) and [Join token](https://developers.zoom.us/docs/api/rest/reference/zoom-api/methods/#operation/meetingLocalRecordingJoinToken) support
+- [ ] [ZAK token](https://developers.zoom.us/docs/meeting-sdk/auth/#start-meetings-and-webinars-with-a-zoom-users-zak-token) and [Join token](https://developers.zoom.us/docs/api/meetings/#tag/meetings/GET/meetings/{meetingId}/jointoken/local_recording) support
 - [ ] Scheduled meetings
 - [ ] Webhooks for state changes
 - [ ] Audio output
