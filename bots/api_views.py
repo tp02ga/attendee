@@ -48,7 +48,9 @@ class NotFoundView(APIView):
         )
 
 @api_view_defaults
-class SessionCreateView(APIView):   
+class SessionCreateView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
     @extend_schema(
         operation_id='Create Bot Session',
         request=CreateSessionSerializer,
@@ -93,6 +95,8 @@ class SessionCreateView(APIView):
         
 @api_view_defaults
 class EndSessionView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    
     def send_sync_command(self, session):
         redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
         redis_client = redis.from_url(redis_url)
@@ -130,6 +134,8 @@ class EndSessionView(APIView):
 
 @api_view_defaults
 class TranscriptView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    
     @extend_schema(
         operation_id='Get Bot Session Transcript',
         responses={
@@ -171,6 +177,8 @@ class TranscriptView(APIView):
 
 @api_view_defaults
 class SessionDetailView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    
     @extend_schema(
         operation_id='Get Bot Session',
         responses={
