@@ -9,8 +9,23 @@ from .tasks import run_bot_session
 import redis
 import json
 import os
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
+
+def api_view_defaults(cls):
+    """Decorator that applies common API view defaults including authentication and schema settings"""
+    # Apply extend_schema decorator
+    cls = extend_schema(auth=[{"ApiKeyAuth": []}])(cls)
+    
+    # Set authentication classes
+    cls.authentication_classes = [ApiKeyAuthentication]
+    
+    return cls
+
+@extend_schema(exclude=True)
 class NotFoundView(APIView):
+    exclude_from_schema = True
+    
     def get(self, request, *args, **kwargs):
         return self.handle_request(request, *args, **kwargs)
 
@@ -32,9 +47,17 @@ class NotFoundView(APIView):
             status=status.HTTP_404_NOT_FOUND
         )
 
-class SessionCreateView(APIView):
-    authentication_classes = [ApiKeyAuthentication]
-    
+@api_view_defaults
+class SessionCreateView(APIView):   
+    @extend_schema(
+        operation_id='Create Bot Session',
+        request=CreateSessionSerializer,
+        responses={
+            201: OpenApiResponse(response=SessionSerializer, description='Session created successfully'),
+            400: OpenApiResponse(description='Invalid input')
+        }
+    )
+
     def post(self, request):
         serializer = CreateSessionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -68,10 +91,8 @@ class SessionCreateView(APIView):
             status=status.HTTP_201_CREATED
         )
         
-
-class LeaveCallView(APIView):
-    authentication_classes = [ApiKeyAuthentication]
-    
+@api_view_defaults
+class EndSessionView(APIView):
     def send_sync_command(self, session):
         redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
         redis_client = redis.from_url(redis_url)
@@ -80,7 +101,14 @@ class LeaveCallView(APIView):
             'command': 'sync'
         }
         redis_client.publish(channel, json.dumps(message))
-
+    
+    @extend_schema(
+        operation_id='End Bot Session',
+        responses={
+            200: OpenApiResponse(response=SessionSerializer, description='Successfully requested to end session'),
+            404: OpenApiResponse(description='Session not found')
+        }
+    )
     def post(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
@@ -100,9 +128,15 @@ class LeaveCallView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+@api_view_defaults
 class TranscriptView(APIView):
-    authentication_classes = [ApiKeyAuthentication]
-    
+    @extend_schema(
+        operation_id='Get Bot Session Transcript',
+        responses={
+            200: OpenApiResponse(description='List of transcribed utterances'),
+            404: OpenApiResponse(description='Session not found')
+        }
+    )
     def get(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
@@ -135,9 +169,16 @@ class TranscriptView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+@api_view_defaults
 class SessionDetailView(APIView):
-    authentication_classes = [ApiKeyAuthentication]
-    
+    @extend_schema(
+        operation_id='Get Bot Session',
+        responses={
+            200: OpenApiResponse(response=SessionSerializer, description='Session details'),
+            404: OpenApiResponse(description='Session not found')
+        }
+    )
+        
     def get(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
