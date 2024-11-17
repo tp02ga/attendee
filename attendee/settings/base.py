@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'bots',
     'rest_framework',
     'concurrency',
-    'allauth.socialaccount.providers.google'
+    'allauth.socialaccount.providers.google',
+    'drf_spectacular'
 ]
 
 BOT_CREDENTIALS_ENCRYPTION_KEY = os.getenv('BOT_CREDENTIALS_ENCRYPTION_KEY')
@@ -156,3 +157,24 @@ CELERY_RESULT_BACKEND = REDIS_CELERY_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+REST_FRAMEWORK = {
+    # YOUR SETTINGS
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Attendee API',
+    'DESCRIPTION': 'Meetings bots made easy',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    "PARSER_WHITELIST": ["rest_framework.parsers.JSONParser"],
+    'TAGS': [
+        {'name': 'Sessions', 'description': 'Bot session management endpoints'},
+    ],
+    'SERVERS': [
+        {'url': 'https://app.attendee.dev', 'description': 'Production server'},
+    ],
+}
+# public with python manage.py spectacular --color --file docs/openapi.yml

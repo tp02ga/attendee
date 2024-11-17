@@ -3,14 +3,27 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import BotSession, BotSessionEvent, BotSessionEventManager, AnalysisTask, AnalysisTaskTypes, AnalysisTaskSubTypes, Utterance, Participant, Bot
-from .serializers import CreateSessionSerializer, SessionSerializer
+from .serializers import CreateSessionSerializer, SessionSerializer, TranscriptUtteranceSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot_session
 import redis
 import json
 import os
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
-class NotFoundView(APIView):
+TokenHeaderParameter = [
+    OpenApiParameter(
+        name="Authorization",
+        type=str,
+        location=OpenApiParameter.HEADER,
+        description="API key for authentication",
+        required=True,
+        default="Token YOUR_API_KEY_HERE"
+    )
+]
+
+@extend_schema(exclude=True)
+class NotFoundView(APIView):    
     def get(self, request, *args, **kwargs):
         return self.handle_request(request, *args, **kwargs)
 
@@ -34,7 +47,19 @@ class NotFoundView(APIView):
 
 class SessionCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
-    
+
+    @extend_schema(
+        operation_id='Create Bot Session',
+        summary='Create a new bot session',
+        description='A bot session represents your bot\'s presence in a meeting. After creating a session, the bot will attempt to join the specified meeting.',
+        request=CreateSessionSerializer,
+        responses={
+            201: OpenApiResponse(response=SessionSerializer, description='Session created successfully'),
+            400: OpenApiResponse(description='Invalid input')
+        },
+        parameters=TokenHeaderParameter, 
+        tags=['Sessions'],
+    )
     def post(self, request):
         serializer = CreateSessionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -68,8 +93,7 @@ class SessionCreateView(APIView):
             status=status.HTTP_201_CREATED
         )
         
-
-class LeaveCallView(APIView):
+class EndSessionView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
     def send_sync_command(self, session):
@@ -80,7 +104,18 @@ class LeaveCallView(APIView):
             'command': 'sync'
         }
         redis_client.publish(channel, json.dumps(message))
-
+    
+    @extend_schema(
+        operation_id='End Bot Session',
+        summary='End a bot session',
+        description='Ending a bot session will cause the bot to leave the meeting.',
+        responses={
+            200: OpenApiResponse(response=SessionSerializer, description='Successfully requested to end session'),
+            404: OpenApiResponse(description='Session not found')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
+    )
     def post(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
@@ -103,6 +138,17 @@ class LeaveCallView(APIView):
 class TranscriptView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
+    @extend_schema(
+        operation_id='Get Bot Session Transcript',
+        summary='Get the transcript for a bot session',
+        description='If the session is still in progress, this returns the transcript so far.',
+        responses={
+            200: OpenApiResponse(response=TranscriptUtteranceSerializer(many=True), description='List of transcribed utterances'),
+            404: OpenApiResponse(description='Session not found')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
+    )
     def get(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
@@ -114,7 +160,7 @@ class TranscriptView(APIView):
             ).order_by('timeline_ms')
             
             # Format the response, skipping empty transcriptions
-            transcript = [
+            transcript_data = [
                 {
                     'speaker_name': utterance.participant.full_name,
                     'speaker_uuid': utterance.participant.uuid,
@@ -124,10 +170,11 @@ class TranscriptView(APIView):
                     'transcription': utterance.transcription['transcript']
                 }
                 for utterance in utterances     
-                if utterance.transcription.get('words', [])  # Only include if words list is non-empty
+                if utterance.transcription.get('words', [])
             ]
             
-            return Response(transcript)
+            serializer = TranscriptUtteranceSerializer(transcript_data, many=True)
+            return Response(serializer.data)
             
         except BotSession.DoesNotExist:
             return Response(
@@ -138,6 +185,16 @@ class TranscriptView(APIView):
 class SessionDetailView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
+    @extend_schema(
+        operation_id='Get Bot Session',
+        summary='Get the details for a bot session',
+        responses={
+            200: OpenApiResponse(response=SessionSerializer, description='Session details'),
+            404: OpenApiResponse(description='Session not found')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
+    )        
     def get(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
