@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: Attendee API
+  version: 1.0.0
+  description: Meetings bots made easy
+paths:
+  /api/v1/sessions:
+    post:
+      operationId: Create Bot Session
+      description: A bot session represents your bot's presence in a meeting. After
+        creating a session, the bot will attempt to join the specified meeting.
+      summary: Create a new bot session
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      tags:
+      - Sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+            examples:
+              ValidMeetingURL:
+                value:
+                  meeting_url: https://zoom.us/j/123?pwd=456
+                summary: Valid meeting URL
+                description: Example of a valid Zoom meeting URL
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              examples:
+                MeetingURL:
+                  value:
+                    id: sess_weIAju4OXNZkDTpZ
+                    meeting_url: https://zoom.us/j/123?pwd=456
+                    state: joining
+                    sub_state: null
+                    transcription_state: not_started
+                  summary: Meeting URL
+          description: Session created successfully
+        '400':
+          description: Invalid input
+  /api/v1/sessions/{object_id}:
+    get:
+      operationId: Get Bot Session
+      summary: Get the details for a bot session
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Sessions
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              examples:
+                MeetingURL:
+                  value:
+                    id: sess_weIAju4OXNZkDTpZ
+                    meeting_url: https://zoom.us/j/123?pwd=456
+                    state: joining
+                    sub_state: null
+                    transcription_state: not_started
+                  summary: Meeting URL
+          description: Session details
+        '404':
+          description: Session not found
+  /api/v1/sessions/{object_id}/end:
+    post:
+      operationId: End Bot Session
+      description: Ending a bot session will cause the bot to leave the meeting.
+      summary: End a bot session
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Sessions
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              examples:
+                MeetingURL:
+                  value:
+                    id: sess_weIAju4OXNZkDTpZ
+                    meeting_url: https://zoom.us/j/123?pwd=456
+                    state: joining
+                    sub_state: null
+                    transcription_state: not_started
+                  summary: Meeting URL
+          description: Successfully requested to end session
+        '404':
+          description: Session not found
+  /api/v1/sessions/{object_id}/transcript:
+    get:
+      operationId: Get Bot Session Transcript
+      description: If the session is still in progress, this returns the transcript
+        so far.
+      summary: Get the transcript for a bot session
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Sessions
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TranscriptUtterance'
+          description: List of transcribed utterances
+        '404':
+          description: Session not found
+components:
+  schemas:
+    CreateSessionRequest:
+      type: object
+      properties:
+        meeting_url:
+          type: string
+          minLength: 1
+          description: The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456
+      required:
+      - meeting_url
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        meeting_url:
+          type: string
+          readOnly: true
+        state:
+          allOf:
+          - $ref: '#/components/schemas/StateEnum'
+          readOnly: true
+        sub_state:
+          allOf:
+          - $ref: '#/components/schemas/SubStateEnum'
+          nullable: true
+          readOnly: true
+        transcription_state:
+          allOf:
+          - $ref: '#/components/schemas/TranscriptionStateEnum'
+          readOnly: true
+      required:
+      - id
+      - meeting_url
+      - state
+      - sub_state
+      - transcription_state
+    StateEnum:
+      type: string
+      enum:
+      - ready
+      - joining
+      - joining
+      - joined_not_recording
+      - joined_recording
+      - leaving
+      - leaving
+      - ended
+      - fatal_error
+      - waiting_room
+    SubStateEnum:
+      type: string
+      enum:
+      - meeting_not_started
+      - process_terminated
+    TranscriptUtterance:
+      type: object
+      properties:
+        speaker_name:
+          type: string
+        speaker_uuid:
+          type: string
+        speaker_user_uuid:
+          type: string
+          nullable: true
+        timestamp_ms:
+          type: integer
+        duration_ms:
+          type: integer
+        transcription:
+          type: string
+      required:
+      - duration_ms
+      - speaker_name
+      - speaker_user_uuid
+      - speaker_uuid
+      - timestamp_ms
+      - transcription
+    TranscriptionStateEnum:
+      type: string
+      enum:
+      - not_started
+      - in_progress
+      - complete
+      - failed
+servers:
+- url: https://app.attendee.dev
+  description: Production server
+tags:
+- name: Sessions
+  description: Bot session management endpoints
