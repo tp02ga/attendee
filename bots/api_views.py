@@ -9,7 +9,7 @@ from .tasks import run_bot_session
 import redis
 import json
 import os
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -23,9 +23,7 @@ TokenHeaderParameter = [
 ]
 
 @extend_schema(exclude=True)
-class NotFoundView(APIView):
-    exclude_from_schema = True
-    
+class NotFoundView(APIView):    
     def get(self, request, *args, **kwargs):
         return self.handle_request(request, *args, **kwargs)
 
@@ -62,7 +60,6 @@ class SessionCreateView(APIView):
         parameters=TokenHeaderParameter, 
         tags=['Sessions'],
     )
-
     def post(self, request):
         serializer = CreateSessionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -197,8 +194,7 @@ class SessionDetailView(APIView):
         },
         parameters=TokenHeaderParameter,
         tags=['Sessions'],
-    )
-        
+    )        
     def get(self, request, object_id):
         try:
             session = BotSession.objects.get(object_id=object_id, bot=request.auth.bot)
