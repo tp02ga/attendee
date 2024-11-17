@@ -18,6 +18,13 @@ paths:
           default: Token YOUR_API_KEY_HERE
         description: API key for authentication
         required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
       tags:
       - Bots
       requestBody:
@@ -64,6 +71,13 @@ paths:
           default: Token YOUR_API_KEY_HERE
         description: API key for authentication
         required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
       - in: path
         name: object_id
         schema:
@@ -103,6 +117,13 @@ paths:
           type: string
           default: Token YOUR_API_KEY_HERE
         description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
         required: true
       - in: path
         name: object_id
@@ -144,6 +165,13 @@ paths:
           type: string
           default: Token YOUR_API_KEY_HERE
         description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
         required: true
       - in: path
         name: object_id
