@@ -32,7 +32,7 @@ curl -X POST https://app.attendee.dev/api/v1/bots \
 Response:
 ```{"id":"bot_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/4849920355?pwd=aTBpNz760UTEBwUT2mQFtdXbl3SS3i.1","state":"joining","transcription_state":"not_started"}```
 
-The API will respond with a bots object that represents your bot's state in the meeting. 
+The API will respond with an object that represents your bot's state in the meeting. 
 
 
 
