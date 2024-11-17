@@ -19,6 +19,13 @@ TokenHeaderParameter = [
         description="API key for authentication",
         required=True,
         default="Token YOUR_API_KEY_HERE"
+    ),
+    OpenApiParameter(
+        name="Content-Type",
+        type=str,
+        location=OpenApiParameter.HEADER,
+        required=True,
+        default="application/json"
     )
 ]
 
