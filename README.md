@@ -4,6 +4,10 @@ Attendee is an open source API for managing meeting bots on platforms like Zoom 
 
 See a quick demo of the API in action [here](https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc).
 
+<br />
+<a href="https://attendee.apidocumentation.com/" rel="dofollow"><strong>API Reference</strong></a>
+<br />
+
 ## Getting started
 
 Sign up for free on our hosted instance [here](https://app.attendee.dev/accounts/signup/).
