@@ -2,7 +2,7 @@
 
 Attendee is an open source API for managing meeting bots on platforms like Zoom or Google Meet. Bring meeting transcripts and recordings into your product in days instead of months. 
 
-See a [quick demo of the API](https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc) or check out the [API reference](https://attendee.apidocumentation.com/).
+See a [quick demo of the API](https://www.loom.com/embed/b738d02aabf84f489f0bfbadf71605e3?sid=ea605ea9-8961-4cc3-9ba9-10b7dbbb8034) or check out the [API reference](https://attendee.apidocumentation.com/).
 
 ## Getting started
 
