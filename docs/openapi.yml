@@ -23,6 +23,7 @@ paths:
         schema:
           type: string
           default: application/json
+        description: Should always be application/json
         required: true
       tags:
       - Bots
@@ -75,6 +76,7 @@ paths:
         schema:
           type: string
           default: application/json
+        description: Should always be application/json
         required: true
       - in: path
         name: object_id
@@ -121,6 +123,7 @@ paths:
         schema:
           type: string
           default: application/json
+        description: Should always be application/json
         required: true
       - in: path
         name: object_id
@@ -168,6 +171,7 @@ paths:
         schema:
           type: string
           default: application/json
+        description: Should always be application/json
         required: true
       - in: path
         name: object_id

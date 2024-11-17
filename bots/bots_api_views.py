@@ -24,6 +24,7 @@ TokenHeaderParameter = [
         name="Content-Type",
         type=str,
         location=OpenApiParameter.HEADER,
+        description="Should always be application/json",
         required=True,
         default="application/json"
     )
