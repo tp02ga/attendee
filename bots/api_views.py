@@ -144,7 +144,7 @@ class TranscriptView(APIView):
     @extend_schema(
         operation_id='Get Bot Session Transcript',
         summary='Get the transcript for a bot session',
-        description='This endpoint can be called while a session is in progress to get the transcript so far.',
+        description='If the session is still in progress, this returns the transcript so far.',
         responses={
             200: OpenApiResponse(response=TranscriptUtteranceSerializer(many=True), description='List of transcribed utterances'),
             404: OpenApiResponse(description='Session not found')

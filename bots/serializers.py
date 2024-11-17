@@ -7,16 +7,24 @@ from .models import BotSession, BotSessionStates, AnalysisTaskTypes, AnalysisTas
     examples=[
         OpenApiExample(
             'Valid meeting URL',
-            value={'meeting_url': 'https://us05web.zoom.us/j/xxx?pwd=xxxx'},
+            value={'meeting_url': 'https://zoom.us/j/123?pwd=456'},
             description='Example of a valid Zoom meeting URL'
         )
     ]
 )
 class CreateSessionSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(
-        help_text="The URL of the meeting to join"
+        help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456"
     )
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            'Meeting URL',
+            value={'id': 'sess_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started'},
+        )
+    ]
+)
 class SessionSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='object_id')
     state = serializers.SerializerMethodField()
