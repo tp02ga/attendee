@@ -168,16 +168,12 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Meetings bots made easy',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'APPEND_COMPONENTS': {
-        'securitySchemes': {
-            'API-Key': {
-                'type': 'apiKey',
-                'in': 'header',
-                'name': 'Authorization',
-                'description': 'API key authentication. Use the format: "Authorization: Token {Your API key}"',
-            }
-        }
-    },
     'COMPONENT_SPLIT_REQUEST': True,
     "PARSER_WHITELIST": ["rest_framework.parsers.JSONParser"],
+    'TAGS': [
+        {'name': 'Sessions', 'description': 'Bot session management endpoints'},
+    ],
+    'SERVERS': [
+        {'url': 'https://app.attendee.dev', 'description': 'Production server'},
+    ],
 }

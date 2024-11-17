@@ -3,24 +3,24 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import BotSession, BotSessionEvent, BotSessionEventManager, AnalysisTask, AnalysisTaskTypes, AnalysisTaskSubTypes, Utterance, Participant, Bot
-from .serializers import CreateSessionSerializer, SessionSerializer
+from .serializers import CreateSessionSerializer, SessionSerializer, TranscriptUtteranceSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot_session
 import redis
 import json
 import os
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 
-
-def api_view_defaults(cls):
-    """Decorator that applies common API view defaults including authentication and schema settings"""
-    # Apply extend_schema decorator
-    cls = extend_schema(auth=[{"ApiKeyAuth": []}])(cls)
-    
-    # Set authentication classes
-    cls.authentication_classes = [ApiKeyAuthentication]
-    
-    return cls
+TokenHeaderParameter = [
+    OpenApiParameter(
+        name="Authorization",
+        type=str,
+        location=OpenApiParameter.HEADER,
+        description="API key for authentication",
+        required=True,
+        default="Token YOUR_API_KEY_HERE"
+    )
+]
 
 @extend_schema(exclude=True)
 class NotFoundView(APIView):
@@ -47,17 +47,20 @@ class NotFoundView(APIView):
             status=status.HTTP_404_NOT_FOUND
         )
 
-@api_view_defaults
 class SessionCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
     @extend_schema(
         operation_id='Create Bot Session',
+        summary='Create a new bot session',
+        description='A bot session represents your bot\'s presence in a meeting. After creating a session, the bot will attempt to join the specified meeting.',
         request=CreateSessionSerializer,
         responses={
             201: OpenApiResponse(response=SessionSerializer, description='Session created successfully'),
             400: OpenApiResponse(description='Invalid input')
-        }
+        },
+        parameters=TokenHeaderParameter, 
+        tags=['Sessions'],
     )
 
     def post(self, request):
@@ -93,7 +96,6 @@ class SessionCreateView(APIView):
             status=status.HTTP_201_CREATED
         )
         
-@api_view_defaults
 class EndSessionView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
@@ -108,10 +110,14 @@ class EndSessionView(APIView):
     
     @extend_schema(
         operation_id='End Bot Session',
+        summary='End a bot session',
+        description='Ending a bot session will cause the bot to leave the meeting.',
         responses={
             200: OpenApiResponse(response=SessionSerializer, description='Successfully requested to end session'),
             404: OpenApiResponse(description='Session not found')
-        }
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
     )
     def post(self, request, object_id):
         try:
@@ -132,16 +138,19 @@ class EndSessionView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-@api_view_defaults
 class TranscriptView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
     @extend_schema(
         operation_id='Get Bot Session Transcript',
+        summary='Get the transcript for a bot session',
+        description='This endpoint can be called while a session is in progress to get the transcript so far.',
         responses={
-            200: OpenApiResponse(description='List of transcribed utterances'),
+            200: OpenApiResponse(response=TranscriptUtteranceSerializer(many=True), description='List of transcribed utterances'),
             404: OpenApiResponse(description='Session not found')
-        }
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
     )
     def get(self, request, object_id):
         try:
@@ -154,7 +163,7 @@ class TranscriptView(APIView):
             ).order_by('timeline_ms')
             
             # Format the response, skipping empty transcriptions
-            transcript = [
+            transcript_data = [
                 {
                     'speaker_name': utterance.participant.full_name,
                     'speaker_uuid': utterance.participant.uuid,
@@ -164,10 +173,11 @@ class TranscriptView(APIView):
                     'transcription': utterance.transcription['transcript']
                 }
                 for utterance in utterances     
-                if utterance.transcription.get('words', [])  # Only include if words list is non-empty
+                if utterance.transcription.get('words', [])
             ]
             
-            return Response(transcript)
+            serializer = TranscriptUtteranceSerializer(transcript_data, many=True)
+            return Response(serializer.data)
             
         except BotSession.DoesNotExist:
             return Response(
@@ -175,16 +185,18 @@ class TranscriptView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-@api_view_defaults
 class SessionDetailView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
     @extend_schema(
         operation_id='Get Bot Session',
+        summary='Get the details for a bot session',
         responses={
             200: OpenApiResponse(response=SessionSerializer, description='Session details'),
             404: OpenApiResponse(description='Session not found')
-        }
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Sessions'],
     )
         
     def get(self, request, object_id):
