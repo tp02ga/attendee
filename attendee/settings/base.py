@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'drf_spectacular'
 ]
 
-BOT_CREDENTIALS_ENCRYPTION_KEY = os.getenv('BOT_CREDENTIALS_ENCRYPTION_KEY')
+CREDENTIALS_ENCRYPTION_KEY = os.getenv('CREDENTIALS_ENCRYPTION_KEY')
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -171,7 +171,7 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     "PARSER_WHITELIST": ["rest_framework.parsers.JSONParser"],
     'TAGS': [
-        {'name': 'Sessions', 'description': 'Bot session management endpoints'},
+        {'name': 'Bots', 'description': 'Bot management endpoints'},
     ],
     'SERVERS': [
         {'url': 'https://app.attendee.dev', 'description': 'Production server'},

@@ -4,12 +4,12 @@ info:
   version: 1.0.0
   description: Meetings bots made easy
 paths:
-  /api/v1/sessions:
+  /api/v1/bots/:
     post:
-      operationId: Create Bot Session
-      description: A bot session represents your bot's presence in a meeting. After
-        creating a session, the bot will attempt to join the specified meeting.
-      summary: Create a new bot session
+      operationId: Create Bot
+      description: After being created,the bot will attempt to join the specified
+        meeting.
+      summary: Create a new bot
       parameters:
       - in: header
         name: Authorization
@@ -19,12 +19,12 @@ paths:
         description: API key for authentication
         required: true
       tags:
-      - Sessions
+      - Bots
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateSessionRequest'
+              $ref: '#/components/schemas/CreateBotRequest'
             examples:
               ValidMeetingURL:
                 value:
@@ -39,7 +39,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
+                $ref: '#/components/schemas/Bot'
               examples:
                 MeetingURL:
                   value:
@@ -49,13 +49,13 @@ paths:
                     sub_state: null
                     transcription_state: not_started
                   summary: Meeting URL
-          description: Session created successfully
+          description: Bot created successfully
         '400':
           description: Invalid input
-  /api/v1/sessions/{object_id}:
+  /api/v1/bots//{object_id}:
     get:
-      operationId: Get Bot Session
-      summary: Get the details for a bot session
+      operationId: Get Bot
+      summary: Get the details for a bot
       parameters:
       - in: header
         name: Authorization
@@ -70,7 +70,7 @@ paths:
           type: string
         required: true
       tags:
-      - Sessions
+      - Bots
       security:
       - {}
       responses:
@@ -78,7 +78,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
+                $ref: '#/components/schemas/Bot'
               examples:
                 MeetingURL:
                   value:
@@ -88,14 +88,14 @@ paths:
                     sub_state: null
                     transcription_state: not_started
                   summary: Meeting URL
-          description: Session details
+          description: Bot details
         '404':
-          description: Session not found
-  /api/v1/sessions/{object_id}/end:
+          description: Bot not found
+  /api/v1/bots//{object_id}/leave:
     post:
-      operationId: End Bot Session
-      description: Ending a bot session will cause the bot to leave the meeting.
-      summary: End a bot session
+      operationId: Leave Meeting
+      description: Causes the bot to leave the meeting.
+      summary: Leave a meeting
       parameters:
       - in: header
         name: Authorization
@@ -110,7 +110,7 @@ paths:
           type: string
         required: true
       tags:
-      - Sessions
+      - Bots
       security:
       - {}
       responses:
@@ -118,7 +118,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
+                $ref: '#/components/schemas/Bot'
               examples:
                 MeetingURL:
                   value:
@@ -128,15 +128,15 @@ paths:
                     sub_state: null
                     transcription_state: not_started
                   summary: Meeting URL
-          description: Successfully requested to end session
+          description: Successfully requested to leave meeting
         '404':
-          description: Session not found
-  /api/v1/sessions/{object_id}/transcript:
+          description: Bot not found
+  /api/v1/bots//{object_id}/transcript:
     get:
-      operationId: Get Bot Session Transcript
-      description: If the session is still in progress, this returns the transcript
+      operationId: Get Bot Transcript
+      description: If the meeting is still in progress, this returns the transcript
         so far.
-      summary: Get the transcript for a bot session
+      summary: Get the transcript for a bot
       parameters:
       - in: header
         name: Authorization
@@ -151,7 +151,7 @@ paths:
           type: string
         required: true
       tags:
-      - Sessions
+      - Bots
       security:
       - {}
       responses:
@@ -164,19 +164,10 @@ paths:
                   $ref: '#/components/schemas/TranscriptUtterance'
           description: List of transcribed utterances
         '404':
-          description: Session not found
+          description: Bot not found
 components:
   schemas:
-    CreateSessionRequest:
-      type: object
-      properties:
-        meeting_url:
-          type: string
-          minLength: 1
-          description: The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456
-      required:
-      - meeting_url
-    Session:
+    Bot:
       type: object
       properties:
         id:
@@ -203,6 +194,15 @@ components:
       - state
       - sub_state
       - transcription_state
+    CreateBotRequest:
+      type: object
+      properties:
+        meeting_url:
+          type: string
+          minLength: 1
+          description: The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456
+      required:
+      - meeting_url
     StateEnum:
       type: string
       enum:
@@ -255,5 +255,5 @@ servers:
 - url: https://app.attendee.dev
   description: Production server
 tags:
-- name: Sessions
-  description: Bot session management endpoints
+- name: Bots
+  description: Bot management endpoints

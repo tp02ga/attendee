@@ -27,15 +27,15 @@ from django.dispatch import receiver
 def create_default_organization(sender, instance, **kwargs):
     # Only run this for new users (not updates)
     if not instance.pk and not instance.organization_id:
-        from bots.models import Bot
+        from bots.models import Project
 
         default_org = Organization.objects.create(
             name=f"{instance.email}'s organization"
         )
 
-        # Create default bot for the organization
-        Bot.objects.create(
-            name=f"{instance.email}'s Bot",
+        # Create default project for the organization
+        Project.objects.create(
+            name=f"{instance.email}'s first project",
             organization=default_org
         )
 

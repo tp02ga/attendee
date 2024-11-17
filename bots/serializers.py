@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
-from .models import BotSession, BotSessionStates, AnalysisTaskTypes, AnalysisTaskStates, BotSessionSubStates
+from .models import Bot, BotStates, AnalysisTaskTypes, AnalysisTaskStates, BotSubStates
 
 @extend_schema_serializer(
     examples=[
@@ -12,7 +12,7 @@ from .models import BotSession, BotSessionStates, AnalysisTaskTypes, AnalysisTas
         )
     ]
 )
-class CreateSessionSerializer(serializers.Serializer):
+class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(
         help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456"
     )
@@ -25,7 +25,7 @@ class CreateSessionSerializer(serializers.Serializer):
         )
     ]
 )
-class SessionSerializer(serializers.ModelSerializer):
+class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='object_id')
     state = serializers.SerializerMethodField()
     sub_state = serializers.SerializerMethodField()
@@ -33,20 +33,20 @@ class SessionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field({
         'type': 'string',
-        'enum': [BotSessionStates.state_to_api_code(state.value) for state in BotSessionStates]
+        'enum': [BotStates.state_to_api_code(state.value) for state in BotStates]
     })
     def get_state(self, obj):
-        return BotSessionStates.state_to_api_code(obj.state)
+        return BotStates.state_to_api_code(obj.state)
 
     @extend_schema_field({
         'type': 'string',
-        'enum': [BotSessionSubStates.state_to_api_code(state.value) for state in BotSessionSubStates],
+        'enum': [BotSubStates.state_to_api_code(state.value) for state in BotSubStates],
         'nullable': True
     })
     def get_sub_state(self, obj):
         if not obj.sub_state:
             return None
-        return BotSessionSubStates.state_to_api_code(obj.sub_state)
+        return BotSubStates.state_to_api_code(obj.sub_state)
 
     @extend_schema_field({
         'type': 'string',
@@ -63,7 +63,7 @@ class SessionSerializer(serializers.ModelSerializer):
         return AnalysisTaskStates.state_to_api_code(analysis_task.state)
 
     class Meta:
-        model = BotSession
+        model = Bot
         fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state']
         read_only_fields = fields
 
