@@ -1,4 +1,4 @@
-{% extends 'bots/sidebar.html' %}
+{% extends 'projects/sidebar.html' %}
 
 {% block content %}
     <div class="container mt-4">          
@@ -22,7 +22,7 @@
                         1. Add credentials
                         {% if not quick_start.has_credentials %}
                             <div class="mt-2">
-                                <a href="{% url 'bots:bot-settings' bot.object_id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'projects:project-settings' project.object_id %}" class="btn btn-sm btn-primary">
                                     Go to Settings
                                 </a>
                             </div>
@@ -34,7 +34,7 @@
                         2. Create an API key
                         {% if not quick_start.has_api_keys %}
                             <div class="mt-2">
-                                <a href="{% url 'bots:bot-api-keys' bot.object_id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'projects:project-api-keys' project.object_id %}" class="btn btn-sm btn-primary">
                                     Go to API Keys
                                 </a>
                             </div>
@@ -42,15 +42,15 @@
                     </li>
 
                     <!-- Step 3: Call API -->
-                    <li class="list-group-item {% if quick_start.has_completed_sessions %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
+                    <li class="list-group-item {% if quick_start.has_ended_bots %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
                         3. Call the API
-                        {% if not quick_start.has_completed_sessions %}
+                        {% if not quick_start.has_ended_bots %}
                         
                             <div class="mt-2">
-                                <small>Start session</small>
+                                <small>Create bot</small>
                                 <pre class="bg-light p-1 m-1 rounded">
 <code class="small">curl -X POST \
-https://app.attendee.dev/api/v1/sessions \
+https://app.attendee.dev/api/v1/bots \
 -H 'Authorization: Token &lt;YOUR_API_KEY&gt;' \
 -H 'Content-Type: application/json' \
 -d '{"meeting_url": "https://us05web.zoom.us/j/xxxxxxx?pwd=xxxxxx"}'</code>
@@ -60,7 +60,7 @@ https://app.attendee.dev/api/v1/sessions \
                                 <small>Retrieve transcript</small>
                                 <pre class="bg-light p-1 m-1 rounded">
 <code class="small">curl -X GET \
-https://app.attendee.dev/api/v1/sessions/&lt;SESSION_ID&gt/transcript \
+https://app.attendee.dev/api/v1/bots/&lt;BOT_ID&gt/transcript \
 -H 'Authorization: Token &lt;YOUR_API_KEY&gt;' \
 -H 'Content-Type: application/json'</code>
                                 </pre>

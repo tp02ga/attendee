@@ -22,35 +22,35 @@ Attendee abstracts away this complexity into a single developer friendly REST AP
 
 ## Calling the API
 
-Join a meeting with a POST request to `/sessions`:
+Join a meeting with a POST request to `/bots`:
 ```
-curl -X POST https://app.attendee.dev/api/v1/sessions \
+curl -X POST https://app.attendee.dev/api/v1/bots \
 -H 'Authorization: Token <YOUR_API_KEY>' \
 -H 'Content-Type: application/json' \
 -d '{"meeting_url": "https://us05web.zoom.us/j/84315220467?pwd=9M1SQg2Pu2l0cB078uz6AHeWelSK19.1"}'
 ```
 Response:
-```{"id":"sess_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/4849920355?pwd=aTBpNz760UTEBwUT2mQFtdXbl3SS3i.1","state":"joining","transcription_state":"not_started"}```
+```{"id":"bot_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/4849920355?pwd=aTBpNz760UTEBwUT2mQFtdXbl3SS3i.1","state":"joining","transcription_state":"not_started"}```
 
-The API will respond with a session object that represents your bot's state in the meeting. 
+The API will respond with a bots object that represents your bot's state in the meeting. 
 
 
 
-Make a GET request to `/sessions/<id>` to poll the session:
+Make a GET request to `/bots/<id>` to poll the bot:
 ```
-curl -X GET https://app.attendee.dev/api/v1/sessions/sess_3hfP0PXEsNinIZmh \
+curl -X GET https://app.attendee.dev/api/v1/bots/bot_3hfP0PXEsNinIZmh \
 -H 'Authorization: Token <YOUR_API_KEY>' \
 -H 'Content-Type: application/json'
 ```
 Response: 
-```{"id":"sess_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/88669088234?pwd=AheaMumvS4qxh6UuDtSOYTpnQ1ZbAS.1","state":"ended","transcription_state":"complete"}```
+```{"id":"bot_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/88669088234?pwd=AheaMumvS4qxh6UuDtSOYTpnQ1ZbAS.1","state":"ended","transcription_state":"complete"}```
 
 When the endpoint returns a state of `ended`, it means the meeting has ended. When the `transcription_state` is `complete` it means the meeting recording has been transcribed.
 
 
-Once the meeting has ended and the transcript is ready make a GET request to `/sessions/<id>/transcript` to retrieve the meeting transcripts:
+Once the meeting has ended and the transcript is ready make a GET request to `/bots/<id>/transcript` to retrieve the meeting transcripts:
 ```
-curl -X GET https://app.attendee.dev/api/v1/sessions/sess_3hfP0PXEsNinIZmh/transcript \
+curl -X GET https://app.attendee.dev/api/v1/bots/bot_3hfP0PXEsNinIZmh/transcript \
 -H 'Authorization: Token mpc67dedUlzEDXfNGZKyC30t6cA11TYh' \
 -H 'Content-Type: application/json'
 ```

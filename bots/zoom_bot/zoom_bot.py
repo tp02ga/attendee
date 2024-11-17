@@ -26,7 +26,7 @@ def normalized_rms_audio(samples):
 
 class ZoomBot:
     class Messages:
-        TERMINATE_SESSION_WAITING_FOR_HOST = "Terminate session because received waiting for host status"
+        LEAVE_MEETING_WAITING_FOR_HOST = "Leave meeting because received waiting for host status"
         BOT_PUT_IN_WAITING_ROOM = "Bot put in waiting room"
         BOT_JOINED_MEETING = "Bot joined meeting"
         BOT_RECORDING_PERMISSION_GRANTED = "Bot recording permission granted"
@@ -315,7 +315,7 @@ class ZoomBot:
         print("meeting_status_changed called. status =",status,"iResult=",iResult)
 
         if status == zoom.MEETING_STATUS_WAITINGFORHOST:
-            self.send_message_callback({'message': self.Messages.TERMINATE_SESSION_WAITING_FOR_HOST})
+            self.send_message_callback({'message': self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
 
         if status == zoom.MEETING_STATUS_IN_WAITING_ROOM:
             self.send_message_callback({'message': self.Messages.BOT_PUT_IN_WAITING_ROOM})

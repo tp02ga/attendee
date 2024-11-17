@@ -1,4 +1,4 @@
-{% extends 'bots/sidebar.html' %}
+{% extends 'projects/sidebar.html' %}
 
 {% block content %}    
     <!-- Create Modal -->
@@ -10,7 +10,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form hx-post="{% url 'bots:create-api-key' bot.object_id %}"
+                    <form hx-post="{% url 'projects:create-api-key' project.object_id %}"
                             hx-target="#apiKeyResult"
                             hx-swap="innerHTML"
                             hx-on::after-request="this.reset()">
@@ -88,7 +88,7 @@
                                         <div class="modal-footer">
                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                             <button class="btn btn-danger"
-                                                    hx-delete="{% url 'bots:delete-api-key' bot.object_id key.object_id %}"
+                                                    hx-delete="{% url 'projects:delete-api-key' project.object_id key.object_id %}"
                                                     hx-swap="outerHTML"
                                                     hx-select="#apiKeysTable"
                                                     hx-target="#apiKeysTable"
@@ -120,5 +120,5 @@
         </div>
     </div>
 
-    {% include 'bots/partials/video_tutorial_modal.html' with modal_title="Calling the API" loom_url="https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc"  %}
+    {% include 'projects/partials/video_tutorial_modal.html' with modal_title="Calling the API" loom_url="https://www.loom.com/embed/d9f367075a8f4b9a8b634340883f6ceb?sid=c1d22eee-b77c-4671-b098-52ec52971fdc"  %}
 {% endblock %} 

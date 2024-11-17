@@ -17,12 +17,22 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from accounts import views
+from django.conf import settings
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('accounts/', include('allauth.socialaccount.urls')),
     path('', views.home, name='home'),
-    path('bots/', include('bots.urls')),
-    path('api/v1/', include('bots.api_urls')),
+    path('projects/', include('bots.projects_urls', namespace='projects')),
+    path('api/v1/bots/', include('bots.bots_api_urls')),
 ]
+
+if settings.DEBUG:
+    # API docs routes - only available in development
+    urlpatterns += [
+        path('schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]

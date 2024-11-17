@@ -25,7 +25,7 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
         
         try:
             key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-            api_key_obj = ApiKey.objects.select_related('bot').get(
+            api_key_obj = ApiKey.objects.select_related('project').get(
                 key_hash=key_hash,
                 disabled_at__isnull=True
             )

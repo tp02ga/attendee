@@ -17,15 +17,15 @@ import uuid
 
 # Create your models here.
 
-class Bot(models.Model):
+class Project(models.Model):
     name = models.CharField(max_length=255)
     organization = models.ForeignKey(
         Organization,
         on_delete=models.PROTECT,
-        related_name='bots'
+        related_name='projects'
     )
 
-    OBJECT_ID_PREFIX = 'bot_'
+    OBJECT_ID_PREFIX = 'proj_'
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -43,8 +43,8 @@ class Bot(models.Model):
 
 class ApiKey(models.Model):
     name = models.CharField(max_length=255)
-    bot = models.ForeignKey(
-        Bot,
+    project = models.ForeignKey(
+        Project,
         on_delete=models.CASCADE,
         related_name='api_keys'
     )
@@ -65,14 +65,14 @@ class ApiKey(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     @classmethod
-    def create(cls, bot, name):
+    def create(cls, project, name):
         # Generate a random API key (you might want to adjust the length)
         api_key = get_random_string(length=32)
         # Create hash of the API key
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         
         instance = cls(
-            bot=bot,
+            project=project,
             name=name,
             key_hash=key_hash
         )
@@ -83,9 +83,9 @@ class ApiKey(models.Model):
         return instance, api_key
 
     def __str__(self):
-        return f"{self.name} ({self.bot.name})"
+        return f"{self.name} ({self.project.name})"
 
-class BotSessionStates(models.IntegerChoices):
+class BotStates(models.IntegerChoices):
     READY = 1, 'Ready'
     JOINING_REQ_NOT_STARTED_BY_BOT = 2, 'Joining - Request Not Started By Bot'
     JOINING_REQ_STARTED_BY_BOT = 3, 'Joining - Request Started By Bot'
@@ -116,7 +116,7 @@ class BotSessionStates(models.IntegerChoices):
         }
         return mapping.get(value)
 
-class BotSessionSubStates(models.IntegerChoices):
+class BotSubStates(models.IntegerChoices):
     FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Fatal Error - Meeting Not Started - Waiting for Host'
     FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal Error - Process Terminated'
 
@@ -129,15 +129,15 @@ class BotSessionSubStates(models.IntegerChoices):
         }
         return mapping.get(value)
 
-class BotSession(models.Model):
-    OBJECT_ID_PREFIX = 'sess_'
+class Bot(models.Model):
+    OBJECT_ID_PREFIX = 'bot_'
 
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
-    bot = models.ForeignKey(
-        Bot,
+    project = models.ForeignKey(
+        Project,
         on_delete=models.PROTECT,
-        related_name='bot_sessions'
+        related_name='bots'
     )
 
     meeting_url = models.CharField(max_length=511)
@@ -148,13 +148,13 @@ class BotSession(models.Model):
     version = IntegerVersionField()
 
     state = models.IntegerField(
-        choices=BotSessionStates.choices,
-        default=BotSessionStates.READY,
+        choices=BotStates.choices,
+        default=BotStates.READY,
         null=False
     )
 
     sub_state = models.IntegerField(
-        choices=BotSessionSubStates.choices,
+        choices=BotSubStates.choices,
         default=None,
         null=True
     )
@@ -167,25 +167,25 @@ class BotSession(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.object_id} - {self.bot.name} in {self.meeting_url}"
+        return f"{self.object_id} - {self.project.name} in {self.meeting_url}"
 
     class Meta:
         constraints = [
             models.CheckConstraint(
                 check=(
                     # For FATAL_ERROR state, must have one of the valid sub-states
-                    (Q(state=BotSessionStates.FATAL_ERROR) & 
-                     (Q(sub_state=BotSessionSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST) |
-                      Q(sub_state=BotSessionSubStates.FATAL_ERROR_PROCESS_TERMINATED))) |
+                    (Q(state=BotStates.FATAL_ERROR) & 
+                     (Q(sub_state=BotSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST) |
+                      Q(sub_state=BotSubStates.FATAL_ERROR_PROCESS_TERMINATED))) |
                     
                     # For all other states, sub_state must be null
-                    (~Q(state=BotSessionStates.FATAL_ERROR) & Q(sub_state__isnull=True))
+                    (~Q(state=BotStates.FATAL_ERROR) & Q(sub_state__isnull=True))
                 ),
                 name='valid_state_substate_combinations'
             )
         ]
 
-class BotSessionEvent(models.Model):
+class BotEvent(models.Model):
     class EventTypes(models.IntegerChoices):
         JOIN_REQUESTED_BY_API = 1, 'Join Requested by API'
         JOIN_REQUESTED_BY_BOT = 2, 'Join Requested by Bot'
@@ -199,115 +199,115 @@ class BotSessionEvent(models.Model):
         LEAVE_REQUESTED_BY_BOT = 10, 'Leave Requested by Bot'
         BOT_LEFT_MEETING = 11, 'Bot Left Meeting'
 
-    bot_session = models.ForeignKey(
-        BotSession,
+    bot = models.ForeignKey(
+        Bot,
         on_delete=models.CASCADE,
-        related_name='bot_session_events'
+        related_name='bot_events'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    old_state = models.IntegerField(choices=BotSessionStates.choices)
-    new_state = models.IntegerField(choices=BotSessionStates.choices)
+    old_state = models.IntegerField(choices=BotStates.choices)
+    new_state = models.IntegerField(choices=BotStates.choices)
 
-    old_sub_state = models.IntegerField(choices=BotSessionSubStates.choices, null=True)
-    new_sub_state = models.IntegerField(choices=BotSessionSubStates.choices, null=True)
+    old_sub_state = models.IntegerField(choices=BotSubStates.choices, null=True)
+    new_sub_state = models.IntegerField(choices=BotSubStates.choices, null=True)
 
     event_type = models.IntegerField(choices=EventTypes.choices)
     version = models.BigIntegerField()
 
     def __str__(self):
-        old_state_str = BotSessionStates(self.old_state).label
-        new_state_str = BotSessionStates(self.new_state).label
+        old_state_str = BotStates(self.old_state).label
+        new_state_str = BotStates(self.new_state).label
         
         if self.old_sub_state:
-            old_state_str += f" ({BotSessionSubStates(self.old_sub_state).label})"
+            old_state_str += f" ({BotSubStates(self.old_sub_state).label})"
         if self.new_sub_state:
-            new_state_str += f" ({BotSessionSubStates(self.new_sub_state).label})"
+            new_state_str += f" ({BotSubStates(self.new_sub_state).label})"
             
-        return (f"{self.bot_session.object_id} - ["
+        return (f"{self.bot.object_id} - ["
                 f"{self.EventTypes(self.event_type).label}] - "
                 f"{old_state_str} -> {new_state_str}")
 
     class Meta:
         ordering = ['created_at']
 
-class BotSessionEventManager:
+class BotEventManager:
     # Define valid state transitions for each event type
 
     VALID_TRANSITIONS = {
-        BotSessionEvent.EventTypes.JOIN_REQUESTED_BY_API: {
-            'from': BotSessionStates.READY,
-            'to': BotSessionStates.JOINING_REQ_NOT_STARTED_BY_BOT,
+        BotEvent.EventTypes.JOIN_REQUESTED_BY_API: {
+            'from': BotStates.READY,
+            'to': BotStates.JOINING_REQ_NOT_STARTED_BY_BOT,
         },
-        BotSessionEvent.EventTypes.JOIN_REQUESTED_BY_BOT: {
-            'from': BotSessionStates.JOINING_REQ_NOT_STARTED_BY_BOT,
-            'to': BotSessionStates.JOINING_REQ_STARTED_BY_BOT,
+        BotEvent.EventTypes.JOIN_REQUESTED_BY_BOT: {
+            'from': BotStates.JOINING_REQ_NOT_STARTED_BY_BOT,
+            'to': BotStates.JOINING_REQ_STARTED_BY_BOT,
         },
-        BotSessionEvent.EventTypes.WAITING_FOR_HOST_TO_START_MEETING_MSG_RECEIVED: {
-            'from': BotSessionStates.JOINING_REQ_STARTED_BY_BOT,
+        BotEvent.EventTypes.WAITING_FOR_HOST_TO_START_MEETING_MSG_RECEIVED: {
+            'from': BotStates.JOINING_REQ_STARTED_BY_BOT,
             'to': {
-                'state': BotSessionStates.FATAL_ERROR,
-                'sub_state': BotSessionSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST
+                'state': BotStates.FATAL_ERROR,
+                'sub_state': BotSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST
             },
         },
-        BotSessionEvent.EventTypes.BOT_PUT_IN_WAITING_ROOM: {
-            'from': BotSessionStates.JOINING_REQ_STARTED_BY_BOT,
-            'to': BotSessionStates.WAITING_ROOM,
+        BotEvent.EventTypes.BOT_PUT_IN_WAITING_ROOM: {
+            'from': BotStates.JOINING_REQ_STARTED_BY_BOT,
+            'to': BotStates.WAITING_ROOM,
         },
-        BotSessionEvent.EventTypes.BOT_JOINED_MEETING: {
-            'from': [BotSessionStates.WAITING_ROOM, BotSessionStates.JOINING_REQ_STARTED_BY_BOT],
-            'to': BotSessionStates.JOINED_NOT_RECORDING,
+        BotEvent.EventTypes.BOT_JOINED_MEETING: {
+            'from': [BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
+            'to': BotStates.JOINED_NOT_RECORDING,
         },
-        BotSessionEvent.EventTypes.BOT_RECORDING_PERMISSION_GRANTED: {
-            'from': BotSessionStates.JOINED_NOT_RECORDING,
-            'to': BotSessionStates.JOINED_RECORDING,
+        BotEvent.EventTypes.BOT_RECORDING_PERMISSION_GRANTED: {
+            'from': BotStates.JOINED_NOT_RECORDING,
+            'to': BotStates.JOINED_RECORDING,
         },
-        BotSessionEvent.EventTypes.MEETING_ENDED: {
-            'from': [BotSessionStates.JOINED_RECORDING, BotSessionStates.JOINED_NOT_RECORDING,
-                    BotSessionStates.WAITING_ROOM, BotSessionStates.JOINING_REQ_STARTED_BY_BOT, 
-                    BotSessionStates.LEAVING_REQ_NOT_STARTED_BY_BOT, BotSessionStates.LEAVING_REQ_STARTED_BY_BOT],
-            'to': BotSessionStates.ENDED,
+        BotEvent.EventTypes.MEETING_ENDED: {
+            'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
+                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT, 
+                    BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT, BotStates.LEAVING_REQ_STARTED_BY_BOT],
+            'to': BotStates.ENDED,
         },
-        BotSessionEvent.EventTypes.PROCESS_TERMINATED: {
-            'from': [BotSessionStates.JOINED_RECORDING, BotSessionStates.JOINED_NOT_RECORDING,
-                    BotSessionStates.WAITING_ROOM, BotSessionStates.JOINING_REQ_STARTED_BY_BOT],
+        BotEvent.EventTypes.PROCESS_TERMINATED: {
+            'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
+                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
             'to': {
-                'state': BotSessionStates.FATAL_ERROR,
-                'sub_state': BotSessionSubStates.FATAL_ERROR_PROCESS_TERMINATED
+                'state': BotStates.FATAL_ERROR,
+                'sub_state': BotSubStates.FATAL_ERROR_PROCESS_TERMINATED
             },
         },
-        BotSessionEvent.EventTypes.LEAVE_REQUESTED_BY_API: {
-            'from': [BotSessionStates.JOINED_RECORDING, BotSessionStates.JOINED_NOT_RECORDING,
-                    BotSessionStates.WAITING_ROOM, BotSessionStates.JOINING_REQ_STARTED_BY_BOT],
-            'to': BotSessionStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
+        BotEvent.EventTypes.LEAVE_REQUESTED_BY_API: {
+            'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
+                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
+            'to': BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
         },
-        BotSessionEvent.EventTypes.LEAVE_REQUESTED_BY_BOT: {
-            'from': BotSessionStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
-            'to': BotSessionStates.LEAVING_REQ_STARTED_BY_BOT,
+        BotEvent.EventTypes.LEAVE_REQUESTED_BY_BOT: {
+            'from': BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
+            'to': BotStates.LEAVING_REQ_STARTED_BY_BOT,
         },
-        BotSessionEvent.EventTypes.BOT_LEFT_MEETING: {
-            'from': BotSessionStates.LEAVING_REQ_STARTED_BY_BOT,
-            'to': BotSessionStates.ENDED,
+        BotEvent.EventTypes.BOT_LEFT_MEETING: {
+            'from': BotStates.LEAVING_REQ_STARTED_BY_BOT,
+            'to': BotStates.ENDED,
         },
     }
 
     @classmethod
     def is_terminal_state(cls, state: int):
-        return state == BotSessionStates.ENDED or state == BotSessionStates.FATAL_ERROR
+        return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
     @classmethod
-    def create_event(cls, session: BotSession, event_type: int, max_retries: int = 3) -> BotSessionEvent:
+    def create_event(cls, bot: Bot, event_type: int, max_retries: int = 3) -> BotEvent:
         """
-        Creates a new event and updates the session state, handling concurrency issues.
+        Creates a new event and updates the bot state, handling concurrency issues.
         
         Args:
-            session: The BotSession instance
-            event_type: The type of event (from BotSessionEvent.EventTypes)
+            bot: The Bot instance
+            event_type: The type of event (from BotEvent.EventTypes)
             max_retries: Maximum number of retries for concurrent modifications
         
         Returns:
-            BotSessionEvent instance
+            BotEvent instance
         
         Raises:
             ValidationError: If the state transition is not valid
@@ -317,10 +317,10 @@ class BotSessionEventManager:
         while retry_count < max_retries:
             try:
                 with transaction.atomic():
-                    # Get fresh session state
-                    session.refresh_from_db()
-                    old_state = session.state
-                    old_sub_state = session.sub_state
+                    # Get fresh bot state
+                    bot.refresh_from_db()
+                    old_state = bot.state
+                    old_sub_state = bot.sub_state
 
                     # Get valid transition for this event type
                     transition = cls.VALID_TRANSITIONS.get(event_type)
@@ -341,32 +341,32 @@ class BotSessionEventManager:
                             f"Valid state is: {valid_from_states}"
                         )
 
-                    # Update session state based on 'to' definition
+                    # Update bot state based on 'to' definition
                     new_state = transition['to']
                     if isinstance(new_state, dict):
-                        session.state = new_state['state']
-                        session.sub_state = new_state['sub_state']
+                        bot.state = new_state['state']
+                        bot.sub_state = new_state['sub_state']
                     else:
-                        session.state = new_state
-                        session.sub_state = None
+                        bot.state = new_state
+                        bot.sub_state = None
 
-                    session.save()  # This will raise RecordModifiedError if version mismatch
+                    bot.save()  # This will raise RecordModifiedError if version mismatch
                     
                     # Create event record
-                    event = BotSessionEvent.objects.create(
-                        bot_session=session,
+                    event = BotEvent.objects.create(
+                        bot=bot,
                         old_state=old_state,
                         old_sub_state=old_sub_state,
-                        new_state=session.state,
-                        new_sub_state=session.sub_state,
+                        new_state=bot.state,
+                        new_sub_state=bot.sub_state,
                         event_type=event_type,
-                        version=session.version
+                        version=bot.version
                     )
 
                     # If we're in a terminal state and no utterances are left, set the transcription analysis tasks that are in progress to complete
                     if cls.is_terminal_state(new_state):
-                        if Utterance.objects.filter(bot_session=session, transcription__isnull=True).count() == 0:
-                            analysis_tasks = session.analysis_tasks.filter(analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION, state=AnalysisTaskStates.IN_PROGRESS)
+                        if Utterance.objects.filter(bot=bot, transcription__isnull=True).count() == 0:
+                            analysis_tasks = bot.analysis_tasks.filter(analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION, state=AnalysisTaskStates.IN_PROGRESS)
                             for analysis_task in analysis_tasks:
                                 AnalysisTaskManager.set_task_complete(analysis_task)
 
@@ -379,8 +379,8 @@ class BotSessionEventManager:
                 continue
 
 class Participant(models.Model):
-    bot_session = models.ForeignKey(
-        BotSession,
+    bot = models.ForeignKey(
+        Bot,
         on_delete=models.CASCADE,
         related_name='participants'
     )
@@ -394,22 +394,22 @@ class Participant(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['bot_session', 'uuid'],
-                name='unique_participant_per_session'
+                fields=['bot', 'uuid'],
+                name='unique_participant_per_bot'
             )
         ]
 
     def __str__(self):
         display_name = self.full_name or self.uuid
-        return f"{display_name} in {self.bot_session.object_id}"
+        return f"{display_name} in {self.bot.object_id}"
 
 class Utterance(models.Model):
     class AudioFormat(models.IntegerChoices):
         PCM = 1, 'PCM'
         MP3 = 2, 'MP3'
 
-    bot_session = models.ForeignKey(
-        BotSession,
+    bot = models.ForeignKey(
+        Bot,
         on_delete=models.CASCADE,
         related_name='utterances'
     )
@@ -460,8 +460,8 @@ class AnalysisTaskSubTypes(models.IntegerChoices):
     DEEPGRAM = 1, 'Deepgram'
 
 class AnalysisTask(models.Model):
-    bot_session = models.ForeignKey(
-        BotSession,
+    bot = models.ForeignKey(
+        Bot,
         on_delete=models.CASCADE,
         related_name='analysis_tasks'
     )
@@ -510,8 +510,8 @@ class AnalysisTask(models.Model):
                 name='valid_analysis_state_substate_combinations'
             ),
             models.UniqueConstraint(
-                fields=['bot_session', 'analysis_type'],
-                name='unique_analysis_task_per_session'
+                fields=['bot', 'analysis_type'],
+                name='unique_analysis_task_per_bot'
             )
         ]
 
@@ -556,13 +556,13 @@ class AnalysisTaskManager:
         task.sub_state = sub_state
         task.save()
 
-class BotCredentials(models.Model):
+class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
         DEEPGRAM = 1, 'Deepgram'
         ZOOM_OAUTH = 2, 'Zoom OAuth'
 
-    bot = models.ForeignKey(
-        Bot,
+    project = models.ForeignKey(
+        Project,
         on_delete=models.CASCADE,
         related_name='credentials'
     )
@@ -582,14 +582,14 @@ class BotCredentials(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['bot', 'credential_type'],
-                name='unique_bot_credentials'
+                fields=['project', 'credential_type'],
+                name='unique_project_credentials'
             )
         ]
 
     def set_credentials(self, credentials_dict):
         """Encrypt and save credentials"""
-        f = Fernet(settings.BOT_CREDENTIALS_ENCRYPTION_KEY)
+        f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
         json_data = json.dumps(credentials_dict)
         self._encrypted_data = f.encrypt(json_data.encode())
         self.save()
@@ -598,9 +598,9 @@ class BotCredentials(models.Model):
         """Decrypt and return credentials"""
         if not self._encrypted_data:
             return None
-        f = Fernet(settings.BOT_CREDENTIALS_ENCRYPTION_KEY)
+        f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
         decrypted_data = f.decrypt(bytes(self._encrypted_data))
         return json.loads(decrypted_data.decode())
 
     def __str__(self):
-        return f"{self.bot.name} - {self.get_credential_type_display()}"
+        return f"{self.project.name} - {self.get_credential_type_display()}"

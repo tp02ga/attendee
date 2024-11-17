@@ -8,10 +8,10 @@ def generate_django_secret_key():
     return get_random_secret_key()
 
 def main():
-    bot_key = generate_encryption_key()
+    credentials_key = generate_encryption_key()
     django_key = generate_django_secret_key()
     
-    print(f'BOT_CREDENTIALS_ENCRYPTION_KEY={bot_key}')
+    print(f'CREDENTIALS_ENCRYPTION_KEY={credentials_key}')
     print(f'DJANGO_SECRET_KEY={django_key}')
 
 if __name__ == '__main__':
