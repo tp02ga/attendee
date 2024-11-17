@@ -26,7 +26,7 @@ urlpatterns = [
     path('accounts/', include('allauth.socialaccount.urls')),
     path('', views.home, name='home'),
     path('projects/', include('bots.projects_urls', namespace='projects')),
-    path('api/v1/bots', include('bots.bots_api_urls')),
+    path('api/v1/', include('bots.bots_api_urls')),
 ]
 
 if settings.DEBUG:

@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Meetings bots made easy
 paths:
-  /api/v1/bots/:
+  /api/v1/bots:
     post:
       operationId: Create Bot
       description: After being created,the bot will attempt to join the specified
@@ -52,7 +52,7 @@ paths:
           description: Bot created successfully
         '400':
           description: Invalid input
-  /api/v1/bots//{object_id}:
+  /api/v1/bots/{object_id}:
     get:
       operationId: Get Bot
       summary: Get the details for a bot
@@ -91,7 +91,7 @@ paths:
           description: Bot details
         '404':
           description: Bot not found
-  /api/v1/bots//{object_id}/leave:
+  /api/v1/bots/{object_id}/leave:
     post:
       operationId: Leave Meeting
       description: Causes the bot to leave the meeting.
@@ -131,7 +131,7 @@ paths:
           description: Successfully requested to leave meeting
         '404':
           description: Bot not found
-  /api/v1/bots//{object_id}/transcript:
+  /api/v1/bots/{object_id}/transcript:
     get:
       operationId: Get Bot Transcript
       description: If the meeting is still in progress, this returns the transcript
