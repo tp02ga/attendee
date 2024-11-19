@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Bot, BotEvent, BotEventManager, AnalysisTask, AnalysisTaskTypes, AnalysisTaskSubTypes, Utterance
-from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer
+from .models import Bot, BotEvent, BotEventManager, AnalysisTask, AnalysisTaskTypes, AnalysisTaskSubTypes, Utterance, RecordingUpload
+from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingUploadSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
 import redis
@@ -77,10 +77,11 @@ class BotCreateView(APIView):
         project = request.auth.project
         
         meeting_url = serializer.validated_data['meeting_url']
-        
+        bot_name = serializer.validated_data['bot_name']
         bot = Bot.objects.create(
             project=project,
-            meeting_url=meeting_url
+            meeting_url=meeting_url,
+            name=bot_name
         )
 
         AnalysisTask.objects.create(
@@ -92,8 +93,8 @@ class BotCreateView(APIView):
 
         AnalysisTask.objects.create(
             bot=bot,
-            analysis_type=AnalysisTaskTypes.RECORDING_GENERATION,
-            analysis_sub_type=AnalysisTaskSubTypes.RECORDING_GENERATION_STANDARD,
+            analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION,
+            analysis_sub_type=AnalysisTaskSubTypes.AUDIO_RECORDING_GENERATION_STANDARD,
             parameters={}
         )
         
@@ -143,6 +144,45 @@ class BotLeaveView(APIView):
                 BotSerializer(bot).data,
                 status=status.HTTP_200_OK
             )
+            
+        except Bot.DoesNotExist:
+            return Response(
+                {'error': 'Bot not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class AudioRecordingView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
+    @extend_schema(
+        operation_id='Get Bot Audio Recording',
+        summary='Get the audio recording for a bot',
+        description='Returns a short-lived S3 URL for the audio recording of the bot.',
+        responses={
+            200: OpenApiResponse(response=RecordingUploadSerializer, description='Signed URL for the recording')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Bots'],
+    )
+    def get(self, request, object_id):
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+
+            analysis_task = AnalysisTask.objects.filter(bot=bot, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION).first()
+            if not analysis_task:
+                return Response(
+                    {'error': 'No audio recording found for bot'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            recording_upload = RecordingUpload.objects.filter(analysis_task=analysis_task).first()
+            if not recording_upload:
+                return Response(
+                    {'error': 'No audio recording found for bot'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            return Response(RecordingUploadSerializer(recording_upload).data)
             
         except Bot.DoesNotExist:
             return Response(

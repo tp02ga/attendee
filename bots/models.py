@@ -139,6 +139,7 @@ class Bot(models.Model):
         related_name='bots'
     )
 
+    name = models.CharField(max_length=255, default='My bot')
     meeting_url = models.CharField(max_length=511)
     meeting_uuid = models.CharField(max_length=511, null=True, blank=True)
 
@@ -371,8 +372,8 @@ class BotEventManager:
                                 AnalysisTaskManager.set_task_complete(analysis_task)
 
                         # Start the recording generation task
-                        from .tasks import generate_recording
-                        generate_recording.delay(bot.id)
+                        from .tasks import generate_audio_recording
+                        generate_audio_recording.delay(bot.id)
 
                     return event
                     
@@ -459,11 +460,11 @@ class AnalysisTaskSubStates(models.IntegerChoices):
 
 class AnalysisTaskTypes(models.IntegerChoices):
     SPEECH_TRANSCRIPTION = 1, 'Speech Transcription'
-    RECORDING_GENERATION = 2, 'Recording Generation'
+    AUDIO_RECORDING_GENERATION = 2, 'Audio Recording Generation'
 
 class AnalysisTaskSubTypes(models.IntegerChoices):
     DEEPGRAM = 1, 'Deepgram'
-    RECORDING_GENERATION_STANDARD = 2, 'Recording Generation Standard'
+    AUDIO_RECORDING_GENERATION_STANDARD = 2, 'Audio Recording Generation Standard'
 
 class AnalysisTask(models.Model):
     bot = models.ForeignKey(
@@ -610,3 +611,35 @@ class Credentials(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.get_credential_type_display()}"
+
+from storages.backends.s3boto3 import S3Boto3Storage
+
+class RecordingStorage(S3Boto3Storage):
+    bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME
+
+class RecordingUpload(models.Model):
+    analysis_task = models.ForeignKey(
+        AnalysisTask,
+        on_delete=models.CASCADE,
+        related_name='recording_uploads'
+    )
+    file = models.FileField(
+        storage=RecordingStorage()
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Recording for {self.analysis_task.id}"
+
+    @property
+    def url(self):
+        # Generate a temporary signed URL that expires in 5 minutes (300 seconds)
+        return self.file.storage.bucket.meta.client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': self.file.storage.bucket_name,
+                'Key': self.file.name
+            },
+            ExpiresIn=300
+        )

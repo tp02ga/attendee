@@ -30,7 +30,8 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+        self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_audio_chunk_callback = add_audio_chunk_callback
 
@@ -241,8 +242,6 @@ class ZoomBot:
 
 
     def join_meeting(self):
-        display_name = "My meeting bot"
-
         meeting_number = int(self.meeting_id)
 
         join_param = zoom.JoinParam()
@@ -250,7 +249,7 @@ class ZoomBot:
 
         param = join_param.param
         param.meetingNumber = meeting_number
-        param.userName = display_name
+        param.userName = self.display_name
         param.psw = self.meeting_password
         param.vanityID = ""
         param.customer_key = ""

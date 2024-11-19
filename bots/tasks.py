@@ -1,6 +1,6 @@
 from celery import shared_task, current_app
 from celery.signals import celeryd_init, worker_shutting_down, worker_process_init, worker_process_shutdown
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials, RecordingUpload
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -12,6 +12,8 @@ from asgiref.sync import async_to_sync
 from urllib.parse import urlparse, parse_qs
 import re
 import io
+from django.core.files.base import ContentFile
+import hashlib
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -38,11 +40,11 @@ def convert_utterance_audio_blob_to_mp3(utterance):
         utterance.refresh_from_db() # because of the .tobytes() issue
 
 @shared_task(bind=True, soft_time_limit=36000)
-def generate_recording(self, bot_id):
+def generate_audio_recording(self, bot_id):
     from pydub import AudioSegment
 
-    print(f"Generating recording for bot {bot_id}")
-    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.RECORDING_GENERATION)
+    print(f"Generating audiorecording for bot {bot_id}")
+    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION)
     AnalysisTaskManager.set_task_in_progress(analysis_task)
 
     utterances = Utterance.objects.filter(bot_id=bot_id)
@@ -63,7 +65,19 @@ def generate_recording(self, bot_id):
         audio = AudioSegment.from_file(audio_file, format="mp3")
         final_audio = final_audio.overlay(audio, position=utterance.timeline_ms)
 
-    final_audio.export(f"{bot_id}.mp3", format="mp3") 
+    # Export to a BytesIO object instead of a file
+    mp3_buffer = io.BytesIO()
+    final_audio.export(mp3_buffer, format="mp3")
+    mp3_buffer.seek(0)
+
+    # Create the RecordingUpload instance
+    recording_upload = RecordingUpload(analysis_task=analysis_task)
+    recording_upload.file.save(
+        f"{hashlib.md5(str(analysis_task.id).encode()).hexdigest()}.mp3",  # filename
+        ContentFile(mp3_buffer.read())  # file content
+    )
+    recording_upload.save()
+
     AnalysisTaskManager.set_task_complete(analysis_task)   
 
 @shared_task(bind=True, soft_time_limit=3600)
@@ -302,6 +316,7 @@ def run_bot(self, bot_id):
         audio_processing_queue = AudioProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
 
         zoom_bot = ZoomBot(
+            display_name=bot_in_db.name,
             send_message_callback=take_action_based_on_message_from_zoom_bot,
             add_audio_chunk_callback=audio_processing_queue.add_chunk,
             zoom_client_id=zoom_oauth_credentials['client_id'],
