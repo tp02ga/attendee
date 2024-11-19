@@ -89,6 +89,13 @@ class BotCreateView(APIView):
             analysis_sub_type=AnalysisTaskSubTypes.DEEPGRAM,
             parameters={}
         )
+
+        AnalysisTask.objects.create(
+            bot=bot,
+            analysis_type=AnalysisTaskTypes.RECORDING_GENERATION,
+            analysis_sub_type=AnalysisTaskSubTypes.RECORDING_GENERATION_STANDARD,
+            parameters={}
+        )
         
         # Try to transition the state from READY to JOINING_REQ_NOT_STARTED_BY_BOT
         BotEventManager.create_event(bot, BotEvent.EventTypes.JOIN_REQUESTED_BY_API)

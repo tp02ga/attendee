@@ -11,6 +11,7 @@ import random
 from asgiref.sync import async_to_sync
 from urllib.parse import urlparse, parse_qs
 import re
+import io
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -26,9 +27,47 @@ def parse_join_url(join_url):
     
     return (meeting_id, password)
 
+def convert_utterance_audio_blob_to_mp3(utterance):
+    from .utils import pcm_to_mp3
+
+    if utterance.audio_format == Utterance.AudioFormat.PCM:
+        mp3_data = pcm_to_mp3(utterance.audio_blob)
+        utterance.audio_blob = mp3_data
+        utterance.audio_format = Utterance.AudioFormat.MP3
+        utterance.save()
+        utterance.refresh_from_db() # because of the .tobytes() issue
+
+@shared_task(bind=True, soft_time_limit=36000)
+def generate_recording(self, bot_id):
+    from pydub import AudioSegment
+
+    print(f"Generating recording for bot {bot_id}")
+    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.RECORDING_GENERATION)
+    AnalysisTaskManager.set_task_in_progress(analysis_task)
+
+    utterances = Utterance.objects.filter(bot_id=bot_id)
+
+    # Make sure all utterances have mp3 format
+    for utterance in utterances:
+        convert_utterance_audio_blob_to_mp3(utterance)
+
+    # Get max timestamp to determine final file length
+    max_timestamp_ms = 0
+    for utterance in utterances:
+        max_timestamp_ms = max(max_timestamp_ms, utterance.timeline_ms + utterance.duration_ms)
+
+    final_audio = AudioSegment.silent(duration=max_timestamp_ms)
+
+    for utterance in utterances:
+        audio_file = io.BytesIO(utterance.audio_blob.tobytes())
+        audio = AudioSegment.from_file(audio_file, format="mp3")
+        final_audio = final_audio.overlay(audio, position=utterance.timeline_ms)
+
+    final_audio.export(f"{bot_id}.mp3", format="mp3") 
+    AnalysisTaskManager.set_task_complete(analysis_task)   
+
 @shared_task(bind=True, soft_time_limit=3600)
 def process_utterance(self, utterance_id):
-    from .utils import pcm_to_mp3
     import json
 
     from deepgram import (
@@ -44,12 +83,7 @@ def process_utterance(self, utterance_id):
     AnalysisTaskManager.set_task_in_progress(analysis_task)
 
     # if utterance file format is pcm, convert to mp3
-    if utterance.audio_format == Utterance.AudioFormat.PCM:
-        mp3_data = pcm_to_mp3(utterance.audio_blob)
-        utterance.audio_blob = mp3_data
-        utterance.audio_format = Utterance.AudioFormat.MP3
-        utterance.save()
-        utterance.refresh_from_db()
+    convert_utterance_audio_blob_to_mp3(utterance)
 
     if utterance.transcription is None:
         payload: FileSource = {

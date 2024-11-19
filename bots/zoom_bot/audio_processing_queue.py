@@ -15,7 +15,7 @@ class AudioProcessingQueue:
         self.first_nonsilent_audio_time = {}
         self.last_nonsilent_audio_time = {}
 
-        self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes ten minutes of continuous audio
+        self.UTTERANCE_SIZE_LIMIT = 19200000  # 19.2 MB / 2 bytes per sample / 32,000 samples per second = 300 seconds of continuous audio
         self.SILENCE_DURATION_LIMIT = 3  # seconds
         self.timeline_start = None
         self.vad = webrtcvad.Vad()
@@ -53,7 +53,7 @@ class AudioProcessingQueue:
         reason = None
 
         # Check buffer size
-        if len(self.utterances[speaker_id]) >= self.BUFFER_SIZE_LIMIT // 2:
+        if len(self.utterances[speaker_id]) >= self.UTTERANCE_SIZE_LIMIT:
             should_flush = True
             reason = "buffer_full"
         

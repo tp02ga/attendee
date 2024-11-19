@@ -13,7 +13,6 @@ from django.db.models import Q
 from cryptography.fernet import Fernet
 from django.conf import settings
 import json
-import uuid
 
 # Create your models here.
 
@@ -363,12 +362,17 @@ class BotEventManager:
                         version=bot.version
                     )
 
-                    # If we're in a terminal state and no utterances are left, set the transcription analysis tasks that are in progress to complete
+                    # If we're in a terminal state 
                     if cls.is_terminal_state(new_state):
+                        # if no utterances are left, set the transcription analysis tasks that are in progress to complete
                         if Utterance.objects.filter(bot=bot, transcription__isnull=True).count() == 0:
                             analysis_tasks = bot.analysis_tasks.filter(analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION, state=AnalysisTaskStates.IN_PROGRESS)
                             for analysis_task in analysis_tasks:
                                 AnalysisTaskManager.set_task_complete(analysis_task)
+
+                        # Start the recording generation task
+                        from .tasks import generate_recording
+                        generate_recording.delay(bot.id)
 
                     return event
                     
@@ -455,9 +459,11 @@ class AnalysisTaskSubStates(models.IntegerChoices):
 
 class AnalysisTaskTypes(models.IntegerChoices):
     SPEECH_TRANSCRIPTION = 1, 'Speech Transcription'
+    RECORDING_GENERATION = 2, 'Recording Generation'
 
 class AnalysisTaskSubTypes(models.IntegerChoices):
     DEEPGRAM = 1, 'Deepgram'
+    RECORDING_GENERATION_STANDARD = 2, 'Recording Generation Standard'
 
 class AnalysisTask(models.Model):
     bot = models.ForeignKey(
