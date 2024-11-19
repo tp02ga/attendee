@@ -222,6 +222,9 @@ def run_bot(self, bot_id):
                 take_action_based_on_bot_in_db()
                 first_timeout_call = False
 
+            # Process audio chunks (not sure if this belongs in the zoom bot or in here)
+            zoom_bot.process_audio_chunks()
+
             # Original timeout logic
             message = pubsub.get_message()
             if message and message['type'] == 'message':

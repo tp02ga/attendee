@@ -4,7 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 import os
 import numpy as np
-from collections import deque
+import queue
 import webrtcvad
 
 def generate_jwt(client_id, client_secret):
@@ -66,10 +66,12 @@ class ZoomBot:
         self.meeting_reminder_event = None
         self.audio_print_counter = 0
 
+        self.ten_ms_audio_chunks_queue = queue.Queue()
+        self.speaker_buffers_30_ms = {}
         self.speaker_buffers = {}  # Add this line to store buffers per speaker
         self.first_nonsilent_audio_time = {}  # Add this line to track silence per speaker
         self.last_nonsilent_audio_time = {}  # Add this line to track silence per speaker
-        self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes
+        self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes ten minutes of continuous audio
         self.SILENCE_DURATION_LIMIT = 3  # seconds
         self.timeline_start = None
         self.vad = webrtcvad.Vad()
@@ -140,45 +142,70 @@ class ZoomBot:
             chunk = pcm_file.read(64000*10)
             self.audio_raw_data_sender.send(chunk, 32000, zoom.ZoomSDKAudioChannel_Mono)
 
+    def process_audio_chunks(self):
+        while not self.ten_ms_audio_chunks_queue.empty():
+            node_id, chunk_time, buffer_bytes = self.ten_ms_audio_chunks_queue.get()
+            self.process_ten_ms_chunk(chunk_time, buffer_bytes, node_id)
+
+        for node_id in list(self.first_nonsilent_audio_time.keys()):
+            self.process_ten_ms_chunk(datetime.utcnow(), None, node_id)
+
     def on_one_way_audio_raw_data_received_callback(self, data, node_id):
         if node_id == self.my_participant_id:
             return
-
-        buffer_bytes = data.GetBuffer()
-        numpy_buffer_bytes = np.frombuffer(buffer_bytes, dtype=np.int16)
+        
         current_time = datetime.utcnow()
         if self.timeline_start is None:
             self.timeline_start = current_time
-        audio_is_silent = not self.vad.is_speech(buffer_bytes, 32000)
+
+        self.ten_ms_audio_chunks_queue.put((node_id, current_time, data.GetBuffer()))
+
+        return
+
+        if node_id not in self.speaker_buffers_30_ms:
+            self.speaker_buffers_30_ms[node_id] = []
+
+        self.speaker_buffers_30_ms[node_id].append(data.GetBuffer())
+
+        if len(self.speaker_buffers_30_ms[node_id]) == 3:
+            flattened_chunks = b''.join(self.speaker_buffers_30_ms[node_id])
+            self.process_30_ms_chunk(flattened_chunks, node_id)
+            self.speaker_buffers_30_ms[node_id] = []
+
+
+    def process_ten_ms_chunk(self, chunk_time, buffer_bytes, node_id):
+        audio_is_silent = not self.vad.is_speech(buffer_bytes, 32000) if buffer_bytes else True
         
         # Initialize buffer and timing for new speaker
-        if node_id not in self.speaker_buffers:
+        if node_id not in self.speaker_buffers or len(self.speaker_buffers[node_id]) == 0:
             if audio_is_silent:
                 return
-            self.speaker_buffers[node_id] = deque(maxlen=self.BUFFER_SIZE_LIMIT // 2)
-            self.first_nonsilent_audio_time[node_id] = current_time
-            self.last_nonsilent_audio_time[node_id] = current_time
+            self.speaker_buffers[node_id] = bytearray()
+            self.first_nonsilent_audio_time[node_id] = chunk_time
+            self.last_nonsilent_audio_time[node_id] = chunk_time
 
         # Add new audio data to buffer
-        self.speaker_buffers[node_id].extend(numpy_buffer_bytes)
+        if buffer_bytes:
+            self.speaker_buffers[node_id].extend(buffer_bytes)
         
         should_flush = False
         reason = None
 
         # Check buffer size
+        print(f"len(self.speaker_buffers[node_id]) = {len(self.speaker_buffers[node_id])}")
         if len(self.speaker_buffers[node_id]) >= self.BUFFER_SIZE_LIMIT // 2:
             should_flush = True
             reason = "buffer_full"
         
         # Check for silence
         if audio_is_silent:
-            silence_duration = (current_time - self.last_nonsilent_audio_time[node_id]).total_seconds()
+            silence_duration = (chunk_time - self.last_nonsilent_audio_time[node_id]).total_seconds()
             print(f"silence_duration = {silence_duration}")
             if silence_duration >= self.SILENCE_DURATION_LIMIT:
                 should_flush = True
                 reason = "silence_limit"
         else:
-            self.last_nonsilent_audio_time[node_id] = current_time
+            self.last_nonsilent_audio_time[node_id] = chunk_time
 
         # Flush buffer if needed
         if should_flush and len(self.speaker_buffers[node_id]) > 0:
@@ -188,13 +215,12 @@ class ZoomBot:
                 'participant_uuid': node_id,
                 'participant_user_uuid': speaker_object.GetPersistentId(),
                 'participant_full_name': speaker_object.GetUserName(),
-                'audio_data': np.array(self.speaker_buffers[node_id], dtype=np.int16).tobytes(),
-                'timeline_ms': int((self.first_nonsilent_audio_time[node_id] - self.timeline_start).total_seconds() * 1000 + 
-                                 (self.first_nonsilent_audio_time[node_id].microsecond - self.timeline_start.microsecond) / 1000),
+                'audio_data': bytes(self.speaker_buffers[node_id]),
+                'timeline_ms': int((self.first_nonsilent_audio_time[node_id] - self.timeline_start).total_seconds() * 1000),
                 'flush_reason': reason
             })
             # Clear the buffer
-            del self.speaker_buffers[node_id]
+            self.speaker_buffers[node_id] = bytearray()
             del self.first_nonsilent_audio_time[node_id]
             del self.last_nonsilent_audio_time[node_id]
 
