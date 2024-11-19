@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import numpy as np
 from collections import deque
+import webrtcvad
 
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()
@@ -19,10 +20,6 @@ def generate_jwt(client_id, client_secret):
     
     token = jwt.encode(payload, client_secret, algorithm="HS256")
     return token
-
-def normalized_rms_audio(samples):
-    return np.mean(np.abs(samples)) / 32767.0
-
 
 class ZoomBot:
     class Messages:
@@ -73,9 +70,9 @@ class ZoomBot:
         self.first_nonsilent_audio_time = {}  # Add this line to track silence per speaker
         self.last_nonsilent_audio_time = {}  # Add this line to track silence per speaker
         self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes
-        self.SILENCE_THRESHOLD = 0.0125  # RMS threshold for silence detection
         self.SILENCE_DURATION_LIMIT = 3  # seconds
         self.timeline_start = None
+        self.vad = webrtcvad.Vad()
 
     def cleanup(self):
         if self.meeting_service:
@@ -152,8 +149,7 @@ class ZoomBot:
         current_time = datetime.utcnow()
         if self.timeline_start is None:
             self.timeline_start = current_time
-        volume = normalized_rms_audio(numpy_buffer_bytes)
-        audio_is_silent = volume <= self.SILENCE_THRESHOLD
+        audio_is_silent = not self.vad.is_speech(buffer_bytes, 32000)
         
         # Initialize buffer and timing for new speaker
         if node_id not in self.speaker_buffers:
@@ -246,7 +242,7 @@ class ZoomBot:
             return
         
         if self.audio_source is None:
-            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback)
+            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(collectPerformanceData=True, onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback)
 
 
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
@@ -266,6 +262,23 @@ class ZoomBot:
             raise Exception("Error with stop raw recording")
 
     def leave(self):
+        if self.audio_source:
+            performance_data = self.audio_source.getPerformanceData()
+            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
+            print("numCalls =", performance_data.numCalls)
+            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
+            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
+            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
+
+            # Print processing time distribution
+            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
+            print("\nProcessing time distribution (microseconds):")
+            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
+                if count > 0:
+                    bin_start = bin_idx * bin_size
+                    bin_end = (bin_idx + 1) * bin_size
+                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
+
         if self.meeting_service is None:
             return
         

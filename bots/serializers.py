@@ -21,7 +21,7 @@ class CreateBotSerializer(serializers.Serializer):
     examples=[
         OpenApiExample(
             'Meeting URL',
-            value={'id': 'sess_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started'},
+            value={'id': 'bot_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started'},
         )
     ]
 )
