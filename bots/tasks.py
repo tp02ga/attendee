@@ -84,6 +84,7 @@ def run_bot(self, bot_id):
     gi.require_version('GLib', '2.0')
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
+    from bots.zoom_bot.audio_processing_queue import AudioProcessingQueue
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -211,6 +212,9 @@ def run_bot(self, bot_id):
             )
             zoom_bot.leave()
 
+    def get_participant(participant_id):
+        return zoom_bot.get_participant(participant_id)
+
     def on_timeout():
         try:
             nonlocal first_timeout_call
@@ -223,7 +227,7 @@ def run_bot(self, bot_id):
                 first_timeout_call = False
 
             # Process audio chunks (not sure if this belongs in the zoom bot or in here)
-            zoom_bot.process_audio_chunks()
+            audio_processing_queue.process_chunks()
 
             # Original timeout logic
             message = pubsub.get_message()
@@ -259,8 +263,13 @@ def run_bot(self, bot_id):
             raise Exception("Zoom OAuth credentials data not found")
         
         meeting_id, meeting_password = parse_join_url(bot_in_db.meeting_url)
+
+
+        audio_processing_queue = AudioProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+
         zoom_bot = ZoomBot(
             send_message_callback=take_action_based_on_message_from_zoom_bot,
+            add_audio_chunk_callback=audio_processing_queue.add_chunk,
             zoom_client_id=zoom_oauth_credentials['client_id'],
             zoom_client_secret=zoom_oauth_credentials['client_secret'],
             meeting_id=meeting_id,

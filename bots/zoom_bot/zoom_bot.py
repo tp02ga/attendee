@@ -30,8 +30,9 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, send_message_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
         self.send_message_callback = send_message_callback
+        self.add_audio_chunk_callback = add_audio_chunk_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id = meeting_id
@@ -110,6 +111,15 @@ class ZoomBot:
         
         self.create_services()
 
+    def get_participant(self, participant_id):
+        speaker_object = self.participants_ctrl.GetUserByUserID(participant_id)
+        return {
+            'participant_uuid': participant_id,
+            'participant_user_uuid': speaker_object.GetPersistentId(),
+            'participant_full_name': speaker_object.GetUserName()
+        }
+
+
     def on_join(self):
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
         self.reminder_controller = self.meeting_service.GetMeetingReminderController()
@@ -158,7 +168,8 @@ class ZoomBot:
         if self.timeline_start is None:
             self.timeline_start = current_time
 
-        self.ten_ms_audio_chunks_queue.put((node_id, current_time, data.GetBuffer()))
+
+        self.add_audio_chunk_callback(node_id, current_time, data.GetBuffer())
 
         return
 
