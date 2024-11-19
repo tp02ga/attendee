@@ -1,6 +1,13 @@
 import queue
 import webrtcvad
 from datetime import datetime
+import numpy as np
+
+def calculate_normalized_rms(audio_bytes):
+    samples = np.frombuffer(audio_bytes, dtype=np.int16)
+    rms = np.sqrt(np.mean(np.square(samples)))
+    # Normalize by max possible value for 16-bit audio (32768)
+    return rms / 32768
 
 class AudioProcessingQueue:
     def __init__(self, *, save_utterance_callback, get_participant_callback):
@@ -34,8 +41,14 @@ class AudioProcessingQueue:
         for speaker_id in list(self.first_nonsilent_audio_time.keys()):
             self.process_chunk(speaker_id, datetime.utcnow(), None)
 
+
+    def silence_detected(self, chunk_bytes):
+        if calculate_normalized_rms(chunk_bytes) < 0.01:
+            return True
+        return not self.vad.is_speech(chunk_bytes, self.sample_rate)
+
     def process_chunk(self, speaker_id, chunk_time, chunk_bytes):
-        audio_is_silent = not self.vad.is_speech(chunk_bytes, self.sample_rate) if chunk_bytes else True
+        audio_is_silent = self.silence_detected(chunk_bytes) if chunk_bytes else True
         
         # Initialize buffer and timing for new speaker
         if speaker_id not in self.utterances or len(self.utterances[speaker_id]) == 0:
@@ -60,12 +73,13 @@ class AudioProcessingQueue:
         # Check for silence
         if audio_is_silent:
             silence_duration = (chunk_time - self.last_nonsilent_audio_time[speaker_id]).total_seconds()
-            print(f"silence_duration = {silence_duration}")
             if silence_duration >= self.SILENCE_DURATION_LIMIT:
                 should_flush = True
                 reason = "silence_limit"
         else:
             self.last_nonsilent_audio_time[speaker_id] = chunk_time
+
+            print(f"Speaker {speaker_id} is speaking")
 
         # Flush buffer if needed
         if should_flush and len(self.utterances[speaker_id]) > 0:
