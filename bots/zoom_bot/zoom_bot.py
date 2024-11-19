@@ -65,17 +65,6 @@ class ZoomBot:
         self.my_participant_id = None
         self.participants_ctrl = None
         self.meeting_reminder_event = None
-        self.audio_print_counter = 0
-
-        self.ten_ms_audio_chunks_queue = queue.Queue()
-        self.speaker_buffers_30_ms = {}
-        self.speaker_buffers = {}  # Add this line to store buffers per speaker
-        self.first_nonsilent_audio_time = {}  # Add this line to track silence per speaker
-        self.last_nonsilent_audio_time = {}  # Add this line to track silence per speaker
-        self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes ten minutes of continuous audio
-        self.SILENCE_DURATION_LIMIT = 3  # seconds
-        self.timeline_start = None
-        self.vad = webrtcvad.Vad()
 
     def cleanup(self):
         if self.meeting_service:
@@ -152,88 +141,13 @@ class ZoomBot:
             chunk = pcm_file.read(64000*10)
             self.audio_raw_data_sender.send(chunk, 32000, zoom.ZoomSDKAudioChannel_Mono)
 
-    def process_audio_chunks(self):
-        while not self.ten_ms_audio_chunks_queue.empty():
-            node_id, chunk_time, buffer_bytes = self.ten_ms_audio_chunks_queue.get()
-            self.process_ten_ms_chunk(chunk_time, buffer_bytes, node_id)
-
-        for node_id in list(self.first_nonsilent_audio_time.keys()):
-            self.process_ten_ms_chunk(datetime.utcnow(), None, node_id)
-
     def on_one_way_audio_raw_data_received_callback(self, data, node_id):
         if node_id == self.my_participant_id:
             return
         
         current_time = datetime.utcnow()
-        if self.timeline_start is None:
-            self.timeline_start = current_time
-
 
         self.add_audio_chunk_callback(node_id, current_time, data.GetBuffer())
-
-        return
-
-        if node_id not in self.speaker_buffers_30_ms:
-            self.speaker_buffers_30_ms[node_id] = []
-
-        self.speaker_buffers_30_ms[node_id].append(data.GetBuffer())
-
-        if len(self.speaker_buffers_30_ms[node_id]) == 3:
-            flattened_chunks = b''.join(self.speaker_buffers_30_ms[node_id])
-            self.process_30_ms_chunk(flattened_chunks, node_id)
-            self.speaker_buffers_30_ms[node_id] = []
-
-
-    def process_ten_ms_chunk(self, chunk_time, buffer_bytes, node_id):
-        audio_is_silent = not self.vad.is_speech(buffer_bytes, 32000) if buffer_bytes else True
-        
-        # Initialize buffer and timing for new speaker
-        if node_id not in self.speaker_buffers or len(self.speaker_buffers[node_id]) == 0:
-            if audio_is_silent:
-                return
-            self.speaker_buffers[node_id] = bytearray()
-            self.first_nonsilent_audio_time[node_id] = chunk_time
-            self.last_nonsilent_audio_time[node_id] = chunk_time
-
-        # Add new audio data to buffer
-        if buffer_bytes:
-            self.speaker_buffers[node_id].extend(buffer_bytes)
-        
-        should_flush = False
-        reason = None
-
-        # Check buffer size
-        print(f"len(self.speaker_buffers[node_id]) = {len(self.speaker_buffers[node_id])}")
-        if len(self.speaker_buffers[node_id]) >= self.BUFFER_SIZE_LIMIT // 2:
-            should_flush = True
-            reason = "buffer_full"
-        
-        # Check for silence
-        if audio_is_silent:
-            silence_duration = (chunk_time - self.last_nonsilent_audio_time[node_id]).total_seconds()
-            print(f"silence_duration = {silence_duration}")
-            if silence_duration >= self.SILENCE_DURATION_LIMIT:
-                should_flush = True
-                reason = "silence_limit"
-        else:
-            self.last_nonsilent_audio_time[node_id] = chunk_time
-
-        # Flush buffer if needed
-        if should_flush and len(self.speaker_buffers[node_id]) > 0:
-            speaker_object = self.participants_ctrl.GetUserByUserID(node_id)
-            self.send_message_callback({
-                'message': self.Messages.NEW_UTTERANCE,
-                'participant_uuid': node_id,
-                'participant_user_uuid': speaker_object.GetPersistentId(),
-                'participant_full_name': speaker_object.GetUserName(),
-                'audio_data': bytes(self.speaker_buffers[node_id]),
-                'timeline_ms': int((self.first_nonsilent_audio_time[node_id] - self.timeline_start).total_seconds() * 1000),
-                'flush_reason': reason
-            })
-            # Clear the buffer
-            self.speaker_buffers[node_id] = bytearray()
-            del self.first_nonsilent_audio_time[node_id]
-            del self.last_nonsilent_audio_time[node_id]
 
     def write_to_deepgram(self, data):
         try:

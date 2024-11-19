@@ -53,7 +53,6 @@ class AudioProcessingQueue:
         reason = None
 
         # Check buffer size
-        print(f"len(self.utterances[speaker_id]) = {len(self.utterances[speaker_id])}")
         if len(self.utterances[speaker_id]) >= self.BUFFER_SIZE_LIMIT // 2:
             should_flush = True
             reason = "buffer_full"
@@ -70,10 +69,6 @@ class AudioProcessingQueue:
 
         # Flush buffer if needed
         if should_flush and len(self.utterances[speaker_id]) > 0:
-            #speaker_object = self.participants_ctrl.GetUserByUserID(speaker_id)
-            #'participant_uuid': speaker_id,
-            #   'participant_user_uuid': speaker_object.GetPersistentId(),
-            #   'participant_full_name': speaker_object.GetUserName(),
             self.save_utterance_callback({
                 'message': "New utterance",
                 **self.get_participant_callback(speaker_id),

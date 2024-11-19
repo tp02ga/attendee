@@ -173,7 +173,7 @@ def run_bot(self, bot_id):
             print(f"Received message that new utterance was detected")
 
             # Create participant record if it doesn't exist
-            participant, _ = async_to_sync(Participant.objects.aget_or_create)(
+            participant, _ = Participant.objects.get_or_create(
                 bot=bot_in_db,
                 uuid=message['participant_uuid'],
                 defaults={
@@ -183,7 +183,7 @@ def run_bot(self, bot_id):
             )
 
             # Create new utterance record
-            utterance = async_to_sync(Utterance.objects.acreate)(
+            utterance = Utterance.objects.create(
                 bot=bot_in_db,
                 participant=participant,
                 audio_blob=message['audio_data'],
