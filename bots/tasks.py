@@ -1,6 +1,6 @@
 from celery import shared_task, current_app
 from celery.signals import celeryd_init, worker_shutting_down, worker_process_init, worker_process_shutdown
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials, RecordingUpload
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -11,6 +11,9 @@ import random
 from asgiref.sync import async_to_sync
 from urllib.parse import urlparse, parse_qs
 import re
+import io
+from django.core.files.base import ContentFile
+import hashlib
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -26,9 +29,59 @@ def parse_join_url(join_url):
     
     return (meeting_id, password)
 
+def convert_utterance_audio_blob_to_mp3(utterance):
+    from .utils import pcm_to_mp3
+
+    if utterance.audio_format == Utterance.AudioFormat.PCM:
+        mp3_data = pcm_to_mp3(utterance.audio_blob)
+        utterance.audio_blob = mp3_data
+        utterance.audio_format = Utterance.AudioFormat.MP3
+        utterance.save()
+        utterance.refresh_from_db() # because of the .tobytes() issue
+
+@shared_task(bind=True, soft_time_limit=36000)
+def generate_audio_recording(self, bot_id):
+    from pydub import AudioSegment
+
+    print(f"Generating audiorecording for bot {bot_id}")
+    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION)
+    AnalysisTaskManager.set_task_in_progress(analysis_task)
+
+    utterances = Utterance.objects.filter(bot_id=bot_id)
+
+    # Make sure all utterances have mp3 format
+    for utterance in utterances:
+        convert_utterance_audio_blob_to_mp3(utterance)
+
+    # Get max timestamp to determine final file length
+    max_timestamp_ms = 0
+    for utterance in utterances:
+        max_timestamp_ms = max(max_timestamp_ms, utterance.timeline_ms + utterance.duration_ms)
+
+    final_audio = AudioSegment.silent(duration=max_timestamp_ms)
+
+    for utterance in utterances:
+        audio_file = io.BytesIO(utterance.audio_blob.tobytes())
+        audio = AudioSegment.from_file(audio_file, format="mp3")
+        final_audio = final_audio.overlay(audio, position=utterance.timeline_ms)
+
+    # Export to a BytesIO object instead of a file
+    mp3_buffer = io.BytesIO()
+    final_audio.export(mp3_buffer, format="mp3")
+    mp3_buffer.seek(0)
+
+    # Create the RecordingUpload instance
+    recording_upload = RecordingUpload(analysis_task=analysis_task)
+    recording_upload.file.save(
+        f"{hashlib.md5(str(analysis_task.id).encode()).hexdigest()}.mp3",  # filename
+        ContentFile(mp3_buffer.read())  # file content
+    )
+    recording_upload.save()
+
+    AnalysisTaskManager.set_task_complete(analysis_task)   
+
 @shared_task(bind=True, soft_time_limit=3600)
 def process_utterance(self, utterance_id):
-    from .utils import pcm_to_mp3
     import json
 
     from deepgram import (
@@ -44,12 +97,7 @@ def process_utterance(self, utterance_id):
     AnalysisTaskManager.set_task_in_progress(analysis_task)
 
     # if utterance file format is pcm, convert to mp3
-    if utterance.audio_format == Utterance.AudioFormat.PCM:
-        mp3_data = pcm_to_mp3(utterance.audio_blob)
-        utterance.audio_blob = mp3_data
-        utterance.audio_format = Utterance.AudioFormat.MP3
-        utterance.save()
-        utterance.refresh_from_db()
+    convert_utterance_audio_blob_to_mp3(utterance)
 
     if utterance.transcription is None:
         payload: FileSource = {
@@ -84,6 +132,7 @@ def run_bot(self, bot_id):
     gi.require_version('GLib', '2.0')
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
+    from bots.zoom_bot.audio_processing_queue import AudioProcessingQueue
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -172,7 +221,7 @@ def run_bot(self, bot_id):
             print(f"Received message that new utterance was detected")
 
             # Create participant record if it doesn't exist
-            participant, _ = async_to_sync(Participant.objects.aget_or_create)(
+            participant, _ = Participant.objects.get_or_create(
                 bot=bot_in_db,
                 uuid=message['participant_uuid'],
                 defaults={
@@ -182,7 +231,7 @@ def run_bot(self, bot_id):
             )
 
             # Create new utterance record
-            utterance = async_to_sync(Utterance.objects.acreate)(
+            utterance = Utterance.objects.create(
                 bot=bot_in_db,
                 participant=participant,
                 audio_blob=message['audio_data'],
@@ -211,6 +260,9 @@ def run_bot(self, bot_id):
             )
             zoom_bot.leave()
 
+    def get_participant(participant_id):
+        return zoom_bot.get_participant(participant_id)
+
     def on_timeout():
         try:
             nonlocal first_timeout_call
@@ -221,6 +273,9 @@ def run_bot(self, bot_id):
                 bot_in_db.refresh_from_db()
                 take_action_based_on_bot_in_db()
                 first_timeout_call = False
+
+            # Process audio chunks (not sure if this belongs in the zoom bot or in here)
+            audio_processing_queue.process_chunks()
 
             # Original timeout logic
             message = pubsub.get_message()
@@ -256,8 +311,14 @@ def run_bot(self, bot_id):
             raise Exception("Zoom OAuth credentials data not found")
         
         meeting_id, meeting_password = parse_join_url(bot_in_db.meeting_url)
+
+
+        audio_processing_queue = AudioProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+
         zoom_bot = ZoomBot(
+            display_name=bot_in_db.name,
             send_message_callback=take_action_based_on_message_from_zoom_bot,
+            add_audio_chunk_callback=audio_processing_queue.add_chunk,
             zoom_client_id=zoom_oauth_credentials['client_id'],
             zoom_client_secret=zoom_oauth_credentials['client_secret'],
             meeting_id=meeting_id,

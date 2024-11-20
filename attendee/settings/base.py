@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'concurrency',
     'allauth.socialaccount.providers.google',
-    'drf_spectacular'
+    'drf_spectacular',
+    'storages'
 ]
 
 CREDENTIALS_ENCRYPTION_KEY = os.getenv('CREDENTIALS_ENCRYPTION_KEY')
@@ -178,3 +179,18 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 # public with python manage.py spectacular --color --file docs/openapi.yml
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": os.getenv("AWS_ACCESS_KEY_ID"),
+            "secret_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+AWS_RECORDING_STORAGE_BUCKET_NAME = os.getenv('AWS_RECORDING_STORAGE_BUCKET_NAME')

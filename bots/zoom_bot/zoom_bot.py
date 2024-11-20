@@ -4,7 +4,8 @@ import jwt
 from datetime import datetime, timedelta
 import os
 import numpy as np
-from collections import deque
+import queue
+import webrtcvad
 
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()
@@ -20,10 +21,6 @@ def generate_jwt(client_id, client_secret):
     token = jwt.encode(payload, client_secret, algorithm="HS256")
     return token
 
-def normalized_rms_audio(samples):
-    return np.mean(np.abs(samples)) / 32767.0
-
-
 class ZoomBot:
     class Messages:
         LEAVE_MEETING_WAITING_FOR_HOST = "Leave meeting because received waiting for host status"
@@ -33,8 +30,10 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, send_message_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+        self.display_name = display_name
         self.send_message_callback = send_message_callback
+        self.add_audio_chunk_callback = add_audio_chunk_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id = meeting_id
@@ -67,15 +66,6 @@ class ZoomBot:
         self.my_participant_id = None
         self.participants_ctrl = None
         self.meeting_reminder_event = None
-        self.audio_print_counter = 0
-
-        self.speaker_buffers = {}  # Add this line to store buffers per speaker
-        self.first_nonsilent_audio_time = {}  # Add this line to track silence per speaker
-        self.last_nonsilent_audio_time = {}  # Add this line to track silence per speaker
-        self.BUFFER_SIZE_LIMIT = 38 * 1024 * 1024  # 38 MB in bytes
-        self.SILENCE_THRESHOLD = 0.0125  # RMS threshold for silence detection
-        self.SILENCE_DURATION_LIMIT = 3  # seconds
-        self.timeline_start = None
 
     def cleanup(self):
         if self.meeting_service:
@@ -110,6 +100,18 @@ class ZoomBot:
             raise Exception('InitSDK failed')
         
         self.create_services()
+
+    def get_participant(self, participant_id):
+        try:
+            speaker_object = self.participants_ctrl.GetUserByUserID(participant_id)
+            return {
+                'participant_uuid': participant_id,
+                'participant_user_uuid': speaker_object.GetPersistentId(),
+                'participant_full_name': speaker_object.GetUserName()
+            }
+        except:
+            print(f"Error getting participant {participant_id}")
+            return None
 
     def on_join(self):
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
@@ -146,61 +148,10 @@ class ZoomBot:
     def on_one_way_audio_raw_data_received_callback(self, data, node_id):
         if node_id == self.my_participant_id:
             return
-
-        buffer_bytes = data.GetBuffer()
-        numpy_buffer_bytes = np.frombuffer(buffer_bytes, dtype=np.int16)
+        
         current_time = datetime.utcnow()
-        if self.timeline_start is None:
-            self.timeline_start = current_time
-        volume = normalized_rms_audio(numpy_buffer_bytes)
-        audio_is_silent = volume <= self.SILENCE_THRESHOLD
-        
-        # Initialize buffer and timing for new speaker
-        if node_id not in self.speaker_buffers:
-            if audio_is_silent:
-                return
-            self.speaker_buffers[node_id] = deque(maxlen=self.BUFFER_SIZE_LIMIT // 2)
-            self.first_nonsilent_audio_time[node_id] = current_time
-            self.last_nonsilent_audio_time[node_id] = current_time
 
-        # Add new audio data to buffer
-        self.speaker_buffers[node_id].extend(numpy_buffer_bytes)
-        
-        should_flush = False
-        reason = None
-
-        # Check buffer size
-        if len(self.speaker_buffers[node_id]) >= self.BUFFER_SIZE_LIMIT // 2:
-            should_flush = True
-            reason = "buffer_full"
-        
-        # Check for silence
-        if audio_is_silent:
-            silence_duration = (current_time - self.last_nonsilent_audio_time[node_id]).total_seconds()
-            print(f"silence_duration = {silence_duration}")
-            if silence_duration >= self.SILENCE_DURATION_LIMIT:
-                should_flush = True
-                reason = "silence_limit"
-        else:
-            self.last_nonsilent_audio_time[node_id] = current_time
-
-        # Flush buffer if needed
-        if should_flush and len(self.speaker_buffers[node_id]) > 0:
-            speaker_object = self.participants_ctrl.GetUserByUserID(node_id)
-            self.send_message_callback({
-                'message': self.Messages.NEW_UTTERANCE,
-                'participant_uuid': node_id,
-                'participant_user_uuid': speaker_object.GetPersistentId(),
-                'participant_full_name': speaker_object.GetUserName(),
-                'audio_data': np.array(self.speaker_buffers[node_id], dtype=np.int16).tobytes(),
-                'timeline_ms': int((self.first_nonsilent_audio_time[node_id] - self.timeline_start).total_seconds() * 1000 + 
-                                 (self.first_nonsilent_audio_time[node_id].microsecond - self.timeline_start.microsecond) / 1000),
-                'flush_reason': reason
-            })
-            # Clear the buffer
-            del self.speaker_buffers[node_id]
-            del self.first_nonsilent_audio_time[node_id]
-            del self.last_nonsilent_audio_time[node_id]
+        self.add_audio_chunk_callback(node_id, current_time, data.GetBuffer())
 
     def write_to_deepgram(self, data):
         try:
@@ -246,7 +197,7 @@ class ZoomBot:
             return
         
         if self.audio_source is None:
-            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback)
+            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(collectPerformanceData=True, onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback)
 
 
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
@@ -266,6 +217,23 @@ class ZoomBot:
             raise Exception("Error with stop raw recording")
 
     def leave(self):
+        if self.audio_source:
+            performance_data = self.audio_source.getPerformanceData()
+            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
+            print("numCalls =", performance_data.numCalls)
+            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
+            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
+            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
+
+            # Print processing time distribution
+            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
+            print("\nProcessing time distribution (microseconds):")
+            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
+                if count > 0:
+                    bin_start = bin_idx * bin_size
+                    bin_end = (bin_idx + 1) * bin_size
+                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
+
         if self.meeting_service is None:
             return
         
@@ -277,8 +245,6 @@ class ZoomBot:
 
 
     def join_meeting(self):
-        display_name = "My meeting bot"
-
         meeting_number = int(self.meeting_id)
 
         join_param = zoom.JoinParam()
@@ -286,7 +252,7 @@ class ZoomBot:
 
         param = join_param.param
         param.meetingNumber = meeting_number
-        param.userName = display_name
+        param.userName = self.display_name
         param.psw = self.meeting_password
         param.vanityID = ""
         param.customer_key = ""

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
-from .models import Bot, BotStates, AnalysisTaskTypes, AnalysisTaskStates, BotSubStates
+from .models import Bot, BotStates, AnalysisTaskTypes, AnalysisTaskStates, BotSubStates, RecordingUpload
 
 @extend_schema_serializer(
     examples=[
@@ -16,12 +16,15 @@ class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(
         help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456"
     )
+    bot_name = serializers.CharField(
+        help_text="The name of the bot to create, e.g. 'My Bot'"
+    )
 
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
             'Meeting URL',
-            value={'id': 'sess_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started'},
+            value={'id': 'bot_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started', 'audio_recording_state': 'not_started'},
         )
     ]
 )
@@ -30,6 +33,7 @@ class BotSerializer(serializers.ModelSerializer):
     state = serializers.SerializerMethodField()
     sub_state = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
+    audio_recording_state = serializers.SerializerMethodField()
 
     @extend_schema_field({
         'type': 'string',
@@ -62,9 +66,23 @@ class BotSerializer(serializers.ModelSerializer):
             
         return AnalysisTaskStates.state_to_api_code(analysis_task.state)
 
+    @extend_schema_field({
+        'type': 'string',
+        'enum': [AnalysisTaskStates.state_to_api_code(state.value) for state in AnalysisTaskStates],
+    })
+    def get_audio_recording_state(self, obj):
+        analysis_task = obj.analysis_tasks.filter(
+            analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION
+        ).first()
+
+        if not analysis_task:
+            return None
+
+        return AnalysisTaskStates.state_to_api_code(analysis_task.state)
+
     class Meta:
         model = Bot
-        fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state']
+        fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state', 'audio_recording_state']
         read_only_fields = fields
 
 class TranscriptUtteranceSerializer(serializers.Serializer):
@@ -74,3 +92,16 @@ class TranscriptUtteranceSerializer(serializers.Serializer):
     timestamp_ms = serializers.IntegerField()
     duration_ms = serializers.IntegerField()
     transcription = serializers.CharField()
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            'Recording Upload',
+            value={'url': 'https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp3?...', 'created_at': '2024-01-01T00:00:00Z'},
+        )
+    ]
+)
+class RecordingUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecordingUpload
+        fields = ['url', 'created_at']
