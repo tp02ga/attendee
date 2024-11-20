@@ -83,13 +83,15 @@ class AudioProcessingQueue:
 
         # Flush buffer if needed
         if should_flush and len(self.utterances[speaker_id]) > 0:
-            self.save_utterance_callback({
-                'message': "New utterance",
-                **self.get_participant_callback(speaker_id),
-                'audio_data': bytes(self.utterances[speaker_id]),
-                'timeline_ms': int((self.first_nonsilent_audio_time[speaker_id] - self.timeline_start).total_seconds() * 1000),
-                'flush_reason': reason
-            })
+            participant = self.get_participant_callback(speaker_id)
+            if participant:
+                self.save_utterance_callback({
+                    'message': "New utterance",
+                    **participant,
+                    'audio_data': bytes(self.utterances[speaker_id]),
+                    'timeline_ms': int((self.first_nonsilent_audio_time[speaker_id] - self.timeline_start).total_seconds() * 1000),
+                    'flush_reason': reason
+                })
             # Clear the buffer
             self.utterances[speaker_id] = bytearray()
             del self.first_nonsilent_audio_time[speaker_id]

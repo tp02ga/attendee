@@ -102,13 +102,16 @@ class ZoomBot:
         self.create_services()
 
     def get_participant(self, participant_id):
-        speaker_object = self.participants_ctrl.GetUserByUserID(participant_id)
-        return {
-            'participant_uuid': participant_id,
-            'participant_user_uuid': speaker_object.GetPersistentId(),
-            'participant_full_name': speaker_object.GetUserName()
-        }
-
+        try:
+            speaker_object = self.participants_ctrl.GetUserByUserID(participant_id)
+            return {
+                'participant_uuid': participant_id,
+                'participant_user_uuid': speaker_object.GetPersistentId(),
+                'participant_full_name': speaker_object.GetUserName()
+            }
+        except:
+            print(f"Error getting participant {participant_id}")
+            return None
 
     def on_join(self):
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
