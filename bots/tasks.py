@@ -122,8 +122,9 @@ def process_utterance(self, utterance_id):
         utterance.transcription = json.loads(response.results.channels[0].alternatives[0].to_json())
         utterance.save()
 
-    if BotEventManager.is_terminal_state(utterance.bot.state) and Utterance.objects.filter(bot=utterance.bot, transcription__isnull=True).count() == 0:
-        RecordingManager.set_recording_transcription_complete(recording)
+    # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
+    if RecordingManager.is_terminal_state(utterance.recording.state) and Utterance.objects.filter(recording=utterance.recording, transcription__isnull=True).count() == 0:
+        RecordingManager.set_recording_transcription_complete(utterance.recording)
 
 @shared_task(bind=True, soft_time_limit=3600)
 def run_bot(self, bot_id):
@@ -230,8 +231,14 @@ def run_bot(self, bot_id):
             )
 
             # Create new utterance record
+            recordings_in_progress = Recording.objects.filter(bot=bot_in_db, state=RecordingTranscriptionStates.IN_PROGRESS)
+            if recordings_in_progress.count() == 0:
+                raise Exception("No recording in progress found")
+            if recordings_in_progress.count() > 1:
+                raise Exception(f"Expected at most one recording in progress for bot {bot_in_db.object_id}, but found {recordings_in_progress.count()}")
+            recording_in_progress = recordings_in_progress.first()
             utterance = Utterance.objects.create(
-                bot=bot_in_db,
+                recording=recording_in_progress,
                 participant=participant,
                 audio_blob=message['audio_data'],
                 audio_format=Utterance.AudioFormat.PCM,

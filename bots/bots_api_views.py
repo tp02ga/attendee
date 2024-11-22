@@ -86,8 +86,8 @@ class BotCreateView(APIView):
 
         Recording.objects.create(
             bot=bot,
-            recording_type=RecordingTypes.AUDIO,
-            transcription_type=TranscriptionTypes.STANDARD,
+            recording_type=RecordingTypes.AUDIO_AND_VIDEO,
+            transcription_type=TranscriptionTypes.NON_REALTIME,
             transcription_provider=TranscriptionProviders.DEEPGRAM,
             is_default_recording=True
         )

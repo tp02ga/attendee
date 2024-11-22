@@ -364,17 +364,31 @@ class BotEventManager:
                         version=bot.version
                     )
 
+                    # If we moved to the recording state
+                    if new_state == BotStates.JOINED_RECORDING:
+                        pending_recordings = bot.recordings.filter(state=RecordingStates.NOT_STARTED)
+                        if pending_recordings.count() != 1:
+                            raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {pending_recordings.count()}")
+                        pending_recording = pending_recordings.first()
+                        RecordingManager.set_recording_in_progress(pending_recording)
+
                     # If we're in a terminal state 
                     if cls.is_terminal_state(new_state):
-                        # if no utterances are left, set the transcriptions that are in progress to complete
-                        if Utterance.objects.filter(bot=bot, transcription__isnull=True).count() == 0:
-                            recordings = bot.recordings.filter(transcription_state=RecordingTranscriptionStates.IN_PROGRESS)
-                            for recording in recordings:
-                                RecordingManager.set_recording_transcription_complete(recording)
+                        # If there is an in progress recording, set it to complete
+                        in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
+                        if in_progress_recordings.count() > 1:
+                            raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {in_progress_recordings.count()}")
+                        for recording in in_progress_recordings:
+                            RecordingManager.set_recording_complete(recording)
 
-                        # Start the recording generation task
-                        from .tasks import generate_audio_recording
-                        generate_audio_recording.delay(bot.id)
+                        # If there is an in progress transcription recording
+                        # that has no utterances left to transcribe, set it to complete
+                        transcription_in_progress_recordings = bot.recordings.filter(transcription_state=RecordingTranscriptionStates.IN_PROGRESS)
+                        if transcription_in_progress_recordings.count() > 1:
+                            raise ValidationError(f"Expected at most one transcription in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {transcription_in_progress_recordings.count()}")
+                        for recording in transcription_in_progress_recordings:
+                            if Utterance.objects.filter(recording=recording, transcription__isnull=True).count() == 0:
+                                RecordingManager.set_recording_transcription_complete(recording)
 
                     return event
                     
@@ -448,7 +462,7 @@ class RecordingTypes(models.IntegerChoices):
     AUDIO_ONLY = 2, 'Audio Only'
 
 class TranscriptionTypes(models.IntegerChoices):
-    STANDARD = 1, 'Standard'
+    NON_REALTIME = 1, 'Non realtime'
     REALTIME = 2, 'Realtime'
     NO_TRANSCRIPTION = 3, 'No Transcription'
 
@@ -571,8 +585,10 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS:
             return
         if recording.transcription_state != RecordingTranscriptionStates.NOT_STARTED:
-            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
-        
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
+
         recording.transcription_state = RecordingTranscriptionStates.IN_PROGRESS
         recording.save()
 
@@ -583,7 +599,9 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.COMPLETE:
             return
         if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
-            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
         
         recording.transcription_state = RecordingTranscriptionStates.COMPLETE
         recording.save()
@@ -595,10 +613,16 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.FAILED:
             return
         if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
-            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
         
         recording.transcription_state = RecordingTranscriptionStates.FAILED
         recording.save()
+
+    @classmethod
+    def is_terminal_state(cls, state: int):
+        return state == RecordingStates.COMPLETE or state == RecordingStates.FAILED
 
 class Utterance(models.Model):
     class AudioFormat(models.IntegerChoices):
