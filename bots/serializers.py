@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
-from drf_spectacular.types import OpenApiTypes
-from .models import Bot, BotStates, AnalysisTaskTypes, AnalysisTaskStates, BotSubStates, RecordingUpload
+from .models import Bot, BotStates, Recording, RecordingStates, RecordingTranscriptionStates, BotSubStates
 
 @extend_schema_serializer(
     examples=[
@@ -54,31 +53,25 @@ class BotSerializer(serializers.ModelSerializer):
 
     @extend_schema_field({
         'type': 'string',
-        'enum': [AnalysisTaskStates.state_to_api_code(state.value) for state in AnalysisTaskStates],
+        'enum': [RecordingTranscriptionStates.state_to_api_code(state.value) for state in RecordingTranscriptionStates],
     })
     def get_transcription_state(self, obj):
-        analysis_task = obj.analysis_tasks.filter(
-            analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION
-        ).first()
-        
-        if not analysis_task:
+        default_recording = Recording.objects.filter(bot=obj, is_default_recording=True).first()
+        if not default_recording:
             return None
             
-        return AnalysisTaskStates.state_to_api_code(analysis_task.state)
+        return RecordingTranscriptionStates.state_to_api_code(default_recording.transcription_state)
 
     @extend_schema_field({
         'type': 'string',
-        'enum': [AnalysisTaskStates.state_to_api_code(state.value) for state in AnalysisTaskStates],
+        'enum': [RecordingStates.state_to_api_code(state.value) for state in RecordingStates],
     })
     def get_audio_recording_state(self, obj):
-        analysis_task = obj.analysis_tasks.filter(
-            analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION
-        ).first()
-
-        if not analysis_task:
+        default_recording = Recording.objects.filter(bot=obj, is_default_recording=True).first()
+        if not default_recording:
             return None
-
-        return AnalysisTaskStates.state_to_api_code(analysis_task.state)
+            
+        return RecordingStates.state_to_api_code(default_recording.state)
 
     class Meta:
         model = Bot
@@ -101,7 +94,7 @@ class TranscriptUtteranceSerializer(serializers.Serializer):
         )
     ]
 )
-class RecordingUploadSerializer(serializers.ModelSerializer):
+class RecordingFileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RecordingUpload
+        model = Recording
         fields = ['url', 'created_at']

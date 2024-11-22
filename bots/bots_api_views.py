@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Bot, BotEvent, BotEventManager, AnalysisTask, AnalysisTaskTypes, AnalysisTaskSubTypes, Utterance, RecordingUpload
-from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingUploadSerializer
+from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance
+from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingFileSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
 import redis
@@ -84,18 +84,12 @@ class BotCreateView(APIView):
             name=bot_name
         )
 
-        AnalysisTask.objects.create(
+        Recording.objects.create(
             bot=bot,
-            analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION,
-            analysis_sub_type=AnalysisTaskSubTypes.DEEPGRAM,
-            parameters={}
-        )
-
-        AnalysisTask.objects.create(
-            bot=bot,
-            analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION,
-            analysis_sub_type=AnalysisTaskSubTypes.AUDIO_RECORDING_GENERATION_STANDARD,
-            parameters={}
+            recording_type=RecordingTypes.AUDIO,
+            transcription_type=TranscriptionTypes.STANDARD,
+            transcription_provider=TranscriptionProviders.DEEPGRAM,
+            is_default_recording=True
         )
         
         # Try to transition the state from READY to JOINING_REQ_NOT_STARTED_BY_BOT
@@ -159,7 +153,7 @@ class AudioRecordingView(APIView):
         summary='Get the audio recording for a bot',
         description='Returns a short-lived S3 URL for the audio recording of the bot.',
         responses={
-            200: OpenApiResponse(response=RecordingUploadSerializer, description='Signed URL for the recording')
+            200: OpenApiResponse(response=RecordingFileSerializer, description='Signed URL for the recording')
         },
         parameters=TokenHeaderParameter,
         tags=['Bots'],
@@ -168,21 +162,21 @@ class AudioRecordingView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
 
-            analysis_task = AnalysisTask.objects.filter(bot=bot, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION).first()
-            if not analysis_task:
+            recording = Recording.objects.filter(bot=bot, is_default_recording=True).first()
+            if not recording:
                 return Response(
-                    {'error': 'No audio recording found for bot'}, 
+                    {'error': 'No recording found for bot'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            recording_upload = RecordingUpload.objects.filter(analysis_task=analysis_task).first()
-            if not recording_upload:
+            recording_file = recording.file
+            if not recording_file:
                 return Response(
-                    {'error': 'No audio recording found for bot'}, 
+                    {'error': 'No recording file found for bot'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            return Response(RecordingUploadSerializer(recording_upload).data)
+            return Response(RecordingFileSerializer(record).data)
             
         except Bot.DoesNotExist:
             return Response(
@@ -208,9 +202,16 @@ class TranscriptView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             
+            recording = Recording.objects.filter(bot=bot, is_default_recording=True).first()
+            if not recording:
+                return Response(
+                    {'error': 'No recording found for bot'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
             # Get all utterances with transcriptions, sorted by timeline
             utterances = Utterance.objects.select_related('participant').filter(
-                bot=bot,
+                recording=recording,
                 transcription__isnull=False
             ).order_by('timeline_ms')
             

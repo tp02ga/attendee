@@ -12,6 +12,7 @@ from django.db import models
 from django.db.models import Q
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.utils import timezone
 import json
 
 # Create your models here.
@@ -365,11 +366,11 @@ class BotEventManager:
 
                     # If we're in a terminal state 
                     if cls.is_terminal_state(new_state):
-                        # if no utterances are left, set the transcription analysis tasks that are in progress to complete
+                        # if no utterances are left, set the transcriptions that are in progress to complete
                         if Utterance.objects.filter(bot=bot, transcription__isnull=True).count() == 0:
-                            analysis_tasks = bot.analysis_tasks.filter(analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION, state=AnalysisTaskStates.IN_PROGRESS)
-                            for analysis_task in analysis_tasks:
-                                AnalysisTaskManager.set_task_complete(analysis_task)
+                            recordings = bot.recordings.filter(transcription_state=RecordingTranscriptionStates.IN_PROGRESS)
+                            for recording in recordings:
+                                RecordingManager.set_recording_transcription_complete(recording)
 
                         # Start the recording generation task
                         from .tasks import generate_audio_recording
@@ -408,13 +409,204 @@ class Participant(models.Model):
         display_name = self.full_name or self.uuid
         return f"{display_name} in {self.bot.object_id}"
 
+class RecordingStates(models.IntegerChoices):
+    NOT_STARTED = 1, 'Not Started'
+    IN_PROGRESS = 2, 'In Progress'
+    COMPLETE = 3, 'Complete'
+    FAILED = 4, 'Failed'
+
+    @classmethod
+    def state_to_api_code(cls, value):
+        """Returns the API code for a given state value"""
+        mapping = {
+            cls.NOT_STARTED: 'not_started',
+            cls.IN_PROGRESS: 'in_progress',
+            cls.COMPLETE: 'complete',
+            cls.FAILED: 'failed'
+        }
+        return mapping.get(value)
+
+class RecordingTranscriptionStates(models.IntegerChoices):
+    NOT_STARTED = 1, 'Not Started'
+    IN_PROGRESS = 2, 'In Progress'
+    COMPLETE = 3, 'Complete'
+    FAILED = 4, 'Failed'
+
+    @classmethod
+    def state_to_api_code(cls, value):
+        """Returns the API code for a given state value"""
+        mapping = {
+            cls.NOT_STARTED: 'not_started',
+            cls.IN_PROGRESS: 'in_progress',
+            cls.COMPLETE: 'complete',
+            cls.FAILED: 'failed'
+        }
+        return mapping.get(value)
+
+class RecordingTypes(models.IntegerChoices):
+    AUDIO_AND_VIDEO = 1, 'Audio and Video'
+    AUDIO_ONLY = 2, 'Audio Only'
+
+class TranscriptionTypes(models.IntegerChoices):
+    STANDARD = 1, 'Standard'
+    REALTIME = 2, 'Realtime'
+    NO_TRANSCRIPTION = 3, 'No Transcription'
+
+class TranscriptionProviders(models.IntegerChoices):
+    DEEPGRAM = 1, 'Deepgram'
+
+from storages.backends.s3boto3 import S3Boto3Storage
+
+class RecordingStorage(S3Boto3Storage):
+    bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME
+
+class Recording(models.Model):
+    bot = models.ForeignKey(
+        Bot,
+        on_delete=models.CASCADE,
+        related_name='recordings'
+    )
+
+    recording_type = models.IntegerField(
+        choices=RecordingTypes.choices,
+        null=False
+    )
+
+    transcription_type = models.IntegerField(
+        choices=TranscriptionTypes.choices,
+        null=False
+    )
+
+    is_default_recording = models.BooleanField(
+        default=False
+    )
+
+    state = models.IntegerField(
+        choices=RecordingStates.choices,
+        default=RecordingStates.NOT_STARTED,
+        null=False
+    )
+
+    transcription_state = models.IntegerField(
+        choices=RecordingTranscriptionStates.choices,
+        default=RecordingTranscriptionStates.NOT_STARTED,
+        null=False
+    )
+
+    transcription_provider = models.IntegerField(
+        choices=TranscriptionProviders.choices,
+        null=True,
+        blank=True
+    )
+
+    version = IntegerVersionField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    file = models.FileField(
+        storage=RecordingStorage()
+    )
+
+    def __str__(self):
+        return f"Recording for {self.bot.object_id}"
+
+    @property
+    def url(self):
+        # Generate a temporary signed URL that expires in 5 minutes (300 seconds)
+        return self.file.storage.bucket.meta.client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': self.file.storage.bucket_name,
+                'Key': self.file.name
+            },
+            ExpiresIn=300
+        )
+    
+class RecordingManager:
+    @classmethod
+    def set_recording_in_progress(cls, recording: Recording):
+        recording.refresh_from_db()
+
+        if recording.state == RecordingStates.IN_PROGRESS:
+            return
+        if recording.state != RecordingStates.NOT_STARTED:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
+        
+        recording.state = RecordingStates.IN_PROGRESS
+        recording.started_at = timezone.now()
+        recording.save()
+
+    @classmethod
+    def set_recording_complete(cls, recording: Recording):
+        recording.refresh_from_db()
+
+        if recording.state == RecordingStates.COMPLETE:
+            return
+        if recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
+        
+        recording.state = RecordingStates.COMPLETE
+        recording.completed_at = timezone.now()
+        recording.save()
+
+    @classmethod
+    def set_recording_failed(cls, recording: Recording, sub_state: int):
+        recording.refresh_from_db()
+
+        if recording.state == RecordingStates.FAILED:
+            return
+        if recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
+        
+        recording.state = RecordingStates.FAILED
+        recording.sub_state = sub_state
+        recording.save()
+
+    @classmethod
+    def set_recording_transcription_in_progress(cls, recording: Recording):
+        recording.refresh_from_db()
+
+        if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS:
+            return
+        if recording.transcription_state != RecordingTranscriptionStates.NOT_STARTED:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
+        
+        recording.transcription_state = RecordingTranscriptionStates.IN_PROGRESS
+        recording.save()
+
+    @classmethod
+    def set_recording_transcription_complete(cls, recording: Recording):
+        recording.refresh_from_db()
+
+        if recording.transcription_state == RecordingTranscriptionStates.COMPLETE:
+            return
+        if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
+        
+        recording.transcription_state = RecordingTranscriptionStates.COMPLETE
+        recording.save()
+
+    @classmethod
+    def set_recording_transcription_failed(cls, recording: Recording, sub_state: int):
+        recording.refresh_from_db()
+
+        if recording.transcription_state == RecordingTranscriptionStates.FAILED:
+            return
+        if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_transcription_state_display()}")
+        
+        recording.transcription_state = RecordingTranscriptionStates.FAILED
+        recording.save()
+
 class Utterance(models.Model):
     class AudioFormat(models.IntegerChoices):
         PCM = 1, 'PCM'
         MP3 = 2, 'MP3'
 
-    bot = models.ForeignKey(
-        Bot,
+    recording = models.ForeignKey(
+        Recording,
         on_delete=models.CASCADE,
         related_name='utterances'
     )
@@ -437,131 +629,6 @@ class Utterance(models.Model):
 
     def __str__(self):
         return f"Utterance at {self.timeline_ms}ms ({self.duration_ms}ms long)"
-
-class AnalysisTaskStates(models.IntegerChoices):
-    NOT_STARTED = 1, 'Not Started'
-    IN_PROGRESS = 2, 'In Progress'
-    COMPLETE = 3, 'Complete'
-    FAILED = 4, 'Failed'
-
-    @classmethod
-    def state_to_api_code(cls, value):
-        """Returns the API code for a given state value"""
-        mapping = {
-            cls.NOT_STARTED: 'not_started',
-            cls.IN_PROGRESS: 'in_progress',
-            cls.COMPLETE: 'complete',
-            cls.FAILED: 'failed'
-        }
-        return mapping.get(value)
-
-class AnalysisTaskSubStates(models.IntegerChoices):
-    AUTHORIZATION_FAILED = 1, 'Authorization Failed'
-
-class AnalysisTaskTypes(models.IntegerChoices):
-    SPEECH_TRANSCRIPTION = 1, 'Speech Transcription'
-    AUDIO_RECORDING_GENERATION = 2, 'Audio Recording Generation'
-
-class AnalysisTaskSubTypes(models.IntegerChoices):
-    DEEPGRAM = 1, 'Deepgram'
-    AUDIO_RECORDING_GENERATION_STANDARD = 2, 'Audio Recording Generation Standard'
-
-class AnalysisTask(models.Model):
-    bot = models.ForeignKey(
-        Bot,
-        on_delete=models.CASCADE,
-        related_name='analysis_tasks'
-    )
-    
-    analysis_type = models.IntegerField(
-        choices=AnalysisTaskTypes.choices,
-        null=False
-    )
-    
-    analysis_sub_type = models.IntegerField(
-        choices=AnalysisTaskSubTypes.choices,
-        null=False
-    )
-    
-    state = models.IntegerField(
-        choices=AnalysisTaskStates.choices,
-        default=AnalysisTaskStates.NOT_STARTED,
-        null=False
-    )
-    
-    sub_state = models.IntegerField(
-        choices=AnalysisTaskSubStates.choices,
-        null=True,
-        blank=True
-    )
-    
-    parameters = models.JSONField(
-        null=False,
-    )
-    
-    version = IntegerVersionField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    # For FAILED state, can have sub-state
-                    (Q(state=AnalysisTaskStates.FAILED) & 
-                     Q(sub_state=AnalysisTaskSubStates.AUTHORIZATION_FAILED)) |
-                    
-                    # For all other states, sub_state must be null
-                    (~Q(state=AnalysisTaskStates.FAILED) & Q(sub_state__isnull=True))
-                ),
-                name='valid_analysis_state_substate_combinations'
-            ),
-            models.UniqueConstraint(
-                fields=['bot', 'analysis_type'],
-                name='unique_analysis_task_per_bot'
-            )
-        ]
-
-    def __str__(self):
-        return f"Analysis Task ({self.get_analysis_type_display()}) - {self.get_state_display()}"
-
-class AnalysisTaskManager:
-    @classmethod
-    def set_task_in_progress(cls, task: AnalysisTask):
-        task.refresh_from_db()
-
-        if task.state == AnalysisTaskStates.IN_PROGRESS:
-            return
-        if task.state != AnalysisTaskStates.NOT_STARTED:
-            raise ValueError(f"Invalid state transition. Task {task.id} is in state {task.get_state_display()}")
-        
-        task.state = AnalysisTaskStates.IN_PROGRESS
-        task.save()
-
-    @classmethod
-    def set_task_complete(cls, task: AnalysisTask):
-        task.refresh_from_db()
-
-        if task.state == AnalysisTaskStates.COMPLETE:
-            return
-        if task.state != AnalysisTaskStates.IN_PROGRESS:
-            raise ValueError(f"Invalid state transition. Task {task.id} is in state {task.get_state_display()}")
-        
-        task.state = AnalysisTaskStates.COMPLETE
-        task.save()
-
-    @classmethod
-    def set_task_failed(cls, task: AnalysisTask, sub_state: int):
-        task.refresh_from_db()
-
-        if task.state == AnalysisTaskStates.FAILED:
-            return
-        if task.state != AnalysisTaskStates.IN_PROGRESS:
-            raise ValueError(f"Invalid state transition. Task {task.id} is in state {task.get_state_display()}")
-        
-        task.state = AnalysisTaskStates.FAILED
-        task.sub_state = sub_state
-        task.save()
 
 class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
@@ -611,35 +678,3 @@ class Credentials(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.get_credential_type_display()}"
-
-from storages.backends.s3boto3 import S3Boto3Storage
-
-class RecordingStorage(S3Boto3Storage):
-    bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME
-
-class RecordingUpload(models.Model):
-    analysis_task = models.ForeignKey(
-        AnalysisTask,
-        on_delete=models.CASCADE,
-        related_name='recording_uploads'
-    )
-    file = models.FileField(
-        storage=RecordingStorage()
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Recording for {self.analysis_task.id}"
-
-    @property
-    def url(self):
-        # Generate a temporary signed URL that expires in 5 minutes (300 seconds)
-        return self.file.storage.bucket.meta.client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': self.file.storage.bucket_name,
-                'Key': self.file.name
-            },
-            ExpiresIn=300
-        )

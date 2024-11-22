@@ -1,6 +1,6 @@
 from celery import shared_task, current_app
 from celery.signals import celeryd_init, worker_shutting_down, worker_process_init, worker_process_shutdown
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials, RecordingUpload
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -44,10 +44,10 @@ def generate_audio_recording(self, bot_id):
     from pydub import AudioSegment
 
     print(f"Generating audiorecording for bot {bot_id}")
-    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION)
-    AnalysisTaskManager.set_task_in_progress(analysis_task)
+    recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
+    RecordingManager.set_recording_in_progress(recording)
 
-    utterances = Utterance.objects.filter(bot_id=bot_id)
+    utterances = Utterance.objects.filter(recording=recording)
 
     # Make sure all utterances have mp3 format
     for utterance in utterances:
@@ -70,15 +70,14 @@ def generate_audio_recording(self, bot_id):
     final_audio.export(mp3_buffer, format="mp3")
     mp3_buffer.seek(0)
 
-    # Create the RecordingUpload instance
-    recording_upload = RecordingUpload(analysis_task=analysis_task)
-    recording_upload.file.save(
-        f"{hashlib.md5(str(analysis_task.id).encode()).hexdigest()}.mp3",  # filename
+    # Create the recording file
+    recording.file.save(
+        f"{hashlib.md5(str(recording.id).encode()).hexdigest()}.mp3",  # filename
         ContentFile(mp3_buffer.read())  # file content
     )
-    recording_upload.save()
+    recording.save()
 
-    AnalysisTaskManager.set_task_complete(analysis_task)   
+    RecordingManager.set_recording_complete(recording)   
 
 @shared_task(bind=True, soft_time_limit=3600)
 def process_utterance(self, utterance_id):
@@ -93,8 +92,8 @@ def process_utterance(self, utterance_id):
     utterance = Utterance.objects.get(id=utterance_id)
     print(f"Processing utterance {utterance_id}")
 
-    analysis_task = AnalysisTask.objects.get(bot=utterance.bot, analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION)
-    AnalysisTaskManager.set_task_in_progress(analysis_task)
+    recording = utterance.recording
+    RecordingManager.set_recording_transcription_in_progress(recording)
 
     # if utterance file format is pcm, convert to mp3
     convert_utterance_audio_blob_to_mp3(utterance)
@@ -109,7 +108,7 @@ def process_utterance(self, utterance_id):
             smart_format=True,
         )
 
-        deepgram_credentials_record = analysis_task.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
+        deepgram_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
         if not deepgram_credentials_record:
             raise Exception("Deepgram credentials record not found")
 
@@ -124,7 +123,7 @@ def process_utterance(self, utterance_id):
         utterance.save()
 
     if BotEventManager.is_terminal_state(utterance.bot.state) and Utterance.objects.filter(bot=utterance.bot, transcription__isnull=True).count() == 0:
-        AnalysisTaskManager.set_task_complete(analysis_task)
+        RecordingManager.set_recording_transcription_complete(recording)
 
 @shared_task(bind=True, soft_time_limit=3600)
 def run_bot(self, bot_id):
