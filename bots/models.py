@@ -381,15 +381,6 @@ class BotEventManager:
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
-                        # If there is an in progress transcription recording
-                        # that has no utterances left to transcribe, set it to complete
-                        transcription_in_progress_recordings = bot.recordings.filter(transcription_state=RecordingTranscriptionStates.IN_PROGRESS)
-                        if transcription_in_progress_recordings.count() > 1:
-                            raise ValidationError(f"Expected at most one transcription in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {transcription_in_progress_recordings.count()}")
-                        for recording in transcription_in_progress_recordings:
-                            if Utterance.objects.filter(recording=recording, transcription__isnull=True).count() == 0:
-                                RecordingManager.set_recording_transcription_complete(recording)
-
                     return event
                     
             except RecordModifiedError:
@@ -564,6 +555,12 @@ class RecordingManager:
         recording.state = RecordingStates.COMPLETE
         recording.completed_at = timezone.now()
         recording.save()
+
+        # If there is an in progress transcription recording
+        # that has no utterances left to transcribe, set it to complete
+        if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS and Utterance.objects.filter(recording=recording, transcription__isnull=True).count() == 0:
+            RecordingManager.set_recording_transcription_complete(recording)
+
 
     @classmethod
     def set_recording_failed(cls, recording: Recording, sub_state: int):
