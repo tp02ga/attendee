@@ -176,7 +176,7 @@ class AudioRecordingView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            return Response(RecordingFileSerializer(record).data)
+            return Response(RecordingFileSerializer(recording).data)
             
         except Bot.DoesNotExist:
             return Response(

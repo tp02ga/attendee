@@ -529,6 +529,15 @@ class Recording(models.Model):
             ExpiresIn=300
         )
     
+    OBJECT_ID_PREFIX = 'rec_'
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+    
 class RecordingManager:
     @classmethod
     def set_recording_in_progress(cls, recording: Recording):

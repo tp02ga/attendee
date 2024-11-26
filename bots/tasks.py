@@ -268,6 +268,15 @@ def run_bot(self, bot_id):
 
     def get_participant(participant_id):
         return zoom_bot.get_participant(participant_id)
+    
+    def get_recording_filename():
+        recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
+        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.mp4"
+    
+    def recording_file_saved(s3_storage_key):
+        recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
+        recording.file = s3_storage_key
+        recording.save()
 
     def on_timeout():
         try:
@@ -325,6 +334,8 @@ def run_bot(self, bot_id):
             display_name=bot_in_db.name,
             send_message_callback=take_action_based_on_message_from_zoom_bot,
             add_audio_chunk_callback=audio_processing_queue.add_chunk,
+            get_recording_filename_callback=get_recording_filename,
+            saved_recording_file_callback=recording_file_saved,
             zoom_client_id=zoom_oauth_credentials['client_id'],
             zoom_client_secret=zoom_oauth_credentials['client_secret'],
             meeting_id=meeting_id,

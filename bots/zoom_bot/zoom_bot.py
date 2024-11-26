@@ -32,10 +32,12 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, get_recording_filename_callback, saved_recording_file_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_audio_chunk_callback = add_audio_chunk_callback
+        self.get_recording_filename_callback = get_recording_filename_callback
+        self.saved_recording_file_callback = saved_recording_file_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id = meeting_id
@@ -72,7 +74,7 @@ class ZoomBot:
         self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
         self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
 
-        self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), 'teststreamupload.mp4')
+        self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename_callback())
         self.uploader.start_upload()
 
         self.active_speaker_id = None
@@ -95,6 +97,7 @@ class ZoomBot:
 
         if self.uploader:
             self.uploader.complete_upload()
+            self.saved_recording_file_callback(self.uploader.key)
 
         if self.meeting_service:
             zoom.DestroyMeetingService(self.meeting_service)
