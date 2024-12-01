@@ -91,9 +91,8 @@ class ZoomBot:
         if self.active_speaker_id == user_ids[0]:
             return
 
-        self.active_speaker_id = user_ids[0]
-
         if self.pipeline.wants_any_video_frames():
+            self.active_speaker_id = user_ids[0]
             self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=self.active_speaker_id)
 
     def cleanup(self):
@@ -290,7 +289,9 @@ class ZoomBot:
         if status == zoom.MEETING_STATUS_IDLE:
             return
 
-        self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        print("Leaving meeting...")
+        leave_result = self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        print("Left meeting. result =", leave_result)
 
 
     def join_meeting(self):

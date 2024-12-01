@@ -1,6 +1,7 @@
 import zoom_meeting_sdk as zoom
 import numpy as np
 import cv2
+from gi.repository import GLib
 import time
 def convert_yuv420_frame_to_bgr(frame_bytes, width, height):
     # Convert bytes to numpy array
@@ -21,16 +22,41 @@ class VideoInputStream:
         self.renderer_destroyed = False
         self.renderer_delegate = zoom.ZoomSDKRendererDelegateCallbacks(
             onRawDataFrameReceivedCallback=self.on_raw_video_frame_received_callback,
-            onRendererBeDestroyedCallback=self.on_renderer_destroyed_callback
+            onRendererBeDestroyedCallback=self.on_renderer_destroyed_callback,
+            onRawDataStatusChangedCallback=self.on_raw_data_status_changed_callback
         )
 
         self.renderer = zoom.createRenderer(self.renderer_delegate)
         self.renderer.setRawDataResolution(zoom.ZoomSDKResolution_360P)
         self.renderer.subscribe(self.user_id, zoom.ZoomSDKRawDataType.RAW_DATA_TYPE_VIDEO)
+        self.raw_data_status = zoom.RawData_Off
+
+        self.last_frame_time = time.time()
+        self.black_frame_timer_id = GLib.timeout_add(100, self.send_black_frame)
+
+    def on_raw_data_status_changed_callback(self, status):
+        self.raw_data_status = status
+
+    def send_black_frame(self):
+        if self.renderer_destroyed:
+            return False
+            
+        current_time = time.time()
+        if current_time - self.last_frame_time >= 0.1 and self.raw_data_status == zoom.RawData_Off:
+            # Create a black frame of the same dimensions
+            black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
+            self.video_input_manager.new_frame_callback(black_frame)
+            
+        return not self.renderer_destroyed  # Continue timer if not cleaned up
+
 
     def cleanup(self):
         if self.renderer_destroyed:
             return
+        
+        if self.black_frame_timer_id is not None:
+            GLib.source_remove(self.black_frame_timer_id)
+            self.black_frame_timer_id = None
 
         print("starting renderer unsubscription for user", self.user_id)
         self.renderer.unSubscribe()
@@ -46,6 +72,8 @@ class VideoInputStream:
         
         if not self.video_input_manager.wants_frames_for_user(self.user_id):
             return
+        
+        self.last_frame_time = time.time()
 
         bgr_frame = convert_yuv420_frame_to_bgr(data.GetBuffer(), data.GetStreamWidth(), data.GetStreamHeight())
 
