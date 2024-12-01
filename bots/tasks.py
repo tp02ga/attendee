@@ -239,33 +239,30 @@ def run_bot(self, bot_id):
         recording.first_buffer_timestamp_ms = zoom_bot.get_first_buffer_timestamp_ms()
         recording.save()
 
+    def handle_redis_message(message):
+        if message and message['type'] == 'message':
+            data = json.loads(message['data'].decode('utf-8'))
+            command = data.get('command')
+            
+            if command == 'sync':
+                print(f"Syncing bot {bot_in_db.object_id}")
+                bot_in_db.refresh_from_db()
+                take_action_based_on_bot_in_db()
+            else:
+                print(f"Unknown command: {command}")
+
     def on_timeout():
         try:
             nonlocal first_timeout_call
             
-            # Call take_action_based_on_bot_in_db on first execution
             if first_timeout_call:
                 print("First timeout call - taking initial action")
                 bot_in_db.refresh_from_db()
                 take_action_based_on_bot_in_db()
                 first_timeout_call = False
 
-            # Process audio chunks (not sure if this belongs in the zoom bot or in here)
-            utterance_processing_queue.process_chunks()
-
-            # Original timeout logic
-            message = pubsub.get_message()
-            if message and message['type'] == 'message':
-                data = json.loads(message['data'].decode('utf-8'))
-                command = data.get('command')
-                
-                if command == 'sync':
-                    print(f"Syncing bot {bot_in_db.object_id}")
-                    bot_in_db.refresh_from_db()
-                    take_action_based_on_bot_in_db()
-                else:
-                    print(f"Unknown command: {command}")
-
+            # Process audio chunks
+            #utterance_processing_queue.process_chunks()
             return True
             
         except Exception as e:
@@ -306,7 +303,23 @@ def run_bot(self, bot_id):
         # Create GLib main loop
         main_loop = GLib.MainLoop()
         
-        # Add timeout function to check Redis messages every 100ms
+        # Set up Redis listener in a separate thread
+        import threading
+        def redis_listener():
+            while True:
+                try:
+                    message = pubsub.get_message(timeout=1.0)
+                    if message:
+                        # Schedule Redis message handling in the main GLib loop
+                        GLib.idle_add(lambda: handle_redis_message(message))
+                except Exception as e:
+                    print(f"Error in Redis listener: {e}")
+                    break
+
+        redis_thread = threading.Thread(target=redis_listener, daemon=True)
+        redis_thread.start()
+
+        # Add timeout just for audio processing
         GLib.timeout_add(100, on_timeout)
         
         # Add signal handlers so that when we get a SIGTERM or SIGINT, we can clean up the bot

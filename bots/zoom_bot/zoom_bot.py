@@ -242,7 +242,7 @@ class ZoomBot:
         if self.audio_source is None:
             self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(
                 collectPerformanceData=True, 
-                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback,
+                #onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback,
                 onMixedAudioRawDataReceivedCallback=self.pipeline.on_mixed_audio_raw_data_received_callback
             )
 
