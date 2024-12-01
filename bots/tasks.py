@@ -39,46 +39,6 @@ def convert_utterance_audio_blob_to_mp3(utterance):
         utterance.save()
         utterance.refresh_from_db() # because of the .tobytes() issue
 
-@shared_task(bind=True, soft_time_limit=36000)
-def generate_audio_recording(self, bot_id):
-    from pydub import AudioSegment
-
-    print(f"Generating audiorecording for bot {bot_id}")
-    recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
-    RecordingManager.set_recording_in_progress(recording)
-
-    utterances = Utterance.objects.filter(recording=recording)
-
-    # Make sure all utterances have mp3 format
-    for utterance in utterances:
-        convert_utterance_audio_blob_to_mp3(utterance)
-
-    # Get max timestamp to determine final file length
-    max_timestamp_ms = 0
-    for utterance in utterances:
-        max_timestamp_ms = max(max_timestamp_ms, utterance.timeline_ms + utterance.duration_ms)
-
-    final_audio = AudioSegment.silent(duration=max_timestamp_ms)
-
-    for utterance in utterances:
-        audio_file = io.BytesIO(utterance.audio_blob.tobytes())
-        audio = AudioSegment.from_file(audio_file, format="mp3")
-        final_audio = final_audio.overlay(audio, position=utterance.timeline_ms)
-
-    # Export to a BytesIO object instead of a file
-    mp3_buffer = io.BytesIO()
-    final_audio.export(mp3_buffer, format="mp3")
-    mp3_buffer.seek(0)
-
-    # Create the recording file
-    recording.file.save(
-        f"{hashlib.md5(str(recording.id).encode()).hexdigest()}.mp3",  # filename
-        ContentFile(mp3_buffer.read())  # file content
-    )
-    recording.save()
-
-    RecordingManager.set_recording_complete(recording)   
-
 @shared_task(bind=True, soft_time_limit=3600)
 def process_utterance(self, utterance_id):
     import json
@@ -132,7 +92,7 @@ def run_bot(self, bot_id):
     gi.require_version('GLib', '2.0')
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
-    from bots.zoom_bot.audio_processing_queue import AudioProcessingQueue
+    from bots.zoom_bot.utterance_processing_queue import UtteranceProcessingQueue
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -242,7 +202,7 @@ def run_bot(self, bot_id):
                 participant=participant,
                 audio_blob=message['audio_data'],
                 audio_format=Utterance.AudioFormat.PCM,
-                timeline_ms=message['timeline_ms'],
+                timestamp_ms=message['timestamp_ms'],
                 duration_ms=len(message['audio_data']) / 64,
             )
 
@@ -276,6 +236,7 @@ def run_bot(self, bot_id):
     def recording_file_saved(s3_storage_key):
         recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
         recording.file = s3_storage_key
+        recording.first_buffer_timestamp_ms = zoom_bot.get_first_buffer_timestamp_ms()
         recording.save()
 
     def on_timeout():
@@ -290,7 +251,7 @@ def run_bot(self, bot_id):
                 first_timeout_call = False
 
             # Process audio chunks (not sure if this belongs in the zoom bot or in here)
-            audio_processing_queue.process_chunks()
+            utterance_processing_queue.process_chunks()
 
             # Original timeout logic
             message = pubsub.get_message()
@@ -328,12 +289,12 @@ def run_bot(self, bot_id):
         meeting_id, meeting_password = parse_join_url(bot_in_db.meeting_url)
 
 
-        audio_processing_queue = AudioProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+        utterance_processing_queue = UtteranceProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
 
         zoom_bot = ZoomBot(
             display_name=bot_in_db.name,
             send_message_callback=take_action_based_on_message_from_zoom_bot,
-            add_audio_chunk_callback=audio_processing_queue.add_chunk,
+            add_audio_chunk_callback=utterance_processing_queue.add_chunk,
             get_recording_filename_callback=get_recording_filename,
             saved_recording_file_callback=recording_file_saved,
             zoom_client_id=zoom_oauth_credentials['client_id'],

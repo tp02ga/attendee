@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance
-from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingFileSerializer
+from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
 import redis
@@ -145,15 +145,15 @@ class BotLeaveView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-class AudioRecordingView(APIView):
+class RecordingView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
     @extend_schema(
-        operation_id='Get Bot Audio Recording',
-        summary='Get the audio recording for a bot',
-        description='Returns a short-lived S3 URL for the audio recording of the bot.',
+        operation_id='Get Bot Recording',
+        summary='Get the recording for a bot',
+        description='Returns a short-lived S3 URL for the recording of the bot.',
         responses={
-            200: OpenApiResponse(response=RecordingFileSerializer, description='Signed URL for the recording')
+            200: OpenApiResponse(response=RecordingSerializer, description='Signed URL for the recording')
         },
         parameters=TokenHeaderParameter,
         tags=['Bots'],
@@ -176,7 +176,7 @@ class AudioRecordingView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            return Response(RecordingFileSerializer(recording).data)
+            return Response(RecordingSerializer(recording).data)
             
         except Bot.DoesNotExist:
             return Response(
@@ -213,7 +213,7 @@ class TranscriptView(APIView):
             utterances = Utterance.objects.select_related('participant').filter(
                 recording=recording,
                 transcription__isnull=False
-            ).order_by('timeline_ms')
+            ).order_by('timestamp_ms')
             
             # Format the response, skipping empty transcriptions
             transcript_data = [
@@ -221,7 +221,7 @@ class TranscriptView(APIView):
                     'speaker_name': utterance.participant.full_name,
                     'speaker_uuid': utterance.participant.uuid,
                     'speaker_user_uuid': utterance.participant.user_uuid,
-                    'timestamp_ms': utterance.timeline_ms,
+                    'timestamp_ms': utterance.timestamp_ms,
                     'duration_ms': utterance.duration_ms,
                     'transcription': utterance.transcription['transcript']
                 }

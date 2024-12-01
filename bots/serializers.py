@@ -23,7 +23,7 @@ class CreateBotSerializer(serializers.Serializer):
     examples=[
         OpenApiExample(
             'Meeting URL',
-            value={'id': 'bot_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started', 'audio_recording_state': 'not_started'},
+            value={'id': 'bot_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started', 'recording_state': 'not_started'},
         )
     ]
 )
@@ -32,7 +32,7 @@ class BotSerializer(serializers.ModelSerializer):
     state = serializers.SerializerMethodField()
     sub_state = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
-    audio_recording_state = serializers.SerializerMethodField()
+    recording_state = serializers.SerializerMethodField()
 
     @extend_schema_field({
         'type': 'string',
@@ -66,7 +66,7 @@ class BotSerializer(serializers.ModelSerializer):
         'type': 'string',
         'enum': [RecordingStates.state_to_api_code(state.value) for state in RecordingStates],
     })
-    def get_audio_recording_state(self, obj):
+    def get_recording_state(self, obj):
         default_recording = Recording.objects.filter(bot=obj, is_default_recording=True).first()
         if not default_recording:
             return None
@@ -75,7 +75,7 @@ class BotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Bot
-        fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state', 'audio_recording_state']
+        fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state', 'recording_state']
         read_only_fields = fields
 
 class TranscriptUtteranceSerializer(serializers.Serializer):
@@ -90,11 +90,11 @@ class TranscriptUtteranceSerializer(serializers.Serializer):
     examples=[
         OpenApiExample(
             'Recording Upload',
-            value={'url': 'https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp3?...', 'created_at': '2024-01-01T00:00:00Z'},
+            value={'url': 'https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp4?...', 'created_at': '2024-01-01T00:00:00Z'},
         )
     ]
 )
-class RecordingFileSerializer(serializers.ModelSerializer):
+class RecordingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recording
         fields = ['url', 'created_at']

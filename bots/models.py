@@ -509,6 +509,7 @@ class Recording(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    first_buffer_timestamp_ms = models.BigIntegerField(null=True, blank=True)
 
     file = models.FileField(
         storage=RecordingStorage()
@@ -650,7 +651,7 @@ class Utterance(models.Model):
         choices=AudioFormat.choices,
         default=AudioFormat.PCM
     )
-    timeline_ms = models.IntegerField()
+    timestamp_ms = models.BigIntegerField()
     duration_ms = models.IntegerField()
     transcription = models.JSONField(null=True, default=None)
     
@@ -658,7 +659,7 @@ class Utterance(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Utterance at {self.timeline_ms}ms ({self.duration_ms}ms long)"
+        return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
 
 class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):

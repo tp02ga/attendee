@@ -76,7 +76,6 @@ class StreamingUploader:
         self.upload_thread.join()
         
         # Complete multipart upload
-        print("len(self.parts) ", len(self.parts))
         self.s3_client.complete_multipart_upload(
             Bucket=self.bucket,
             Key=self.key,

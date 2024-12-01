@@ -79,6 +79,11 @@ class ZoomBot:
 
         self.active_speaker_id = None
 
+    def get_first_buffer_timestamp_ms(self):
+        if self.pipeline.start_time_ns is None:
+            return None
+        return int(self.pipeline.start_time_ns / 1_000_000)
+
     def on_new_sample_from_pipeline(self, data):
         self.uploader.upload_part(data)
 
