@@ -59,12 +59,12 @@ class GstreamerPipeline:
                 'queue name=q3 ! '
                 'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
                 'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-                'queue name=q5 leaky=downstream max-size-buffers=2 ! '  # Allow dropping audio buffers
+                'queue name=q5 leaky=downstream ! '  # Allow dropping audio buffers
                 'audioconvert ! '
-                'audiorate silent=false ! '  # Add silent=false to show rate changes
-                'queue name=q6 leaky=downstream max-size-buffers=2 ! '  # Allow dropping audio buffers
+                'audiorate ! '
+                'queue name=q6 leaky=downstream ! '  # Allow dropping audio buffers
                 'voaacenc bitrate=128000 ! '
-                'queue name=q7 leaky=downstream max-size-buffers=2 ! '  # Allow dropping audio buffers
+                'queue name=q7 leaky=downstream ! '  # Allow dropping audio buffers
                 'muxer. '
             )
             
