@@ -105,19 +105,29 @@ def run_bot(self, bot_id):
     
     first_timeout_call = True
 
-    def quit_main_loop():
-        if main_loop and main_loop.is_running():
-            main_loop.quit()
-        return False
-
     def cleanup_bot():
+        normal_quitting_process_worked = False
+        import threading
+        def terminate_worker():
+            import time
+            time.sleep(20)
+            if normal_quitting_process_worked:
+                print("Normal quitting process worked, not force terminating worker")
+                return
+            print("Terminating worker with hard timeout...")
+            os.kill(os.getpid(), signal.SIGKILL)  # Force terminate the worker process
+        
+        termination_thread = threading.Thread(target=terminate_worker, daemon=True)
+        termination_thread.start()
+
         if zoom_bot:
             print("Leaving meeting...")
             zoom_bot.leave()
             print("Cleaning up zoom bot...")
-            GLib.idle_add(zoom_bot.cleanup)
-            print("Set timeout to quit main loop in 5 seconds")
-            GLib.timeout_add_seconds(5, quit_main_loop)
+            zoom_bot.cleanup()
+        if main_loop and main_loop.is_running():
+            main_loop.quit()
+        normal_quitting_process_worked = True
     
     def handle_glib_shutdown():
         print("handle_glib_shutdown called")
@@ -267,7 +277,7 @@ def run_bot(self, bot_id):
                 first_timeout_call = False
 
             # Process audio chunks
-            #utterance_processing_queue.process_chunks()
+            utterance_processing_queue.process_chunks()
             return True
             
         except Exception as e:
