@@ -105,14 +105,19 @@ def run_bot(self, bot_id):
     
     first_timeout_call = True
 
+    def quit_main_loop():
+        if main_loop and main_loop.is_running():
+            main_loop.quit()
+        return False
+
     def cleanup_bot():
         if zoom_bot:
             print("Leaving meeting...")
             zoom_bot.leave()
             print("Cleaning up zoom bot...")
-            zoom_bot.cleanup()
-        if main_loop and main_loop.is_running():
-            main_loop.quit()
+            GLib.idle_add(zoom_bot.cleanup)
+            print("Set timeout to quit main loop in 5 seconds")
+            GLib.timeout_add_seconds(5, quit_main_loop)
     
     def handle_glib_shutdown():
         print("handle_glib_shutdown called")
