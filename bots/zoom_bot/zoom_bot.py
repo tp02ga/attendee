@@ -6,7 +6,9 @@ import os
 import numpy as np
 import queue
 import webrtcvad
-
+from .gstreamer_pipeline import GstreamerPipeline
+from .video_input_manager import VideoInputManager
+from .streaming_uploader import StreamingUploader
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()
     exp = iat + timedelta(hours=24)
@@ -30,10 +32,12 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, get_recording_filename_callback, saved_recording_file_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_audio_chunk_callback = add_audio_chunk_callback
+        self.get_recording_filename_callback = get_recording_filename_callback
+        self.saved_recording_file_callback = saved_recording_file_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id = meeting_id
@@ -67,7 +71,38 @@ class ZoomBot:
         self.participants_ctrl = None
         self.meeting_reminder_event = None
 
+        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
+        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
+
+        self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename_callback())
+        self.uploader.start_upload()
+
+        self.active_speaker_id = None
+
+    def get_first_buffer_timestamp_ms(self):
+        if self.pipeline.start_time_ns is None:
+            return None
+        return int(self.pipeline.start_time_ns / 1_000_000)
+
+    def on_new_sample_from_pipeline(self, data):
+        self.uploader.upload_part(data)
+
+    def on_user_active_audio_change_callback(self, user_ids):
+        if self.active_speaker_id == user_ids[0]:
+            return
+
+        if self.pipeline.wants_any_video_frames():
+            self.active_speaker_id = user_ids[0]
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=self.active_speaker_id)
+
     def cleanup(self):
+        if self.pipeline:
+            self.pipeline.cleanup()
+
+        if self.uploader:
+            self.uploader.complete_upload()
+            self.saved_recording_file_callback(self.uploader.key)
+
         if self.meeting_service:
             zoom.DestroyMeetingService(self.meeting_service)
             print("Destroyed Meeting service")
@@ -81,6 +116,9 @@ class ZoomBot:
         if self.audio_helper:
             audio_helper_unsubscribe_result = self.audio_helper.unSubscribe()
             print("audio_helper.unSubscribe() returned", audio_helper_unsubscribe_result)
+
+        if self.video_input_manager:
+            self.video_input_manager.cleanup()
 
         print("CleanUPSDK() called")
         zoom.CleanUPSDK()
@@ -135,6 +173,10 @@ class ZoomBot:
 
         self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
         self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
+
+        self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
+        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
+        self.audio_ctrl.SetEvent(self.audio_ctrl_event)
 
     def on_mic_initialize_callback(self, sender):
         self.audio_raw_data_sender = sender
@@ -197,7 +239,11 @@ class ZoomBot:
             return
         
         if self.audio_source is None:
-            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(collectPerformanceData=True, onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback)
+            self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(
+                collectPerformanceData=True, 
+                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback,
+                onMixedAudioRawDataReceivedCallback=self.pipeline.on_mixed_audio_raw_data_received_callback
+            )
 
 
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
@@ -210,6 +256,8 @@ class ZoomBot:
             print("Failed to set external audio source")
             return
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
+
+        self.pipeline.setup_gstreamer_pipeline()
 
     def stop_raw_recording(self):
         rec_ctrl = self.meeting_service.StopRawRecording()
@@ -241,7 +289,9 @@ class ZoomBot:
         if status == zoom.MEETING_STATUS_IDLE:
             return
 
-        self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        print("Leaving meeting...")
+        leave_result = self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        print("Left meeting. result =", leave_result)
 
 
     def join_meeting(self):

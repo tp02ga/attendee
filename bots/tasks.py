@@ -1,6 +1,6 @@
 from celery import shared_task, current_app
 from celery.signals import celeryd_init, worker_shutting_down, worker_process_init, worker_process_shutdown
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, AnalysisTask, AnalysisTaskTypes, AnalysisTaskStates, AnalysisTaskSubTypes, AnalysisTaskManager, Participant, Credentials, RecordingUpload
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -39,47 +39,6 @@ def convert_utterance_audio_blob_to_mp3(utterance):
         utterance.save()
         utterance.refresh_from_db() # because of the .tobytes() issue
 
-@shared_task(bind=True, soft_time_limit=36000)
-def generate_audio_recording(self, bot_id):
-    from pydub import AudioSegment
-
-    print(f"Generating audiorecording for bot {bot_id}")
-    analysis_task = AnalysisTask.objects.get(bot_id=bot_id, analysis_type=AnalysisTaskTypes.AUDIO_RECORDING_GENERATION)
-    AnalysisTaskManager.set_task_in_progress(analysis_task)
-
-    utterances = Utterance.objects.filter(bot_id=bot_id)
-
-    # Make sure all utterances have mp3 format
-    for utterance in utterances:
-        convert_utterance_audio_blob_to_mp3(utterance)
-
-    # Get max timestamp to determine final file length
-    max_timestamp_ms = 0
-    for utterance in utterances:
-        max_timestamp_ms = max(max_timestamp_ms, utterance.timeline_ms + utterance.duration_ms)
-
-    final_audio = AudioSegment.silent(duration=max_timestamp_ms)
-
-    for utterance in utterances:
-        audio_file = io.BytesIO(utterance.audio_blob.tobytes())
-        audio = AudioSegment.from_file(audio_file, format="mp3")
-        final_audio = final_audio.overlay(audio, position=utterance.timeline_ms)
-
-    # Export to a BytesIO object instead of a file
-    mp3_buffer = io.BytesIO()
-    final_audio.export(mp3_buffer, format="mp3")
-    mp3_buffer.seek(0)
-
-    # Create the RecordingUpload instance
-    recording_upload = RecordingUpload(analysis_task=analysis_task)
-    recording_upload.file.save(
-        f"{hashlib.md5(str(analysis_task.id).encode()).hexdigest()}.mp3",  # filename
-        ContentFile(mp3_buffer.read())  # file content
-    )
-    recording_upload.save()
-
-    AnalysisTaskManager.set_task_complete(analysis_task)   
-
 @shared_task(bind=True, soft_time_limit=3600)
 def process_utterance(self, utterance_id):
     import json
@@ -93,8 +52,8 @@ def process_utterance(self, utterance_id):
     utterance = Utterance.objects.get(id=utterance_id)
     print(f"Processing utterance {utterance_id}")
 
-    analysis_task = AnalysisTask.objects.get(bot=utterance.bot, analysis_type=AnalysisTaskTypes.SPEECH_TRANSCRIPTION)
-    AnalysisTaskManager.set_task_in_progress(analysis_task)
+    recording = utterance.recording
+    RecordingManager.set_recording_transcription_in_progress(recording)
 
     # if utterance file format is pcm, convert to mp3
     convert_utterance_audio_blob_to_mp3(utterance)
@@ -109,7 +68,7 @@ def process_utterance(self, utterance_id):
             smart_format=True,
         )
 
-        deepgram_credentials_record = analysis_task.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
+        deepgram_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
         if not deepgram_credentials_record:
             raise Exception("Deepgram credentials record not found")
 
@@ -123,8 +82,9 @@ def process_utterance(self, utterance_id):
         utterance.transcription = json.loads(response.results.channels[0].alternatives[0].to_json())
         utterance.save()
 
-    if BotEventManager.is_terminal_state(utterance.bot.state) and Utterance.objects.filter(bot=utterance.bot, transcription__isnull=True).count() == 0:
-        AnalysisTaskManager.set_task_complete(analysis_task)
+    # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
+    if RecordingManager.is_terminal_state(utterance.recording.state) and Utterance.objects.filter(recording=utterance.recording, transcription__isnull=True).count() == 0:
+        RecordingManager.set_recording_transcription_complete(utterance.recording)
 
 @shared_task(bind=True, soft_time_limit=3600)
 def run_bot(self, bot_id):
@@ -132,7 +92,7 @@ def run_bot(self, bot_id):
     gi.require_version('GLib', '2.0')
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
-    from bots.zoom_bot.audio_processing_queue import AudioProcessingQueue
+    from bots.zoom_bot.utterance_processing_queue import UtteranceProcessingQueue
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -146,6 +106,20 @@ def run_bot(self, bot_id):
     first_timeout_call = True
 
     def cleanup_bot():
+        normal_quitting_process_worked = False
+        import threading
+        def terminate_worker():
+            import time
+            time.sleep(20)
+            if normal_quitting_process_worked:
+                print("Normal quitting process worked, not force terminating worker")
+                return
+            print("Terminating worker with hard timeout...")
+            os.kill(os.getpid(), signal.SIGKILL)  # Force terminate the worker process
+        
+        termination_thread = threading.Thread(target=terminate_worker, daemon=True)
+        termination_thread.start()
+
         if zoom_bot:
             print("Leaving meeting...")
             zoom_bot.leave()
@@ -153,6 +127,7 @@ def run_bot(self, bot_id):
             zoom_bot.cleanup()
         if main_loop and main_loop.is_running():
             main_loop.quit()
+        normal_quitting_process_worked = True
     
     def handle_glib_shutdown():
         print("handle_glib_shutdown called")
@@ -231,12 +206,18 @@ def run_bot(self, bot_id):
             )
 
             # Create new utterance record
+            recordings_in_progress = Recording.objects.filter(bot=bot_in_db, state=RecordingTranscriptionStates.IN_PROGRESS)
+            if recordings_in_progress.count() == 0:
+                raise Exception("No recording in progress found")
+            if recordings_in_progress.count() > 1:
+                raise Exception(f"Expected at most one recording in progress for bot {bot_in_db.object_id}, but found {recordings_in_progress.count()}")
+            recording_in_progress = recordings_in_progress.first()
             utterance = Utterance.objects.create(
-                bot=bot_in_db,
+                recording=recording_in_progress,
                 participant=participant,
                 audio_blob=message['audio_data'],
                 audio_format=Utterance.AudioFormat.PCM,
-                timeline_ms=message['timeline_ms'],
+                timestamp_ms=message['timestamp_ms'],
                 duration_ms=len(message['audio_data']) / 64,
             )
 
@@ -262,34 +243,41 @@ def run_bot(self, bot_id):
 
     def get_participant(participant_id):
         return zoom_bot.get_participant(participant_id)
+    
+    def get_recording_filename():
+        recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
+        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.mp4"
+    
+    def recording_file_saved(s3_storage_key):
+        recording = Recording.objects.get(bot_id=bot_id, is_default_recording=True)
+        recording.file = s3_storage_key
+        recording.first_buffer_timestamp_ms = zoom_bot.get_first_buffer_timestamp_ms()
+        recording.save()
+
+    def handle_redis_message(message):
+        if message and message['type'] == 'message':
+            data = json.loads(message['data'].decode('utf-8'))
+            command = data.get('command')
+            
+            if command == 'sync':
+                print(f"Syncing bot {bot_in_db.object_id}")
+                bot_in_db.refresh_from_db()
+                take_action_based_on_bot_in_db()
+            else:
+                print(f"Unknown command: {command}")
 
     def on_timeout():
         try:
             nonlocal first_timeout_call
             
-            # Call take_action_based_on_bot_in_db on first execution
             if first_timeout_call:
                 print("First timeout call - taking initial action")
                 bot_in_db.refresh_from_db()
                 take_action_based_on_bot_in_db()
                 first_timeout_call = False
 
-            # Process audio chunks (not sure if this belongs in the zoom bot or in here)
-            audio_processing_queue.process_chunks()
-
-            # Original timeout logic
-            message = pubsub.get_message()
-            if message and message['type'] == 'message':
-                data = json.loads(message['data'].decode('utf-8'))
-                command = data.get('command')
-                
-                if command == 'sync':
-                    print(f"Syncing bot {bot_in_db.object_id}")
-                    bot_in_db.refresh_from_db()
-                    take_action_based_on_bot_in_db()
-                else:
-                    print(f"Unknown command: {command}")
-
+            # Process audio chunks
+            utterance_processing_queue.process_chunks()
             return True
             
         except Exception as e:
@@ -313,12 +301,14 @@ def run_bot(self, bot_id):
         meeting_id, meeting_password = parse_join_url(bot_in_db.meeting_url)
 
 
-        audio_processing_queue = AudioProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+        utterance_processing_queue = UtteranceProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
 
         zoom_bot = ZoomBot(
             display_name=bot_in_db.name,
             send_message_callback=take_action_based_on_message_from_zoom_bot,
-            add_audio_chunk_callback=audio_processing_queue.add_chunk,
+            add_audio_chunk_callback=utterance_processing_queue.add_chunk,
+            get_recording_filename_callback=get_recording_filename,
+            saved_recording_file_callback=recording_file_saved,
             zoom_client_id=zoom_oauth_credentials['client_id'],
             zoom_client_secret=zoom_oauth_credentials['client_secret'],
             meeting_id=meeting_id,
@@ -328,7 +318,23 @@ def run_bot(self, bot_id):
         # Create GLib main loop
         main_loop = GLib.MainLoop()
         
-        # Add timeout function to check Redis messages every 100ms
+        # Set up Redis listener in a separate thread
+        import threading
+        def redis_listener():
+            while True:
+                try:
+                    message = pubsub.get_message(timeout=1.0)
+                    if message:
+                        # Schedule Redis message handling in the main GLib loop
+                        GLib.idle_add(lambda: handle_redis_message(message))
+                except Exception as e:
+                    print(f"Error in Redis listener: {e}")
+                    break
+
+        redis_thread = threading.Thread(target=redis_listener, daemon=True)
+        redis_thread.start()
+
+        # Add timeout just for audio processing
         GLib.timeout_add(100, on_timeout)
         
         # Add signal handlers so that when we get a SIGTERM or SIGINT, we can clean up the bot

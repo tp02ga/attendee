@@ -6,7 +6,7 @@ urlpatterns = [
     path('bots/<str:object_id>', bots_api_views.BotDetailView.as_view(), name='bot-detail'),
     path('bots/<str:object_id>/leave', bots_api_views.BotLeaveView.as_view(), name='bot-leave'),
     path('bots/<str:object_id>/transcript', bots_api_views.TranscriptView.as_view(), name='bot-transcript'),
-    path('bots/<str:object_id>/audio_recording', bots_api_views.AudioRecordingView.as_view(), name='bot-audio-recording'),
+    path('bots/<str:object_id>/recording', bots_api_views.RecordingView.as_view(), name='bot-recording'),
 ]
 
 # catch any other paths and return a 404 json response - must be last

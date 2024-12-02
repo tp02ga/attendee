@@ -9,7 +9,7 @@ def calculate_normalized_rms(audio_bytes):
     # Normalize by max possible value for 16-bit audio (32768)
     return rms / 32768
 
-class AudioProcessingQueue:
+class UtteranceProcessingQueue:
     def __init__(self, *, save_utterance_callback, get_participant_callback):
         self.queue = queue.Queue()
 
@@ -24,13 +24,9 @@ class AudioProcessingQueue:
 
         self.UTTERANCE_SIZE_LIMIT = 19200000  # 19.2 MB / 2 bytes per sample / 32,000 samples per second = 300 seconds of continuous audio
         self.SILENCE_DURATION_LIMIT = 3  # seconds
-        self.timeline_start = None
         self.vad = webrtcvad.Vad()
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
-        if self.timeline_start is None:
-            self.timeline_start = chunk_time
-
         self.queue.put((speaker_id, chunk_time, chunk_bytes))
 
     def process_chunks(self):
@@ -89,7 +85,7 @@ class AudioProcessingQueue:
                     'message': "New utterance",
                     **participant,
                     'audio_data': bytes(self.utterances[speaker_id]),
-                    'timeline_ms': int((self.first_nonsilent_audio_time[speaker_id] - self.timeline_start).total_seconds() * 1000),
+                    'timestamp_ms': int(self.first_nonsilent_audio_time[speaker_id].timestamp() * 1000),
                     'flush_reason': reason
                 })
             # Clear the buffer

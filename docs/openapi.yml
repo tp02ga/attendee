@@ -55,7 +55,7 @@ paths:
                     state: joining
                     sub_state: null
                     transcription_state: not_started
-                    audio_recording_state: not_started
+                    recording_state: not_started
                   summary: Meeting URL
           description: Bot created successfully
         '400':
@@ -102,53 +102,11 @@ paths:
                     state: joining
                     sub_state: null
                     transcription_state: not_started
-                    audio_recording_state: not_started
+                    recording_state: not_started
                   summary: Meeting URL
           description: Bot details
         '404':
           description: Bot not found
-  /api/v1/bots/{object_id}/audio_recording:
-    get:
-      operationId: Get Bot Audio Recording
-      description: Returns a short-lived S3 URL for the audio recording of the bot.
-      summary: Get the audio recording for a bot
-      parameters:
-      - in: header
-        name: Authorization
-        schema:
-          type: string
-          default: Token YOUR_API_KEY_HERE
-        description: API key for authentication
-        required: true
-      - in: header
-        name: Content-Type
-        schema:
-          type: string
-          default: application/json
-        description: Should always be application/json
-        required: true
-      - in: path
-        name: object_id
-        schema:
-          type: string
-        required: true
-      tags:
-      - Bots
-      security:
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecordingUpload'
-              examples:
-                RecordingUpload:
-                  value:
-                    url: https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp3?...
-                    created_at: '2024-01-01T00:00:00Z'
-                  summary: Recording Upload
-          description: Signed URL for the recording
   /api/v1/bots/{object_id}/leave:
     post:
       operationId: Leave Meeting
@@ -192,11 +150,53 @@ paths:
                     state: joining
                     sub_state: null
                     transcription_state: not_started
-                    audio_recording_state: not_started
+                    recording_state: not_started
                   summary: Meeting URL
           description: Successfully requested to leave meeting
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/recording:
+    get:
+      operationId: Get Bot Recording
+      description: Returns a short-lived S3 URL for the recording of the bot.
+      summary: Get the recording for a bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recording'
+              examples:
+                RecordingUpload:
+                  value:
+                    url: https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp4?...
+                    start_timestamp_ms: 1733114771000
+                  summary: Recording Upload
+          description: Short-lived S3 URL for the recording
   /api/v1/bots/{object_id}/transcript:
     get:
       operationId: Get Bot Transcript
@@ -240,13 +240,6 @@ paths:
           description: Bot not found
 components:
   schemas:
-    AudioRecordingStateEnum:
-      type: string
-      enum:
-      - not_started
-      - in_progress
-      - complete
-      - failed
     Bot:
       type: object
       properties:
@@ -268,14 +261,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/TranscriptionStateEnum'
           readOnly: true
-        audio_recording_state:
+        recording_state:
           allOf:
-          - $ref: '#/components/schemas/AudioRecordingStateEnum'
+          - $ref: '#/components/schemas/RecordingStateEnum'
           readOnly: true
       required:
-      - audio_recording_state
       - id
       - meeting_url
+      - recording_state
       - state
       - sub_state
       - transcription_state
@@ -293,19 +286,24 @@ components:
       required:
       - bot_name
       - meeting_url
-    RecordingUpload:
+    Recording:
       type: object
       properties:
         url:
           type: string
           readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
+        start_timestamp_ms:
+          type: integer
       required:
-      - created_at
+      - start_timestamp_ms
       - url
+    RecordingStateEnum:
+      type: string
+      enum:
+      - not_started
+      - in_progress
+      - complete
+      - failed
     StateEnum:
       type: string
       enum:

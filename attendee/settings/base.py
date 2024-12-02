@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'concurrency',
     'allauth.socialaccount.providers.google',
     'drf_spectacular',
-    'storages'
+    'storages',
+    'django_extensions'
 ]
 
 CREDENTIALS_ENCRYPTION_KEY = os.getenv('CREDENTIALS_ENCRYPTION_KEY')
