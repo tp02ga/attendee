@@ -90,11 +90,13 @@ class TranscriptUtteranceSerializer(serializers.Serializer):
     examples=[
         OpenApiExample(
             'Recording Upload',
-            value={'url': 'https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp4?...', 'created_at': '2024-01-01T00:00:00Z'},
+            value={'url': 'https://attendee-short-term-storage-production.s3.amazonaws.com/e4da3b7fbbce2345d7772b0674a318d5.mp4?...', 'start_timestamp_ms': 1733114771000},
         )
     ]
 )
 class RecordingSerializer(serializers.ModelSerializer):
+    start_timestamp_ms = serializers.IntegerField(source='first_buffer_timestamp_ms')
+
     class Meta:
         model = Recording
-        fields = ['url', 'created_at']
+        fields = ['url', 'start_timestamp_ms']

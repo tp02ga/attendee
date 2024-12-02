@@ -153,7 +153,7 @@ class RecordingView(APIView):
         summary='Get the recording for a bot',
         description='Returns a short-lived S3 URL for the recording of the bot.',
         responses={
-            200: OpenApiResponse(response=RecordingSerializer, description='Signed URL for the recording')
+            200: OpenApiResponse(response=RecordingSerializer, description='Short-lived S3 URL for the recording')
         },
         parameters=TokenHeaderParameter,
         tags=['Bots'],
