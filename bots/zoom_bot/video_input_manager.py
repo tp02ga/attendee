@@ -32,7 +32,7 @@ class VideoInputStream:
         self.raw_data_status = zoom.RawData_Off
 
         self.last_frame_time = time.time()
-        self.black_frame_timer_id = GLib.timeout_add(100, self.send_black_frame)
+        self.black_frame_timer_id = GLib.timeout_add(250, self.send_black_frame)
 
     def on_raw_data_status_changed_callback(self, status):
         self.raw_data_status = status
@@ -42,7 +42,7 @@ class VideoInputStream:
             return False
             
         current_time = time.time()
-        if current_time - self.last_frame_time >= 0.1 and self.raw_data_status == zoom.RawData_Off:
+        if current_time - self.last_frame_time >= 0.25 and self.raw_data_status == zoom.RawData_Off:
             # Create a black frame of the same dimensions
             black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
             self.video_input_manager.new_frame_callback(black_frame)

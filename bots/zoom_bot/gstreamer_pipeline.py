@@ -165,7 +165,7 @@ class GstreamerPipeline:
     def on_mixed_audio_raw_data_received_callback(self, data):
         if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
             return
-        print("gstuff")
+
         try:
             current_time_ns = time.time_ns()
             buffer_bytes = data.GetBuffer()
