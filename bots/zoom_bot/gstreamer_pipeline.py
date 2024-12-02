@@ -1,7 +1,6 @@
 import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
-import threading
 import time
 import os
 
@@ -15,18 +14,13 @@ class GstreamerPipeline:
         self.audio_appsrc = None
         self.audio_recording_active = False
 
-        self.start_time_ns = None
+        self.start_time_ns = None  # Will be set on first frame/audio sample
 
         # Initialize GStreamer
         Gst.init(None)
 
         self.queue_drops = {f'q{i}': 0 for i in range(1, 8)}
         self.last_reported_drops = {f'q{i}': 0 for i in range(1, 8)}
-        
-        # Add new members for event loop management
-        self.main_loop = None
-        self.main_loop_thread = None
-        self.pipeline_lock = threading.Lock()
 
     def on_new_sample_from_appsink(self, sink):
         """Handle new samples from the appsink"""
@@ -40,94 +34,78 @@ class GstreamerPipeline:
     
     def setup_gstreamer_pipeline(self):
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
-        # Create a new main loop and thread for GStreamer
-        self.main_loop = GLib.MainLoop()
-        self.main_loop_thread = threading.Thread(target=self._run_gstreamer_loop)
-        self.main_loop_thread.daemon = True
+        self.start_time_ns = None
+
+        reduce_video_resolution_pipeline_str = (
+            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q1 ! '
+            'videoconvert ! '
+            'videoscale ! video/x-raw,width=320,height=180 ! '  # Downscale video
+            'videorate ! '
+            'queue name=q2 ! '
+            'x264enc tune=zerolatency speed-preset=ultrafast ! '
+            'queue name=q3 ! '
+            'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
+            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q5 leaky=downstream ! '
+            'audioconvert ! '
+            'audiorate ! '
+            'queue name=q6 leaky=downstream ! '
+            'voaacenc bitrate=128000 ! '
+            'queue name=q7 leaky=downstream ! '
+            'muxer. '
+        )
         
-        with self.pipeline_lock:
-            self.start_time_ns = None
-            
-            reduce_video_resolution_pipeline_str = (
-                'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-                'queue name=q1 ! '
-                'videoconvert ! '
-                'videoscale ! video/x-raw,width=320,height=180 ! '  # Downscale video
-                'videorate ! '
-                'queue name=q2 ! '
-                'x264enc tune=zerolatency speed-preset=ultrafast ! '
-                'queue name=q3 ! '
-                'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
-                'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-                'queue name=q5 leaky=downstream ! '  # Allow dropping audio buffers
-                'audioconvert ! '
-                'audiorate ! '
-                'queue name=q6 leaky=downstream ! '  # Allow dropping audio buffers
-                'voaacenc bitrate=128000 ! '
-                'queue name=q7 leaky=downstream ! '  # Allow dropping audio buffers
-                'muxer. '
-            )
-            
-            self.pipeline = Gst.parse_launch(reduce_video_resolution_pipeline_str)
-            
-            # Get both appsrc elements
-            self.appsrc = self.pipeline.get_by_name('video_source')
-            self.audio_appsrc = self.pipeline.get_by_name('audio_source')
-            
-            # Configure video appsrc
-            video_caps = Gst.Caps.from_string('video/x-raw,format=BGR,width=640,height=360,framerate=30/1')
-            self.appsrc.set_property('caps', video_caps)
-            self.appsrc.set_property('format', Gst.Format.TIME)
-            self.appsrc.set_property('is-live', True)
-            self.appsrc.set_property('do-timestamp', False)
-            self.appsrc.set_property('stream-type', 0)  # GST_APP_STREAM_TYPE_STREAM
-            self.appsrc.set_property('block', True)  # This helps with synchronization
+        self.pipeline = Gst.parse_launch(reduce_video_resolution_pipeline_str)
+        
+        # Get both appsrc elements
+        self.appsrc = self.pipeline.get_by_name('video_source')
+        self.audio_appsrc = self.pipeline.get_by_name('audio_source')
+        
+        # Configure video appsrc
+        video_caps = Gst.Caps.from_string('video/x-raw,format=BGR,width=640,height=360,framerate=30/1')
+        self.appsrc.set_property('caps', video_caps)
+        self.appsrc.set_property('format', Gst.Format.TIME)
+        self.appsrc.set_property('is-live', True)
+        self.appsrc.set_property('do-timestamp', False)
+        self.appsrc.set_property('stream-type', 0)  # GST_APP_STREAM_TYPE_STREAM
+        self.appsrc.set_property('block', True)  # This helps with synchronization
 
-            # Configure audio appsrc
-            audio_caps = Gst.Caps.from_string(
-                'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
-            )
-            self.audio_appsrc.set_property('caps', audio_caps)
-            self.audio_appsrc.set_property('format', Gst.Format.TIME)
-            self.audio_appsrc.set_property('is-live', True)
-            self.audio_appsrc.set_property('do-timestamp', False)
-            self.audio_appsrc.set_property('stream-type', 0)  # GST_APP_STREAM_TYPE_STREAM
-            self.audio_appsrc.set_property('block', True)  # This helps with synchronization
+        # Configure audio appsrc
+        audio_caps = Gst.Caps.from_string(
+            'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
+        )
+        self.audio_appsrc.set_property('caps', audio_caps)
+        self.audio_appsrc.set_property('format', Gst.Format.TIME)
+        self.audio_appsrc.set_property('is-live', True)
+        self.audio_appsrc.set_property('do-timestamp', False)
+        self.audio_appsrc.set_property('stream-type', 0)  # GST_APP_STREAM_TYPE_STREAM
+        self.audio_appsrc.set_property('block', True)  # This helps with synchronization
 
-            # Set up bus
-            bus = self.pipeline.get_bus()
-            bus.add_signal_watch()
-            bus.connect('message', self.on_pipeline_message)
+        # Set up bus
+        bus = self.pipeline.get_bus()
+        bus.add_signal_watch()
+        bus.connect('message', self.on_pipeline_message)
 
-            # Connect to the sink element
-            sink = self.pipeline.get_by_name('sink')
-            sink.connect("new-sample", self.on_new_sample_from_appsink)
-            
-            # Start the pipeline
-            self.pipeline.set_state(Gst.State.PLAYING)
+        # Connect to the sink element
+        sink = self.pipeline.get_by_name('sink')
+        sink.connect("new-sample", self.on_new_sample_from_appsink)
+        
+        # Start the pipeline
+        self.pipeline.set_state(Gst.State.PLAYING)
 
-            self.recording_active = True
-            self.audio_recording_active = True
+        self.recording_active = True
+        self.audio_recording_active = True
 
-            # Start statistics monitoring
-            self.monitoring_active = True
-            GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
+        # Start statistics monitoring
+        self.monitoring_active = True
+        GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
 
-            # Connect drop signals for all queues
-            for i in range(1, 8):
-                queue = self.pipeline.get_by_name(f'q{i}')
-                if queue:
-                    queue.connect('overrun', self.on_queue_overrun, f'q{i}')
-
-            # Start the GStreamer event loop thread
-            self.main_loop_thread.start()
-
-    def _run_gstreamer_loop(self):
-        """Run the GStreamer main loop in a separate thread"""
-        try:
-            self.main_loop.run()
-        except Exception as e:
-            print(f"Error in GStreamer main loop: {e}")
+        # Connect drop signals for all queues
+        for i in range(1, 8):
+            queue = self.pipeline.get_by_name(f'q{i}')
+            if queue:
+                queue.connect('overrun', self.on_queue_overrun, f'q{i}')
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
@@ -191,21 +169,25 @@ class GstreamerPipeline:
         return True
     
     def on_new_video_frame(self, frame):
-        if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
-            return
-
         try:
             current_time_ns = time.time_ns()
-            
+                        
             # Initialize start time if not set
             if self.start_time_ns is None:
                 self.start_time_ns = current_time_ns
 
+            # Calculate buffer timestamp relative to start time
             buffer_pts = current_time_ns - self.start_time_ns
+            
+            # Create buffer with timestamp
             buffer = Gst.Buffer.new_wrapped(frame.tobytes())
             buffer.pts = buffer_pts
+            
+            # Calculate duration based on time until next frame
+            # Default to 33ms (30fps) if this is the last frame
             buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
             
+            # Push buffer to pipeline
             ret = self.appsrc.emit('push-buffer', buffer)
             if ret != Gst.FlowReturn.OK:
                 print(f"Warning: Failed to push buffer to pipeline: {ret}")
@@ -214,40 +196,25 @@ class GstreamerPipeline:
             print(f"Error processing video frame: {e}")
 
     def cleanup(self):
-        """Thread-safe cleanup of the GStreamer pipeline"""
         print("Shutting down GStreamer pipeline...")
 
-        with self.pipeline_lock:
-            self.recording_active = False
-            self.audio_recording_active = False
+        self.recording_active = False
+        self.audio_recording_active = False
 
-            if self.appsrc:
-                self.appsrc.emit('end-of-stream')
-            if self.audio_appsrc:
-                self.audio_appsrc.emit('end-of-stream')
-            
-            if self.pipeline:
-                bus = self.pipeline.get_bus()
-                msg = bus.timed_pop_filtered(
-                    Gst.CLOCK_TIME_NONE,
-                    Gst.MessageType.EOS | Gst.MessageType.ERROR
-                )
-                
-                if msg and msg.type == Gst.MessageType.ERROR:
-                    err, debug = msg.parse_error()
-                    print(f"Error during pipeline shutdown: {err}, {debug}")
-                
-                self.pipeline.set_state(Gst.State.NULL)
-
-        # Quit the GStreamer main loop
-        if self.main_loop and self.main_loop.is_running():
-            self.main_loop.quit()
-
-        # Wait for the thread to finish
-        if self.main_loop_thread and self.main_loop_thread.is_alive():
-            print("waiting for gstreamer thread to finish")
-            self.main_loop_thread.join(timeout=180)
-            if self.main_loop_thread.is_alive():
-                print("Warning: GStreamer thread did not shut down cleanly")
-
+        if self.appsrc:
+            self.appsrc.emit('end-of-stream')
+        if self.audio_appsrc:
+            self.audio_appsrc.emit('end-of-stream')
+        
+        bus = self.pipeline.get_bus()
+        msg = bus.timed_pop_filtered(
+            Gst.CLOCK_TIME_NONE,
+            Gst.MessageType.EOS | Gst.MessageType.ERROR
+        )
+        
+        if msg and msg.type == Gst.MessageType.ERROR:
+            err, debug = msg.parse_error()
+            print(f"Error during pipeline shutdown: {err}, {debug}")
+        
+        self.pipeline.set_state(Gst.State.NULL)
         print("GStreamer pipeline shut down")
