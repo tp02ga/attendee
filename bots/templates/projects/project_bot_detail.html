@@ -55,6 +55,12 @@
     .utterance-text {
         margin-top: 0.25rem;
     }
+    .highlighted {
+        background-color: #e2f0ff;
+    }
+    .word {
+        display: inline;
+    }
 </style>
 
 <div class="container mt-4">
@@ -122,7 +128,15 @@
                                                     {{ utterance.participant.full_name }}
                                                 </div>
                                                 <div class="utterance-text">
-                                                    {{ utterance.transcription.transcript }}
+                                                    {% if utterance.transcription.words %}
+                                                        {% for word in utterance.get_relative_word_timestamps %}
+                                                            <span class="word" data-start="{{ word.start }}" data-end="{{ word.end }}">
+                                                                {{ word.punctuated_word }}
+                                                            </span>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        {{ utterance.transcription.transcript }}
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -177,7 +191,6 @@
 </div>
 <script>
     function seekVideo(element, timestamp_ms) {
-        // Find the closest video element within the same recording-container
         const container = element.closest('.recording-container');
         const video = container.querySelector('video');
         if (video) {
@@ -185,5 +198,24 @@
             video.play();
         }
     }
+
+    // Add highlighting functionality
+    document.querySelectorAll('video').forEach(video => {
+        video.addEventListener('timeupdate', function() {
+            const container = this.closest('.recording-container');
+            const words = container.querySelectorAll('.word');
+            
+            words.forEach(word => {
+                const start = parseFloat(word.dataset.start / 1000.0);
+                const end = parseFloat(word.dataset.end / 1000.0);
+                
+                if (this.currentTime > start) {
+                    word.classList.add('highlighted');
+                } else {
+                    word.classList.remove('highlighted');
+                }
+            });
+        });
+    });
 </script>
 {% endblock %}

@@ -680,6 +680,26 @@ class Utterance(models.Model):
     def __str__(self):
         return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
 
+    def get_relative_word_timestamps(self):
+        """Returns a list of word objects with relative timestamps"""
+        if not self.transcription or 'words' not in self.transcription:
+            return []
+            
+        if not hasattr(self, 'recording') or self.recording.first_buffer_timestamp_ms is None:
+            return self.transcription['words']
+            
+        base_timestamp = self.timestamp_ms - self.recording.first_buffer_timestamp_ms
+        
+        # Create a new list of word objects with adjusted timestamps
+        relative_words = []
+        for word in self.transcription['words']:
+            relative_word = word.copy()
+            relative_word['start'] = base_timestamp + int(word['start'] * 1000)
+            relative_word['end'] = base_timestamp + int(word['end'] * 1000)
+            relative_words.append(relative_word)
+            
+        return relative_words
+
 class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
         DEEPGRAM = 1, 'Deepgram'
