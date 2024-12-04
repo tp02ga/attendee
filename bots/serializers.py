@@ -84,7 +84,7 @@ class TranscriptUtteranceSerializer(serializers.Serializer):
     speaker_user_uuid = serializers.CharField(allow_null=True)
     timestamp_ms = serializers.IntegerField()
     duration_ms = serializers.IntegerField()
-    transcription = serializers.CharField()
+    transcription = serializers.JSONField()
 
 @extend_schema_serializer(
     examples=[

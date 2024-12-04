@@ -223,7 +223,7 @@ class TranscriptView(APIView):
                     'speaker_user_uuid': utterance.participant.user_uuid,
                     'timestamp_ms': utterance.timestamp_ms,
                     'duration_ms': utterance.duration_ms,
-                    'transcription': utterance.transcription['transcript']
+                    'transcription': utterance.transcription
                 }
                 for utterance in utterances     
                 if utterance.transcription.get('words', [])
