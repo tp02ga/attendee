@@ -23,10 +23,35 @@
         border-radius: 50%;
     }
     .recording-item {
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    .recording-container {
+        display: flex;
+        gap: 1rem;
+        height: 600px;  /* Fixed height for the container */
+    }
+    .transcript-column {
+        flex: 1;
+        overflow-y: auto;
         padding: 1rem;
         border: 1px solid #dee2e6;
         border-radius: 0.25rem;
+    }
+    .video-column {
+        flex: 1;
+    }
+    .utterance-item {
         margin-bottom: 1rem;
+        padding: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    .utterance-timestamp {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    .utterance-text {
+        margin-top: 0.25rem;
     }
 </style>
 
@@ -78,24 +103,37 @@
             {% if bot.recordings.all %}
                 {% for recording in bot.recordings.all %}
                     <div class="recording-item">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p><strong>ID:</strong> {{ recording.object_id }}</p>
-                                <p><strong>Type:</strong> {{ recording.get_recording_type_display }}</p>
-                                <p><strong>Status:</strong> 
-                                    <span class="badge {% if recording.state == RecordingStates.COMPLETE %}bg-success{% elif recording.state == RecordingStates.FAILED %}bg-danger{% else %}bg-warning{% endif %}">
-                                        {{ recording.get_state_display }}
-                                    </span>
-                                </p>
+                        {% if recording.state == RecordingStates.COMPLETE %}
+                            <div class="recording-container">
+                                <div class="transcript-column">
+                                    {% for utterance in recording.utterances.all %}
+                                        <div class="utterance-item">
+                                            <div class="utterance-timestamp">
+                                                {{ utterance.participant.full_name }} at {{ utterance.timestamp_ms|floatformat:"0" }}ms
+                                            </div>
+                                            <div class="utterance-text">
+                                                {{ utterance.transcription.transcript }}
+                                            </div>
+                                        </div>
+                                    {% empty %}
+                                        <div class="alert alert-info">No transcripts available.</div>
+                                    {% endfor %}
+                                </div>
+                                <div class="video-column">
+                                    <video width="100%" controls>
+                                        <source src="{{ recording.url }}" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <p><strong>Started:</strong> {{ recording.started_at|default:"Not started" }}</p>
-                                <p><strong>Completed:</strong> {{ recording.completed_at|default:"Not completed" }}</p>
-                                {% if recording.state == RecordingStates.COMPLETE %}
-                                    <a href="{{ recording.url }}" class="btn btn-primary btn-sm" target="_blank">Download Recording</a>
-                                {% endif %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                Recording status: 
+                                <span class="badge {% if recording.state == RecordingStates.FAILED %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {{ recording.get_state_display }}
+                                </span>
                             </div>
-                        </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             {% else %}

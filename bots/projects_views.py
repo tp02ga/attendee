@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Project, Bot, BotStates, Bot, Credentials
+from .models import Project, Bot, BotStates, Bot, Credentials, RecordingStates
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.http import HttpResponse
@@ -209,6 +209,7 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         context.update({
             'bot': bot,
             'BotStates': BotStates,
+            'RecordingStates': RecordingStates,
         })
         
         return render(request, 'projects/project_bot_detail.html', context)
