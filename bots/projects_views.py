@@ -1,9 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Project, Bot, BotStates, Bot, Credentials, RecordingStates
+from .models import Project, Bot, BotStates, Bot, Credentials, RecordingStates, Utterance
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.http import HttpResponse
 from .models import ApiKey
+from django.db import models
 
 class ProjectUrlContextMixin:
     def get_project_context(self, object_id, project):
@@ -203,6 +204,14 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         bot = get_object_or_404(Bot, 
             object_id=bot_object_id,
             project=project
+        )
+
+        # Prefetch recordings with their utterances and participants
+        bot.recordings.all().prefetch_related(
+            models.Prefetch(
+                'utterances',
+                queryset=Utterance.objects.select_related('participant')
+            )
         )
 
         context = self.get_project_context(object_id, project)

@@ -658,6 +658,25 @@ class Utterance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    _relative_timestamp_ms = None  # Cache for relative timestamp
+
+    @property
+    def relative_timestamp_ms(self):
+        if self._relative_timestamp_ms is None:
+            if hasattr(self, 'recording') and self.recording.first_buffer_timestamp_ms is not None:
+                base_timestamp = self.timestamp_ms - self.recording.first_buffer_timestamp_ms
+                
+                # If we have transcription data, adjust by the first word's start time
+                if self.transcription and 'words' in self.transcription and self.transcription['words']:
+                    # Convert first word start time from seconds to milliseconds
+                    first_word_start_ms = int(self.transcription['words'][0]['start'] * 1000)
+                    self._relative_timestamp_ms = base_timestamp + first_word_start_ms
+                else:
+                    self._relative_timestamp_ms = base_timestamp
+            else:
+                self._relative_timestamp_ms = None
+        return self._relative_timestamp_ms
+
     def __str__(self):
         return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
 

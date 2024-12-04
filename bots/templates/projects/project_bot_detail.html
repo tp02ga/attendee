@@ -1,5 +1,7 @@
 {% extends 'projects/sidebar.html' %}
 
+{% load bot_filters %}
+
 {% block content %}
 <style>
     .detail-card {
@@ -107,14 +109,22 @@
                             <div class="recording-container">
                                 <div class="transcript-column">
                                     {% for utterance in recording.utterances.all %}
-                                        <div class="utterance-item">
-                                            <div class="utterance-timestamp">
-                                                {{ utterance.participant.full_name }} at {{ utterance.timestamp_ms|floatformat:"0" }}ms
+                                        {% if utterance.transcription.transcript %}
+                                            <div class="utterance-item">
+                                                <div class="utterance-timestamp">
+                                                    {% if recording.first_buffer_timestamp_ms is not None %}
+                                                        {% widthratio utterance.relative_timestamp_ms 1000 1 as seconds %}
+                                                    {% else %}
+                                                        {% widthratio utterance.timestamp_ms 1000 1 as seconds %}
+                                                    {% endif %}
+                                                    {{ seconds|integer_divide:60 }}:{{ seconds|modulo:60|stringformat:"02d" }} | 
+                                                    {{ utterance.participant.full_name }}
+                                                </div>
+                                                <div class="utterance-text">
+                                                    {{ utterance.transcription.transcript }}
+                                                </div>
                                             </div>
-                                            <div class="utterance-text">
-                                                {{ utterance.transcription.transcript }}
-                                            </div>
-                                        </div>
+                                        {% endif %}
                                     {% empty %}
                                         <div class="alert alert-info">No transcripts available.</div>
                                     {% endfor %}
