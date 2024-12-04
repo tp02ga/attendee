@@ -175,3 +175,20 @@ class ProjectSettingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         })
         
         return render(request, 'projects/project_settings.html', context)
+    
+class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id):
+        project = get_object_or_404(Project, 
+            object_id=object_id,
+            organization=request.user.organization
+        )
+        
+        bots = Bot.objects.filter(project=project)
+
+        context = self.get_project_context(object_id, project)
+        context.update({
+            'bots': bots,
+            'BotStates': BotStates,
+        })
+        
+        return render(request, 'projects/project_bots.html', context)
