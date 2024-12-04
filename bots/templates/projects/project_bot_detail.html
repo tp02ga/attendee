@@ -1,0 +1,123 @@
+{% extends 'projects/sidebar.html' %}
+
+{% block content %}
+<style>
+    .detail-card {
+        margin-bottom: 1.5rem;
+    }
+    .timeline-item {
+        padding: 1rem;
+        border-left: 2px solid #dee2e6;
+        margin-left: 1rem;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -0.5rem;
+        top: 1.5rem;
+        width: 1rem;
+        height: 1rem;
+        background: #fff;
+        border: 2px solid #007bff;
+        border-radius: 50%;
+    }
+    .recording-item {
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="container mt-4">
+    <!-- Bot Details -->
+    <div class="card detail-card">
+        <div class="card-header">
+            <h4 class="mb-0">Bot Details</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>ID:</strong> {{ bot.object_id }}</p>
+                    <p><strong>Name:</strong> {{ bot.name }}</p>
+                    <p><strong>Created:</strong> {{ bot.created_at|date:"M d, Y H:i" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Meeting URL:</strong> {{ bot.meeting_url }}</p>
+                    <p><strong>Status:</strong> 
+                        <span class="badge {% if bot.state == BotStates.READY %}bg-warning{% elif bot.state == BotStates.FATAL_ERROR %}bg-danger{% elif bot.state == BotStates.ENDED %}bg-secondary{% else %}bg-success{% endif %}">
+                            {{ bot.get_state_display }}
+                            {% if bot.sub_state %}
+                                - {{ bot.get_sub_state_display }}
+                            {% endif %}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recordings -->
+    <div class="card detail-card">
+        <div class="card-header">
+            <h4 class="mb-0">Recordings</h4>
+        </div>
+        <div class="card-body">
+            {% if bot.recordings.all %}
+                {% for recording in bot.recordings.all %}
+                    <div class="recording-item">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>ID:</strong> {{ recording.object_id }}</p>
+                                <p><strong>Type:</strong> {{ recording.get_recording_type_display }}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="badge {% if recording.state == RecordingStates.COMPLETE %}bg-success{% elif recording.state == RecordingStates.FAILED %}bg-danger{% else %}bg-warning{% endif %}">
+                                        {{ recording.get_state_display }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Started:</strong> {{ recording.started_at|default:"Not started" }}</p>
+                                <p><strong>Completed:</strong> {{ recording.completed_at|default:"Not completed" }}</p>
+                                {% if recording.state == RecordingStates.COMPLETE %}
+                                    <a href="{{ recording.url }}" class="btn btn-primary btn-sm" target="_blank">Download Recording</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">No recordings available.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Event Timeline -->
+    <div class="card detail-card">
+        <div class="card-header">
+            <h4 class="mb-0">Event Timeline</h4>
+        </div>
+        <div class="card-body">
+            {% if bot.bot_events.all %}
+                <div class="timeline">
+                    {% for event in bot.bot_events.all %}
+                        <div class="timeline-item">
+                            <h6>{{ event.get_event_type_display }}</h6>
+                            <p class="text-muted mb-1">{{ event.created_at|date:"M d, Y H:i:s" }}</p>
+                            <p class="mb-0">
+                                State changed from 
+                                <span class="badge bg-secondary">{{ event.get_old_state_display }}</span>
+                                to 
+                                <span class="badge bg-primary">{{ event.get_new_state_display }}</span>
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">No events recorded.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
