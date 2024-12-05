@@ -47,6 +47,15 @@
         margin-bottom: 1rem;
         padding: 0.5rem;
         border-bottom: 1px solid #eee;
+        display: flex;
+    }
+    .speaker-bar {
+        width: 4px;
+        margin-right: 10px;
+        border-radius: 2px;
+    }
+    .utterance-content {
+        flex: 1;
     }
     .utterance-timestamp {
         font-size: 0.8rem;
@@ -114,27 +123,30 @@
                         {% if recording.state == RecordingStates.COMPLETE %}
                             <div class="recording-container">
                                 <div class="transcript-column">
-                                    {% for utterance in recording.utterances.all %}
+                                    {% for utterance in recording.utterances.all|dictsort:"timestamp_ms" %}
                                         {% if utterance.transcription.transcript %}
                                             <div class="utterance-item">
-                                                <div class="utterance-timestamp" role="button" style="cursor: pointer" 
-                                                     onclick="seekVideo(this, {{ utterance.relative_timestamp_ms }})">
-                                                    {% if recording.first_buffer_timestamp_ms is not None %}
-                                                        {% widthratio utterance.relative_timestamp_ms 1000 1 as seconds %}
-                                                    {% else %}
-                                                        {% widthratio utterance.timestamp_ms 1000 1 as seconds %}
-                                                    {% endif %}
-                                                    {{ seconds|integer_divide:60 }}:{{ seconds|modulo:60|stringformat:"02d" }} | 
-                                                    {{ utterance.participant.full_name }}
-                                                </div>
-                                                <div class="utterance-text">
-                                                    {% if utterance.transcription.words %}
-                                                        {% for word in utterance.get_relative_word_timestamps %}
-                                                            <span class="word" data-start="{{ word.start }}" data-end="{{ word.end }}">{{ word.punctuated_word }}</span>{% if not forloop.last %}{% with next_word=utterance.get_relative_word_timestamps|get_next:forloop.counter0 %}<span class="word-space" data-start="{{ next_word.start }}" data-end="{{ next_word.start }}"> </span>{% endwith %}{% endif %}
-                                                        {% endfor %}
-                                                    {% else %}
-                                                        {{ utterance.transcription.transcript }}
-                                                    {% endif %}
+                                                <div class="speaker-bar" style="background-color: {{ utterance.participant.user_uuid|participant_color }}"></div>
+                                                <div class="utterance-content">
+                                                    <div class="utterance-timestamp" role="button" style="cursor: pointer" 
+                                                         onclick="seekVideo(this, {{ utterance.relative_timestamp_ms }})">
+                                                        {% if recording.first_buffer_timestamp_ms is not None %}
+                                                            {% widthratio utterance.relative_timestamp_ms 1000 1 as seconds %}
+                                                        {% else %}
+                                                            {% widthratio utterance.timestamp_ms 1000 1 as seconds %}
+                                                        {% endif %}
+                                                        {{ seconds|integer_divide:60 }}:{{ seconds|modulo:60|stringformat:"02d" }} | 
+                                                        {{ utterance.participant.full_name }}
+                                                    </div>
+                                                    <div class="utterance-text">
+                                                        {% if utterance.transcription.words %}
+                                                            {% for word in utterance.get_relative_word_timestamps %}
+                                                                <span class="word" data-start="{{ word.start }}" data-end="{{ word.end }}">{{ word.punctuated_word }}</span>{% if not forloop.last %}{% with next_word=utterance.get_relative_word_timestamps|get_next:forloop.counter0 %}<span class="word-space" data-start="{{ next_word.start }}" data-end="{{ next_word.start }}"> </span>{% endwith %}{% endif %}
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            {{ utterance.transcription.transcript }}
+                                                        {% endif %}
+                                                    </div>
                                                 </div>
                                             </div>
                                         {% endif %}

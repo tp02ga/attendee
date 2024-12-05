@@ -184,7 +184,7 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             organization=request.user.organization
         )
         
-        bots = Bot.objects.filter(project=project)
+        bots = Bot.objects.filter(project=project).order_by('-created_at')
 
         context = self.get_project_context(object_id, project)
         context.update({
