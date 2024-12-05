@@ -1,6 +1,6 @@
 import queue
 import webrtcvad
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 
 def calculate_normalized_rms(audio_bytes):
@@ -37,6 +37,10 @@ class UtteranceProcessingQueue:
         for speaker_id in list(self.first_nonsilent_audio_time.keys()):
             self.process_chunk(speaker_id, datetime.utcnow(), None)
 
+    # When the meeting ends, we need to flush all utterances. Do this by pretending that we received a chunk of silence at the end of the meeting.
+    def flush_utterances(self):
+        for speaker_id in list(self.first_nonsilent_audio_time.keys()):
+            self.process_chunk(speaker_id, datetime.utcnow() + timedelta(seconds=self.SILENCE_DURATION_LIMIT + 1), None)
 
     def silence_detected(self, chunk_bytes):
         if calculate_normalized_rms(chunk_bytes) < 0.01:

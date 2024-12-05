@@ -79,6 +79,8 @@ class ZoomBot:
 
         self.active_speaker_id = None
 
+        self._participant_cache = {}
+
     def get_first_buffer_timestamp_ms(self):
         if self.pipeline.start_time_ns is None:
             return None
@@ -86,6 +88,11 @@ class ZoomBot:
 
     def on_new_sample_from_pipeline(self, data):
         self.uploader.upload_part(data)
+
+    def on_user_join_callback(self, joined_user_ids, _):
+        print("on_user_join_callback called. joined_user_ids =", joined_user_ids)
+        for joined_user_id in joined_user_ids:
+            self.get_participant(joined_user_id)
 
     def on_user_active_audio_change_callback(self, user_ids):
         if self.active_speaker_id == user_ids[0]:
@@ -142,14 +149,16 @@ class ZoomBot:
     def get_participant(self, participant_id):
         try:
             speaker_object = self.participants_ctrl.GetUserByUserID(participant_id)
-            return {
+            participant_info = {
                 'participant_uuid': participant_id,
                 'participant_user_uuid': speaker_object.GetPersistentId(),
                 'participant_full_name': speaker_object.GetUserName()
             }
+            self._participant_cache[participant_id] = participant_info
+            return participant_info
         except:
-            print(f"Error getting participant {participant_id}")
-            return None
+            print(f"Error getting participant {participant_id}, falling back to cache")
+            return self._participant_cache.get(participant_id)
 
     def on_join(self):
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
@@ -172,7 +181,12 @@ class ZoomBot:
             self.start_raw_recording()
 
         self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
+        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback)
+        self.participants_ctrl.SetEvent(self.participants_ctrl_event)
         self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
+        participant_ids_list = self.participants_ctrl.GetParticipantsList()
+        for participant_id in participant_ids_list:
+            self.get_participant(participant_id)
 
         self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
         self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
