@@ -141,7 +141,7 @@
                                                     <div class="utterance-text">
                                                         {% if utterance.transcription.words %}
                                                             {% for word in utterance.get_relative_word_timestamps %}
-                                                                <span class="word" data-start="{{ word.start }}" data-end="{{ word.end }}">{{ word.punctuated_word }}</span>{% if not forloop.last %}{% with next_word=utterance.get_relative_word_timestamps|get_next:forloop.counter0 %}<span class="word-space" data-start="{{ next_word.start }}" data-end="{{ next_word.start }}"> </span>{% endwith %}{% endif %}
+                                                                <span class="word" data-utterance-ts="{{ utterance.timestamp_ms }}" data-start="{{ word.start }}" data-end="{{ word.end }}">{{ word.punctuated_word }}</span>{% if not forloop.last %}{% with next_word=utterance.get_relative_word_timestamps|get_next:forloop.counter0 %}<span class="word-space" data-utterance-ts="{{ utterance.timestamp_ms }}" data-start="{{ next_word.start }}" data-end="{{ next_word.start }}"> </span>{% endwith %}{% endif %}
                                                             {% endfor %}
                                                         {% else %}
                                                             {{ utterance.transcription.transcript }}
@@ -219,10 +219,15 @@
             words.forEach(word => {
                 const start = parseFloat(word.dataset.start) / 1000.0;
                 const end = parseFloat(word.dataset.end) / 1000.0;
-                
-                if (this.currentTime > start) {
-                    word.classList.add('highlighted');
+                if (this.currentTime > start && this.currentTime <= end)
                     lastHighlightedWord = word;
+            });
+
+            words.forEach(word => {
+                const start = parseFloat(word.dataset.start) / 1000.0;
+                
+                if (this.currentTime > start && lastHighlightedWord && word.dataset.utteranceTs == lastHighlightedWord.dataset.utteranceTs) {
+                    word.classList.add('highlighted');
                 } else {
                     word.classList.remove('highlighted');
                 }
