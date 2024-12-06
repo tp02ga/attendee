@@ -204,7 +204,7 @@
         const container = element.closest('.recording-container');
         const video = container.querySelector('video');
         if (video) {
-            video.currentTime = timestamp_ms / 1000;
+            video.currentTime = timestamp_ms / 1000.0;
             video.play();
         }
     }
@@ -214,17 +214,30 @@
         video.addEventListener('timeupdate', function() {
             const container = this.closest('.recording-container');
             const words = container.querySelectorAll('.word, .word-space');
+            let lastHighlightedWord = null;
             
             words.forEach(word => {
-                const start = parseFloat(word.dataset.start / 1000.0);
-                const end = parseFloat(word.dataset.end / 1000.0);
+                const start = parseFloat(word.dataset.start) / 1000.0;
+                const end = parseFloat(word.dataset.end) / 1000.0;
                 
                 if (this.currentTime > start) {
                     word.classList.add('highlighted');
+                    lastHighlightedWord = word;
                 } else {
                     word.classList.remove('highlighted');
                 }
             });
+
+            // Auto-scroll to keep first highlighted word visible
+            if (lastHighlightedWord) {
+                const transcriptColumn = container.querySelector('.transcript-column');
+                const wordRect = lastHighlightedWord.getBoundingClientRect();
+                const containerRect = transcriptColumn.getBoundingClientRect();
+
+                if (wordRect.top < containerRect.top || wordRect.bottom > containerRect.bottom) {
+                    lastHighlightedWord.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         });
     });
 </script>
