@@ -47,3 +47,7 @@ def participant_color(uuid):
     b = min(b, max_brightness)
     
     return f'#{r:02x}{g:02x}{b:02x}'
+
+@register.filter
+def md5(value):
+    return hashlib.md5(str(value).encode()).hexdigest()
