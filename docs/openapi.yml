@@ -336,8 +336,7 @@ components:
           type: integer
         duration_ms:
           type: integer
-        transcription:
-          type: string
+        transcription: {}
       required:
       - duration_ms
       - speaker_name

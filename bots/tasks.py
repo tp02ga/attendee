@@ -1,5 +1,4 @@
-from celery import shared_task, current_app
-from celery.signals import celeryd_init, worker_shutting_down, worker_process_init, worker_process_shutdown
+from celery import shared_task
 from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
@@ -7,12 +6,8 @@ import redis
 import json
 import os
 import signal
-import random
-from asgiref.sync import async_to_sync
 from urllib.parse import urlparse, parse_qs
 import re
-import io
-from django.core.files.base import ContentFile
 import hashlib
 
 def parse_join_url(join_url):
@@ -146,6 +141,10 @@ def run_bot(self, bot_id):
     def take_action_based_on_message_from_zoom_bot(message):
         if message.get('message') == ZoomBot.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
+            if utterance_processing_queue:
+                print("Flushing utterances...")
+                utterance_processing_queue.flush_utterances()
+
             if bot_in_db.state == BotStates.LEAVING_REQ_STARTED_BY_BOT:
                 BotEventManager.create_event(
                     bot=bot_in_db,
@@ -206,7 +205,7 @@ def run_bot(self, bot_id):
             )
 
             # Create new utterance record
-            recordings_in_progress = Recording.objects.filter(bot=bot_in_db, state=RecordingTranscriptionStates.IN_PROGRESS)
+            recordings_in_progress = Recording.objects.filter(bot=bot_in_db, state=RecordingStates.IN_PROGRESS)
             if recordings_in_progress.count() == 0:
                 raise Exception("No recording in progress found")
             if recordings_in_progress.count() > 1:

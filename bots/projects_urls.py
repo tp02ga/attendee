@@ -5,6 +5,8 @@ app_name = 'bots'
 
 urlpatterns = [
     path('<str:object_id>', projects_views.ProjectDashboardView.as_view(), name='project-dashboard'),
+    path('<str:object_id>/bots', projects_views.ProjectBotsView.as_view(), name='project-bots'),
+    path('<str:object_id>/bots/<str:bot_object_id>', projects_views.ProjectBotDetailView.as_view(), name='project-bot-detail'),
     path('<str:object_id>/settings', projects_views.ProjectSettingsView.as_view(), name='project-settings'),
     path('<str:object_id>/keys', projects_views.ProjectApiKeysView.as_view(), name='project-api-keys'),
     path('<str:object_id>/keys/create/', projects_views.CreateApiKeyView.as_view(), name='create-api-key'),
