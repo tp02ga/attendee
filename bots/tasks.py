@@ -1,5 +1,5 @@
 from celery import shared_task
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, BotMediaRequestMediaTypes, BotMediaRequestStates, BotMediaRequestManager, BotMediaRequest, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -224,6 +224,24 @@ def run_bot(self, bot_id):
             process_utterance.delay(utterance.id)
             return
 
+    def take_action_based_on_media_requests_in_db():
+        media_type = BotMediaRequestMediaTypes.AUDIO
+        oldest_enqueued_media_request = bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by('created_at').first()
+        if not oldest_enqueued_media_request:
+            return
+        currently_playing_media_request = bot_in_db.media_requests.filter(state=BotMediaRequestStates.PLAYING, media_type=media_type).first()
+        if currently_playing_media_request:
+            print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
+            return
+        if oldest_enqueued_media_request.state == BotMediaRequestStates.ENQUEUED:
+            from .utils import mp3_to_pcm
+            try:
+                zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob))
+                BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+            except Exception as e:
+                print(f"Error sending raw audio: {e}")
+                BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
+                
     def take_action_based_on_bot_in_db():
         if bot_in_db.state == BotStates.JOINING_REQ_NOT_STARTED_BY_BOT:
             print("take_action_based_on_bot_in_db - JOINING_REQ_NOT_STARTED_BY_BOT")
@@ -262,6 +280,10 @@ def run_bot(self, bot_id):
                 print(f"Syncing bot {bot_in_db.object_id}")
                 bot_in_db.refresh_from_db()
                 take_action_based_on_bot_in_db()
+            elif command == 'sync_media_requests':
+                print(f"Syncing media requests for bot {bot_in_db.object_id}")
+                bot_in_db.refresh_from_db()
+                take_action_based_on_media_requests_in_db()
             else:
                 print(f"Unknown command: {command}")
 

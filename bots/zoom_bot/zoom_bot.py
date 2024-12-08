@@ -9,6 +9,11 @@ import webrtcvad
 from .gstreamer_pipeline import GstreamerPipeline
 from .video_input_manager import VideoInputManager
 from .streaming_uploader import StreamingUploader
+
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
+
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()
     exp = iat + timedelta(hours=24)
@@ -70,6 +75,7 @@ class ZoomBot:
         self.my_participant_id = None
         self.participants_ctrl = None
         self.meeting_reminder_event = None
+        self.on_mic_start_send_callback_called = False
 
         self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
         self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
@@ -192,14 +198,38 @@ class ZoomBot:
         self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
         self.audio_ctrl.SetEvent(self.audio_ctrl_event)
 
+        GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
+
+    def set_up_bot_audio_input(self):
+        if self.audio_helper is None:
+            self.audio_helper = zoom.GetAudioRawdataHelper()
+
+        if self.audio_helper is None:
+            print("set_up_bot_audio_input failed because audio_helper is None")
+            return
+
+        self.virtual_audio_mic_event_passthrough = zoom.ZoomSDKVirtualAudioMicEventCallbacks(
+            onMicInitializeCallback=self.on_mic_initialize_callback, 
+            onMicStartSendCallback=self.on_mic_start_send_callback
+        )
+
+        audio_helper_set_external_audio_source_result = self.audio_helper.setExternalAudioSource(self.virtual_audio_mic_event_passthrough)
+        print("audio_helper_set_external_audio_source_result =", audio_helper_set_external_audio_source_result)
+        if audio_helper_set_external_audio_source_result != zoom.SDKERR_SUCCESS:
+            print("Failed to set external audio source")
+            return
+
     def on_mic_initialize_callback(self, sender):
         self.audio_raw_data_sender = sender
 
+    def send_raw_audio(self, bytes):
+        if not self.on_mic_start_send_callback_called:
+            raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
+        self.audio_raw_data_sender.send(bytes, 32000, zoom.ZoomSDKAudioChannel_Mono)
+
     def on_mic_start_send_callback(self):
-        return
-        with open('test_audio_16778240.pcm', 'rb') as pcm_file:
-            chunk = pcm_file.read(64000*10)
-            self.audio_raw_data_sender.send(chunk, 32000, zoom.ZoomSDKAudioChannel_Mono)
+        self.on_mic_start_send_callback_called = True
+        print("on_mic_start_send_callback called")
 
     def on_one_way_audio_raw_data_received_callback(self, data, node_id):
         if node_id == self.my_participant_id:
@@ -247,7 +277,8 @@ class ZoomBot:
             print("Start raw recording failed.")
             return
 
-        self.audio_helper = zoom.GetAudioRawdataHelper()
+        if self.audio_helper is None:
+            self.audio_helper = zoom.GetAudioRawdataHelper()
         if self.audio_helper is None:
             print("audio_helper is None")
             return
@@ -259,16 +290,9 @@ class ZoomBot:
                 onMixedAudioRawDataReceivedCallback=self.pipeline.on_mixed_audio_raw_data_received_callback
             )
 
-
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
         print("audio_helper_subscribe_result =",audio_helper_subscribe_result)
 
-        self.virtual_audio_mic_event_passthrough = zoom.ZoomSDKVirtualAudioMicEventCallbacks(onMicInitializeCallback=self.on_mic_initialize_callback,onMicStartSendCallback=self.on_mic_start_send_callback)
-        audio_helper_set_external_audio_source_result = self.audio_helper.setExternalAudioSource(self.virtual_audio_mic_event_passthrough)
-        print("audio_helper_set_external_audio_source_result =", audio_helper_set_external_audio_source_result)
-        if audio_helper_set_external_audio_source_result != zoom.SDKERR_SUCCESS:
-            print("Failed to set external audio source")
-            return
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.pipeline.setup_gstreamer_pipeline()
