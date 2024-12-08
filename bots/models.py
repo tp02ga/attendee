@@ -757,9 +757,7 @@ class MediaBlob(models.Model):
     VALID_AUDIO_CONTENT_TYPES = [
         ('audio/mp3', 'MP3 Audio'),
     ]
-    VALID_VIDEO_CONTENT_TYPES = [
-        ('video/mp4', 'MP4 Video'),
-    ]
+    VALID_VIDEO_CONTENT_TYPES = []
     VALID_IMAGE_CONTENT_TYPES = [
         ('image/png', 'PNG Image'),
     ]
@@ -780,6 +778,7 @@ class MediaBlob(models.Model):
     )
     checksum = models.CharField(max_length=64, editable=False)  # SHA-256 hash is 64 chars
     created_at = models.DateTimeField(auto_now_add=True)
+    duration_ms = models.IntegerField()
 
     def save(self, *args, **kwargs):
         if not self.object_id:
@@ -790,6 +789,14 @@ class MediaBlob(models.Model):
         # Calculate checksum if this is a new object
         if not self.checksum:
             self.checksum = hashlib.sha256(self.blob).hexdigest()
+
+        # Calculate duration for audio content types
+        if any(content_type == self.content_type for content_type, _ in self.VALID_AUDIO_CONTENT_TYPES):
+            from .utils import calculate_audio_duration_ms
+            self.duration_ms = calculate_audio_duration_ms(self.blob, self.content_type)
+
+        if any(content_type == self.content_type for content_type, _ in self.VALID_IMAGE_CONTENT_TYPES):
+            self.duration_ms = 0
 
         if self.id:
             raise ValueError("MediaBlob objects cannot be updated")
@@ -876,6 +883,10 @@ class BotMediaRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def duration_ms(self):
+        return self.media_blob.duration_ms
 
     class Meta:
         constraints = [

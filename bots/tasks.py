@@ -88,6 +88,7 @@ def run_bot(self, bot_id):
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
     from bots.zoom_bot.utterance_processing_queue import UtteranceProcessingQueue
+    from bots.zoom_bot.audio_output_manager import AudioOutputManager
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -223,6 +224,11 @@ def run_bot(self, bot_id):
             # Process the utterance immediately
             process_utterance.delay(utterance.id)
             return
+        
+    def currently_playing_audio_media_request_finished(audio_media_request):
+        print("currently_playing_audio_media_request_finished called")
+        BotMediaRequestManager.set_media_request_finished(audio_media_request)
+        take_action_based_on_media_requests_in_db()
 
     def take_action_based_on_media_requests_in_db():
         media_type = BotMediaRequestMediaTypes.AUDIO
@@ -238,6 +244,7 @@ def run_bot(self, bot_id):
             try:
                 zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob))
                 BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+                audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
             except Exception as e:
                 print(f"Error sending raw audio: {e}")
                 BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
@@ -299,6 +306,9 @@ def run_bot(self, bot_id):
 
             # Process audio chunks
             utterance_processing_queue.process_chunks()
+
+            # Process audio output
+            audio_output_manager.monitor_currently_playing_audio_media_request()
             return True
             
         except Exception as e:
@@ -323,6 +333,7 @@ def run_bot(self, bot_id):
 
 
         utterance_processing_queue = UtteranceProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+        audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=currently_playing_audio_media_request_finished)
 
         zoom_bot = ZoomBot(
             display_name=bot_in_db.name,

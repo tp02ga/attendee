@@ -64,3 +64,26 @@ def mp3_to_pcm(mp3_data: bytes, sample_rate: int = 32000, channels: int = 1, sam
     buffer.close()
     
     return pcm_data
+
+def calculate_audio_duration_ms(audio_data: bytes, content_type: str) -> int:
+    """
+    Calculate the duration of audio data in milliseconds.
+    
+    Args:
+        audio_data (bytes): Audio data in either PCM or MP3 format
+        content_type (str): Content type of the audio data (e.g., 'audio/mp3')
+    
+    Returns:
+        int: Duration in milliseconds
+    """
+    buffer = io.BytesIO(audio_data)
+    
+    if content_type == 'audio/mp3':
+        audio = AudioSegment.from_mp3(buffer)
+    else:
+        raise ValueError(f"Unsupported content type for duration calculation: {content_type}")
+    
+    buffer.close()
+    # len(audio) returns duration in milliseconds for pydub AudioSegment objects
+    duration_ms = len(audio)
+    return duration_ms
