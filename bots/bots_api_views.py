@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance
+from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes
 from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
@@ -53,6 +53,15 @@ class NotFoundView(APIView):
             status=status.HTTP_404_NOT_FOUND
         )
 
+def send_sync_command(bot, command='sync'):
+    redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
+    redis_client = redis.from_url(redis_url)
+    channel = f"bot_{bot.id}"
+    message = {
+        'command': command
+    }
+    redis_client.publish(channel, json.dumps(message))
+
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -102,19 +111,94 @@ class BotCreateView(APIView):
             BotSerializer(bot).data,
             status=status.HTTP_201_CREATED
         )
-        
-class BotLeaveView(APIView):
+    
+class OutputAudioView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
-    def send_sync_command(self, bot):
-        redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
-        redis_client = redis.from_url(redis_url)
-        channel = f"bot_{bot.id}"
-        message = {
-            'command': 'sync'
-        }
-        redis_client.publish(channel, json.dumps(message))
+    @extend_schema(
+        operation_id='Output Audio',
+        summary='Output audio in a meeting',
+        description='Causes the bot to output audio in the meeting.',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'type': {'type': 'string', 'enum': [ct[0] for ct in MediaBlob.VALID_AUDIO_CONTENT_TYPES]},
+                    'data': {'type': 'string', 'format': 'binary', 'description': 'Base64 encoded audio data'}
+                },
+                'required': ['type', 'data']
+            }
+        },
+        responses={
+            200: OpenApiResponse(description='Audio request created successfully'),
+            400: OpenApiResponse(description='Invalid input'),
+            404: OpenApiResponse(description='Bot not found')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Bots'],
+    )
+    def post(self, request, object_id):
+        try:
+            # Validate request data
+            if 'type' not in request.data or 'data' not in request.data:
+                return Response(
+                    {'error': 'Both type and data are required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            content_type = request.data['type']
+            if content_type not in [ct[0] for ct in MediaBlob.VALID_AUDIO_CONTENT_TYPES]:
+                return Response(
+                    {'error': 'Invalid audio content type'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                # Decode base64 data
+                import base64
+                audio_data = base64.b64decode(request.data['data'])
+            except Exception:
+                return Response(
+                    {'error': 'Invalid base64 encoded data'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the bot
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+            if not BotEventManager.is_state_that_can_play_media(bot.state):
+                return Response(
+                    {'error': 'Bot is not in a state that can play media'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create or get existing MediaBlob
+            media_blob = MediaBlob.get_or_create_from_blob(
+                project=request.auth.project,
+                blob=audio_data,
+                content_type=content_type
+            )
+            
+            # Create BotMediaRequest
+            BotMediaRequest.objects.create(
+                bot=bot,
+                media_blob=media_blob,
+                media_type=BotMediaRequestMediaTypes.AUDIO
+            )
+            
+            # Send sync command
+            send_sync_command(bot, 'sync_media_requests')
+            
+            return Response(status=status.HTTP_200_OK)
+            
+        except Bot.DoesNotExist:
+            return Response(
+                {'error': 'Bot not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
     
+class BotLeaveView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+        
     @extend_schema(
         operation_id='Leave Meeting',
         summary='Leave a meeting',
@@ -132,7 +216,7 @@ class BotLeaveView(APIView):
             
             BotEventManager.create_event(bot, BotEvent.EventTypes.LEAVE_REQUESTED_BY_API)
 
-            self.send_sync_command(bot)
+            send_sync_command(bot)
             
             return Response(
                 BotSerializer(bot).data,

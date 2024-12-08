@@ -294,6 +294,10 @@ class BotEventManager:
     }
 
     @classmethod
+    def is_state_that_can_play_media(cls, state: int):
+        return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING
+
+    @classmethod
     def is_terminal_state(cls, state: int):
         return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
@@ -750,6 +754,16 @@ class Credentials(models.Model):
         return f"{self.project.name} - {self.get_credential_type_display()}"
 
 class MediaBlob(models.Model):
+    VALID_AUDIO_CONTENT_TYPES = [
+        ('audio/mp3', 'MP3 Audio'),
+    ]
+    VALID_VIDEO_CONTENT_TYPES = [
+        ('video/mp4', 'MP4 Video'),
+    ]
+    VALID_IMAGE_CONTENT_TYPES = [
+        ('image/png', 'PNG Image'),
+    ]
+
     OBJECT_ID_PREFIX = 'blob_'
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
@@ -760,7 +774,10 @@ class MediaBlob(models.Model):
     )
 
     blob = models.BinaryField()
-    content_type = models.CharField(max_length=255)
+    content_type = models.CharField(
+        max_length=255,
+        choices=VALID_AUDIO_CONTENT_TYPES + VALID_VIDEO_CONTENT_TYPES + VALID_IMAGE_CONTENT_TYPES
+    )
     checksum = models.CharField(max_length=64, editable=False)  # SHA-256 hash is 64 chars
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -818,6 +835,7 @@ class BotMediaRequestStates(models.IntegerChoices):
     PLAYING = 2, 'Playing'
     DROPPED = 3, 'Dropped'
     FINISHED = 4, 'Finished'
+    FAILED_TO_PLAY = 5, 'Failed to Play'
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -826,7 +844,8 @@ class BotMediaRequestStates(models.IntegerChoices):
             cls.ENQUEUED: 'enqueued',
             cls.PLAYING: 'playing',
             cls.DROPPED: 'dropped',
-            cls.FINISHED: 'finished'
+            cls.FINISHED: 'finished',
+            cls.FAILED_TO_PLAY: 'failed_to_play'
         }
         return mapping.get(value)
 
@@ -886,6 +905,16 @@ class BotMediaRequestManager:
             raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
 
         media_request.state = BotMediaRequestStates.FINISHED
+        media_request.save()
+
+    @classmethod
+    def set_media_request_failed_to_play(cls, media_request: BotMediaRequest):
+        if media_request.state == BotMediaRequestStates.FAILED_TO_PLAY:
+            return
+        if media_request.state != BotMediaRequestStates.PLAYING:
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
+
+        media_request.state = BotMediaRequestStates.FAILED_TO_PLAY
         media_request.save()
 
     @classmethod
