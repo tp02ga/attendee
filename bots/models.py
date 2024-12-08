@@ -748,3 +748,152 @@ class Credentials(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.get_credential_type_display()}"
+
+class MediaBlob(models.Model):
+    OBJECT_ID_PREFIX = 'blob_'
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.PROTECT,
+        related_name='media_blobs'
+    )
+
+    blob = models.BinaryField()
+    content_type = models.CharField(max_length=255)
+    checksum = models.CharField(max_length=64, editable=False)  # SHA-256 hash is 64 chars
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+
+        # Calculate checksum if this is a new object
+        if not self.checksum:
+            self.checksum = hashlib.sha256(self.blob).hexdigest()
+
+        if self.id:
+            raise ValueError("MediaBlob objects cannot be updated")
+
+        super().save(*args, **kwargs)
+
+    class Meta:
+        # Ensure we don't store duplicate blobs within a project
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project', 'checksum'],
+                name='unique_project_blob'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.object_id} ({len(self.blob)} bytes)"
+
+    @classmethod
+    def get_or_create_from_blob(cls, project: Project, blob: bytes, content_type: str) -> 'MediaBlob':
+        checksum = hashlib.sha256(blob).hexdigest()
+        
+        existing = cls.objects.filter(
+            project=project,
+            checksum=checksum
+        ).first()
+        
+        if existing:
+            return existing
+            
+        return cls.objects.create(
+            project=project,
+            blob=blob,
+            content_type=content_type
+        )
+
+class BotMediaRequestMediaTypes(models.IntegerChoices):
+    VIDEO = 1, 'Video'
+    AUDIO = 2, 'Audio'
+
+class BotMediaRequestStates(models.IntegerChoices):
+    ENQUEUED = 1, 'Enqueued'
+    PLAYING = 2, 'Playing'
+    DROPPED = 3, 'Dropped'
+    FINISHED = 4, 'Finished'
+
+    @classmethod
+    def state_to_api_code(cls, value):
+        """Returns the API code for a given state value"""
+        mapping = {
+            cls.ENQUEUED: 'enqueued',
+            cls.PLAYING: 'playing',
+            cls.DROPPED: 'dropped',
+            cls.FINISHED: 'finished'
+        }
+        return mapping.get(value)
+
+class BotMediaRequest(models.Model):
+
+    bot = models.ForeignKey(
+        Bot,
+        on_delete=models.CASCADE,
+        related_name='media_requests'
+    )
+
+    media_blob = models.ForeignKey(
+        MediaBlob,
+        on_delete=models.PROTECT,
+        related_name='bot_media_requests'
+    )
+
+    media_type = models.IntegerField(
+        choices=BotMediaRequestMediaTypes.choices,
+        null=False
+    )
+
+    state = models.IntegerField(
+        choices=BotMediaRequestStates.choices,
+        default=BotMediaRequestStates.ENQUEUED,
+        null=False
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['bot', 'media_type'],
+                condition=Q(state=BotMediaRequestStates.PLAYING),
+                name='unique_playing_media_request_per_bot_and_type'
+            )
+        ]
+
+class BotMediaRequestManager:
+    @classmethod
+    def set_media_request_playing(cls, media_request: BotMediaRequest):
+        if media_request.state == BotMediaRequestStates.PLAYING:
+            return
+        if media_request.state != BotMediaRequestStates.ENQUEUED:
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
+        
+        media_request.state = BotMediaRequestStates.PLAYING
+        media_request.save()
+
+    @classmethod
+    def set_media_request_finished(cls, media_request: BotMediaRequest):
+        if media_request.state == BotMediaRequestStates.FINISHED:
+            return
+        if media_request.state != BotMediaRequestStates.PLAYING:
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
+
+        media_request.state = BotMediaRequestStates.FINISHED
+        media_request.save()
+
+    @classmethod
+    def set_media_request_dropped(cls, media_request: BotMediaRequest):
+        if media_request.state == BotMediaRequestStates.DROPPED:
+            return
+        if media_request.state != BotMediaRequestStates.PLAYING and media_request.state != BotMediaRequestStates.ENQUEUED:
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
+
+        media_request.state = BotMediaRequestStates.DROPPED
+        media_request.save()
