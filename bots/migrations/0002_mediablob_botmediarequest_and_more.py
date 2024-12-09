@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
             name='BotMediaRequest',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('media_type', models.IntegerField(choices=[(1, 'Video'), (2, 'Audio')])),
+                ('media_type', models.IntegerField(choices=[(1, 'Image'), (2, 'Audio')])),
                 ('state', models.IntegerField(choices=[(1, 'Enqueued'), (2, 'Playing'), (3, 'Dropped'), (4, 'Finished'), (5, 'Failed to Play')], default=1)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
