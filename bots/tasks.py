@@ -239,15 +239,15 @@ def run_bot(self, bot_id):
         if currently_playing_media_request:
             print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
             return
-        if oldest_enqueued_media_request.state == BotMediaRequestStates.ENQUEUED:
-            from .utils import mp3_to_pcm
-            try:
-                zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob))
-                BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
-                audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
-            except Exception as e:
-                print(f"Error sending raw audio: {e}")
-                BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
+        
+        from .utils import mp3_to_pcm
+        try:
+            BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+            zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob))
+            audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
+        except Exception as e:
+            print(f"Error sending raw audio: {e}")
+            BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
 
     def take_action_based_on_image_media_requests_in_db():
         from .utils import png_to_yuv420_frame
