@@ -117,7 +117,7 @@ class OutputAudioView(APIView):
     
     @extend_schema(
         operation_id='Output Audio',
-        summary='Output audio in a meeting',
+        summary='Output audio',
         description='Causes the bot to output audio in the meeting.',
         request={
             'application/json': {
@@ -201,7 +201,7 @@ class OutputImageView(APIView):
     
     @extend_schema(
         operation_id='Output Image',
-        summary='Output image in a meeting',
+        summary='Output image',
         description='Causes the bot to output an image in the meeting.',
         request={
             'application/json': {
