@@ -111,7 +111,7 @@ class BotCreateView(APIView):
             BotSerializer(bot).data,
             status=status.HTTP_201_CREATED
         )
-    
+
 class OutputAudioView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     
@@ -196,6 +196,90 @@ class OutputAudioView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
     
+class OutputImageView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    
+    @extend_schema(
+        operation_id='Output Image',
+        summary='Output image in a meeting',
+        description='Causes the bot to output an image in the meeting.',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'type': {'type': 'string', 'enum': [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES]},
+                    'data': {'type': 'string', 'format': 'binary', 'description': 'Base64 encoded image data'}
+                },
+                'required': ['type', 'data']
+            }
+        },
+        responses={
+            200: OpenApiResponse(description='Image request created successfully'),
+            400: OpenApiResponse(description='Invalid input'),
+            404: OpenApiResponse(description='Bot not found')
+        },
+        parameters=TokenHeaderParameter,
+        tags=['Bots'],
+    )
+    def post(self, request, object_id):
+        try:
+            # Validate request data
+            if 'type' not in request.data or 'data' not in request.data:
+                return Response(
+                    {'error': 'Both type and data are required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            content_type = request.data['type']
+            if content_type not in [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES]:
+                return Response(
+                    {'error': 'Invalid image content type'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                # Decode base64 data
+                import base64
+                image_data = base64.b64decode(request.data['data'])
+            except Exception:
+                return Response(
+                    {'error': 'Invalid base64 encoded data'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the bot
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+            if not BotEventManager.is_state_that_can_play_media(bot.state):
+                return Response(
+                    {'error': 'Bot is not in a state that can play media'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create or get existing MediaBlob
+            media_blob = MediaBlob.get_or_create_from_blob(
+                project=request.auth.project,
+                blob=image_data,
+                content_type=content_type
+            )
+            
+            # Create BotMediaRequest
+            BotMediaRequest.objects.create(
+                bot=bot,
+                media_blob=media_blob,
+                media_type=BotMediaRequestMediaTypes.IMAGE
+            )
+            
+            # Send sync command
+            send_sync_command(bot, 'sync_media_requests')
+            
+            return Response(status=status.HTTP_200_OK)
+            
+        except Bot.DoesNotExist:
+            return Response(
+                {'error': 'Bot not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
 class BotLeaveView(APIView):
     authentication_classes = [ApiKeyAuthentication]
         

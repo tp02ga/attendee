@@ -228,9 +228,9 @@ def run_bot(self, bot_id):
     def currently_playing_audio_media_request_finished(audio_media_request):
         print("currently_playing_audio_media_request_finished called")
         BotMediaRequestManager.set_media_request_finished(audio_media_request)
-        take_action_based_on_media_requests_in_db()
+        take_action_based_on_audio_media_requests_in_db()
 
-    def take_action_based_on_media_requests_in_db():
+    def take_action_based_on_audio_media_requests_in_db():
         media_type = BotMediaRequestMediaTypes.AUDIO
         oldest_enqueued_media_request = bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by('created_at').first()
         if not oldest_enqueued_media_request:
@@ -248,6 +248,40 @@ def run_bot(self, bot_id):
             except Exception as e:
                 print(f"Error sending raw audio: {e}")
                 BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
+
+    def take_action_based_on_image_media_requests_in_db():
+        from .utils import png_to_yuv420_frame
+
+        media_type = BotMediaRequestMediaTypes.IMAGE
+        
+        # Get all enqueued image media requests for this bot, ordered by creation time
+        enqueued_requests = bot_in_db.media_requests.filter(
+            state=BotMediaRequestStates.ENQUEUED,
+            media_type=media_type
+        ).order_by('created_at')
+
+        if not enqueued_requests.exists():
+            return
+
+        # Get the most recently created request
+        most_recent_request = enqueued_requests.last()
+        
+        # Mark the most recent request as FINISHED
+        try:
+            BotMediaRequestManager.set_media_request_playing(most_recent_request)
+            zoom_bot.send_raw_image(png_to_yuv420_frame(most_recent_request.media_blob.blob))
+            BotMediaRequestManager.set_media_request_finished(most_recent_request)
+        except Exception as e:
+            print(f"Error sending raw image: {e}")
+            BotMediaRequestManager.set_media_request_failed_to_play(most_recent_request)
+        
+        # Mark all other enqueued requests as DROPPED
+        for request in enqueued_requests.exclude(id=most_recent_request.id):
+            BotMediaRequestManager.set_media_request_dropped(request)
+
+    def take_action_based_on_media_requests_in_db():
+        take_action_based_on_audio_media_requests_in_db()
+        take_action_based_on_image_media_requests_in_db()
                 
     def take_action_based_on_bot_in_db():
         if bot_in_db.state == BotStates.JOINING_REQ_NOT_STARTED_BY_BOT:

@@ -1,5 +1,7 @@
 from pydub import AudioSegment
 import io
+import cv2
+import numpy as np
 
 def pcm_to_mp3(pcm_data: bytes, sample_rate: int = 32000, channels: int = 1, sample_width: int = 2, bitrate: str = "128k") -> bytes:
     """
@@ -87,3 +89,28 @@ def calculate_audio_duration_ms(audio_data: bytes, content_type: str) -> int:
     # len(audio) returns duration in milliseconds for pydub AudioSegment objects
     duration_ms = len(audio)
     return duration_ms
+
+def png_to_yuv420_frame(png_bytes: bytes, width: int = 640, height: int = 360) -> bytes:
+    """
+    Convert PNG image bytes to YUV420 (I420) format and resize to specified dimensions.
+    
+    Args:
+        png_bytes (bytes): Input PNG image as bytes
+        width (int): Desired width of output frame (default: 640)
+        height (int): Desired height of output frame (default: 360)
+    
+    Returns:
+        bytes: YUV420 formatted frame data
+    """
+    # Convert PNG bytes to numpy array
+    png_array = np.frombuffer(png_bytes, np.uint8)
+    bgr_frame = cv2.imdecode(png_array, cv2.IMREAD_COLOR)
+    
+    # Resize the frame to desired dimensions
+    bgr_frame = cv2.resize(bgr_frame, (width, height), interpolation=cv2.INTER_AREA)
+    
+    # Convert BGR to YUV420 (I420)
+    yuv_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2YUV_I420)
+    
+    # Return as bytes
+    return yuv_frame.tobytes()

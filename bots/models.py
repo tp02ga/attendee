@@ -834,7 +834,7 @@ class MediaBlob(models.Model):
         )
 
 class BotMediaRequestMediaTypes(models.IntegerChoices):
-    VIDEO = 1, 'Video'
+    IMAGE = 1, 'Image'
     AUDIO = 2, 'Audio'
 
 class BotMediaRequestStates(models.IntegerChoices):
