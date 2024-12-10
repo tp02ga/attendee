@@ -1,5 +1,5 @@
 from celery import shared_task
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
+from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, BotMediaRequestMediaTypes, BotMediaRequestStates, BotMediaRequestManager, BotMediaRequest, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -88,6 +88,7 @@ def run_bot(self, bot_id):
     from gi.repository import GLib
     from bots.zoom_bot.zoom_bot import ZoomBot
     from bots.zoom_bot.utterance_processing_queue import UtteranceProcessingQueue
+    from bots.zoom_bot.audio_output_manager import AudioOutputManager
 
     redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
     redis_client = redis.from_url(redis_url)
@@ -223,7 +224,65 @@ def run_bot(self, bot_id):
             # Process the utterance immediately
             process_utterance.delay(utterance.id)
             return
+        
+    def currently_playing_audio_media_request_finished(audio_media_request):
+        print("currently_playing_audio_media_request_finished called")
+        BotMediaRequestManager.set_media_request_finished(audio_media_request)
+        take_action_based_on_audio_media_requests_in_db()
 
+    def take_action_based_on_audio_media_requests_in_db():
+        media_type = BotMediaRequestMediaTypes.AUDIO
+        oldest_enqueued_media_request = bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by('created_at').first()
+        if not oldest_enqueued_media_request:
+            return
+        currently_playing_media_request = bot_in_db.media_requests.filter(state=BotMediaRequestStates.PLAYING, media_type=media_type).first()
+        if currently_playing_media_request:
+            print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
+            return
+        
+        from .utils import mp3_to_pcm
+        try:
+            BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+            zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob, sample_rate=8000))
+            audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
+        except Exception as e:
+            print(f"Error sending raw audio: {e}")
+            BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
+
+    def take_action_based_on_image_media_requests_in_db():
+        from .utils import png_to_yuv420_frame
+
+        media_type = BotMediaRequestMediaTypes.IMAGE
+        
+        # Get all enqueued image media requests for this bot, ordered by creation time
+        enqueued_requests = bot_in_db.media_requests.filter(
+            state=BotMediaRequestStates.ENQUEUED,
+            media_type=media_type
+        ).order_by('created_at')
+
+        if not enqueued_requests.exists():
+            return
+
+        # Get the most recently created request
+        most_recent_request = enqueued_requests.last()
+        
+        # Mark the most recent request as FINISHED
+        try:
+            BotMediaRequestManager.set_media_request_playing(most_recent_request)
+            zoom_bot.send_raw_image(png_to_yuv420_frame(most_recent_request.media_blob.blob))
+            BotMediaRequestManager.set_media_request_finished(most_recent_request)
+        except Exception as e:
+            print(f"Error sending raw image: {e}")
+            BotMediaRequestManager.set_media_request_failed_to_play(most_recent_request)
+        
+        # Mark all other enqueued requests as DROPPED
+        for request in enqueued_requests.exclude(id=most_recent_request.id):
+            BotMediaRequestManager.set_media_request_dropped(request)
+
+    def take_action_based_on_media_requests_in_db():
+        take_action_based_on_audio_media_requests_in_db()
+        take_action_based_on_image_media_requests_in_db()
+                
     def take_action_based_on_bot_in_db():
         if bot_in_db.state == BotStates.JOINING_REQ_NOT_STARTED_BY_BOT:
             print("take_action_based_on_bot_in_db - JOINING_REQ_NOT_STARTED_BY_BOT")
@@ -262,6 +321,10 @@ def run_bot(self, bot_id):
                 print(f"Syncing bot {bot_in_db.object_id}")
                 bot_in_db.refresh_from_db()
                 take_action_based_on_bot_in_db()
+            elif command == 'sync_media_requests':
+                print(f"Syncing media requests for bot {bot_in_db.object_id}")
+                bot_in_db.refresh_from_db()
+                take_action_based_on_media_requests_in_db()
             else:
                 print(f"Unknown command: {command}")
 
@@ -277,6 +340,9 @@ def run_bot(self, bot_id):
 
             # Process audio chunks
             utterance_processing_queue.process_chunks()
+
+            # Process audio output
+            audio_output_manager.monitor_currently_playing_audio_media_request()
             return True
             
         except Exception as e:
@@ -301,6 +367,7 @@ def run_bot(self, bot_id):
 
 
         utterance_processing_queue = UtteranceProcessingQueue(save_utterance_callback=take_action_based_on_message_from_zoom_bot, get_participant_callback=get_participant)
+        audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=currently_playing_audio_media_request_finished)
 
         zoom_bot = ZoomBot(
             display_name=bot_in_db.name,

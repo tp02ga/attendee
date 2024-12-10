@@ -64,6 +64,10 @@ class StreamingUploader:
             self.buffer.write(remaining)
     
     def complete_upload(self):
+        if len(self.parts) == 0:
+            print("No parts to upload")
+            return
+
         # Upload final part if any data remains
         if self.buffer.tell() > 0:
             self.buffer.seek(0)

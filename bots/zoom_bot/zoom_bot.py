@@ -4,11 +4,17 @@ import jwt
 from datetime import datetime, timedelta
 import os
 import numpy as np
+import cv2
 import queue
 import webrtcvad
 from .gstreamer_pipeline import GstreamerPipeline
 from .video_input_manager import VideoInputManager
 from .streaming_uploader import StreamingUploader
+
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
+
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()
     exp = iat + timedelta(hours=24)
@@ -22,6 +28,17 @@ def generate_jwt(client_id, client_secret):
     
     token = jwt.encode(payload, client_secret, algorithm="HS256")
     return token
+
+def create_black_yuv420_frame(width=640, height=360):
+    # Create BGR frame (red is [0,0,0] in BGR)
+    bgr_frame = np.zeros((height, width, 3), dtype=np.uint8)
+    bgr_frame[:, :] = [0, 0, 0]  # Pure black in BGR
+    
+    # Convert BGR to YUV420 (I420)
+    yuv_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2YUV_I420)
+    
+    # Return as bytes
+    return yuv_frame.tobytes()
 
 class ZoomBot:
     class Messages:
@@ -70,6 +87,13 @@ class ZoomBot:
         self.my_participant_id = None
         self.participants_ctrl = None
         self.meeting_reminder_event = None
+        self.on_mic_start_send_callback_called = False
+        self.on_virtual_camera_start_send_callback_called = False
+
+        self.meeting_video_controller = None
+        self.video_sender = None
+        self.virtual_camera_video_source = None
+        self.video_source_helper = None
 
         self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
         self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
@@ -95,6 +119,12 @@ class ZoomBot:
             self.get_participant(joined_user_id)
 
     def on_user_active_audio_change_callback(self, user_ids):
+        if len(user_ids) == 0:
+            return
+
+        if user_ids[0] == self.my_participant_id:
+            return
+
         if self.active_speaker_id == user_ids[0]:
             return
 
@@ -192,14 +222,72 @@ class ZoomBot:
         self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
         self.audio_ctrl.SetEvent(self.audio_ctrl_event)
 
+        GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
+        GLib.timeout_add_seconds(1, self.set_up_bot_video_input)
+
+    def set_up_bot_video_input(self):
+        self.virtual_camera_video_source = zoom.ZoomSDKVideoSourceCallbacks(onInitializeCallback=self.on_virtual_camera_initialize_callback, onStartSendCallback=self.on_virtual_camera_start_send_callback)
+        self.video_source_helper = zoom.GetRawdataVideoSourceHelper()
+        if self.video_source_helper:
+            set_external_video_source_result = self.video_source_helper.setExternalVideoSource(self.virtual_camera_video_source)
+            print("set_external_video_source_result =", set_external_video_source_result)
+            if set_external_video_source_result == zoom.SDKERR_SUCCESS:
+                self.meeting_video_controller = self.meeting_service.GetMeetingVideoController()
+                unmute_video_result = self.meeting_video_controller.UnmuteVideo()
+                print("unmute_video_result =", unmute_video_result)
+        else:
+            print("video_source_helper is None")
+
+    def on_virtual_camera_start_send_callback(self):
+        print("on_virtual_camera_start_send_callback called")
+        # As soon as we get this callback, we need to send a blank frame and it will fail with SDKERR_WRONG_USAGE
+        # Then the callback will be triggered again and subsequent calls will succeed.
+        # Not sure why this happens.
+        if self.video_sender and not self.on_virtual_camera_start_send_callback_called:
+            blank = create_black_yuv420_frame(640, 360)
+            initial_send_video_frame_response = self.video_sender.sendVideoFrame(blank, 640, 360, 0, zoom.FrameDataFormat_I420_FULL)
+            print("initial_send_video_frame_response =", initial_send_video_frame_response)
+        self.on_virtual_camera_start_send_callback_called = True
+
+    def on_virtual_camera_initialize_callback(self, video_sender, support_cap_list, suggest_cap):
+        self.video_sender = video_sender
+
+    def send_raw_image(self, yuv420_image_bytes):
+        if not self.on_virtual_camera_start_send_callback_called:
+            raise Exception("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+        send_video_frame_response = self.video_sender.sendVideoFrame(yuv420_image_bytes, 640, 360, 0, zoom.FrameDataFormat_I420_FULL)
+        print("send_raw_image send_video_frame_response =", send_video_frame_response)
+
+    def set_up_bot_audio_input(self):
+        if self.audio_helper is None:
+            self.audio_helper = zoom.GetAudioRawdataHelper()
+
+        if self.audio_helper is None:
+            print("set_up_bot_audio_input failed because audio_helper is None")
+            return
+
+        self.virtual_audio_mic_event_passthrough = zoom.ZoomSDKVirtualAudioMicEventCallbacks(
+            onMicInitializeCallback=self.on_mic_initialize_callback, 
+            onMicStartSendCallback=self.on_mic_start_send_callback
+        )
+
+        audio_helper_set_external_audio_source_result = self.audio_helper.setExternalAudioSource(self.virtual_audio_mic_event_passthrough)
+        print("audio_helper_set_external_audio_source_result =", audio_helper_set_external_audio_source_result)
+        if audio_helper_set_external_audio_source_result != zoom.SDKERR_SUCCESS:
+            print("Failed to set external audio source")
+            return
+
     def on_mic_initialize_callback(self, sender):
         self.audio_raw_data_sender = sender
 
+    def send_raw_audio(self, bytes):
+        if not self.on_mic_start_send_callback_called:
+            raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
+        self.audio_raw_data_sender.send(bytes, 8000, zoom.ZoomSDKAudioChannel_Mono)
+
     def on_mic_start_send_callback(self):
-        return
-        with open('test_audio_16778240.pcm', 'rb') as pcm_file:
-            chunk = pcm_file.read(64000*10)
-            self.audio_raw_data_sender.send(chunk, 32000, zoom.ZoomSDKAudioChannel_Mono)
+        self.on_mic_start_send_callback_called = True
+        print("on_mic_start_send_callback called")
 
     def on_one_way_audio_raw_data_received_callback(self, data, node_id):
         if node_id == self.my_participant_id:
@@ -247,7 +335,8 @@ class ZoomBot:
             print("Start raw recording failed.")
             return
 
-        self.audio_helper = zoom.GetAudioRawdataHelper()
+        if self.audio_helper is None:
+            self.audio_helper = zoom.GetAudioRawdataHelper()
         if self.audio_helper is None:
             print("audio_helper is None")
             return
@@ -259,16 +348,9 @@ class ZoomBot:
                 onMixedAudioRawDataReceivedCallback=self.pipeline.on_mixed_audio_raw_data_received_callback
             )
 
-
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
         print("audio_helper_subscribe_result =",audio_helper_subscribe_result)
 
-        self.virtual_audio_mic_event_passthrough = zoom.ZoomSDKVirtualAudioMicEventCallbacks(onMicInitializeCallback=self.on_mic_initialize_callback,onMicStartSendCallback=self.on_mic_start_send_callback)
-        audio_helper_set_external_audio_source_result = self.audio_helper.setExternalAudioSource(self.virtual_audio_mic_event_passthrough)
-        print("audio_helper_set_external_audio_source_result =", audio_helper_set_external_audio_source_result)
-        if audio_helper_set_external_audio_source_result != zoom.SDKERR_SUCCESS:
-            print("Failed to set external audio source")
-            return
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.pipeline.setup_gstreamer_pipeline()
