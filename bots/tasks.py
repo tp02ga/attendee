@@ -243,7 +243,7 @@ def run_bot(self, bot_id):
         from .utils import mp3_to_pcm
         try:
             BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
-            zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob))
+            zoom_bot.send_raw_audio(mp3_to_pcm(oldest_enqueued_media_request.media_blob.blob, sample_rate=8000))
             audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
         except Exception as e:
             print(f"Error sending raw audio: {e}")

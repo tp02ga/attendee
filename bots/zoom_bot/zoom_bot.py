@@ -119,6 +119,12 @@ class ZoomBot:
             self.get_participant(joined_user_id)
 
     def on_user_active_audio_change_callback(self, user_ids):
+        if len(user_ids) == 0:
+            return
+
+        if user_ids[0] == self.my_participant_id:
+            return
+
         if self.active_speaker_id == user_ids[0]:
             return
 
@@ -277,7 +283,7 @@ class ZoomBot:
     def send_raw_audio(self, bytes):
         if not self.on_mic_start_send_callback_called:
             raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
-        self.audio_raw_data_sender.send(bytes, 32000, zoom.ZoomSDKAudioChannel_Mono)
+        self.audio_raw_data_sender.send(bytes, 8000, zoom.ZoomSDKAudioChannel_Mono)
 
     def on_mic_start_send_callback(self):
         self.on_mic_start_send_callback_called = True
