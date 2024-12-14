@@ -163,6 +163,15 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Bot could not join meeting - Meeting Not Started - Waiting for Host'
     FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal error - Process Terminated'
 
+    @classmethod
+    def state_to_api_code(cls, value):
+        """Returns the API code for a given state value"""
+        mapping = {
+            cls.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST: 'meeting_not_started_waiting_for_host',
+            cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated'
+        }
+        return mapping.get(value)
+
 class BotEvent(models.Model):
 
     bot = models.ForeignKey(

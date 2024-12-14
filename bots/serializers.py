@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
-from .models import Bot, BotStates, Recording, RecordingStates, RecordingTranscriptionStates, BotSubStates
+from .models import Bot, BotEventSubTypes, BotStates, Recording, RecordingStates, RecordingTranscriptionStates
 
 @extend_schema_serializer(
     examples=[
@@ -43,13 +43,16 @@ class BotSerializer(serializers.ModelSerializer):
 
     @extend_schema_field({
         'type': 'string',
-        'enum': [BotSubStates.state_to_api_code(state.value) for state in BotSubStates],
+        'enum': [BotEventSubTypes.state_to_api_code(state.value) for state in BotEventSubTypes],
         'nullable': True
     })
     def get_sub_state(self, obj):
-        if not obj.sub_state:
+        last_bot_event = obj.last_bot_event()
+        if not last_bot_event:
             return None
-        return BotSubStates.state_to_api_code(obj.sub_state)
+        if not last_bot_event.event_sub_type:
+            return None
+        return BotEventSubTypes.state_to_api_code(last_bot_event.event_sub_type)
 
     @extend_schema_field({
         'type': 'string',
