@@ -30,7 +30,6 @@ class CreateBotSerializer(serializers.Serializer):
                 'events': [
                     {
                         'type': 'join_requested',
-                        'sub_type': None,
                         'created_at': '2024-01-18T12:34:56Z'
                     }
                 ],
@@ -69,15 +68,15 @@ class BotSerializer(serializers.ModelSerializer):
         events = []
         for event in obj.bot_events.all():
             event_type = BotEventTypes.type_to_api_code(event.event_type)
-            sub_type = None
-            if event.event_sub_type:
-                sub_type = BotEventSubTypes.sub_type_to_api_code(event.event_sub_type)
-            
-            events.append({
+            event_data = {
                 'type': event_type,
-                'sub_type': sub_type,
                 'created_at': event.created_at
-            })
+            }
+            
+            if event.event_sub_type:
+                event_data['sub_type'] = BotEventSubTypes.sub_type_to_api_code(event.event_sub_type)
+            
+            events.append(event_data)
         return events
 
     @extend_schema_field({

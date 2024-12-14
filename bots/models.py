@@ -163,15 +163,15 @@ class BotEventTypes(models.IntegerChoices):
     def type_to_api_code(cls, value):
         """Returns the API code for a given type value"""
         mapping = {
-            cls.BOT_PUT_IN_WAITING_ROOM: 'bot_put_in_waiting_room',
-            cls.BOT_JOINED_MEETING: 'bot_joined_meeting',
-            cls.BOT_RECORDING_PERMISSION_GRANTED: 'bot_recording_permission_granted',
+            cls.BOT_PUT_IN_WAITING_ROOM: 'put_in_waiting_room',
+            cls.BOT_JOINED_MEETING: 'joined_meeting',
+            cls.BOT_RECORDING_PERMISSION_GRANTED: 'recording_permission_granted',
             cls.MEETING_ENDED: 'meeting_ended',
-            cls.BOT_LEFT_MEETING: 'bot_left_meeting',
+            cls.BOT_LEFT_MEETING: 'left_meeting',
             cls.JOIN_REQUESTED: 'join_requested',
             cls.FATAL_ERROR: 'fatal_error',
             cls.LEAVE_REQUESTED: 'leave_requested',
-            cls.COULD_NOT_JOIN: 'could_not_join'
+            cls.COULD_NOT_JOIN: 'could_not_join_meeting'
         }
         return mapping.get(value)
 
