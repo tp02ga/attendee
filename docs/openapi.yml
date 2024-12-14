@@ -48,15 +48,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Bot'
               examples:
-                MeetingURL:
+                NewBot:
                   value:
                     id: bot_weIAju4OXNZkDTpZ
                     meeting_url: https://zoom.us/j/123?pwd=456
                     state: joining
-                    sub_state: null
+                    events:
+                    - type: join_requested
+                      created_at: '2024-01-18T12:34:56Z'
                     transcription_state: not_started
                     recording_state: not_started
-                  summary: Meeting URL
+                  summary: New bot
           description: Bot created successfully
         '400':
           description: Invalid input
@@ -95,15 +97,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Bot'
               examples:
-                MeetingURL:
+                NewBot:
                   value:
                     id: bot_weIAju4OXNZkDTpZ
                     meeting_url: https://zoom.us/j/123?pwd=456
                     state: joining
-                    sub_state: null
+                    events:
+                    - type: join_requested
+                      created_at: '2024-01-18T12:34:56Z'
                     transcription_state: not_started
                     recording_state: not_started
-                  summary: Meeting URL
+                  summary: New bot
           description: Bot details
         '404':
           description: Bot not found
@@ -143,15 +147,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Bot'
               examples:
-                MeetingURL:
+                NewBot:
                   value:
                     id: bot_weIAju4OXNZkDTpZ
                     meeting_url: https://zoom.us/j/123?pwd=456
                     state: joining
-                    sub_state: null
+                    events:
+                    - type: join_requested
+                      created_at: '2024-01-18T12:34:56Z'
                     transcription_state: not_started
                     recording_state: not_started
-                  summary: Meeting URL
+                  summary: New bot
           description: Successfully requested to leave meeting
         '404':
           description: Bot not found
@@ -358,10 +364,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/StateEnum'
           readOnly: true
-        sub_state:
-          allOf:
-          - $ref: '#/components/schemas/SubStateEnum'
-          nullable: true
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              sub_type:
+                type: string
+                nullable: true
+              created_at:
+                type: string
+                format: date-time
           readOnly: true
         transcription_state:
           allOf:
@@ -372,11 +387,11 @@ components:
           - $ref: '#/components/schemas/RecordingStateEnum'
           readOnly: true
       required:
+      - events
       - id
       - meeting_url
       - recording_state
       - state
-      - sub_state
       - transcription_state
     CreateBotRequest:
       type: object
@@ -415,19 +430,12 @@ components:
       enum:
       - ready
       - joining
-      - joining
       - joined_not_recording
       - joined_recording
-      - leaving
       - leaving
       - ended
       - fatal_error
       - waiting_room
-    SubStateEnum:
-      type: string
-      enum:
-      - meeting_not_started
-      - process_terminated
     TranscriptUtterance:
       type: object
       properties:

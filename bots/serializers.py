@@ -22,7 +22,7 @@ class CreateBotSerializer(serializers.Serializer):
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
-            'Meeting URL',
+            'New bot',
             value={
                 'id': 'bot_weIAju4OXNZkDTpZ', 
                 'meeting_url': 'https://zoom.us/j/123?pwd=456', 
