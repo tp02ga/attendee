@@ -19,26 +19,6 @@ class CreateBotSerializer(serializers.Serializer):
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
 
-@extend_schema_serializer(
-    examples=[
-        OpenApiExample(
-            'New bot',
-            value={
-                'id': 'bot_weIAju4OXNZkDTpZ', 
-                'meeting_url': 'https://zoom.us/j/123?pwd=456', 
-                'state': 'joining',
-                'events': [
-                    {
-                        'type': 'join_requested',
-                        'created_at': '2024-01-18T12:34:56Z'
-                    }
-                ],
-                'transcription_state': 'not_started',
-                'recording_state': 'not_started'
-            },
-        )
-    ]
-)
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='object_id')
     state = serializers.SerializerMethodField()
