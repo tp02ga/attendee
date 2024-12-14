@@ -101,8 +101,8 @@ class BotCreateView(APIView):
             is_default_recording=True
         )
         
-        # Try to transition the state from READY to JOINING_REQ_NOT_STARTED_BY_BOT
-        BotEventManager.create_event(bot, BotEvent.EventTypes.JOIN_REQUESTED_BY_API)
+        # Try to transition the state from READY to JOINING
+        BotEventManager.create_event(bot, BotEvent.EventTypes.JOINING)
 
         # Launch the Celery task after successful creation
         run_bot.delay(bot.id)
@@ -298,7 +298,7 @@ class BotLeaveView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             
-            BotEventManager.create_event(bot, BotEvent.EventTypes.LEAVE_REQUESTED_BY_API)
+            BotEventManager.create_event(bot, BotEvent.EventTypes.LEAVING)
 
             send_sync_command(bot)
             

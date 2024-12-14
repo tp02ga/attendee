@@ -87,45 +87,26 @@ class ApiKey(models.Model):
 
 class BotStates(models.IntegerChoices):
     READY = 1, 'Ready'
-    JOINING_REQ_NOT_STARTED_BY_BOT = 2, 'Joining - Request Not Started By Bot'
-    JOINING_REQ_STARTED_BY_BOT = 3, 'Joining - Request Started By Bot'
-    JOINED_NOT_RECORDING = 4, 'Joined - Not Recording'
-    JOINED_RECORDING = 5, 'Joined - Recording'
-    LEAVING_REQ_NOT_STARTED_BY_BOT = 6, 'Leaving - Request Not Started By Bot'
-    LEAVING_REQ_STARTED_BY_BOT = 7, 'Leaving - Request Started By Bot'
-    ENDED = 8, 'Ended'
-    FATAL_ERROR = 9, 'Fatal Error'
-    WAITING_ROOM = 10, 'Waiting Room'
+    JOINING = 2, 'Joining'
+    JOINED_NOT_RECORDING = 3, 'Joined - Not Recording'
+    JOINED_RECORDING = 4, 'Joined - Recording'
+    LEAVING = 5, 'Leaving'
+    ENDED = 6, 'Ended'
+    FATAL_ERROR = 7, 'Fatal Error'
+    WAITING_ROOM = 8, 'Waiting Room'
 
     @classmethod
     def state_to_api_code(cls, value):
         """Returns the API code for a given state value"""
         mapping = {
             cls.READY: 'ready',
-            # These are different states under the hood, but we want to return the same api code for them
-            cls.JOINING_REQ_NOT_STARTED_BY_BOT: 'joining',
-            cls.JOINING_REQ_STARTED_BY_BOT: 'joining',
+            cls.JOINING: 'joining',
             cls.JOINED_NOT_RECORDING: 'joined_not_recording',
             cls.JOINED_RECORDING: 'joined_recording',
-            # These are different states under the hood, but we want to return the same api code for them
-            cls.LEAVING_REQ_NOT_STARTED_BY_BOT: 'leaving',
-            cls.LEAVING_REQ_STARTED_BY_BOT: 'leaving',
+            cls.LEAVING: 'leaving',
             cls.ENDED: 'ended',
             cls.FATAL_ERROR: 'fatal_error',
             cls.WAITING_ROOM: 'waiting_room'
-        }
-        return mapping.get(value)
-
-class BotSubStates(models.IntegerChoices):
-    FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Fatal Error - Meeting Not Started - Waiting for Host'
-    FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal Error - Process Terminated'
-
-    @classmethod
-    def state_to_api_code(cls, value):
-        """Returns the API code for a given state value"""
-        mapping = {
-            cls.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST: 'meeting_not_started',
-            cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated'
         }
         return mapping.get(value)
 
@@ -154,11 +135,8 @@ class Bot(models.Model):
         null=False
     )
 
-    sub_state = models.IntegerField(
-        choices=BotSubStates.choices,
-        default=None,
-        null=True
-    )
+    def last_bot_event(self):
+        return self.bot_events.order_by('-created_at').first()
 
     def save(self, *args, **kwargs):
         if not self.object_id:
@@ -170,35 +148,22 @@ class Bot(models.Model):
     def __str__(self):
         return f"{self.object_id} - {self.project.name} in {self.meeting_url}"
 
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    # For FATAL_ERROR state, must have one of the valid sub-states
-                    (Q(state=BotStates.FATAL_ERROR) & 
-                     (Q(sub_state=BotSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST) |
-                      Q(sub_state=BotSubStates.FATAL_ERROR_PROCESS_TERMINATED))) |
-                    
-                    # For all other states, sub_state must be null
-                    (~Q(state=BotStates.FATAL_ERROR) & Q(sub_state__isnull=True))
-                ),
-                name='valid_state_substate_combinations'
-            )
-        ]
+class BotEventTypes(models.IntegerChoices):
+    BOT_PUT_IN_WAITING_ROOM = 1, 'Bot Put in Waiting Room'
+    BOT_JOINED_MEETING = 2, 'Bot Joined Meeting'
+    BOT_RECORDING_PERMISSION_GRANTED = 3, 'Bot Recording Permission Granted'
+    MEETING_ENDED = 4, 'Meeting Ended'
+    BOT_LEFT_MEETING = 5, 'Bot Left Meeting'
+    JOIN_REQUESTED = 6, 'Bot requested to join meeting'
+    FATAL_ERROR = 7, 'Bot Encountered Fatal error'
+    LEAVE_REQUESTED = 8, 'Bot requested to leave meeting'
+    COULD_NOT_JOIN = 9, 'Bot could not join meeting'
+
+class BotEventSubTypes(models.IntegerChoices):
+    COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Bot could not join meeting - Meeting Not Started - Waiting for Host'
+    FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal error - Process Terminated'
 
 class BotEvent(models.Model):
-    class EventTypes(models.IntegerChoices):
-        JOIN_REQUESTED_BY_API = 1, 'Join Requested by API'
-        JOIN_REQUESTED_BY_BOT = 2, 'Join Requested by Bot'
-        WAITING_FOR_HOST_TO_START_MEETING_MSG_RECEIVED = 3, 'Waiting for Host to Start Meeting Message Received'
-        BOT_PUT_IN_WAITING_ROOM = 4, 'Bot Put in Waiting Room'
-        BOT_JOINED_MEETING = 5, 'Bot Joined Meeting'
-        BOT_RECORDING_PERMISSION_GRANTED = 6, 'Bot Recording Permission Granted'
-        PROCESS_TERMINATED = 7, 'Process Terminated'
-        MEETING_ENDED = 8, 'Meeting Ended',
-        LEAVE_REQUESTED_BY_API = 9, 'Leave Requested by API'
-        LEAVE_REQUESTED_BY_BOT = 10, 'Leave Requested by Bot'
-        BOT_LEFT_MEETING = 11, 'Bot Left Meeting'
 
     bot = models.ForeignKey(
         Bot,
@@ -211,87 +176,119 @@ class BotEvent(models.Model):
     old_state = models.IntegerField(choices=BotStates.choices)
     new_state = models.IntegerField(choices=BotStates.choices)
 
-    old_sub_state = models.IntegerField(choices=BotSubStates.choices, null=True)
-    new_sub_state = models.IntegerField(choices=BotSubStates.choices, null=True)
-
-    event_type = models.IntegerField(choices=EventTypes.choices)
-    version = models.BigIntegerField()
+    event_type = models.IntegerField(choices=BotEventTypes.choices) # What happened
+    event_sub_type = models.IntegerField(choices=BotEventSubTypes.choices, null=True) # Why it happened
+    debug_message = models.TextField(null=True, blank=True)
+    requested_bot_action_taken_at = models.DateTimeField(null=True, blank=True) # For when a bot action is requested, this is the time it was taken    
+    version = IntegerVersionField()
 
     def __str__(self):
         old_state_str = BotStates(self.old_state).label
         new_state_str = BotStates(self.new_state).label
         
-        if self.old_sub_state:
-            old_state_str += f" ({BotSubStates(self.old_sub_state).label})"
-        if self.new_sub_state:
-            new_state_str += f" ({BotSubStates(self.new_sub_state).label})"
-            
-        return (f"{self.bot.object_id} - ["
-                f"{self.EventTypes(self.event_type).label}] - "
-                f"{old_state_str} -> {new_state_str}")
+        # Base string with event type
+        base_str = (f"{self.bot.object_id} - ["
+                f"{BotEventTypes(self.event_type).label}")
+        
+        # Add event sub type if it exists
+        if self.event_sub_type is not None:
+            base_str += f" - {BotEventSubTypes(self.event_sub_type).label}"
+        
+        # Add state transition
+        base_str += f"] - {old_state_str} -> {new_state_str}"
+        
+        return base_str
 
     class Meta:
         ordering = ['created_at']
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    # For FATAL_ERROR event type, must have one of the valid event subtypes
+                    (Q(event_type=BotEventTypes.FATAL_ERROR) & 
+                     (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED))) |
+                    
+                    # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
+                    (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 
+                     (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST))) |
+                    
+                    # For all other events, event_sub_type must be null
+                    (~Q(event_type=BotEventTypes.FATAL_ERROR) & 
+                     ~Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 
+                     Q(event_sub_type__isnull=True))
+                ),
+                name='valid_event_type_event_sub_type_combinations'
+            )
+        ]
 
 class BotEventManager:
     # Define valid state transitions for each event type
 
     VALID_TRANSITIONS = {
-        BotEvent.EventTypes.JOIN_REQUESTED_BY_API: {
+        BotEventTypes.JOIN_REQUESTED: {
             'from': BotStates.READY,
-            'to': BotStates.JOINING_REQ_NOT_STARTED_BY_BOT,
+            'to': BotStates.JOINING,
         },
-        BotEvent.EventTypes.JOIN_REQUESTED_BY_BOT: {
-            'from': BotStates.JOINING_REQ_NOT_STARTED_BY_BOT,
-            'to': BotStates.JOINING_REQ_STARTED_BY_BOT,
+        BotEventTypes.COULD_NOT_JOIN: {
+            'from': BotStates.JOINING,
+            'to': BotStates.FATAL_ERROR,
         },
-        BotEvent.EventTypes.WAITING_FOR_HOST_TO_START_MEETING_MSG_RECEIVED: {
-            'from': BotStates.JOINING_REQ_STARTED_BY_BOT,
-            'to': {
-                'state': BotStates.FATAL_ERROR,
-                'sub_state': BotSubStates.FATAL_ERROR_MEETING_NOT_STARTED_WAITING_FOR_HOST
-            },
+        BotEventTypes.FATAL_ERROR: {
+            'from': [BotStates.JOINING, BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
+                    BotStates.WAITING_ROOM, BotStates.LEAVING],
+            'to': BotStates.FATAL_ERROR
         },
-        BotEvent.EventTypes.BOT_PUT_IN_WAITING_ROOM: {
-            'from': BotStates.JOINING_REQ_STARTED_BY_BOT,
+        BotEventTypes.BOT_PUT_IN_WAITING_ROOM: {
+            'from': BotStates.JOINING,
             'to': BotStates.WAITING_ROOM,
         },
-        BotEvent.EventTypes.BOT_JOINED_MEETING: {
-            'from': [BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
+        BotEventTypes.BOT_JOINED_MEETING: {
+            'from': [BotStates.WAITING_ROOM, BotStates.JOINING],
             'to': BotStates.JOINED_NOT_RECORDING,
         },
-        BotEvent.EventTypes.BOT_RECORDING_PERMISSION_GRANTED: {
+        BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED: {
             'from': BotStates.JOINED_NOT_RECORDING,
             'to': BotStates.JOINED_RECORDING,
         },
-        BotEvent.EventTypes.MEETING_ENDED: {
+        BotEventTypes.MEETING_ENDED: {
             'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
-                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT, 
-                    BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT, BotStates.LEAVING_REQ_STARTED_BY_BOT],
+                    BotStates.WAITING_ROOM, BotStates.JOINING, BotStates.LEAVING],
             'to': BotStates.ENDED,
         },
-        BotEvent.EventTypes.PROCESS_TERMINATED: {
+        BotEventTypes.LEAVE_REQUESTED: {
             'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
-                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
-            'to': {
-                'state': BotStates.FATAL_ERROR,
-                'sub_state': BotSubStates.FATAL_ERROR_PROCESS_TERMINATED
-            },
+                    BotStates.WAITING_ROOM, BotStates.JOINING],
+            'to': BotStates.LEAVING,
         },
-        BotEvent.EventTypes.LEAVE_REQUESTED_BY_API: {
-            'from': [BotStates.JOINED_RECORDING, BotStates.JOINED_NOT_RECORDING,
-                    BotStates.WAITING_ROOM, BotStates.JOINING_REQ_STARTED_BY_BOT],
-            'to': BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
-        },
-        BotEvent.EventTypes.LEAVE_REQUESTED_BY_BOT: {
-            'from': BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT,
-            'to': BotStates.LEAVING_REQ_STARTED_BY_BOT,
-        },
-        BotEvent.EventTypes.BOT_LEFT_MEETING: {
-            'from': BotStates.LEAVING_REQ_STARTED_BY_BOT,
+        BotEventTypes.BOT_LEFT_MEETING: {
+            'from': BotStates.LEAVING,
             'to': BotStates.ENDED,
         },
     }
+
+    @classmethod
+    def set_requested_bot_action_taken_at(cls, bot: Bot):
+        event_type = {
+            BotStates.JOINING: BotEventTypes.JOIN_REQUESTED,
+            BotStates.LEAVING: BotEventTypes.LEAVE_REQUESTED
+        }[bot.state]
+
+        if event_type is None:
+            raise ValueError(f"Bot {bot.object_id} is in state {bot.state}. This is not a valid state to initiate a bot request.")
+
+        last_bot_event = bot.last_bot_event()
+
+        if last_bot_event is None:
+            raise ValueError(f"Bot {bot.object_id} has no bot events. This is not a valid state to initiate a bot request.")
+
+        if last_bot_event.event_type != event_type:
+            raise ValueError(f"Bot {bot.object_id} has unexpected event type {last_bot_event.event_type}. We expected {event_type} since it's in state {bot.state}")
+
+        if last_bot_event.requested_bot_action_taken_at is not None:
+            raise ValueError(f"Bot {bot.object_id} has already initiated this bot request")
+
+        last_bot_event.requested_bot_action_taken_at = timezone.now()
+        last_bot_event.save()
 
     @classmethod
     def is_state_that_can_play_media(cls, state: int):
@@ -302,13 +299,13 @@ class BotEventManager:
         return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
     @classmethod
-    def create_event(cls, bot: Bot, event_type: int, max_retries: int = 3) -> BotEvent:
+    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, max_retries: int = 3) -> BotEvent:
         """
         Creates a new event and updates the bot state, handling concurrency issues.
         
         Args:
             bot: The Bot instance
-            event_type: The type of event (from BotEvent.EventTypes)
+            event_type: The type of event (from BotEventTypes)
             max_retries: Maximum number of retries for concurrent modifications
         
         Returns:
@@ -325,7 +322,6 @@ class BotEventManager:
                     # Get fresh bot state
                     bot.refresh_from_db()
                     old_state = bot.state
-                    old_sub_state = bot.sub_state
 
                     # Get valid transition for this event type
                     transition = cls.VALID_TRANSITIONS.get(event_type)
@@ -348,12 +344,7 @@ class BotEventManager:
 
                     # Update bot state based on 'to' definition
                     new_state = transition['to']
-                    if isinstance(new_state, dict):
-                        bot.state = new_state['state']
-                        bot.sub_state = new_state['sub_state']
-                    else:
-                        bot.state = new_state
-                        bot.sub_state = None
+                    bot.state = new_state
 
                     bot.save()  # This will raise RecordModifiedError if version mismatch
                     
@@ -361,11 +352,9 @@ class BotEventManager:
                     event = BotEvent.objects.create(
                         bot=bot,
                         old_state=old_state,
-                        old_sub_state=old_sub_state,
                         new_state=bot.state,
-                        new_sub_state=bot.sub_state,
                         event_type=event_type,
-                        version=bot.version
+                        event_sub_type=event_sub_type
                     )
 
                     # If we moved to the recording state
@@ -577,7 +566,7 @@ class RecordingManager:
 
 
     @classmethod
-    def set_recording_failed(cls, recording: Recording, sub_state: int):
+    def set_recording_failed(cls, recording: Recording):
         recording.refresh_from_db()
 
         if recording.state == RecordingStates.FAILED:
@@ -585,8 +574,9 @@ class RecordingManager:
         if recording.state != RecordingStates.IN_PROGRESS:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
         
+        # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
+
         recording.state = RecordingStates.FAILED
-        recording.sub_state = sub_state
         recording.save()
 
     @classmethod
@@ -618,7 +608,7 @@ class RecordingManager:
         recording.save()
 
     @classmethod
-    def set_recording_transcription_failed(cls, recording: Recording, sub_state: int):
+    def set_recording_transcription_failed(cls, recording: Recording):
         recording.refresh_from_db()
 
         if recording.transcription_state == RecordingTranscriptionStates.FAILED:
@@ -628,6 +618,7 @@ class RecordingManager:
         if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
         
+        # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
         recording.transcription_state = RecordingTranscriptionStates.FAILED
         recording.save()
 
