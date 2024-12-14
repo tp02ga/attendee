@@ -159,13 +159,29 @@ class BotEventTypes(models.IntegerChoices):
     LEAVE_REQUESTED = 8, 'Bot requested to leave meeting'
     COULD_NOT_JOIN = 9, 'Bot could not join meeting'
 
+    @classmethod
+    def type_to_api_code(cls, value):
+        """Returns the API code for a given type value"""
+        mapping = {
+            cls.BOT_PUT_IN_WAITING_ROOM: 'bot_put_in_waiting_room',
+            cls.BOT_JOINED_MEETING: 'bot_joined_meeting',
+            cls.BOT_RECORDING_PERMISSION_GRANTED: 'bot_recording_permission_granted',
+            cls.MEETING_ENDED: 'meeting_ended',
+            cls.BOT_LEFT_MEETING: 'bot_left_meeting',
+            cls.JOIN_REQUESTED: 'join_requested',
+            cls.FATAL_ERROR: 'fatal_error',
+            cls.LEAVE_REQUESTED: 'leave_requested',
+            cls.COULD_NOT_JOIN: 'could_not_join'
+        }
+        return mapping.get(value)
+
 class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Bot could not join meeting - Meeting Not Started - Waiting for Host'
     FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal error - Process Terminated'
 
     @classmethod
-    def state_to_api_code(cls, value):
-        """Returns the API code for a given state value"""
+    def sub_type_to_api_code(cls, value):
+        """Returns the API code for a given sub type value"""
         mapping = {
             cls.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST: 'meeting_not_started_waiting_for_host',
             cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated'

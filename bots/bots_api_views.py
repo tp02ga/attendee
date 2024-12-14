@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes
+from .models import Bot, BotEventTypes, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes
 from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
@@ -102,7 +102,7 @@ class BotCreateView(APIView):
         )
         
         # Try to transition the state from READY to JOINING
-        BotEventManager.create_event(bot, BotEvent.EventTypes.JOINING)
+        BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
 
         # Launch the Celery task after successful creation
         run_bot.delay(bot.id)
@@ -298,7 +298,7 @@ class BotLeaveView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             
-            BotEventManager.create_event(bot, BotEvent.EventTypes.LEAVING)
+            BotEventManager.create_event(bot, BotEventTypes.LEAVE_REQUESTED)
 
             send_sync_command(bot)
             
