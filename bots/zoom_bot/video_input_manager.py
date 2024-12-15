@@ -42,7 +42,7 @@ class VideoInputStream:
             return False
             
         current_time = time.time()
-        if current_time - self.last_frame_time >= 0.25:
+        if current_time - self.last_frame_time >= 0.25 and self.raw_data_status == zoom.RawData_Off:
             # Create a black frame of the same dimensions
             black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
             self.video_input_manager.new_frame_callback(black_frame)
