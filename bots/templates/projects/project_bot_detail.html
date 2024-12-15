@@ -185,7 +185,13 @@
                 <div class="timeline">
                     {% for event in bot.bot_events.all %}
                         <div class="timeline-item">
-                            <h6>{{ event.get_event_type_display }}</h6>
+                            <h6>
+                                {% if event.event_sub_type %}
+                                    {{ event.get_event_sub_type_display }}
+                                {% else %}
+                                    {{ event.get_event_type_display }}
+                                {% endif %}
+                            </h6>
                             <p class="text-muted mb-1">{{ event.created_at|date:"M d, Y H:i:s" }}</p>
                             <p class="mb-0">
                                 State changed from 

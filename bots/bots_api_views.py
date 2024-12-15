@@ -2,14 +2,14 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Bot, BotEvent, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes
+from .models import Bot, BotEventTypes, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes
 from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
 import redis
 import json
 import os
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter, OpenApiExample
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -29,6 +29,50 @@ TokenHeaderParameter = [
         default="application/json"
     )
 ]
+
+LeavingBotExample = OpenApiExample(
+                            'Leaving Bot',
+                            value={
+                                'id': 'bot_weIAju4OXNZkDTpZ', 
+                                'meeting_url': 'https://zoom.us/j/123?pwd=456', 
+                                'state': 'leaving',
+                                'events': [
+                                    {
+                                        'type': 'join_requested',
+                                        'created_at': '2024-01-18T12:34:56Z'
+                                    },
+                                    {
+                                        'type': 'joined_meeting',
+                                        'created_at': '2024-01-18T12:35:00Z'
+                                    },
+                                    {
+                                        'type': 'leave_requested',
+                                        'created_at': '2024-01-18T13:34:56Z'
+                                    }
+                                ],
+                                'transcription_state': 'in_progress',
+                                'recording_state': 'in_progress'
+                            },
+                            description='Example response when requesting a bot to leave'
+                        )
+
+NewlyCreatedBotExample = OpenApiExample(
+            'New bot',
+            value={
+                'id': 'bot_weIAju4OXNZkDTpZ', 
+                'meeting_url': 'https://zoom.us/j/123?pwd=456', 
+                'state': 'joining',
+                'events': [
+                    {
+                        'type': 'join_requested',
+                        'created_at': '2024-01-18T12:34:56Z'
+                    }
+                ],
+                'transcription_state': 'not_started',
+                'recording_state': 'not_started'
+            },
+            description='Example response when creating a new bot'
+        )
 
 @extend_schema(exclude=True)
 class NotFoundView(APIView):    
@@ -71,7 +115,7 @@ class BotCreateView(APIView):
         description='After being created,the bot will attempt to join the specified meeting.',
         request=CreateBotSerializer,
         responses={
-            201: OpenApiResponse(response=BotSerializer, description='Bot created successfully'),
+            201: OpenApiResponse(response=BotSerializer, description='Bot created successfully', examples=[NewlyCreatedBotExample]),
             400: OpenApiResponse(description='Invalid input')
         },
         parameters=TokenHeaderParameter, 
@@ -101,8 +145,8 @@ class BotCreateView(APIView):
             is_default_recording=True
         )
         
-        # Try to transition the state from READY to JOINING_REQ_NOT_STARTED_BY_BOT
-        BotEventManager.create_event(bot, BotEvent.EventTypes.JOIN_REQUESTED_BY_API)
+        # Try to transition the state from READY to JOINING
+        BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
 
         # Launch the Celery task after successful creation
         run_bot.delay(bot.id)
@@ -288,7 +332,11 @@ class BotLeaveView(APIView):
         summary='Leave a meeting',
         description='Causes the bot to leave the meeting.',
         responses={
-            200: OpenApiResponse(response=BotSerializer, description='Successfully requested to leave meeting'),
+            200: OpenApiResponse(
+                    response=BotSerializer,
+                    description='Successfully requested to leave meeting',
+                    examples=[LeavingBotExample]
+                ),
             404: OpenApiResponse(description='Bot not found')
         },
         parameters=TokenHeaderParameter,
@@ -298,7 +346,7 @@ class BotLeaveView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             
-            BotEventManager.create_event(bot, BotEvent.EventTypes.LEAVE_REQUESTED_BY_API)
+            BotEventManager.create_event(bot, BotEventTypes.LEAVE_REQUESTED)
 
             send_sync_command(bot)
             
@@ -413,7 +461,7 @@ class BotDetailView(APIView):
         operation_id='Get Bot',
         summary='Get the details for a bot',
         responses={
-            200: OpenApiResponse(response=BotSerializer, description='Bot details'),
+            200: OpenApiResponse(response=BotSerializer, description='Bot details', examples=[NewlyCreatedBotExample]),
             404: OpenApiResponse(description='Bot not found')
         },
         parameters=TokenHeaderParameter,

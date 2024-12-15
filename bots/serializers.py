@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
-from .models import Bot, BotStates, Recording, RecordingStates, RecordingTranscriptionStates, BotSubStates
+from .models import Bot, BotEventTypes, BotEventSubTypes, BotStates, Recording, RecordingStates, RecordingTranscriptionStates
 
 @extend_schema_serializer(
     examples=[
@@ -19,18 +19,10 @@ class CreateBotSerializer(serializers.Serializer):
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
 
-@extend_schema_serializer(
-    examples=[
-        OpenApiExample(
-            'Meeting URL',
-            value={'id': 'bot_weIAju4OXNZkDTpZ', 'meeting_url': 'https://zoom.us/j/123?pwd=456', 'state': 'joining', 'sub_state': None, 'transcription_state': 'not_started', 'recording_state': 'not_started'},
-        )
-    ]
-)
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='object_id')
     state = serializers.SerializerMethodField()
-    sub_state = serializers.SerializerMethodField()
+    events = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
     recording_state = serializers.SerializerMethodField()
 
@@ -42,14 +34,30 @@ class BotSerializer(serializers.ModelSerializer):
         return BotStates.state_to_api_code(obj.state)
 
     @extend_schema_field({
-        'type': 'string',
-        'enum': [BotSubStates.state_to_api_code(state.value) for state in BotSubStates],
-        'nullable': True
+        'type': 'array',
+        'items': {
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'sub_type': {'type': 'string', 'nullable': True},
+                'created_at': {'type': 'string', 'format': 'date-time'}
+            }
+        }
     })
-    def get_sub_state(self, obj):
-        if not obj.sub_state:
-            return None
-        return BotSubStates.state_to_api_code(obj.sub_state)
+    def get_events(self, obj):
+        events = []
+        for event in obj.bot_events.all():
+            event_type = BotEventTypes.type_to_api_code(event.event_type)
+            event_data = {
+                'type': event_type,
+                'created_at': event.created_at
+            }
+            
+            if event.event_sub_type:
+                event_data['sub_type'] = BotEventSubTypes.sub_type_to_api_code(event.event_sub_type)
+            
+            events.append(event_data)
+        return events
 
     @extend_schema_field({
         'type': 'string',
@@ -75,7 +83,7 @@ class BotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Bot
-        fields = ['id', 'meeting_url', 'state', 'sub_state', 'transcription_state', 'recording_state']
+        fields = ['id', 'meeting_url', 'state', 'events', 'transcription_state', 'recording_state']
         read_only_fields = fields
 
 class TranscriptUtteranceSerializer(serializers.Serializer):

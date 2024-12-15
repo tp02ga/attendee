@@ -179,7 +179,7 @@ SPECTACULAR_SETTINGS = {
         {'url': 'https://app.attendee.dev', 'description': 'Production server'},
     ],
 }
-# public with python manage.py spectacular --color --file docs/openapi.yml
+# publish with python manage.py spectacular --color --file docs/openapi.yml
 
 STORAGES = {
     "default": {

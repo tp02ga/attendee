@@ -1,5 +1,5 @@
 from celery import shared_task
-from .models import Bot, BotEvent, BotEventManager, BotStates, Utterance, Recording, RecordingStates, BotMediaRequestMediaTypes, BotMediaRequestStates, BotMediaRequestManager, BotMediaRequest, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
+from .models import Bot, BotEvent, BotEventTypes, BotEventSubTypes, BotEventManager, BotStates, Utterance, Recording, RecordingStates, BotMediaRequestMediaTypes, BotMediaRequestStates, BotMediaRequestManager, BotMediaRequest, RecordingTranscriptionStates, RecordingManager, Participant, Credentials
 from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 import redis
@@ -9,6 +9,7 @@ import signal
 from urllib.parse import urlparse, parse_qs
 import re
 import hashlib
+from celery.signals import worker_shutting_down
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -131,10 +132,11 @@ def run_bot(self, bot_id):
         try:
             BotEventManager.create_event(
                 bot=bot_in_db,
-                event_type=BotEvent.EventTypes.PROCESS_TERMINATED
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED
             )
         except Exception as e:
-            print(f"Error creating PROCESS_TERMINATED event: {e}")
+            print(f"Error creating FATAL_ERROR event: {e}")
 
         cleanup_bot()
         return False
@@ -146,15 +148,15 @@ def run_bot(self, bot_id):
                 print("Flushing utterances...")
                 utterance_processing_queue.flush_utterances()
 
-            if bot_in_db.state == BotStates.LEAVING_REQ_STARTED_BY_BOT:
+            if bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(
                     bot=bot_in_db,
-                    event_type=BotEvent.EventTypes.BOT_LEFT_MEETING
+                    event_type=BotEventTypes.BOT_LEFT_MEETING
                 )
             else:
                 BotEventManager.create_event(
                     bot=bot_in_db,
-                    event_type=BotEvent.EventTypes.MEETING_ENDED
+                    event_type=BotEventTypes.MEETING_ENDED
                 )
             cleanup_bot()
             return
@@ -163,7 +165,8 @@ def run_bot(self, bot_id):
             print("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(
                 bot=bot_in_db,
-                event_type=BotEvent.EventTypes.WAITING_FOR_HOST_TO_START_MEETING_MSG_RECEIVED
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST
             )
             cleanup_bot()
             return
@@ -172,7 +175,7 @@ def run_bot(self, bot_id):
             print("Received message to put bot in waiting room")
             BotEventManager.create_event(
                 bot=bot_in_db,
-                event_type=BotEvent.EventTypes.BOT_PUT_IN_WAITING_ROOM
+                event_type=BotEventTypes.BOT_PUT_IN_WAITING_ROOM
             )
             return
 
@@ -180,7 +183,7 @@ def run_bot(self, bot_id):
             print("Received message that bot joined meeting")
             BotEventManager.create_event(
                 bot=bot_in_db,
-                event_type=BotEvent.EventTypes.BOT_JOINED_MEETING
+                event_type=BotEventTypes.BOT_JOINED_MEETING
             )
             return
 
@@ -188,7 +191,7 @@ def run_bot(self, bot_id):
             print("Received message that bot recording permission granted")
             BotEventManager.create_event(
                 bot=bot_in_db,
-                event_type=BotEvent.EventTypes.BOT_RECORDING_PERMISSION_GRANTED
+                event_type=BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED
             )
             return
 
@@ -284,19 +287,13 @@ def run_bot(self, bot_id):
         take_action_based_on_image_media_requests_in_db()
                 
     def take_action_based_on_bot_in_db():
-        if bot_in_db.state == BotStates.JOINING_REQ_NOT_STARTED_BY_BOT:
-            print("take_action_based_on_bot_in_db - JOINING_REQ_NOT_STARTED_BY_BOT")
-            BotEventManager.create_event(
-                bot=bot_in_db,
-                event_type=BotEvent.EventTypes.JOIN_REQUESTED_BY_BOT
-            )
+        if bot_in_db.state == BotStates.JOINING:
+            print("take_action_based_on_bot_in_db - JOINING")
+            BotEventManager.set_requested_bot_action_taken_at(bot_in_db)
             zoom_bot.init()
-        if bot_in_db.state == BotStates.LEAVING_REQ_NOT_STARTED_BY_BOT:
-            print("take_action_based_on_bot_in_db - LEAVING_REQ_NOT_STARTED_BY_BOT")
-            BotEventManager.create_event(
-                bot=bot_in_db,
-                event_type=BotEvent.EventTypes.LEAVE_REQUESTED_BY_BOT
-            )
+        if bot_in_db.state == BotStates.LEAVING:
+            print("take_action_based_on_bot_in_db - LEAVING")
+            BotEventManager.set_requested_bot_action_taken_at(bot_in_db)
             zoom_bot.leave()
 
     def get_participant(participant_id):
@@ -422,3 +419,21 @@ def run_bot(self, bot_id):
         # Clean up Redis subscription
         pubsub.unsubscribe(channel)
         pubsub.close()
+
+def kill_child_processes():
+    # Get the process group ID (PGID) of the current process
+    pgid = os.getpgid(os.getpid())
+    
+    try:
+        # Send SIGTERM to all processes in the process group
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass  # Process group may no longer exist
+
+@worker_shutting_down.connect
+def shutting_down_handler(sig, how, exitcode, **kwargs):
+    # Just adding this code so we can see how to shut down all the tasks
+    # when the main process is terminated.
+    # It's likely overkill.
+    print("Celery worker shutting down, sending SIGTERM to all child processes")
+    kill_child_processes()
