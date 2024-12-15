@@ -9,6 +9,7 @@ import signal
 from urllib.parse import urlparse, parse_qs
 import re
 import hashlib
+from celery.signals import worker_shutting_down
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -418,3 +419,21 @@ def run_bot(self, bot_id):
         # Clean up Redis subscription
         pubsub.unsubscribe(channel)
         pubsub.close()
+
+def kill_child_processes():
+    # Get the process group ID (PGID) of the current process
+    pgid = os.getpgid(os.getpid())
+    
+    try:
+        # Send SIGTERM to all processes in the process group
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass  # Process group may no longer exist
+
+@worker_shutting_down.connect
+def shutting_down_handler(sig, how, exitcode, **kwargs):
+    # Just adding this code so we can see how to shut down all the tasks
+    # when the main process is terminated.
+    # It's likely overkill.
+    print("Celery worker shutting down, sending SIGTERM to all child processes")
+    kill_child_processes()
