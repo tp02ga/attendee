@@ -3,6 +3,10 @@ import numpy as np
 import cv2
 from gi.repository import GLib
 import time
+import logging
+
+logger = logging.getLogger(__name__)
+
 def convert_yuv420_frame_to_bgr(frame_bytes, width, height):
     # Convert bytes to numpy array
     yuv_data = np.frombuffer(frame_bytes, dtype=np.uint8)
@@ -27,15 +31,21 @@ class VideoInputStream:
         )
 
         self.renderer = zoom.createRenderer(self.renderer_delegate)
-        self.renderer.setRawDataResolution(zoom.ZoomSDKResolution_360P)
-        self.renderer.subscribe(self.user_id, zoom.ZoomSDKRawDataType.RAW_DATA_TYPE_VIDEO)
+        set_resolution_result = self.renderer.setRawDataResolution(zoom.ZoomSDKResolution_360P)
+        subscribe_result = self.renderer.subscribe(self.user_id, zoom.ZoomSDKRawDataType.RAW_DATA_TYPE_VIDEO)
         self.raw_data_status = zoom.RawData_Off
 
         self.last_frame_time = time.time()
         self.black_frame_timer_id = GLib.timeout_add(250, self.send_black_frame)
 
+        logger.info(f"In VideoInputStream.init self.renderer = {self.renderer}")
+        logger.info(f"In VideoInputStream.init set_resolution_result for user {self.user_id} is {set_resolution_result}")
+        logger.info(f"In VideoInputStream.init subscribe_result for user {self.user_id} is {subscribe_result}")
+        self.last_debug_frame_time = None
+
     def on_raw_data_status_changed_callback(self, status):
         self.raw_data_status = status
+        logger.info(f"In VideoInputStream.on_raw_data_status_changed_callback raw_data_status for user {self.user_id} is {self.raw_data_status}")
 
     def send_black_frame(self):
         if self.renderer_destroyed:
@@ -46,6 +56,7 @@ class VideoInputStream:
             # Create a black frame of the same dimensions
             black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
             self.video_input_manager.new_frame_callback(black_frame)
+            logger.info(f"In VideoInputStream.send_black_frame for user {self.user_id} sent black frame")
             
         return not self.renderer_destroyed  # Continue timer if not cleaned up
 
@@ -57,13 +68,13 @@ class VideoInputStream:
             GLib.source_remove(self.black_frame_timer_id)
             self.black_frame_timer_id = None
 
-        print("starting renderer unsubscription for user", self.user_id)
+        logger.info(f"starting renderer unsubscription for user {self.user_id}")
         self.renderer.unSubscribe()
-        print("finished renderer unsubscription for user", self.user_id)
+        logger.info(f"finished renderer unsubscription for user {self.user_id}")
 
     def on_renderer_destroyed_callback(self):
         self.renderer_destroyed = True
-        print("renderer destroyed for user", self.user_id)
+        logger.info(f"renderer destroyed for user {self.user_id}")
 
     def on_raw_video_frame_received_callback(self, data):
         if self.renderer_destroyed:
@@ -77,8 +88,12 @@ class VideoInputStream:
         bgr_frame = convert_yuv420_frame_to_bgr(data.GetBuffer(), data.GetStreamWidth(), data.GetStreamHeight())
 
         if bgr_frame is None or bgr_frame.size == 0:
-            print("Warning: Invalid frame received")
+            logger.warning(f"In VideoInputStream.on_raw_video_frame_received_callback invalid frame received for user {self.user_id}")
             return
+
+        if self.last_debug_frame_time is None or time.time() - self.last_debug_frame_time > 1:
+            logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
+            self.last_debug_frame_time = time.time()
 
         self.video_input_manager.new_frame_callback(bgr_frame)
 
