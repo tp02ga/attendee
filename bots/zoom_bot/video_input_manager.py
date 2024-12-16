@@ -49,7 +49,6 @@ class VideoInputStream:
             
         return not self.renderer_destroyed  # Continue timer if not cleaned up
 
-
     def cleanup(self):
         if self.renderer_destroyed:
             return
@@ -92,6 +91,9 @@ class VideoInputManager:
         self.wants_any_frames_callback = wants_any_frames_callback
         self.mode = None
         self.input_streams = []
+
+    def has_any_video_input_streams(self):
+        return len(self.input_streams) > 0
 
     def add_input_streams_if_needed(self, user_ids):
         streams_to_remove = [
