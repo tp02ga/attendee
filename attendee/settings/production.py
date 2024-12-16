@@ -25,3 +25,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'noreply@mail.attendee.dev'
+
+ADMINS = [
+    ('Attendee Error Reports Receiver', os.getenv('ERROR_REPORTS_EMAIL')),
+]
+SERVER_EMAIL = 'noreply@mail.attendee.dev'
