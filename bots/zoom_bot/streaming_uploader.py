@@ -64,8 +64,16 @@ class StreamingUploader:
             self.buffer.write(remaining)
     
     def complete_upload(self):
+        # If we never started a multipart upload (len(self.parts) == 0), do a regular upload
         if len(self.parts) == 0:
-            print("No parts to upload")
+            self.buffer.seek(0)
+            data = self.buffer.getvalue()
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=self.key,
+                Body=data
+            )
+            print("len(self.parts) == 0, so did a regular upload")
             return
 
         # Upload final part if any data remains

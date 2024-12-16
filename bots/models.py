@@ -538,6 +538,8 @@ class Recording(models.Model):
 
     @property
     def url(self):
+        if not self.file.name:
+            return None
         # Generate a temporary signed URL that expires in 30 minutes (1800 seconds)
         return self.file.storage.bucket.meta.client.generate_presigned_url(
             'get_object',

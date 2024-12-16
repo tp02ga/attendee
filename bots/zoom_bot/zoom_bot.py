@@ -132,6 +132,20 @@ class ZoomBot:
             self.active_speaker_id = user_ids[0]
             self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=self.active_speaker_id)
 
+    def set_up_video_input_manager(self):
+        if self.video_input_manager.has_any_video_input_streams():
+            return
+        
+        default_participant_id = self.my_participant_id
+
+        participant_list = self.participants_ctrl.GetParticipantsList()
+        for participant_id in participant_list:
+            if participant_id != self.my_participant_id:
+                default_participant_id = participant_id
+                break
+        
+        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id)
+
     def cleanup(self):
         if self.pipeline:
             self.pipeline.cleanup()
@@ -354,6 +368,8 @@ class ZoomBot:
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.pipeline.setup_gstreamer_pipeline()
+
+        GLib.timeout_add(100, self.set_up_video_input_manager)
 
     def stop_raw_recording(self):
         rec_ctrl = self.meeting_service.StopRawRecording()

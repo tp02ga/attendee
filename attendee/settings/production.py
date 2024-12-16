@@ -26,7 +26,9 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'noreply@mail.attendee.dev'
 
-ADMINS = [
-    ('Attendee Error Reports Receiver', os.getenv('ERROR_REPORTS_EMAIL')),
-]
+ADMINS = []
+
+if os.getenv('ERROR_REPORTS_RECEIVER_EMAIL_ADDRESS'):
+    ADMINS.append(('Attendee Error Reports Email Receiver', os.getenv('ERROR_REPORTS_RECEIVER_EMAIL_ADDRESS')))
+
 SERVER_EMAIL = 'noreply@mail.attendee.dev'
