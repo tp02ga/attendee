@@ -40,7 +40,6 @@ class GstreamerPipeline:
             'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
             'queue name=q1 ! '
             'videoconvert ! '
-            'videoscale ! video/x-raw,width=320,height=180 ! '  # Downscale video
             'videorate ! '
             'queue name=q2 ! '
             'x264enc tune=zerolatency speed-preset=ultrafast ! '
@@ -63,7 +62,7 @@ class GstreamerPipeline:
         self.audio_appsrc = self.pipeline.get_by_name('audio_source')
         
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string('video/x-raw,format=BGR,width=640,height=360,framerate=30/1')
+        video_caps = Gst.Caps.from_string('video/x-raw,format=I420,width=320,height=180,framerate=30/1')
         self.appsrc.set_property('caps', video_caps)
         self.appsrc.set_property('format', Gst.Format.TIME)
         self.appsrc.set_property('is-live', True)
@@ -180,7 +179,7 @@ class GstreamerPipeline:
             buffer_pts = current_time_ns - self.start_time_ns
             
             # Create buffer with timestamp
-            buffer = Gst.Buffer.new_wrapped(frame.tobytes())
+            buffer = Gst.Buffer.new_wrapped(frame)
             buffer.pts = buffer_pts
             
             # Calculate duration based on time until next frame

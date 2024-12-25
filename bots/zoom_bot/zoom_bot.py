@@ -98,10 +98,14 @@ class ZoomBot:
         self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
         self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
 
+        self.meeting_sharing_controller = None
+        self.meeting_share_ctrl_event = None
+
         self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename_callback())
         self.uploader.start_upload()
 
         self.active_speaker_id = None
+        self.active_sharer_id = None
 
         self._participant_cache = {}
 
@@ -128,9 +132,17 @@ class ZoomBot:
         if self.active_speaker_id == user_ids[0]:
             return
 
-        if self.pipeline.wants_any_video_frames():
-            self.active_speaker_id = user_ids[0]
-            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=self.active_speaker_id)
+        self.active_speaker_id = user_ids[0]
+        self.set_video_input_manager_based_on_state()
+
+    def set_video_input_manager_based_on_state(self):
+        if not self.pipeline.wants_any_video_frames():
+            return
+        
+        if self.active_sharer_id:
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SHARER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+        elif self.active_speaker_id:
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
 
     def set_up_video_input_manager(self):
         if self.video_input_manager.has_any_video_input_streams():
@@ -144,7 +156,7 @@ class ZoomBot:
                 default_participant_id = participant_id
                 break
         
-        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id)
+        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
 
     def cleanup(self):
         if self.pipeline:
@@ -204,6 +216,18 @@ class ZoomBot:
             print(f"Error getting participant {participant_id}, falling back to cache")
             return self._participant_cache.get(participant_id)
 
+    def on_sharing_status_callback(self, sharing_status, user_id):
+        print("on_sharing_status_callback called. sharing_status =", sharing_status, "user_id =", user_id)
+
+        if sharing_status == zoom.Sharing_Other_Share_Begin:
+            new_active_sharer_id = user_id
+        else:
+            new_active_sharer_id = None
+
+        if new_active_sharer_id != self.active_sharer_id:
+            self.active_sharer_id = new_active_sharer_id
+            self.set_video_input_manager_based_on_state()
+
     def on_join(self):
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
         self.reminder_controller = self.meeting_service.GetMeetingReminderController()
@@ -238,6 +262,14 @@ class ZoomBot:
 
         GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
         GLib.timeout_add_seconds(1, self.set_up_bot_video_input)
+        GLib.timeout_add_seconds(1, self.set_up_bot_sharing_controller)
+
+    def set_up_bot_sharing_controller(self):
+        self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()
+        self.meeting_share_ctrl_event = zoom.MeetingShareCtrlEventCallbacks(onSharingStatusCallback=self.on_sharing_status_callback)
+        self.meeting_sharing_controller.SetEvent(self.meeting_share_ctrl_event)
+        viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
+        self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
 
     def set_up_bot_video_input(self):
         self.virtual_camera_video_source = zoom.ZoomSDKVideoSourceCallbacks(onInitializeCallback=self.on_virtual_camera_initialize_callback, onStartSendCallback=self.on_virtual_camera_start_send_callback)
