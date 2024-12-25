@@ -19,6 +19,28 @@ def convert_yuv420_frame_to_bgr(frame_bytes, width, height):
 
     return bgr_frame
 
+def scale_i420(frame_bytes, width, height, new_width, new_height):
+    yuv_data = np.frombuffer(frame_bytes, dtype=np.uint8)
+    # Reshape the 1D array into separate Y, U, and V planes
+    y_size = width * height
+    u_size = v_size = (width // 2) * (height // 2)
+    
+    y = yuv_data[:y_size].reshape(height, width)
+    u = yuv_data[y_size:y_size + u_size].reshape(height // 2, width // 2)
+    v = yuv_data[y_size + u_size:].reshape(height // 2, width // 2)
+    
+    # Scale each plane separately
+    y_scaled = cv2.resize(y, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    u_scaled = cv2.resize(u, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
+    v_scaled = cv2.resize(v, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
+    
+    # Flatten the arrays back into 1D
+    return np.concatenate([
+        y_scaled.flatten(),
+        u_scaled.flatten(),
+        v_scaled.flatten()
+    ]).astype(np.uint8).tobytes()
+
 class VideoInputStream:
     def __init__(self, video_input_manager, user_id, stream_type):
         self.video_input_manager = video_input_manager
@@ -102,7 +124,8 @@ class VideoInputStream:
             logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
             self.last_debug_frame_time = time.time()
 
-        self.video_input_manager.new_frame_callback(i420_frame)
+        scaled_i420_frame = scale_i420(i420_frame, data.GetStreamWidth(), data.GetStreamHeight(), 1920, 1080)
+        self.video_input_manager.new_frame_callback(scaled_i420_frame)
 
 class VideoInputManager:
     class StreamType:
@@ -150,6 +173,8 @@ class VideoInputManager:
         if mode != VideoInputManager.Mode.ACTIVE_SPEAKER and mode != VideoInputManager.Mode.ACTIVE_SHARER:
             raise Exception("Unsupported mode " + str(mode))
         
+        print(f"In VideoInputManager.set_mode mode = {mode} active_speaker_id = {active_speaker_id} active_sharer_id = {active_sharer_id}")
+
         self.mode = mode
 
         if self.mode == VideoInputManager.Mode.ACTIVE_SPEAKER:

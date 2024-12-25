@@ -62,7 +62,7 @@ class GstreamerPipeline:
         self.audio_appsrc = self.pipeline.get_by_name('audio_source')
         
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string('video/x-raw,format=I420,width=320,height=180,framerate=30/1')
+        video_caps = Gst.Caps.from_string('video/x-raw,format=I420,width=1920,height=1080,framerate=30/1')
         self.appsrc.set_property('caps', video_caps)
         self.appsrc.set_property('format', Gst.Format.TIME)
         self.appsrc.set_property('is-live', True)

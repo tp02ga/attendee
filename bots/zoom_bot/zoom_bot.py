@@ -219,7 +219,7 @@ class ZoomBot:
     def on_sharing_status_callback(self, sharing_status, user_id):
         print("on_sharing_status_callback called. sharing_status =", sharing_status, "user_id =", user_id)
 
-        if sharing_status == zoom.Sharing_Other_Share_Begin:
+        if sharing_status == zoom.Sharing_Other_Share_Begin or sharing_status == zoom.Sharing_View_Other_Sharing:
             new_active_sharer_id = user_id
         else:
             new_active_sharer_id = None
@@ -462,7 +462,7 @@ class ZoomBot:
 
     def on_reminder_notify(self, content, handler):
         if handler:
-            handler.accept()
+            handler.Accept()
 
     def auth_return(self, result):
         if result == zoom.AUTHRET_SUCCESS:
