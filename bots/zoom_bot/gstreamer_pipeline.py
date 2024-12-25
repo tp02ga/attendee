@@ -38,10 +38,10 @@ class GstreamerPipeline:
 
         reduce_video_resolution_pipeline_str = (
             'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=0 max-size-time=0 ! '
             'videoconvert ! '
             'videorate ! '
-            'queue name=q2 ! '
+            'queue name=q2 max-size-buffers=1000 max-size-bytes=0 max-size-time=0 ! '
             'x264enc tune=zerolatency speed-preset=ultrafast ! '
             'queue name=q3 ! '
             'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
