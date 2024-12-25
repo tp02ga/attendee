@@ -7,20 +7,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def convert_yuv420_frame_to_bgr(frame_bytes, width, height):
-    # Convert bytes to numpy array
-    yuv_data = np.frombuffer(frame_bytes, dtype=np.uint8)
+def scale_i420(frame, new_width, new_height):
+    width = frame.GetStreamWidth()
+    height = frame.GetStreamHeight()
+    # Allocate a buffer for the complete YUV420 data
+    total_size = height * width * 3 // 2
+    yuv_data = np.empty((total_size,), dtype=np.uint8)
+    
+    # Get the separate Y, U, V buffers from the input
+    y_buffer = frame.GetYBuffer()
+    u_buffer = frame.GetUBuffer()
+    v_buffer = frame.GetVBuffer()
+    
+    # Copy Y buffer
+    y_size = height * width
+    yuv_data[0:y_size] = np.frombuffer(y_buffer, dtype=np.uint8)
+    
+    # Copy U buffer
+    u_size = height * width // 4
+    yuv_data[y_size:y_size + u_size] = np.frombuffer(u_buffer, dtype=np.uint8)
+    
+    # Copy V buffer
+    yuv_data[y_size + u_size:] = np.frombuffer(v_buffer, dtype=np.uint8)
 
-    # Reshape into I420 format with U/V planes
-    yuv_frame = yuv_data.reshape((height * 3//2, width))
-
-    # Convert from YUV420 to BGR
-    bgr_frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2BGR_I420)
-
-    return bgr_frame
-
-def scale_i420(frame_bytes, width, height, new_width, new_height):
-    yuv_data = np.frombuffer(frame_bytes, dtype=np.uint8)
     # Reshape the 1D array into separate Y, U, and V planes
     y_size = width * height
     u_size = v_size = (width // 2) * (height // 2)
@@ -113,7 +122,6 @@ class VideoInputStream:
         
         self.last_frame_time = time.time()
 
-        #bgr_frame = convert_yuv420_frame_to_bgr(data.GetBuffer(), data.GetStreamWidth(), data.GetStreamHeight())
         i420_frame = data.GetBuffer()
 
         if i420_frame is None or len(i420_frame) == 0:
@@ -124,7 +132,7 @@ class VideoInputStream:
             logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
             self.last_debug_frame_time = time.time()
 
-        scaled_i420_frame = scale_i420(i420_frame, data.GetStreamWidth(), data.GetStreamHeight(), 1920, 1080)
+        scaled_i420_frame = scale_i420(data, 1920, 1080)
         self.video_input_manager.new_frame_callback(scaled_i420_frame)
 
 class VideoInputManager:
