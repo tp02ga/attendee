@@ -8,46 +8,96 @@ import logging
 logger = logging.getLogger(__name__)
 
 def scale_i420(frame, new_width, new_height):
-    width = frame.GetStreamWidth()
-    height = frame.GetStreamHeight()
-    # Allocate a buffer for the complete YUV420 data
-    total_size = height * width * 3 // 2
-    yuv_data = np.empty((total_size,), dtype=np.uint8)
+    """
+    Scales the given frame in I420 format to new_width x new_height while
+    preserving aspect ratio. If the aspect ratios do not match, letterboxes/pillarboxes
+    the scaled image on a black background.
     
-    # Get the separate Y, U, V buffers from the input
-    y_buffer = frame.GetYBuffer()
-    u_buffer = frame.GetUBuffer()
-    v_buffer = frame.GetVBuffer()
-    
-    # Copy Y buffer
-    y_size = height * width
-    yuv_data[0:y_size] = np.frombuffer(y_buffer, dtype=np.uint8)
-    
-    # Copy U buffer
-    u_size = height * width // 4
-    yuv_data[y_size:y_size + u_size] = np.frombuffer(u_buffer, dtype=np.uint8)
-    
-    # Copy V buffer
-    yuv_data[y_size + u_size:] = np.frombuffer(v_buffer, dtype=np.uint8)
+    :param frame: Frame object with methods:
+        - GetStreamWidth()
+        - GetStreamHeight()
+        - GetYBuffer()
+        - GetUBuffer()
+        - GetVBuffer()
+    :param new_width: Desired width.
+    :param new_height: Desired height.
+    :return: Scaled (and possibly letter/pillarboxed) I420 frame bytes.
+    """
+    orig_width = frame.GetStreamWidth()
+    orig_height = frame.GetStreamHeight()
 
-    # Reshape the 1D array into separate Y, U, and V planes
-    y_size = width * height
-    u_size = v_size = (width // 2) * (height // 2)
-    
-    y = yuv_data[:y_size].reshape(height, width)
-    u = yuv_data[y_size:y_size + u_size].reshape(height // 2, width // 2)
-    v = yuv_data[y_size + u_size:].reshape(height // 2, width // 2)
-    
-    # Scale each plane separately
-    y_scaled = cv2.resize(y, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-    u_scaled = cv2.resize(u, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
-    v_scaled = cv2.resize(v, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
-    
-    # Flatten the arrays back into 1D
+    # 1) Convert buffers to NumPy arrays without extra copies if possible.
+    y = np.frombuffer(frame.GetYBuffer(), dtype=np.uint8, count=orig_width*orig_height)
+    u = np.frombuffer(frame.GetUBuffer(), dtype=np.uint8, count=(orig_width//2)*(orig_height//2))
+    v = np.frombuffer(frame.GetVBuffer(), dtype=np.uint8, count=(orig_width//2)*(orig_height//2))
+
+    # Reshape planes
+    y = y.reshape(orig_height, orig_width)
+    u = u.reshape(orig_height//2, orig_width//2)
+    v = v.reshape(orig_height//2, orig_width//2)
+
+    # 2) Determine scale preserving aspect ratio
+    input_aspect = orig_width / orig_height
+    output_aspect = new_width / new_height
+
+    if abs(input_aspect - output_aspect) < 1e-6:
+        # Aspect ratios match (or extremely close). Just do a simple stretch to (new_width, new_height).
+        scaled_y = cv2.resize(y, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        scaled_u = cv2.resize(u, (new_width//2, new_height//2), interpolation=cv2.INTER_LINEAR)
+        scaled_v = cv2.resize(v, (new_width//2, new_height//2), interpolation=cv2.INTER_LINEAR)
+
+        # Flatten and return
+        return np.concatenate([
+            scaled_y.flatten(),
+            scaled_u.flatten(),
+            scaled_v.flatten()
+        ]).astype(np.uint8).tobytes()
+
+    # Otherwise, the aspect ratios differ => letterbox or pillarbox
+    # 3) Compute scaled dimensions that fit entirely within (new_width, new_height)
+    if input_aspect > output_aspect:
+        # The image is relatively wider => match width, shrink height
+        scaled_width = new_width
+        scaled_height = int(round(new_width / input_aspect))
+    else:
+        # The image is relatively taller => match height, shrink width
+        scaled_height = new_height
+        scaled_width = int(round(new_height * input_aspect))
+
+    # 4) Resize Y, U, and V to the scaled dimensions
+    scaled_y = cv2.resize(y, (scaled_width, scaled_height), interpolation=cv2.INTER_LINEAR)
+    scaled_u = cv2.resize(u, (scaled_width//2, scaled_height//2), interpolation=cv2.INTER_LINEAR)
+    scaled_v = cv2.resize(v, (scaled_width//2, scaled_height//2), interpolation=cv2.INTER_LINEAR)
+
+    # 5) Create the black background only if needed
+    # For I420, black is typically (Y=0, U=128, V=128) or (Y=16, U=128, V=128).
+    # We'll use Y=0, U=128, V=128 for "dark" black.
+    final_y = np.zeros((new_height, new_width), dtype=np.uint8)
+    final_u = np.full((new_height//2, new_width//2), 128, dtype=np.uint8)
+    final_v = np.full((new_height//2, new_width//2), 128, dtype=np.uint8)
+
+    # 6) Compute centering offsets for each plane
+    # For Y-plane
+    offset_y = (new_height - scaled_height) // 2
+    offset_x = (new_width - scaled_width) // 2
+
+    # Insert Y
+    final_y[offset_y:offset_y+scaled_height, offset_x:offset_x+scaled_width] = scaled_y
+
+    # For U, V planes (subsampled by 2 in each dimension)
+    offset_y_uv = offset_y // 2
+    offset_x_uv = offset_x // 2
+
+    final_u[offset_y_uv:offset_y_uv+(scaled_height//2),
+            offset_x_uv:offset_x_uv+(scaled_width//2)] = scaled_u
+    final_v[offset_y_uv:offset_y_uv+(scaled_height//2),
+            offset_x_uv:offset_x_uv+(scaled_width//2)] = scaled_v
+
+    # 7) Flatten back to I420 layout and return bytes
     return np.concatenate([
-        y_scaled.flatten(),
-        u_scaled.flatten(),
-        v_scaled.flatten()
+        final_y.flatten(),
+        final_u.flatten(),
+        final_v.flatten()
     ]).astype(np.uint8).tobytes()
 
 class VideoInputStream:
