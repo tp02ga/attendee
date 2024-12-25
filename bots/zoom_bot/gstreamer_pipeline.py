@@ -167,10 +167,8 @@ class GstreamerPipeline:
 
         return True
     
-    def on_new_video_frame(self, frame):
-        try:
-            current_time_ns = time.time_ns()
-                        
+    def on_new_video_frame(self, frame, current_time_ns):
+        try:                        
             # Initialize start time if not set
             if self.start_time_ns is None:
                 self.start_time_ns = current_time_ns

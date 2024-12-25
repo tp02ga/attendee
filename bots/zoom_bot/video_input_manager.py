@@ -142,7 +142,7 @@ class VideoInputStream:
         if current_time - self.last_frame_time >= 0.25 and self.raw_data_status == zoom.RawData_Off:
             # Create a black frame of the same dimensions
             black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
-            self.video_input_manager.new_frame_callback(black_frame)
+            self.video_input_manager.new_frame_callback(black_frame, time.time_ns())
             logger.info(f"In VideoInputStream.send_black_frame for user {self.user_id} sent black frame")
             
         return not self.renderer_destroyed  # Continue timer if not cleaned up
@@ -164,6 +164,8 @@ class VideoInputStream:
         logger.info(f"renderer destroyed for user {self.user_id}")
 
     def on_raw_video_frame_received_callback(self, data):
+        current_time_ns = time.time_ns()
+
         if self.renderer_destroyed:
             return
         
@@ -183,7 +185,7 @@ class VideoInputStream:
             self.last_debug_frame_time = time.time()
 
         scaled_i420_frame = scale_i420(data, 1920, 1080)
-        self.video_input_manager.new_frame_callback(scaled_i420_frame)
+        self.video_input_manager.new_frame_callback(scaled_i420_frame, current_time_ns)
 
 class VideoInputManager:
     class StreamType:
