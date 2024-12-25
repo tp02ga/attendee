@@ -7,7 +7,31 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def scale_i420(frame, new_width, new_height):
+def create_black_i420_frame(video_frame_size):
+    width, height = video_frame_size
+    # Ensure dimensions are even for proper chroma subsampling
+    if width % 2 != 0 or height % 2 != 0:
+        raise ValueError("Width and height must be even numbers for I420 format")
+    
+    # Y plane (black = 0 in Y plane)
+    y_plane = np.zeros((height, width), dtype=np.uint8)
+    
+    # U and V planes (black = 128 in UV planes)
+    # Both are quarter size of original due to 4:2:0 subsampling
+    u_plane = np.full((height // 2, width // 2), 128, dtype=np.uint8)
+    v_plane = np.full((height // 2, width // 2), 128, dtype=np.uint8)
+    
+    # Concatenate all planes
+    yuv_frame = np.concatenate([
+        y_plane.flatten(),
+        u_plane.flatten(),
+        v_plane.flatten()
+    ])
+    
+    return yuv_frame.astype(np.uint8).tobytes()
+
+def scale_i420(frame, new_size):
+    new_width, new_height = new_size
     """
     Scales the given frame in I420 format to new_width x new_height while
     preserving aspect ratio. If the aspect ratios do not match, letterboxes/pillarboxes
@@ -141,7 +165,7 @@ class VideoInputStream:
         current_time = time.time()
         if current_time - self.last_frame_time >= 0.25 and self.raw_data_status == zoom.RawData_Off:
             # Create a black frame of the same dimensions
-            black_frame = np.zeros((360, 640, 3), dtype=np.uint8)  # BGR format
+            black_frame = create_black_i420_frame(self.video_input_manager.video_frame_size)
             self.video_input_manager.new_frame_callback(black_frame, time.time_ns())
             logger.info(f"In VideoInputStream.send_black_frame for user {self.user_id} sent black frame")
             
@@ -184,7 +208,7 @@ class VideoInputStream:
             logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
             self.last_debug_frame_time = time.time()
 
-        scaled_i420_frame = scale_i420(data, 1920, 1080)
+        scaled_i420_frame = scale_i420(data, self.video_input_manager.video_frame_size)
         self.video_input_manager.new_frame_callback(scaled_i420_frame, current_time_ns)
 
 class VideoInputManager:
@@ -196,9 +220,10 @@ class VideoInputManager:
         ACTIVE_SPEAKER = 1
         ACTIVE_SHARER = 2
 
-    def __init__(self, *, new_frame_callback, wants_any_frames_callback):
+    def __init__(self, *, new_frame_callback, wants_any_frames_callback, video_frame_size):
         self.new_frame_callback = new_frame_callback
         self.wants_any_frames_callback = wants_any_frames_callback
+        self.video_frame_size = video_frame_size
         self.mode = None
         self.input_streams = []
 

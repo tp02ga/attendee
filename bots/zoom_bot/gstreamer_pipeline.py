@@ -5,8 +5,9 @@ import time
 import os
 
 class GstreamerPipeline:
-    def __init__(self, on_new_sample_callback):
+    def __init__(self, on_new_sample_callback, video_frame_size):
         self.on_new_sample_callback = on_new_sample_callback
+        self.video_frame_size = video_frame_size
         self.pipeline = None
         self.appsrc = None
         self.recording_active = False
@@ -38,10 +39,10 @@ class GstreamerPipeline:
 
         reduce_video_resolution_pipeline_str = (
             'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 max-size-buffers=1000 max-size-bytes=0 max-size-time=0 ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=1000000 max-size-time=0 ! '
             'videoconvert ! '
             'videorate ! '
-            'queue name=q2 max-size-buffers=1000 max-size-bytes=0 max-size-time=0 ! '
+            'queue name=q2 max-size-buffers=1000 max-size-bytes=1000000 max-size-time=0 ! '
             'x264enc tune=zerolatency speed-preset=ultrafast ! '
             'queue name=q3 ! '
             'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
@@ -62,7 +63,7 @@ class GstreamerPipeline:
         self.audio_appsrc = self.pipeline.get_by_name('audio_source')
         
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string('video/x-raw,format=I420,width=1920,height=1080,framerate=30/1')
+        video_caps = Gst.Caps.from_string(f'video/x-raw,format=I420,width={self.video_frame_size[0]},height={self.video_frame_size[1]},framerate=30/1')
         self.appsrc.set_property('caps', video_caps)
         self.appsrc.set_property('format', Gst.Format.TIME)
         self.appsrc.set_property('is-live', True)

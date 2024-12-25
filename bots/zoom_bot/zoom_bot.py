@@ -94,9 +94,10 @@ class ZoomBot:
         self.video_sender = None
         self.virtual_camera_video_source = None
         self.video_source_helper = None
+        self.video_frame_size = (1920, 1080)
 
-        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
-        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
+        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline, video_frame_size=self.video_frame_size)
+        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames, video_frame_size=self.video_frame_size)
 
         self.meeting_sharing_controller = None
         self.meeting_share_ctrl_event = None
