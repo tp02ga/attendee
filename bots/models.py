@@ -178,13 +178,15 @@ class BotEventTypes(models.IntegerChoices):
 class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Bot could not join meeting - Meeting Not Started - Waiting for Host'
     FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal error - Process Terminated'
+    COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED = 3, 'Bot could not join meeting - Zoom Authorization Failed'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
         """Returns the API code for a given sub type value"""
         mapping = {
             cls.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST: 'meeting_not_started_waiting_for_host',
-            cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated'
+            cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated',
+            cls.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED: 'zoom_authorization_failed'
         }
         return mapping.get(value)
 
@@ -235,7 +237,8 @@ class BotEvent(models.Model):
                     
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 
-                     (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST))) |
+                     (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED))) |
                     
                     # For all other events, event_sub_type must be null
                     (~Q(event_type=BotEventTypes.FATAL_ERROR) & 
@@ -324,7 +327,7 @@ class BotEventManager:
         return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
     @classmethod
-    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, max_retries: int = 3) -> BotEvent:
+    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, event_debug_message: str = None, max_retries: int = 3) -> BotEvent:
         """
         Creates a new event and updates the bot state, handling concurrency issues.
         
@@ -379,7 +382,8 @@ class BotEventManager:
                         old_state=old_state,
                         new_state=bot.state,
                         event_type=event_type,
-                        event_sub_type=event_sub_type
+                        event_sub_type=event_sub_type,
+                        debug_message=event_debug_message
                     )
 
                     # If we moved to the recording state

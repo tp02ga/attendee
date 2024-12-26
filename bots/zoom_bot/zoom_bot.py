@@ -43,6 +43,7 @@ def create_black_yuv420_frame(width=640, height=360):
 class ZoomBot:
     class Messages:
         LEAVE_MEETING_WAITING_FOR_HOST = "Leave meeting because received waiting for host status"
+        ZOOM_AUTHORIZATION_FAILED = "Zoom authorization failed"
         BOT_PUT_IN_WAITING_ROOM = "Bot put in waiting room"
         BOT_JOINED_MEETING = "Bot joined meeting"
         BOT_RECORDING_PERMISSION_GRANTED = "Bot recording permission granted"
@@ -478,7 +479,7 @@ class ZoomBot:
             print("Auth completed successfully.")
             return self.join_meeting()
 
-        raise Exception("Failed to authorize. result =", result)
+        self.send_message_callback({'message': self.Messages.ZOOM_AUTHORIZATION_FAILED, 'zoom_result_code': result})
     
     def meeting_status_changed(self, status, iResult):
         print("meeting_status_changed called. status =",status,"iResult=",iResult)
