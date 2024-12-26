@@ -149,8 +149,15 @@ class ZoomBot:
         if self.video_input_manager.has_any_video_input_streams():
             return
         
-        # There doesn't seem to be a way to poll for the active speaker
-        # so we'll just use the first participant that is not the bot
+        self.set_video_input_manager_based_on_state()
+
+        if self.video_input_manager.has_any_video_input_streams():
+            return
+        
+        # If we still don't have any video input streams, we'll just use the first participant that is not the bot
+        # or if there are no participants, we'll use the bot
+        print("in set_up_video_input_manager, setting default video input manager mode")
+
         default_participant_id = self.my_participant_id
 
         participant_list = self.participants_ctrl.GetParticipantsList()
@@ -158,11 +165,8 @@ class ZoomBot:
             if participant_id != self.my_participant_id:
                 default_participant_id = participant_id
                 break
-        self.active_speaker_id = default_participant_id
 
-        viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
-        self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
-        self.set_video_input_manager_based_on_state()
+        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
         
     def cleanup(self):
         if self.pipeline:
