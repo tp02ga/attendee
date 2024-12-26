@@ -148,7 +148,11 @@ class ZoomBot:
     def set_up_video_input_manager(self):
         if self.video_input_manager.has_any_video_input_streams():
             return
-        
+
+        # If someone was sharing before we joined, we will not receive an event, so we need to poll for the active sharer
+        viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
+        self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
+
         self.set_video_input_manager_based_on_state()
 
         if self.video_input_manager.has_any_video_input_streams():
