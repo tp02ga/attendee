@@ -42,17 +42,17 @@ class GstreamerPipeline:
             'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
             'videoconvert ! '
             'videorate ! '
-            'queue name=q2 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+            'queue name=q2 max-size-buffers=1000 max-size-bytes=200000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
             'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 ! '
+            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
             'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
             'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream ! '
+            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'audioconvert ! '
             'audiorate ! '
-            'queue name=q6 leaky=downstream ! '
+            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream ! '
+            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'muxer. '
         )
         
