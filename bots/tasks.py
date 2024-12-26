@@ -160,6 +160,17 @@ def run_bot(self, bot_id):
                 )
             cleanup_bot()
             return
+        
+        if message.get('message') == ZoomBot.Messages.ZOOM_AUTHORIZATION_FAILED:
+            print(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
+            BotEventManager.create_event(
+                bot=bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED,
+                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+            )
+            cleanup_bot()
+            return
 
         if message.get('message') == ZoomBot.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
             print("Received message to Leave meeting because received waiting for host status")
