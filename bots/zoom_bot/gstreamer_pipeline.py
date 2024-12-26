@@ -5,8 +5,9 @@ import time
 import os
 
 class GstreamerPipeline:
-    def __init__(self, on_new_sample_callback):
+    def __init__(self, on_new_sample_callback, video_frame_size):
         self.on_new_sample_callback = on_new_sample_callback
+        self.video_frame_size = video_frame_size
         self.pipeline = None
         self.appsrc = None
         self.recording_active = False
@@ -38,21 +39,20 @@ class GstreamerPipeline:
 
         reduce_video_resolution_pipeline_str = (
             'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
             'videoconvert ! '
-            'videoscale ! video/x-raw,width=320,height=180 ! '  # Downscale video
             'videorate ! '
-            'queue name=q2 ! '
+            'queue name=q2 max-size-buffers=1000 max-size-bytes=200000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
             'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 ! '
+            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
             'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
             'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream ! '
+            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'audioconvert ! '
             'audiorate ! '
-            'queue name=q6 leaky=downstream ! '
+            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream ! '
+            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'muxer. '
         )
         
@@ -63,7 +63,7 @@ class GstreamerPipeline:
         self.audio_appsrc = self.pipeline.get_by_name('audio_source')
         
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string('video/x-raw,format=BGR,width=640,height=360,framerate=30/1')
+        video_caps = Gst.Caps.from_string(f'video/x-raw,format=I420,width={self.video_frame_size[0]},height={self.video_frame_size[1]},framerate=30/1')
         self.appsrc.set_property('caps', video_caps)
         self.appsrc.set_property('format', Gst.Format.TIME)
         self.appsrc.set_property('is-live', True)
@@ -168,10 +168,8 @@ class GstreamerPipeline:
 
         return True
     
-    def on_new_video_frame(self, frame):
-        try:
-            current_time_ns = time.time_ns()
-                        
+    def on_new_video_frame(self, frame, current_time_ns):
+        try:                        
             # Initialize start time if not set
             if self.start_time_ns is None:
                 self.start_time_ns = current_time_ns
@@ -180,7 +178,7 @@ class GstreamerPipeline:
             buffer_pts = current_time_ns - self.start_time_ns
             
             # Create buffer with timestamp
-            buffer = Gst.Buffer.new_wrapped(frame.tobytes())
+            buffer = Gst.Buffer.new_wrapped(frame)
             buffer.pts = buffer_pts
             
             # Calculate duration based on time until next frame

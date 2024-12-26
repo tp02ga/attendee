@@ -94,14 +94,19 @@ class ZoomBot:
         self.video_sender = None
         self.virtual_camera_video_source = None
         self.video_source_helper = None
+        self.video_frame_size = (1920, 1080)
 
-        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline)
-        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames)
+        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline, video_frame_size=self.video_frame_size)
+        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames, video_frame_size=self.video_frame_size)
+
+        self.meeting_sharing_controller = None
+        self.meeting_share_ctrl_event = None
 
         self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename_callback())
         self.uploader.start_upload()
 
         self.active_speaker_id = None
+        self.active_sharer_id = None
 
         self._participant_cache = {}
 
@@ -128,23 +133,38 @@ class ZoomBot:
         if self.active_speaker_id == user_ids[0]:
             return
 
-        if self.pipeline.wants_any_video_frames():
-            self.active_speaker_id = user_ids[0]
-            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=self.active_speaker_id)
+        self.active_speaker_id = user_ids[0]
+        self.set_video_input_manager_based_on_state()
 
-    def set_up_video_input_manager(self):
-        if self.video_input_manager.has_any_video_input_streams():
+    def set_video_input_manager_based_on_state(self):
+        if not self.pipeline.wants_any_video_frames():
             return
         
-        default_participant_id = self.my_participant_id
+        print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id)
+        if self.active_sharer_id:
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SHARER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+        elif self.active_speaker_id:
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+        else:
+            # If there is no active sharer or speaker, we'll just use the video of the first participant that is not the bot
+            # or if there are no participants, we'll use the bot
+            default_participant_id = self.my_participant_id
 
-        participant_list = self.participants_ctrl.GetParticipantsList()
-        for participant_id in participant_list:
-            if participant_id != self.my_participant_id:
-                default_participant_id = participant_id
-                break
-        
-        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id)
+            participant_list = self.participants_ctrl.GetParticipantsList()
+            for participant_id in participant_list:
+                if participant_id != self.my_participant_id:
+                    default_participant_id = participant_id
+                    break
+
+            print("set_video_input_manager_based_on_state hit default case. default_participant_id =", default_participant_id)
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
+            
+    def set_up_video_input_manager(self):
+        # If someone was sharing before we joined, we will not receive an event, so we need to poll for the active sharer
+        viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
+        self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
+
+        self.set_video_input_manager_based_on_state()
 
     def cleanup(self):
         if self.pipeline:
@@ -204,10 +224,42 @@ class ZoomBot:
             print(f"Error getting participant {participant_id}, falling back to cache")
             return self._participant_cache.get(participant_id)
 
+    def on_sharing_status_callback(self, sharing_status, user_id):
+        print("on_sharing_status_callback called. sharing_status =", sharing_status, "user_id =", user_id)
+
+        if sharing_status == zoom.Sharing_Other_Share_Begin or sharing_status == zoom.Sharing_View_Other_Sharing:
+            new_active_sharer_id = user_id
+        else:
+            new_active_sharer_id = None
+
+        if new_active_sharer_id != self.active_sharer_id:
+            self.active_sharer_id = new_active_sharer_id
+            self.set_video_input_manager_based_on_state()
+
     def on_join(self):
+        # Meeting reminder controller
         self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
         self.reminder_controller = self.meeting_service.GetMeetingReminderController()
         self.reminder_controller.SetEvent(self.meeting_reminder_event)
+
+        # Participants controller
+        self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
+        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback)
+        self.participants_ctrl.SetEvent(self.participants_ctrl_event)
+        self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
+        participant_ids_list = self.participants_ctrl.GetParticipantsList()
+        for participant_id in participant_ids_list:
+            self.get_participant(participant_id)
+
+        # Meeting sharing controller
+        self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()
+        self.meeting_share_ctrl_event = zoom.MeetingShareCtrlEventCallbacks(onSharingStatusCallback=self.on_sharing_status_callback)
+        self.meeting_sharing_controller.SetEvent(self.meeting_share_ctrl_event)
+
+        # Audio controller
+        self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
+        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
+        self.audio_ctrl.SetEvent(self.audio_ctrl_event)
 
         if self.use_raw_recording:
             self.recording_ctrl = self.meeting_service.GetMeetingRecordingController()
@@ -224,18 +276,7 @@ class ZoomBot:
 
             self.start_raw_recording()
 
-        self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
-        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback)
-        self.participants_ctrl.SetEvent(self.participants_ctrl_event)
-        self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
-        participant_ids_list = self.participants_ctrl.GetParticipantsList()
-        for participant_id in participant_ids_list:
-            self.get_participant(participant_id)
-
-        self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
-        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
-        self.audio_ctrl.SetEvent(self.audio_ctrl_event)
-
+        # Set up media streams
         GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
         GLib.timeout_add_seconds(1, self.set_up_bot_video_input)
 
@@ -430,7 +471,7 @@ class ZoomBot:
 
     def on_reminder_notify(self, content, handler):
         if handler:
-            handler.accept()
+            handler.Accept()
 
     def auth_return(self, result):
         if result == zoom.AUTHRET_SUCCESS:
