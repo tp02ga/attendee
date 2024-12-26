@@ -140,38 +140,32 @@ class ZoomBot:
         if not self.pipeline.wants_any_video_frames():
             return
         
+        print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id)
         if self.active_sharer_id:
             self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SHARER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
         elif self.active_speaker_id:
             self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+        else:
+            # If there is no active sharer or speaker, we'll just use the video of the first participant that is not the bot
+            # or if there are no participants, we'll use the bot
+            default_participant_id = self.my_participant_id
 
+            participant_list = self.participants_ctrl.GetParticipantsList()
+            for participant_id in participant_list:
+                if participant_id != self.my_participant_id:
+                    default_participant_id = participant_id
+                    break
+
+            print("set_video_input_manager_based_on_state hit default case. default_participant_id =", default_participant_id)
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
+            
     def set_up_video_input_manager(self):
-        if self.video_input_manager.has_any_video_input_streams():
-            return
-
         # If someone was sharing before we joined, we will not receive an event, so we need to poll for the active sharer
         viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
         self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
 
         self.set_video_input_manager_based_on_state()
 
-        if self.video_input_manager.has_any_video_input_streams():
-            return
-        
-        # If we still don't have any video input streams, we'll just use the first participant that is not the bot
-        # or if there are no participants, we'll use the bot
-        print("in set_up_video_input_manager, setting default video input manager mode")
-
-        default_participant_id = self.my_participant_id
-
-        participant_list = self.participants_ctrl.GetParticipantsList()
-        for participant_id in participant_list:
-            if participant_id != self.my_participant_id:
-                default_participant_id = participant_id
-                break
-
-        self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
-        
     def cleanup(self):
         if self.pipeline:
             self.pipeline.cleanup()
