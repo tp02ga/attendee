@@ -106,13 +106,13 @@ For more details, follow [this guide](https://developers.zoom.us/docs/meeting-sd
 
 - [x] Join and leave Zoom meetings
 - [x] Produce transcripts
-- [ ] API Reference
+- [x] API Reference
+- [x] Audio output
+- [x] Video input / output
 - [ ] Automatically leave meetings
 - [ ] [ZAK token](https://developers.zoom.us/docs/meeting-sdk/auth/#start-meetings-and-webinars-with-a-zoom-users-zak-token) and [Join token](https://developers.zoom.us/docs/api/meetings/#tag/meetings/GET/meetings/{meetingId}/jointoken/local_recording) support
 - [ ] Scheduled meetings
 - [ ] Webhooks for state changes
-- [ ] Audio output
-- [ ] Video input / output
 - [ ] Google Meet support
 - [ ] Microsoft Teams support
 
