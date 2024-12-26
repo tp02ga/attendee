@@ -286,11 +286,6 @@ class ZoomBot:
         GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
         GLib.timeout_add_seconds(1, self.set_up_bot_video_input)
 
-    def set_up_bot_sharing_controller(self):
-
-        viewable_share_source_list = self.meeting_sharing_controller.GetViewableShareSourceList()
-        self.active_sharer_id = viewable_share_source_list[0] if viewable_share_source_list else None
-
     def set_up_bot_video_input(self):
         self.virtual_camera_video_source = zoom.ZoomSDKVideoSourceCallbacks(onInitializeCallback=self.on_virtual_camera_initialize_callback, onStartSendCallback=self.on_virtual_camera_start_send_callback)
         self.video_source_helper = zoom.GetRawdataVideoSourceHelper()
