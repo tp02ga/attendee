@@ -2,7 +2,6 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
 import time
-import os
 
 class GstreamerPipeline:
     def __init__(self, on_new_sample_callback, video_frame_size):

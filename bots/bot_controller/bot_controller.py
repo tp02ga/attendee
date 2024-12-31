@@ -1,8 +1,6 @@
 from bots.models import *
-from bots.zoom_bot_adapter import ZoomBotAdapter
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .audio_output_manager import AudioOutputManager
-from .gstreamer_pipeline import GstreamerPipeline
 from .streaming_uploader import StreamingUploader
 from bots.tasks.process_utterance_task import process_utterance
 import os
@@ -10,7 +8,10 @@ import signal
 import redis
 
 class BotController:
+
     def get_zoom_bot_adapter(self):
+        from bots.zoom_bot_adapter import ZoomBotAdapter
+
         zoom_oauth_credentials_record = self.bot_in_db.project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
         if not zoom_oauth_credentials_record:
             raise Exception("Zoom OAuth credentials not found")
@@ -97,6 +98,8 @@ class BotController:
         import gi
         gi.require_version('GLib', '2.0')
         from gi.repository import GLib
+
+        from .gstreamer_pipeline import GstreamerPipeline
 
         # Initialize core objects
         self.individual_audio_input_manager = IndividualAudioInputManager(save_utterance_callback=self.save_utterance, get_participant_callback=self.get_participant)
@@ -305,6 +308,8 @@ class BotController:
         return
         
     def take_action_based_on_message_from_adapter(self, message):
+        from bots.zoom_bot_adapter import ZoomBotAdapter
+
         if message.get('message') == ZoomBotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             if self.individual_audio_input_manager:
