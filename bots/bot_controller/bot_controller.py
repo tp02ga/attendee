@@ -2,7 +2,6 @@ from bots.models import *
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .audio_output_manager import AudioOutputManager
 from .streaming_uploader import StreamingUploader
-from bots.tasks.process_utterance_task import process_utterance
 import os
 import signal
 import redis
@@ -94,7 +93,6 @@ class BotController:
         pubsub = redis_client.pubsub()
         channel = f"bot_{self.bot_in_db.id}"
         pubsub.subscribe(channel)
-
         import gi
         gi.require_version('GLib', '2.0')
         from gi.repository import GLib
@@ -275,6 +273,8 @@ class BotController:
             return False
 
     def save_utterance(self, message):
+        from bots.tasks.process_utterance_task import process_utterance
+
         print(f"Received message that new utterance was detected")
 
         # Create participant record if it doesn't exist
