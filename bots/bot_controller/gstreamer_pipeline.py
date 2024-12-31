@@ -33,7 +33,7 @@ class GstreamerPipeline:
             return Gst.FlowReturn.OK
         return Gst.FlowReturn.ERROR
     
-    def setup_gstreamer_pipeline(self):
+    def setup(self):
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
 
