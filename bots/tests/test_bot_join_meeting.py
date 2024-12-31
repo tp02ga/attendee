@@ -174,12 +174,14 @@ class TestBotJoinMeeting(TransactionTestCase):
                 mock_zoom_sdk.MEETING_STATUS_INMEETING, 
                 mock_zoom_sdk.SDKERR_SUCCESS
             )
+
+            connection.close()
         
         # Run join flow simulation after a short delay
-        threading.Timer(5, simulate_join_flow).start()
+        threading.Timer(2, simulate_join_flow).start()
         
         # Give the bot some time to process
-        time.sleep(10)
+        time.sleep(5)
         
         # Refresh the bot from the database
         self.bot.refresh_from_db()
