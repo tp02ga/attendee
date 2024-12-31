@@ -161,8 +161,8 @@ class TestBotJoinMeeting(TransactionTestCase):
             auth_callback = controller.adapter.auth_event
             
             # Simulate successful auth            
-            rez = auth_callback.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_SUCCESS)
-            print("AUTH RETURNED", rez)
+            auth_callback.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_SUCCESS)
+            
             # Simulate connecting
             meeting_callback.onMeetingStatusChangedCallback(
                 mock_zoom_sdk.MEETING_STATUS_CONNECTING, 
@@ -199,7 +199,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         controller.adapter.meeting_service.Join.assert_called_once()
         
         # Additional verification for StreamingUploader
-        #mock_streaming_uploader.start_upload.assert_called_once()
+        controller.streaming_uploader.start_upload.assert_called_once()
         
         # Cleanup
         controller.cleanup()
