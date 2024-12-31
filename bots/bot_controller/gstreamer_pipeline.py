@@ -197,14 +197,17 @@ class GstreamerPipeline:
 
         self.recording_active = False
         self.audio_recording_active = False
+        
+        if not self.pipeline:
+            return
+        bus = self.pipeline.get_bus()
+        bus.remove_signal_watch()
 
         if self.appsrc:
             self.appsrc.emit('end-of-stream')
         if self.audio_appsrc:
             self.audio_appsrc.emit('end-of-stream')
-        if not self.pipeline:
-            return
-        bus = self.pipeline.get_bus()
+
         msg = bus.timed_pop_filtered(
             Gst.CLOCK_TIME_NONE,
             Gst.MessageType.EOS | Gst.MessageType.ERROR
