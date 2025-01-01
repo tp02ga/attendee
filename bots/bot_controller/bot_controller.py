@@ -50,6 +50,11 @@ class BotController:
         self.streaming_uploader.upload_part(data)
 
     def cleanup(self):
+        if self.cleanup_called:
+            print("Cleanup already called, exiting")
+            return
+        self.cleanup_called = True
+
         normal_quitting_process_worked = False
         import threading
         def terminate_worker():
@@ -86,8 +91,14 @@ class BotController:
 
     def __init__(self, bot_id):
         self.bot_in_db = Bot.objects.get(id=bot_id)
+        self.cleanup_called = False
+        self.run_called = False
 
     def run(self):
+        if self.run_called:
+            raise Exception("Run already called, exiting")
+        self.run_called = True
+
         redis_url = os.getenv('REDIS_URL') + ("?ssl_cert_reqs=none" if os.getenv('DISABLE_REDIS_SSL') else "")
         redis_client = redis.from_url(redis_url)
         pubsub = redis_client.pubsub()
@@ -326,7 +337,7 @@ class BotController:
                     bot=self.bot_in_db,
                     event_type=BotEventTypes.MEETING_ENDED
                 )
-            self.cleanup_bot()
+            self.cleanup()
             return
         
         if message.get('message') == ZoomBotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
@@ -337,7 +348,7 @@ class BotController:
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED,
                 event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
             )
-            self.cleanup_bot()
+            self.cleanup()
             return
 
         if message.get('message') == ZoomBotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
@@ -347,7 +358,7 @@ class BotController:
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST
             )
-            self.cleanup_bot()
+            self.cleanup()
             return
 
         if message.get('message') == ZoomBotAdapter.Messages.BOT_PUT_IN_WAITING_ROOM:

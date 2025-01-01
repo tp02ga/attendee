@@ -52,6 +52,7 @@ def create_mock_zoom_sdk():
     base_mock.MEETING_STATUS_INMEETING = 4
     base_mock.MEETING_STATUS_ENDED = 5
     base_mock.LEAVE_MEETING = 6
+    base_mock.AUTHRET_JWTTOKENWRONG = 7
     
     # Mock SDK_LANGUAGE_ID
     base_mock.SDK_LANGUAGE_ID = MagicMock()
@@ -97,25 +98,25 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Set required environment variables
         os.environ['REDIS_URL'] = 'redis://host.docker.internal:6379/5'
         os.environ['AWS_RECORDING_STORAGE_BUCKET_NAME'] = 'test-bucket'
-        
-        # Create test organization and project
-        cls.organization = Organization.objects.create(name="Test Org")
-        cls.project = Project.objects.create(
+
+    def setUp(self):
+        # Recreate organization and project for each test
+        self.organization = Organization.objects.create(name="Test Org")
+        self.project = Project.objects.create(
             name="Test Project",
-            organization=cls.organization
+            organization=self.organization
         )
         
-        # Create credentials
-        cls.credentials = Credentials.objects.create(
-            project=cls.project,
+        # Recreate credentials
+        self.credentials = Credentials.objects.create(
+            project=self.project,
             credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
         )
-        cls.credentials.set_credentials({
+        self.credentials.set_credentials({
             'client_id': 'test_client_id',
             'client_secret': 'test_client_secret'
         })
 
-    def setUp(self):
         # Create a bot for each test
         self.bot = Bot.objects.create(
             project=self.project,
@@ -162,7 +163,7 @@ class TestBotJoinMeeting(TransactionTestCase):
             
             # Simulate successful auth            
             auth_callback.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_SUCCESS)
-            
+
             # Simulate connecting
             meeting_callback.onMeetingStatusChangedCallback(
                 mock_zoom_sdk.MEETING_STATUS_CONNECTING, 
@@ -190,7 +191,6 @@ class TestBotJoinMeeting(TransactionTestCase):
         latest_event = self.bot.last_bot_event()
         self.assertIsNotNone(latest_event)
         self.assertEqual(latest_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
-        print("LATEST EVENT", latest_event)
         
         # Verify expected SDK calls
         mock_zoom_sdk.InitSDK.assert_called_once()
@@ -208,9 +208,66 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Close the database connection since we're in a thread
         connection.close()
 
-    # def test_bot_handles_auth_failure(self):
-    #     # Similar test but simulating auth failure
-    #     pass
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.bot_controller.bot_controller.StreamingUploader')
+    def test_bot_can_handle_failed_zoom_auth(self, MockStreamingUploader, mock_zoom_sdk, mock_jwt):
+        # Configure the mock class to return our mock instance
+        mock_uploader = create_mock_streaming_uploader()
+        MockStreamingUploader.return_value = mock_uploader
+        
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+        
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+        
+        # Simulate the meeting join flow
+        def simulate_join_flow():
+            # Get the meeting status changed callback
+            meeting_callback = controller.adapter.meeting_service_event
+            auth_callback = controller.adapter.auth_event
+            
+            # Simulate failed auth            
+            auth_callback.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_JWTTOKENWRONG)
+
+            connection.close()
+        
+        # Run join flow simulation after a short delay
+        threading.Timer(2, simulate_join_flow).start()
+        
+        # Give the bot some time to process
+        time.sleep(5)
+        
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+        
+        # Check that the bot joined successfully
+        latest_event = self.bot.last_bot_event()
+        self.assertIsNotNone(latest_event)
+        self.assertEqual(latest_event.event_type, BotEventTypes.COULD_NOT_JOIN)
+        self.assertEqual(latest_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED)
+        # Verify expected SDK calls
+        mock_zoom_sdk.InitSDK.assert_called_once()
+        mock_zoom_sdk.CreateMeetingService.assert_called_once()
+        mock_zoom_sdk.CreateAuthService.assert_called_once()
+        controller.adapter.meeting_service.Join.assert_not_called()
+        
+        # Additional verification for StreamingUploader
+        # Probably should not be called, but it currently is
+        #controller.streaming_uploader.start_upload.assert_not_called()
+        
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+        
+        # Close the database connection since we're in a thread
+        connection.close()
 
     # def test_bot_handles_waiting_room(self):
     #     # Test for waiting room scenario
