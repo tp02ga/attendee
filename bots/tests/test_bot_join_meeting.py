@@ -229,29 +229,42 @@ class TestBotJoinMeeting(TransactionTestCase):
         
         # Simulate the meeting join flow
         def simulate_join_flow():
-            # Get the meeting status changed callback
-            meeting_callback = controller.adapter.meeting_service_event
-            auth_callback = controller.adapter.auth_event
-            
             # Simulate failed auth            
-            auth_callback.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_JWTTOKENWRONG)
-
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk.AUTHRET_JWTTOKENWRONG)
+            # Clean up connections in thread
             connection.close()
         
         # Run join flow simulation after a short delay
         threading.Timer(2, simulate_join_flow).start()
         
         # Give the bot some time to process
-        time.sleep(5)
+        time.sleep(4)
         
         # Refresh the bot from the database
         self.bot.refresh_from_db()
         
         # Check that the bot joined successfully
-        latest_event = self.bot.last_bot_event()
-        self.assertIsNotNone(latest_event)
-        self.assertEqual(latest_event.event_type, BotEventTypes.COULD_NOT_JOIN)
-        self.assertEqual(latest_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED)
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 2)
+        join_requested_event = bot_events[0]
+        could_not_join_event = bot_events[1]
+
+        # Verify join_requested_event properties
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertIsNone(join_requested_event.debug_message)
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
+
+        # Verify could_not_join_event properties
+        self.assertEqual(could_not_join_event.event_type, BotEventTypes.COULD_NOT_JOIN)
+        self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
+        self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
+        self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED)
+        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
+
         # Verify expected SDK calls
         mock_zoom_sdk.InitSDK.assert_called_once()
         mock_zoom_sdk.CreateMeetingService.assert_called_once()
@@ -263,24 +276,10 @@ class TestBotJoinMeeting(TransactionTestCase):
         #controller.streaming_uploader.start_upload.assert_not_called()
         
         # Cleanup
-        controller.cleanup()
+        # no need to cleanup since we already hit error
+        # controller.cleanup() will be called by the bot controller
+
         bot_thread.join(timeout=5)
         
         # Close the database connection since we're in a thread
         connection.close()
-
-    # def test_bot_handles_waiting_room(self):
-    #     # Test for waiting room scenario
-    #     pass
-
-    def tearDown(self):
-        # Clean up any bot-specific resources
-        #self.bot.delete()
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        # Clean up organization and project
-        #cls.organization.delete()
-        #super().tearDownClass() 
-        pass
