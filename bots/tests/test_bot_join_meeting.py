@@ -245,8 +245,14 @@ class TestBotJoinMeeting(TransactionTestCase):
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
     @patch('bots.bot_controller.bot_controller.StreamingUploader')
     def test_bot_can_join_meeting_and_record_audio_and_video(self, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
-        # Configure the mock class to return our mock instance
+        # Store uploaded data for verification
+        uploaded_data = bytearray()
+        
+        # Configure the mock uploader to capture uploaded data
         mock_uploader = create_mock_streaming_uploader()
+        def capture_upload_part(data):
+            uploaded_data.extend(data)
+        mock_uploader.upload_part.side_effect = capture_upload_part
         MockStreamingUploader.return_value = mock_uploader
         
         # Mock the JWT token generation
@@ -306,6 +312,17 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Give the bot some time to process
         time.sleep(6)
         
+        # Verify that we received some data
+        self.assertEqual(len(uploaded_data), 10992, "Uploaded data length is not correct")
+        
+        # Check for MP4 file signature (starts with 'ftyp')
+        mp4_signature_found = b'ftyp' in uploaded_data[:1000]
+        self.assertTrue(mp4_signature_found, "MP4 file signature not found in uploaded data")
+        
+        # Additional verification for StreamingUploader
+        mock_uploader.start_upload.assert_called_once()
+        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        
         # Refresh the bot from the database
         self.bot.refresh_from_db()
         
@@ -319,9 +336,6 @@ class TestBotJoinMeeting(TransactionTestCase):
         mock_zoom_sdk_adapter.CreateMeetingService.assert_called_once()
         mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
         controller.adapter.meeting_service.Join.assert_called_once()
-        
-        # Additional verification for StreamingUploader
-        controller.streaming_uploader.start_upload.assert_called_once()
         
         # Cleanup
         controller.cleanup()
