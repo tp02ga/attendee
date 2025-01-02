@@ -266,7 +266,6 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_thread.daemon = True
         bot_thread.start()
         
-        # Simulate the meeting join flow
         def simulate_join_flow():
             adapter = controller.adapter
             # Simulate successful auth            
@@ -326,11 +325,46 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
         
-        # Check that the bot joined successfully
-        latest_event = self.bot.last_bot_event()
-        self.assertIsNotNone(latest_event)
-        self.assertEqual(latest_event.event_type, BotEventTypes.MEETING_ENDED)
-        
+        # Verify all bot events in sequence
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+
+        # Verify join_requested_event (Event 1)
+        join_requested_event = bot_events[0]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertIsNone(join_requested_event.debug_message)
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
+
+        # Verify bot_joined_meeting_event (Event 2)
+        bot_joined_meeting_event = bot_events[1]
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
+        self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertIsNone(bot_joined_meeting_event.event_sub_type)
+        self.assertIsNone(bot_joined_meeting_event.debug_message)
+        self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
+
+        # Verify recording_permission_granted_event (Event 3)
+        recording_permission_granted_event = bot_events[2]
+        self.assertEqual(recording_permission_granted_event.event_type, BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED)
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
+        self.assertIsNone(recording_permission_granted_event.event_sub_type)
+        self.assertIsNone(recording_permission_granted_event.debug_message)
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
+
+        # Verify meeting_ended_event (Event 4)
+        meeting_ended_event = bot_events[3]
+        self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
+        self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertIsNone(meeting_ended_event.event_sub_type)
+        self.assertIsNone(meeting_ended_event.debug_message)
+        self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+            
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
         mock_zoom_sdk_adapter.CreateMeetingService.assert_called_once()
@@ -364,15 +398,14 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_thread.daemon = True
         bot_thread.start()
         
-        # Simulate the meeting join flow
-        def simulate_join_flow():
+        def simulate_failed_auth_flow():
             # Simulate failed auth            
             controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG)
             # Clean up connections in thread
             connection.close()
         
         # Run join flow simulation after a short delay
-        threading.Timer(2, simulate_join_flow).start()
+        threading.Timer(2, simulate_failed_auth_flow).start()
         
         # Give the bot some time to process
         time.sleep(4)
@@ -416,6 +449,79 @@ class TestBotJoinMeeting(TransactionTestCase):
         # no need to cleanup since we already hit error
         # controller.cleanup() will be called by the bot controller
 
+        bot_thread.join(timeout=5)
+        
+        # Close the database connection since we're in a thread
+        connection.close()
+
+    @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
+    @patch('bots.bot_controller.bot_controller.StreamingUploader')
+    def test_bot_can_handle_waiting_for_host(self, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+        # Configure the mock class to return our mock instance
+        mock_uploader = create_mock_streaming_uploader()
+        MockStreamingUploader.return_value = mock_uploader
+        
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+        
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+        
+        def simulate_waiting_for_host_flow():
+            # Simulate successful auth
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
+            # Simulate waiting for host status
+            controller.adapter.meeting_service_event.onMeetingStatusChangedCallback(mock_zoom_sdk_adapter.MEETING_STATUS_WAITINGFORHOST, 0)
+            # Clean up connections in thread
+            connection.close()
+        
+        # Run join flow simulation after a short delay
+        threading.Timer(2, simulate_waiting_for_host_flow).start()
+        
+        # Give the bot some time to process
+        time.sleep(4)
+        
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+        
+        # Check the bot events
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 2)
+        join_requested_event = bot_events[0]
+        could_not_join_event = bot_events[1]
+
+        # Verify join_requested_event properties
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertIsNone(join_requested_event.debug_message)
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
+
+        # Verify could_not_join_event properties
+        self.assertEqual(could_not_join_event.event_type, BotEventTypes.COULD_NOT_JOIN)
+        self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
+        self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
+        self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST)
+        self.assertIsNone(could_not_join_event.debug_message)
+        self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
+
+        # Verify expected SDK calls
+        mock_zoom_sdk_adapter.InitSDK.assert_called_once()
+        mock_zoom_sdk_adapter.CreateMeetingService.assert_called_once()
+        mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
+        controller.adapter.meeting_service.Join.assert_called_once()
+        
+        # Cleanup
+        # no need to cleanup since we already hit error
+        # controller.cleanup() will be called by the bot controller
         bot_thread.join(timeout=5)
         
         # Close the database connection since we're in a thread
