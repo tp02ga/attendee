@@ -376,6 +376,11 @@ class BotEventManager:
 
                     bot.save()  # This will raise RecordModifiedError if version mismatch
                     
+                    # There's a chance that some other thread in the same process will modify the bot state to be something other than new_state. This should never happen, but we
+                    # should raise an exception if it does.
+                    if bot.state != new_state:
+                        raise ValidationError(f"Bot state was modified by another thread to be {bot.state} instead of {new_state}.")
+                    
                     # Create event record
                     event = BotEvent.objects.create(
                         bot=bot,

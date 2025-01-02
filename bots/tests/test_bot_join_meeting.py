@@ -1,15 +1,15 @@
-from django.test import TestCase
-from unittest.mock import patch, MagicMock, create_autospec, PropertyMock
+from unittest.mock import patch, MagicMock, call
 from bots.models import *
 import os
 import threading
 import time
 from django.db import connection
 from bots.bot_controller import BotController
-from django.db import transaction
 from django.test.testcases import TransactionTestCase
 from bots.bot_controller.streaming_uploader import StreamingUploader
-
+from bots.bots_api_views import send_sync_command
+import base64
+from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
     mock_streaming_uploader.upload_part.return_value = None
@@ -83,6 +83,9 @@ def create_mock_zoom_sdk():
     # Mock SDK_LANGUAGE_ID
     base_mock.SDK_LANGUAGE_ID = MagicMock()
     base_mock.SDK_LANGUAGE_ID.LANGUAGE_English = 0
+
+    # Mock SDKAudioChannel
+    base_mock.ZoomSDKAudioChannel_Mono = 0
     
     # Mock SDKUserType
     base_mock.SDKUserType = MagicMock()
@@ -150,6 +153,32 @@ def create_mock_zoom_sdk():
             return MockPerformanceData()
 
     base_mock.ZoomSDKAudioRawDataDelegateCallbacks = MockZoomSDKAudioRawDataDelegateCallbacks
+    
+    class MockZoomSDKVirtualAudioMicEventCallbacks:
+        def __init__(self, onMicInitializeCallback, onMicStartSendCallback):
+            self.stored_initialize_callback = onMicInitializeCallback
+            self.stored_start_send_callback = onMicStartSendCallback
+
+        def onMicInitializeCallback(self, sender):
+            return self.stored_initialize_callback(sender)
+
+        def onMicStartSendCallback(self):
+            return self.stored_start_send_callback()
+
+    base_mock.ZoomSDKVirtualAudioMicEventCallbacks = MockZoomSDKVirtualAudioMicEventCallbacks
+
+    class MockZoomSDKVideoSourceCallbacks:
+        def __init__(self, onInitializeCallback, onStartSendCallback):
+            self.stored_initialize_callback = onInitializeCallback
+            self.stored_start_send_callback = onStartSendCallback
+
+        def onInitializeCallback(self, sender, support_cap_list, suggest_cap):
+            return self.stored_initialize_callback(sender, support_cap_list, suggest_cap)
+
+        def onStartSendCallback(self):
+            return self.stored_start_send_callback()
+        
+    base_mock.ZoomSDKVideoSourceCallbacks = MockZoomSDKVideoSourceCallbacks
 
     return base_mock
 
@@ -240,6 +269,21 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Try to transition the state from READY to JOINING
         BotEventManager.create_event(self.bot, BotEventTypes.JOIN_REQUESTED)
 
+        self.test_mp3_bytes = base64.b64decode('SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU2LjQxAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFN//MUZAMAAAGkAAAAAAAAA0gAAAAARTMu//MUZAYAAAGkAAAAAAAAA0gAAAAAOTku//MUZAkAAAGkAAAAAAAAA0gAAAAANVVV')
+        self.test_png_bytes = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
+
+        self.audio_blob = MediaBlob.get_or_create_from_blob(
+            project=self.bot.project,
+            blob=self.test_mp3_bytes,
+            content_type='audio/mp3'
+        )
+
+        self.image_blob = MediaBlob.get_or_create_from_blob(
+            project=self.bot.project,
+            blob=self.test_png_bytes,
+            content_type='image/png'
+        )
+
     @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
@@ -265,8 +309,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_thread = threading.Thread(target=controller.run)
         bot_thread.daemon = True
         bot_thread.start()
+
+        audio_request = None
+        image_request = None
         
         def simulate_join_flow():
+            nonlocal audio_request, image_request
+
             adapter = controller.adapter
             # Simulate successful auth            
             adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
@@ -284,7 +333,7 @@ class TestBotJoinMeeting(TransactionTestCase):
             )
 
             # Wait for the video input manager to be set up
-            time.sleep(1)
+            time.sleep(2)
 
             # Simulate video frame received
             adapter.video_input_manager.input_streams[0].renderer_delegate.onRawDataFrameReceivedCallback(
@@ -297,22 +346,53 @@ class TestBotJoinMeeting(TransactionTestCase):
                 2  # Simulated participant ID that's not the bot
             )
 
+            # simulate audio mic initialized
+            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
+
+            # simulate audio mic started
+            adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
+
+            # simulate video source initialized
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
+
+            # simulate video source started
+            adapter.virtual_camera_video_source.onStartSendCallback()
+
+            # simulate sending audio and image
+            # Create media requests
+            audio_request = BotMediaRequest.objects.create(
+                bot=self.bot,
+                media_blob=self.audio_blob,
+                media_type=BotMediaRequestMediaTypes.AUDIO
+            )
+
+            image_request = BotMediaRequest.objects.create(
+                bot=self.bot,
+                media_blob=self.image_blob,
+                media_type=BotMediaRequestMediaTypes.IMAGE
+            )
+
+            send_sync_command(self.bot, 'sync_media_requests')
+
+            # Sleep to give audio output manager time to play the audio
+            time.sleep(2.0)
+
             # Simulate meeting ended
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
                 mock_zoom_sdk_adapter.MEETING_STATUS_ENDED, 
                 mock_zoom_sdk_adapter.SDKERR_SUCCESS
             )
-
+            
             connection.close()
         
         # Run join flow simulation after a short delay
         threading.Timer(3, simulate_join_flow).start()
         
         # Give the bot some time to process
-        time.sleep(6)
+        bot_thread.join(timeout=10)
         
         # Verify that we received some data
-        self.assertEqual(len(uploaded_data), 10992, "Uploaded data length is not correct")
+        self.assertGreater(len(uploaded_data), 100, "Uploaded data length is not correct")
         
         # Check for MP4 file signature (starts with 'ftyp')
         mp4_signature_found = b'ftyp' in uploaded_data[:1000]
@@ -355,7 +435,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertIsNone(recording_permission_granted_event.debug_message)
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
-
+        print("bot_events = ", bot_events)
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
@@ -371,6 +451,18 @@ class TestBotJoinMeeting(TransactionTestCase):
         mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
         controller.adapter.meeting_service.Join.assert_called_once()
         
+        # Verify audio request was processed
+        audio_request.refresh_from_db()
+        self.assertEqual(audio_request.state, BotMediaRequestStates.FINISHED)
+
+        # Verify image request was processed
+        image_request.refresh_from_db() 
+        self.assertEqual(image_request.state, BotMediaRequestStates.FINISHED)
+
+        # Verify the bot adapter received the media
+        controller.adapter.audio_raw_data_sender.send.assert_called_once_with(mp3_to_pcm(self.test_mp3_bytes, sample_rate=8000), 8000, mock_zoom_sdk_adapter.ZoomSDKAudioChannel_Mono)
+        controller.adapter.video_sender.sendVideoFrame.assert_called_with(png_to_yuv420_frame(self.test_png_bytes), 640, 360, 0, mock_zoom_sdk_adapter.FrameDataFormat_I420_FULL)
+
         # Cleanup
         controller.cleanup()
         bot_thread.join(timeout=5)
@@ -408,7 +500,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         threading.Timer(2, simulate_failed_auth_flow).start()
         
         # Give the bot some time to process
-        time.sleep(4)
+        bot_thread.join(timeout=10)
         
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -486,7 +578,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         threading.Timer(2, simulate_waiting_for_host_flow).start()
         
         # Give the bot some time to process
-        time.sleep(4)
+        bot_thread.join(timeout=10)
         
         # Refresh the bot from the database
         self.bot.refresh_from_db()

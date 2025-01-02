@@ -21,7 +21,7 @@ class BotController:
         
         return ZoomBotAdapter(
             display_name=self.bot_in_db.name,
-            send_message_callback=self.take_action_based_on_message_from_adapter,
+            send_message_callback=self.on_message_from_adapter,
             add_audio_chunk_callback=self.individual_audio_input_manager.add_chunk,
             zoom_client_id=zoom_oauth_credentials['client_id'],
             zoom_client_secret=zoom_oauth_credentials['client_secret'],
@@ -317,6 +317,13 @@ class BotController:
         # Process the utterance immediately
         process_utterance.delay(utterance.id)
         return
+    
+    def on_message_from_adapter(self, message):
+        import gi
+        gi.require_version('GLib', '2.0')
+        from gi.repository import GLib
+
+        GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
         
     def take_action_based_on_message_from_adapter(self, message):
         from bots.zoom_bot_adapter import ZoomBotAdapter
