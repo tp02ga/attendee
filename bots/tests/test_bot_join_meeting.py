@@ -10,6 +10,8 @@ from bots.bot_controller.streaming_uploader import StreamingUploader
 from bots.bots_api_views import send_sync_command
 import base64
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
+import json
+
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
     mock_streaming_uploader.upload_part.return_value = None
@@ -180,7 +182,76 @@ def create_mock_zoom_sdk():
         
     base_mock.ZoomSDKVideoSourceCallbacks = MockZoomSDKVideoSourceCallbacks
 
+    # Create a mock participant class
+    class MockParticipant:
+        def __init__(self, user_id, user_name, persistent_id):
+            self._user_id = user_id
+            self._user_name = user_name
+            self._persistent_id = persistent_id
+
+        def GetUserID(self):
+            return self._user_id
+
+        def GetUserName(self):
+            return self._user_name
+
+        def GetPersistentId(self):
+            return self._persistent_id
+
+    # Create a mock participants controller class
+    class MockParticipant:
+        def __init__(self, user_id, user_name, persistent_id):
+            self._user_id = user_id
+            self._user_name = user_name
+            self._persistent_id = persistent_id
+
+        def GetUserID(self):
+            return self._user_id
+
+        def GetUserName(self):
+            return self._user_name
+
+        def GetPersistentId(self):
+            return self._persistent_id
+
+    # Create a mock participants controller
+    mock_participants_controller = MagicMock()
+    mock_participants_controller.GetParticipantsList.return_value = [2]  # Return test user ID
+    mock_participants_controller.GetUserByUserID.return_value = MockParticipant(2, "Test User", "test_persistent_id_123")
+    mock_participants_controller.GetMySelfUser.return_value = MockParticipant(1, "Bot User", "bot_persistent_id")
+
+    # Add participants controller to meeting service
+    mock_meeting_service.GetMeetingParticipantsController.return_value = mock_participants_controller
+
     return base_mock
+
+def create_mock_deepgram():
+    # Create mock objects
+    mock_deepgram = MagicMock()
+    mock_response = MagicMock()
+    mock_results = MagicMock()
+    mock_channel = MagicMock()
+    mock_alternative = MagicMock()
+    
+    # Set up the mock response structure
+    mock_alternative.to_json.return_value = json.dumps({
+        "transcript": "This is a test transcript",
+        "confidence": 0.95,
+        "words": [
+            {"word": "This", "start": 0.0, "end": 0.2, "confidence": 0.98},
+            {"word": "is", "start": 0.2, "end": 0.4, "confidence": 0.97},
+            {"word": "a", "start": 0.4, "end": 0.5, "confidence": 0.99},
+            {"word": "test", "start": 0.5, "end": 0.8, "confidence": 0.96},
+            {"word": "transcript", "start": 0.8, "end": 1.2, "confidence": 0.94}
+        ]
+    })
+    mock_channel.alternatives = [mock_alternative]
+    mock_results.channels = [mock_channel]
+    mock_response.results = mock_results
+    
+    # Set up the mock client
+    mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
+    return mock_deepgram
 
 class MockVideoFrame:
     def __init__(self):
@@ -215,10 +286,22 @@ class MockVideoFrame:
 
 class MockAudioFrame:
     def __init__(self):
-        # Create 100ms of silence at 8000Hz mono
-        # 8000 samples/sec * 0.1 sec = 800 samples
-        # Each sample is 1 byte
-        self.buffer = b'\x00' * 800
+        # Create 10ms of a 440Hz sine wave at 32000Hz mono
+        # 32000 samples/sec * 0.01 sec = 320 samples
+        # Each sample is 2 bytes (unsigned 16-bit)
+        import math
+        samples = []
+        for i in range(320):  # 10ms worth of samples at 32kHz
+            # Generate sine wave with frequency 440Hz
+            t = i / 32000.0  # time in seconds
+            # Generate value between 0 and 65535 (unsigned 16-bit)
+            # Center at 32768, use amplitude of 16384 to avoid clipping
+            value = int(32768 + 16384 * math.sin(2 * math.pi * 440 * t))
+            # Ensure value stays within valid range
+            value = max(0, min(65535, value))
+            # Convert to two bytes (little-endian)
+            samples.extend([value & 0xFF, (value >> 8) & 0xFF])
+        self.buffer = bytes(samples)
 
     def GetBuffer(self):
         return self.buffer
@@ -248,6 +331,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.credentials.set_credentials({
             'client_id': 'test_client_id',
             'client_secret': 'test_client_secret'
+        })
+        self.deepgram_credentials = Credentials.objects.create(
+            project=self.project,
+            credential_type=Credentials.CredentialTypes.DEEPGRAM
+        )
+        self.deepgram_credentials.set_credentials({
+            'api_key': 'test_api_key'
         })
 
         # Create a bot for each test
@@ -284,11 +374,20 @@ class TestBotJoinMeeting(TransactionTestCase):
             content_type='image/png'
         )
 
+        # Configure Celery to run tasks eagerly (synchronously)
+        from django.conf import settings
+        settings.CELERY_TASK_ALWAYS_EAGER = True
+        settings.CELERY_TASK_EAGER_PROPAGATES = True
+
     @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
     @patch('bots.bot_controller.bot_controller.StreamingUploader')
-    def test_bot_can_join_meeting_and_record_audio_and_video(self, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+    @patch('deepgram.DeepgramClient')
+    def test_bot_can_join_meeting_and_record_audio_and_video(self, MockDeepgramClient, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+        # Set up Deepgram mock
+        MockDeepgramClient.return_value = create_mock_deepgram()
+        
         # Store uploaded data for verification
         uploaded_data = bytearray()
         
@@ -345,6 +444,7 @@ class TestBotJoinMeeting(TransactionTestCase):
                 MockAudioFrame(),
                 2  # Simulated participant ID that's not the bot
             )
+            adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
 
             # simulate audio mic initialized
             adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
@@ -404,6 +504,9 @@ class TestBotJoinMeeting(TransactionTestCase):
         
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the bot is in the ENDED state
+        self.assertEqual(self.bot.state, BotStates.ENDED)
         
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
@@ -458,6 +561,17 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Verify image request was processed
         image_request.refresh_from_db() 
         self.assertEqual(image_request.state, BotMediaRequestStates.FINISHED)
+
+        # Verify that the recording was finished
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+        self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE)
+
+        # Verify that the recording has an utterance
+        utterance = self.recording.utterances.first()
+        self.assertEqual(self.recording.utterances.count(), 1)
+        self.assertIsNotNone(utterance.transcription)
+        print("utterance.transcription = ", utterance.transcription)
 
         # Verify the bot adapter received the media
         controller.adapter.audio_raw_data_sender.send.assert_called_once_with(mp3_to_pcm(self.test_mp3_bytes, sample_rate=8000), 8000, mock_zoom_sdk_adapter.ZoomSDKAudioChannel_Mono)
