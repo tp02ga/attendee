@@ -164,6 +164,23 @@ class ZoomBotAdapter:
         self.set_video_input_manager_based_on_state()
 
     def cleanup(self):
+        if self.audio_source:
+            performance_data = self.audio_source.getPerformanceData()
+            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
+            print("numCalls =", performance_data.numCalls)
+            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
+            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
+            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
+
+            # Print processing time distribution
+            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
+            print("\nProcessing time distribution (microseconds):")
+            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
+                if count > 0:
+                    bin_start = bin_idx * bin_size
+                    bin_end = (bin_idx + 1) * bin_size
+                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
+
         if self.meeting_service:
             zoom.DestroyMeetingService(self.meeting_service)
             print("Destroyed Meeting service")
@@ -382,28 +399,12 @@ class ZoomBotAdapter:
             raise Exception("Error with stop raw recording")
 
     def leave(self):
-        if self.audio_source:
-            performance_data = self.audio_source.getPerformanceData()
-            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
-            print("numCalls =", performance_data.numCalls)
-            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
-            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
-            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
-
-            # Print processing time distribution
-            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
-            print("\nProcessing time distribution (microseconds):")
-            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
-                if count > 0:
-                    bin_start = bin_idx * bin_size
-                    bin_end = (bin_idx + 1) * bin_size
-                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
-
         if self.meeting_service is None:
             return
         
         status = self.meeting_service.GetMeetingStatus()
-        if status == zoom.MEETING_STATUS_IDLE:
+        if status == zoom.MEETING_STATUS_IDLE or status == zoom.MEETING_STATUS_ENDED:
+            print("Aborting leave because meeting status is", status)
             return
 
         print("Leaving meeting...")
