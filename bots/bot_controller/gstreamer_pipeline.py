@@ -2,7 +2,6 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
 import time
-import os
 
 class GstreamerPipeline:
     def __init__(self, on_new_sample_callback, video_frame_size):
@@ -33,7 +32,7 @@ class GstreamerPipeline:
             return Gst.FlowReturn.OK
         return Gst.FlowReturn.ERROR
     
-    def setup_gstreamer_pipeline(self):
+    def setup(self):
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
 
@@ -198,14 +197,17 @@ class GstreamerPipeline:
 
         self.recording_active = False
         self.audio_recording_active = False
+        
+        if not self.pipeline:
+            return
+        bus = self.pipeline.get_bus()
+        bus.remove_signal_watch()
 
         if self.appsrc:
             self.appsrc.emit('end-of-stream')
         if self.audio_appsrc:
             self.audio_appsrc.emit('end-of-stream')
-        if not self.pipeline:
-            return
-        bus = self.pipeline.get_bus()
+
         msg = bus.timed_pop_filtered(
             Gst.CLOCK_TIME_NONE,
             Gst.MessageType.EOS | Gst.MessageType.ERROR

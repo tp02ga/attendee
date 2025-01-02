@@ -1,15 +1,11 @@
 import zoom_meeting_sdk as zoom
 import jwt
-#from deepgram_transcriber import DeepgramTranscriber
 from datetime import datetime, timedelta
-import os
 import numpy as np
 import cv2
-import queue
-import webrtcvad
-from .gstreamer_pipeline import GstreamerPipeline
 from .video_input_manager import VideoInputManager
-from .streaming_uploader import StreamingUploader
+from urllib.parse import urlparse, parse_qs
+import re
 
 import gi
 gi.require_version('GLib', '2.0')
@@ -40,7 +36,21 @@ def create_black_yuv420_frame(width=640, height=360):
     # Return as bytes
     return yuv_frame.tobytes()
 
-class ZoomBot:
+def parse_join_url(join_url):
+    # Parse the URL into components
+    parsed = urlparse(join_url)
+    
+    # Extract meeting ID using regex to match only numeric characters
+    meeting_id_match = re.search(r'(\d+)', parsed.path)
+    meeting_id = meeting_id_match.group(1) if meeting_id_match else None
+    
+    # Extract password from query parameters
+    query_params = parse_qs(parsed.query)
+    password = query_params.get('pwd', [None])[0]
+    
+    return (meeting_id, password)
+
+class ZoomBotAdapter:
     class Messages:
         LEAVE_MEETING_WAITING_FOR_HOST = "Leave meeting because received waiting for host status"
         ZOOM_AUTHORIZATION_FAILED = "Zoom authorization failed"
@@ -50,16 +60,16 @@ class ZoomBot:
         MEETING_ENDED = "Meeting ended"
         NEW_UTTERANCE = "New utterance"
 
-    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, get_recording_filename_callback, saved_recording_file_callback, zoom_client_id, zoom_client_secret, meeting_id, meeting_password):
+    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_audio_chunk_callback = add_audio_chunk_callback
-        self.get_recording_filename_callback = get_recording_filename_callback
-        self.saved_recording_file_callback = saved_recording_file_callback
+        self.add_mixed_audio_chunk_callback = add_mixed_audio_chunk_callback
+        self.add_video_frame_callback = add_video_frame_callback
+        self.wants_any_video_frames_callback = wants_any_video_frames_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
-        self.meeting_id = meeting_id
-        self.meeting_password = meeting_password
+        self.meeting_id, self.meeting_password = parse_join_url(meeting_url)
 
         self.meeting_service = None
         self.setting_service = None
@@ -83,8 +93,6 @@ class ZoomBot:
         self.audio_raw_data_sender = None
         self.virtual_audio_mic_event_passthrough = None
 
-        #self.deepgram_transcriber = DeepgramTranscriber()
-
         self.my_participant_id = None
         self.participants_ctrl = None
         self.meeting_reminder_event = None
@@ -97,27 +105,15 @@ class ZoomBot:
         self.video_source_helper = None
         self.video_frame_size = (1920, 1080)
 
-        self.pipeline = GstreamerPipeline(on_new_sample_callback = self.on_new_sample_from_pipeline, video_frame_size=self.video_frame_size)
-        self.video_input_manager = VideoInputManager(new_frame_callback=self.pipeline.on_new_video_frame, wants_any_frames_callback=self.pipeline.wants_any_video_frames, video_frame_size=self.video_frame_size)
+        self.video_input_manager = VideoInputManager(new_frame_callback=self.add_video_frame_callback, wants_any_frames_callback=self.wants_any_video_frames_callback, video_frame_size=self.video_frame_size)
 
         self.meeting_sharing_controller = None
         self.meeting_share_ctrl_event = None
-
-        self.uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename_callback())
-        self.uploader.start_upload()
 
         self.active_speaker_id = None
         self.active_sharer_id = None
 
         self._participant_cache = {}
-
-    def get_first_buffer_timestamp_ms(self):
-        if self.pipeline.start_time_ns is None:
-            return None
-        return int(self.pipeline.start_time_ns / 1_000_000)
-
-    def on_new_sample_from_pipeline(self, data):
-        self.uploader.upload_part(data)
 
     def on_user_join_callback(self, joined_user_ids, _):
         print("on_user_join_callback called. joined_user_ids =", joined_user_ids)
@@ -138,7 +134,7 @@ class ZoomBot:
         self.set_video_input_manager_based_on_state()
 
     def set_video_input_manager_based_on_state(self):
-        if not self.pipeline.wants_any_video_frames():
+        if not self.wants_any_video_frames_callback():
             return
         
         print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id)
@@ -168,12 +164,22 @@ class ZoomBot:
         self.set_video_input_manager_based_on_state()
 
     def cleanup(self):
-        if self.pipeline:
-            self.pipeline.cleanup()
+        if self.audio_source:
+            performance_data = self.audio_source.getPerformanceData()
+            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
+            print("numCalls =", performance_data.numCalls)
+            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
+            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
+            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
 
-        if self.uploader:
-            self.uploader.complete_upload()
-            self.saved_recording_file_callback(self.uploader.key)
+            # Print processing time distribution
+            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
+            print("\nProcessing time distribution (microseconds):")
+            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
+                if count > 0:
+                    bin_start = bin_idx * bin_size
+                    bin_end = (bin_idx + 1) * bin_size
+                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
 
         if self.meeting_service:
             zoom.DestroyMeetingService(self.meeting_service)
@@ -353,30 +359,6 @@ class ZoomBot:
 
         self.add_audio_chunk_callback(node_id, current_time, data.GetBuffer())
 
-    def write_to_deepgram(self, data):
-        try:
-            buffer_bytes = data.GetBuffer()
-            #self.deepgram_transcriber.send(buffer_bytes)
-        except IOError as e:
-            print(f"Error: failed to open or write to audio file path: {path}. Error: {e}")
-            return
-        except Exception as e:
-            print(f"Unexpected error occurred: {e}")
-            return
-
-    def write_to_file(self, path, data):
-        try:
-            buffer_bytes = data.GetBuffer()          
-
-            with open(path, 'ab') as file:
-                file.write(buffer_bytes)
-        except IOError as e:
-            print(f"Error: failed to open or write to audio file path: {path}. Error: {e}")
-            return
-        except Exception as e:
-            print(f"Unexpected error occurred: {e}")
-            return
-
     def start_raw_recording(self):
         self.recording_ctrl = self.meeting_service.GetMeetingRecordingController()
 
@@ -401,15 +383,13 @@ class ZoomBot:
             self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(
                 collectPerformanceData=True, 
                 onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback,
-                onMixedAudioRawDataReceivedCallback=self.pipeline.on_mixed_audio_raw_data_received_callback
+                onMixedAudioRawDataReceivedCallback=self.add_mixed_audio_chunk_callback
             )
 
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
         print("audio_helper_subscribe_result =",audio_helper_subscribe_result)
 
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
-
-        self.pipeline.setup_gstreamer_pipeline()
 
         GLib.timeout_add(100, self.set_up_video_input_manager)
 
@@ -419,28 +399,12 @@ class ZoomBot:
             raise Exception("Error with stop raw recording")
 
     def leave(self):
-        if self.audio_source:
-            performance_data = self.audio_source.getPerformanceData()
-            print("totalProcessingTimeMicroseconds =", performance_data.totalProcessingTimeMicroseconds)
-            print("numCalls =", performance_data.numCalls)
-            print("maxProcessingTimeMicroseconds =", performance_data.maxProcessingTimeMicroseconds)
-            print("minProcessingTimeMicroseconds =", performance_data.minProcessingTimeMicroseconds)
-            print("meanProcessingTimeMicroseconds =", float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls)
-
-            # Print processing time distribution
-            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
-            print("\nProcessing time distribution (microseconds):")
-            for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
-                if count > 0:
-                    bin_start = bin_idx * bin_size
-                    bin_end = (bin_idx + 1) * bin_size
-                    print(f"{bin_start:6.0f} - {bin_end:6.0f} us: {count:5d} calls")
-
         if self.meeting_service is None:
             return
         
         status = self.meeting_service.GetMeetingStatus()
-        if status == zoom.MEETING_STATUS_IDLE:
+        if status == zoom.MEETING_STATUS_IDLE or status == zoom.MEETING_STATUS_ENDED:
+            print("Aborting leave because meeting status is", status)
             return
 
         print("Leaving meeting...")

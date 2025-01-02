@@ -9,7 +9,7 @@ def calculate_normalized_rms(audio_bytes):
     # Normalize by max possible value for 16-bit audio (32768)
     return rms / 32768
 
-class UtteranceProcessingQueue:
+class IndividualAudioInputManager:
     def __init__(self, *, save_utterance_callback, get_participant_callback):
         self.queue = queue.Queue()
 
@@ -86,7 +86,6 @@ class UtteranceProcessingQueue:
             participant = self.get_participant_callback(speaker_id)
             if participant:
                 self.save_utterance_callback({
-                    'message': "New utterance",
                     **participant,
                     'audio_data': bytes(self.utterances[speaker_id]),
                     'timestamp_ms': int(self.first_nonsilent_audio_time[speaker_id].timestamp() * 1000),
