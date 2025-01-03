@@ -85,6 +85,7 @@ class ZoomBotAdapter:
         self.audio_settings = None
 
         self.use_raw_recording = True
+        self.recording_permission_granted = False
 
         self.reminder_controller = None
 
@@ -135,6 +136,9 @@ class ZoomBotAdapter:
 
     def set_video_input_manager_based_on_state(self):
         if not self.wants_any_video_frames_callback():
+            return
+        
+        if not self.recording_permission_granted:
             return
         
         print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id)
@@ -390,6 +394,7 @@ class ZoomBotAdapter:
         print("audio_helper_subscribe_result =",audio_helper_subscribe_result)
 
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
+        self.recording_permission_granted = True
 
         GLib.timeout_add(100, self.set_up_video_input_manager)
 
