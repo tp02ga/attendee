@@ -17,9 +17,9 @@ jobs:
       postgres:
         image: postgres:15.3-alpine
         env:
-          POSTGRES_DB: attendee_development
-          POSTGRES_USER: attendee_development_user
-          POSTGRES_PASSWORD: attendee_development_user
+          POSTGRES_DB: attendee_test
+          POSTGRES_USER: attendee_test_user
+          POSTGRES_PASSWORD: attendee_test_user
         ports:
           - 5432:5432
         options: >-
@@ -63,6 +63,7 @@ jobs:
       env:
         POSTGRES_HOST: localhost
         REDIS_URL: redis://localhost:6379/5
+        DJANGO_SETTINGS_MODULE: attendee.settings.test
       run: |
         docker run --rm \
           --network host \
