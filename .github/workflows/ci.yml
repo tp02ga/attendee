@@ -69,4 +69,5 @@ jobs:
           --network host \
           -e POSTGRES_HOST \
           -e REDIS_URL \
+          -e DJANGO_SETTINGS_MODULE \
           attendee-test:latest python manage.py test bots.tests
