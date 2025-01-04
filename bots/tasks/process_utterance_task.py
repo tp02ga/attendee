@@ -12,7 +12,13 @@ def convert_utterance_audio_blob_to_mp3(utterance):
         utterance.save()
         utterance.refresh_from_db() # because of the .tobytes() issue
 
-@shared_task(bind=True, soft_time_limit=3600, autoretry_for=(DatabaseError,))
+@shared_task(
+    bind=True,
+    soft_time_limit=3600,
+    autoretry_for=(DatabaseError,),
+    retry_backoff=True,  # Enable exponential backoff
+    max_retries=5
+)
 def process_utterance(self, utterance_id):
     import json
 
