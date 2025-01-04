@@ -312,7 +312,6 @@ class TestBotJoinMeeting(TransactionTestCase):
         super().setUpClass()
         
         # Set required environment variables
-        os.environ['REDIS_URL'] = 'redis://host.docker.internal:6379/5'
         os.environ['AWS_RECORDING_STORAGE_BUCKET_NAME'] = 'test-bucket'
 
     def setUp(self):
