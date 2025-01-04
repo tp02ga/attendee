@@ -70,4 +70,4 @@ jobs:
           -e POSTGRES_HOST \
           -e REDIS_URL \
           -e DJANGO_SETTINGS_MODULE \
-          attendee-test:latest bash -c "python init_env.py > .env && python manage.py test bots.tests"
+          attendee-test:latest bash -c "python init_env.py > .env && python manage.py test --keepdb bots.tests"
