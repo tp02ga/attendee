@@ -5,8 +5,21 @@ from .streaming_uploader import StreamingUploader
 import os
 import signal
 import redis
+from bots.bot_adapter import BotAdapter
 
 class BotController:
+
+    def get_google_meet_bot_adapter(self):
+        from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
+
+        return GoogleMeetBotAdapter(
+            display_name=self.bot_in_db.name,
+            send_message_callback=self.on_message_from_adapter,
+            meeting_url=self.bot_in_db.meeting_url,
+            add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
+            wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
+            add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback
+        )
 
     def get_zoom_bot_adapter(self):
         from bots.zoom_bot_adapter import ZoomBotAdapter
@@ -30,6 +43,14 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback
         )
+
+    def get_bot_adapter(self):
+        if "zoom.us" in self.bot_in_db.meeting_url:
+            return self.get_zoom_bot_adapter()
+        elif "meet.google.com" in self.bot_in_db.meeting_url:
+            return self.get_google_meet_bot_adapter()
+        else:
+            raise Exception(f"Unknown meeting type: {self.bot_in_db.meeting_type}")
     
     def get_first_buffer_timestamp_ms(self):
         if self.gstreamer_pipeline.start_time_ns is None:
@@ -121,7 +142,7 @@ class BotController:
         self.streaming_uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename())
         self.streaming_uploader.start_upload()
 
-        self.adapter = self.get_zoom_bot_adapter()
+        self.adapter = self.get_bot_adapter()
 
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()
@@ -326,9 +347,7 @@ class BotController:
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
         
     def take_action_based_on_message_from_adapter(self, message):
-        from bots.zoom_bot_adapter import ZoomBotAdapter
-
-        if message.get('message') == ZoomBotAdapter.Messages.MEETING_ENDED:
+        if message.get('message') == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             if self.individual_audio_input_manager:
                 print("Flushing utterances...")
@@ -347,7 +366,7 @@ class BotController:
             self.cleanup()
             return
         
-        if message.get('message') == ZoomBotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
+        if message.get('message') == BotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
             print(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -358,7 +377,7 @@ class BotController:
             self.cleanup()
             return
 
-        if message.get('message') == ZoomBotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
+        if message.get('message') == BotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
             print("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -368,7 +387,7 @@ class BotController:
             self.cleanup()
             return
 
-        if message.get('message') == ZoomBotAdapter.Messages.BOT_PUT_IN_WAITING_ROOM:
+        if message.get('message') == BotAdapter.Messages.BOT_PUT_IN_WAITING_ROOM:
             print("Received message to put bot in waiting room")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -376,7 +395,7 @@ class BotController:
             )
             return
 
-        if message.get('message') == ZoomBotAdapter.Messages.BOT_JOINED_MEETING:
+        if message.get('message') == BotAdapter.Messages.BOT_JOINED_MEETING:
             print("Received message that bot joined meeting")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -384,7 +403,7 @@ class BotController:
             )
             return
 
-        if message.get('message') == ZoomBotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
+        if message.get('message') == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
             print("Received message that bot recording permission granted")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -392,4 +411,4 @@ class BotController:
             )
             return
 
-        raise Exception(f"Received unexpected message from zoom bot adapter: {message}")
+        raise Exception(f"Received unexpected message from bot adapter: {message}")

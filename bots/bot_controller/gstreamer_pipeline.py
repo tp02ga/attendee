@@ -72,7 +72,7 @@ class GstreamerPipeline:
 
         # Configure audio appsrc
         audio_caps = Gst.Caps.from_string(
-            'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
+            'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
         )
         self.audio_appsrc.set_property('caps', audio_caps)
         self.audio_appsrc.set_property('format', Gst.Format.TIME)
@@ -139,13 +139,13 @@ class GstreamerPipeline:
         self.queue_drops[queue_name] += 1
         return True
     
-    def on_mixed_audio_raw_data_received_callback(self, data):
+    def on_mixed_audio_raw_data_received_callback(self, data, timestamp = None):
         if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
             return
 
         try:
-            current_time_ns = time.time_ns()
-            buffer_bytes = data.GetBuffer()
+            current_time_ns = timestamp if timestamp else time.time_ns()
+            buffer_bytes = data
             buffer = Gst.Buffer.new_wrapped(buffer_bytes)
             
             # Initialize start time if not set
