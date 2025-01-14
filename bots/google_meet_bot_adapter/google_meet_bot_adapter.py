@@ -193,8 +193,13 @@ class GoogleMeetBotAdapter(BotAdapter):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Increase max_size parameter to handle larger video frames (set to 10MB)
-        with serve(self.handle_websocket, "localhost", 8765, max_size=10_000_000) as server:
+        # Updated server configuration with optimized parameters
+        with serve(self.handle_websocket, 
+                  "localhost", 
+                  8765, 
+                  compression=None,    # Disable compression
+                  max_size=None,       # No message size limit
+                  ) as server:
             print("Websocket server started on ws://localhost:8765")
             server.serve_forever()
 
