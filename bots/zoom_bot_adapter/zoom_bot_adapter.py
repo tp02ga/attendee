@@ -426,7 +426,7 @@ class ZoomBotAdapter:
         param = join_param.param
         param.meetingNumber = meeting_number
         param.userName = self.display_name
-        param.psw = self.meeting_password
+        param.psw = self.meeting_password if self.meeting_password is not None else ""
         param.vanityID = ""
         param.customer_key = ""
         param.webinarToken = ""
