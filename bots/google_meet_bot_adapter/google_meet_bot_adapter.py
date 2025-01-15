@@ -275,8 +275,10 @@ class GoogleMeetBotAdapter(BotAdapter):
             else:
                 raise Exception(f"Failed to download library from {url}")
         
-        # Read your payload
-        with open('chromedriver_payload.js', 'r') as file:
+        # Get directory of current file
+        current_dir = os.path.dirname(os.path.abspath(__file__))        
+        # Read your payload using path relative to current file
+        with open(os.path.join(current_dir, 'chromedriver_payload.js'), 'r') as file:
             payload_code = file.read()
         
         # Combine them ensuring libraries load first
