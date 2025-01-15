@@ -226,14 +226,53 @@ class WebSocketClient {
       };
 
       this.mediaSendingEnabled = false;
+      this.lastVideoFrameTime = performance.now();
+      this.blackFrameInterval = null;
   }
+
+  startBlackFrameTimer() {
+    if (this.blackFrameInterval) return; // Don't start if already running
+    
+    this.blackFrameInterval = setInterval(() => {
+        try {
+            const currentTime = performance.now();
+            if (currentTime - this.lastVideoFrameTime >= 250 && this.mediaSendingEnabled) {
+                // Create black frame data (I420 format)
+                const width = 1920, height = 1080;
+                const yPlaneSize = width * height;
+                const uvPlaneSize = (width * height) / 4;
+                
+                const frameData = new Uint8Array(yPlaneSize + 2 * uvPlaneSize);
+                // Y plane (black = 0)
+                frameData.fill(0, 0, yPlaneSize);
+                // U and V planes (black = 128)
+                frameData.fill(128, yPlaneSize);
+                
+                // Fix: Math.floor() the milliseconds before converting to BigInt
+                const currentTimeMicros = BigInt(Math.floor(currentTime) * 1000);
+                this.sendVideo(currentTimeMicros, '0', width, height, frameData);
+            }
+        } catch (error) {
+            console.error('Error in black frame timer:', error);
+        }
+    }, 250);
+  }
+
+    stopBlackFrameTimer() {
+        if (this.blackFrameInterval) {
+            clearInterval(this.blackFrameInterval);
+            this.blackFrameInterval = null;
+        }
+    }
 
   enableMediaSending() {
     this.mediaSendingEnabled = true;
+    this.startBlackFrameTimer();
   }
 
   disableMediaSending() {
     this.mediaSendingEnabled = false;
+    this.stopBlackFrameTimer();
   }
 
   handleMessage(data) {
@@ -323,6 +362,8 @@ class WebSocketClient {
       if (!this.mediaSendingEnabled) {
         return;
       }
+      
+      this.lastVideoFrameTime = performance.now();
 
       try {
           // Convert streamId to UTF-8 bytes
