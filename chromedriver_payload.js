@@ -232,6 +232,10 @@ class WebSocketClient {
     this.mediaSendingEnabled = true;
   }
 
+  disableMediaSending() {
+    this.mediaSendingEnabled = false;
+  }
+
   handleMessage(data) {
       const view = new DataView(data);
       const messageType = view.getInt32(0, true); // true for little-endian

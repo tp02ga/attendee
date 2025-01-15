@@ -10,6 +10,7 @@ import wave
 import numpy as np
 import cv2
 
+import time
 from time import sleep
 
 import undetected_chromedriver as uc
@@ -127,10 +128,9 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.left_meeting = False
 
         self.websocket_port = None
-
         self.websocket_server = None
-
         self.websocket_thread = None
+        self.last_websocket_message_processed_time = None
 
     def handle_websocket(self, websocket):
         audio_file = None
@@ -192,6 +192,7 @@ class GoogleMeetBotAdapter(BotAdapter):
                         if self.wants_any_video_frames_callback() and self.send_frames:  
                             self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000)
                     
+                self.last_websocket_message_processed_time = time.time()
         except Exception as e:
             print(f"Websocket error: {e}")
 
@@ -369,7 +370,10 @@ class GoogleMeetBotAdapter(BotAdapter):
         if self.left_meeting:
             return
 
-        try: 
+        try:
+            print("disable media sending")
+            self.driver.execute_script("window.ws.disableMediaSending();")
+            
             print("Waiting for the leave button")
             leave_button = WebDriverWait(self.driver, 6).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'button[jsname="CQylAd"][aria-label="Leave call"]'))
@@ -383,6 +387,18 @@ class GoogleMeetBotAdapter(BotAdapter):
             self.left_meeting = True
 
     def cleanup(self):
+        try:
+            print("disable media sending")
+            self.driver.execute_script("window.ws.disableMediaSending();")
+        except Exception as e:
+            print(f"Error during media sending disable: {e}")
+
+        # Wait for websocket buffers to be processed
+        if self.last_websocket_message_processed_time:
+            while time.time() - self.last_websocket_message_processed_time < 2:
+                print(f"Waiting until it's 2 seconds since last websockets message was processed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds")
+                sleep(0.5)
+
         try:
             if self.driver:
                 self.driver.quit()
