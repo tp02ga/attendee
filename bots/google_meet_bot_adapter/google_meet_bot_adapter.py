@@ -126,6 +126,11 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         self.left_meeting = False
 
+        self.websocket_port = None
+
+        self.websocket_server = None
+
+        self.websocket_thread = None
 
     def handle_websocket(self, websocket):
         audio_file = None
@@ -168,6 +173,7 @@ class GoogleMeetBotAdapter(BotAdapter):
                         offset = 16 + stream_id_length
                         width = int.from_bytes(message[offset:offset+4], byteorder='little')
                         height = int.from_bytes(message[offset+4:offset+8], byteorder='little')
+                        #print("video dimensions", width, height)
                     
                         # Convert I420 format to BGR for OpenCV
                         video_data = np.frombuffer(message[offset+8:], dtype=np.uint8)
@@ -191,19 +197,31 @@ class GoogleMeetBotAdapter(BotAdapter):
 
 
     def run_websocket_server(self):
-        # Create a new event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Updated server configuration with optimized parameters
-        with serve(self.handle_websocket, 
-                  "localhost", 
-                  8765, 
-                  compression=None,    # Disable compression
-                  max_size=None,       # No message size limit
-                  ) as server:
-            print("Websocket server started on ws://localhost:8765")
-            server.serve_forever()
+        port = 8765
+        max_retries = 10
+        
+        for attempt in range(max_retries):
+            try:
+                self.websocket_server = serve(self.handle_websocket, 
+                                           "localhost", 
+                                           port,
+                                           compression=None,
+                                           max_size=None)
+                print(f"Websocket server started on ws://localhost:{port}")
+                self.websocket_port = port
+                self.websocket_server.serve_forever()
+                break
+            except OSError as e:
+                if e.errno == 98:  # Address already in use
+                    print(f"Port {port} is already in use, trying next port...")
+                    port += 1
+                    if attempt == max_retries - 1:
+                        raise Exception(f"Could not find available port after {max_retries} attempts")
+                    continue
+                raise  # Re-raise other OSErrors
 
     def init(self):
         if os.environ.get('DISPLAY') is None:
@@ -215,6 +233,10 @@ class GoogleMeetBotAdapter(BotAdapter):
         websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
         websocket_thread.start()
         
+        sleep(0.5)  # Give the websocketserver time to start
+        if not self.websocket_port:
+            raise Exception("WebSocket server failed to start")
+
         meet_link = self.meeting_url
         print(f"start recorder for {meet_link}")
 
@@ -236,6 +258,8 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         self.driver.set_window_size(1920, 1080)
 
+        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
+
         # Define the CDN libraries needed
         CDN_LIBRARIES = [
             'https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js',
@@ -256,6 +280,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         
         # Combine them ensuring libraries load first
         combined_code = f"""
+            {initial_data_code}
             {libraries_code}
             {payload_code}
         """
@@ -363,3 +388,10 @@ class GoogleMeetBotAdapter(BotAdapter):
                 self.driver.quit()
         except Exception as e:
             print(f"Error during cleanup: {e}")
+
+        # Properly shutdown the websocket server
+        if self.websocket_server:
+            try:
+                self.websocket_server.shutdown()
+            except Exception as e:
+                print(f"Error shutting down websocket server: {e}")

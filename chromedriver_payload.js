@@ -203,7 +203,9 @@ class WebSocketClient {
       AUDIO: 3   // Reserved for future use
   };
 
-  constructor(url = 'ws://localhost:8765') {
+  constructor() {
+      const url = `ws://localhost:${window.initialData.websocketPort}`;
+      console.log('WebSocketClient url', url);
       this.ws = new WebSocket(url);
       this.ws.binaryType = 'arraybuffer';
       
