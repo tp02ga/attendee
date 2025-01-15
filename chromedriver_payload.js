@@ -959,12 +959,16 @@ const handleVideoTrack = async (event) => {
     // if any of them have an associated device output with the first stream ID of this video track
     const isScreenShare = userManager
         .getCurrentUsersInMeetingWhoAreScreenSharing()
-        .some(user => firstStreamId &&userManager.getDeviceOutput(user.deviceId, DEVICE_OUTPUT_TYPE.VIDEO).streamId === firstStreamId);
+        .some(user => firstStreamId && userManager.getDeviceOutput(user.deviceId, DEVICE_OUTPUT_TYPE.VIDEO).streamId === firstStreamId);
     if (firstStreamId) {
         videoTrackManager.upsertVideoTrack(event.track, firstStreamId, isScreenShare);
     }
 
-    // Transform stream to intercept frames
+    // Add frame rate control variables
+    const targetFPS = 24;
+    const frameInterval = 1000 / targetFPS; // milliseconds between frames
+    let lastFrameTime = 0;
+
     const transformStream = new TransformStream({
         async transform(frame, controller) {
             if (!frame) {
@@ -977,36 +981,43 @@ const handleVideoTrack = async (event) => {
                     frame.close();
                     return;
                 }
-                console.log('transformStream', firstStreamId, ' vs ', videoTrackManager.getStreamIdToSendCached());
 
+                const currentTime = performance.now();
+                
                 if (firstStreamId && firstStreamId === videoTrackManager.getStreamIdToSendCached()) {
-                    // Copy the frame to get access to raw data
-                    const rawFrame = new VideoFrame(frame, {
-                        format: 'I420'
-                    });
+                    // Check if enough time has passed since the last frame
+                    if (currentTime - lastFrameTime >= frameInterval) {
+                        // Copy the frame to get access to raw data
+                        const rawFrame = new VideoFrame(frame, {
+                            format: 'I420'
+                        });
 
-                    // Get the raw data from the frame
-                    const data = new Uint8Array(rawFrame.allocationSize());
-                    rawFrame.copyTo(data);
+                        // Get the raw data from the frame
+                        const data = new Uint8Array(rawFrame.allocationSize());
+                        rawFrame.copyTo(data);
 
-                    /*
-                    const currentFormat = {
-                        width: frame.displayWidth,
-                        height: frame.displayHeight,
-                        dataSize: data.length,
-                        format: rawFrame.format,
-                        duration: frame.duration,
-                        colorSpace: frame.colorSpace,
-                        codedWidth: frame.codedWidth,
-                        codedHeight: frame.codedHeight
-                    };
-                    */
-                    // Get current time in microseconds (multiply milliseconds by 1000)
-                    const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
-                    ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
+                        /*
+                        const currentFormat = {
+                            width: frame.displayWidth,
+                            height: frame.displayHeight,
+                            dataSize: data.length,
+                            format: rawFrame.format,
+                            duration: frame.duration,
+                            colorSpace: frame.colorSpace,
+                            codedWidth: frame.codedWidth,
+                            codedHeight: frame.codedHeight
+                        };
+                        */
+                        // Get current time in microseconds (multiply milliseconds by 1000)
+                        const currentTimeMicros = BigInt(Math.floor(currentTime * 1000));
+                        ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
 
-                    rawFrame.close();
+                        rawFrame.close();
+                        lastFrameTime = currentTime;
+                    }
                 }
+                
+                // Always enqueue the frame for the video element
                 controller.enqueue(frame);
             } catch (error) {
                 console.error('Error processing frame:', error);
