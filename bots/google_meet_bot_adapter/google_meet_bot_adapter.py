@@ -230,7 +230,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         options.add_argument("--disable-dev-shm-usage")
         log_path = "chromedriver.log"
 
-        self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=False, options=options)
+        self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=True, options=options)
 
         self.driver.set_window_size(1920, 1080)
 
@@ -337,23 +337,17 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         self.send_frames = True
         self.driver.execute_script("window.ws.enableMediaSending();")
-
+        
     def leave(self):
-        try:
+        try: 
             print("Waiting for the leave button")
             leave_button = WebDriverWait(self.driver, 6).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Leave call"]'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'button[jsname="CQylAd"][aria-label="Leave call"]'))
             )
             print("Clicking the leave button")
             leave_button.click()
         except Exception as e:
             print(f"Error during leave: {e}")
-            # If we can't find or click the leave button, try to close the browser directly
-            try:
-                if self.driver:
-                    self.driver.quit()
-            except Exception as quit_error:
-                print(f"Error while quitting driver: {quit_error}")
         finally:
             self.send_message_callback({'message': self.Messages.MEETING_ENDED})
 
