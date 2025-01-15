@@ -236,7 +236,7 @@ class WebSocketClient {
     this.blackFrameInterval = setInterval(() => {
         try {
             const currentTime = performance.now();
-            if (currentTime - this.lastVideoFrameTime >= 250 && this.mediaSendingEnabled) {
+            if (currentTime - this.lastVideoFrameTime >= 500 && this.mediaSendingEnabled) {
                 // Create black frame data (I420 format)
                 const width = 1920, height = 1080;
                 const yPlaneSize = width * height;
