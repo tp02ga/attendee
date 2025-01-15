@@ -133,7 +133,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         
         # Create frames directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
-        
+
         try:
             for message in websocket:
                 # Get first 4 bytes as message type
@@ -336,6 +336,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.send_frames = True
+        self.driver.execute_script("window.ws.enableMediaSending();")
 
     def leave(self):
         try:

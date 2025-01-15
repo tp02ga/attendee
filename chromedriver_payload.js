@@ -222,6 +222,12 @@ class WebSocketClient {
       this.ws.onclose = () => {
           console.log('WebSocket Disconnected');
       };
+
+      this.mediaSendingEnabled = false;
+  }
+
+  enableMediaSending() {
+    this.mediaSendingEnabled = true;
   }
 
   handleMessage(data) {
@@ -276,6 +282,11 @@ class WebSocketClient {
           return;
       }
 
+
+      if (!this.mediaSendingEnabled) {
+        return;
+      }
+
       try {
           // Create final message: type (4 bytes) + timestamp (8 bytes) + audio data
           const message = new Uint8Array(4 + 8 + audioData.buffer.byteLength);
@@ -301,6 +312,10 @@ class WebSocketClient {
       if (this.ws.readyState !== WebSocket.OPEN) {
           console.error('WebSocket is not connected for video send', this.ws.readyState);
           return;
+      }
+
+      if (!this.mediaSendingEnabled) {
+        return;
       }
 
       try {
@@ -857,6 +872,7 @@ function createMessageDecoder(messageType) {
 }
 
 const ws = new WebSocketClient();
+window.ws = ws;
 const userManager = new UserManager(ws);
 const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
