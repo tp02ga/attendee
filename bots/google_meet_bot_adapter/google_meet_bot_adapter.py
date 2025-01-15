@@ -124,6 +124,8 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         self.send_frames = True
 
+        self.left_meeting = False
+
 
     def handle_websocket(self, websocket):
         audio_file = None
@@ -339,6 +341,9 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.driver.execute_script("window.ws.enableMediaSending();")
         
     def leave(self):
+        if self.left_meeting:
+            return
+
         try: 
             print("Waiting for the leave button")
             leave_button = WebDriverWait(self.driver, 6).until(
@@ -350,6 +355,7 @@ class GoogleMeetBotAdapter(BotAdapter):
             print(f"Error during leave: {e}")
         finally:
             self.send_message_callback({'message': self.Messages.MEETING_ENDED})
+            self.left_meeting = True
 
     def cleanup(self):
         try:
