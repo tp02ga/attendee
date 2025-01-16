@@ -442,7 +442,7 @@ class TranscriptView(APIView):
                     'transcription': utterance.transcription
                 }
                 for utterance in utterances     
-                if utterance.transcription.get('words', [])
+                if utterance.transcription.get('transcript', '')
             ]
             
             serializer = TranscriptUtteranceSerializer(transcript_data, many=True)
