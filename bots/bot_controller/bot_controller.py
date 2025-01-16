@@ -2,6 +2,7 @@ from bots.models import *
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .audio_output_manager import AudioOutputManager
 from .streaming_uploader import StreamingUploader
+from .closed_caption_manager import ClosedCaptionManager
 import os
 import signal
 import redis
@@ -18,7 +19,8 @@ class BotController:
             meeting_url=self.bot_in_db.meeting_url,
             add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
-            add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback
+            add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            upsert_caption_callback=self.closed_caption_manager.upsert_caption
         )
 
     def get_zoom_bot_adapter(self):
@@ -132,8 +134,10 @@ class BotController:
         from .gstreamer_pipeline import GstreamerPipeline
 
         # Initialize core objects
-        self.individual_audio_input_manager = IndividualAudioInputManager(save_utterance_callback=self.save_utterance, get_participant_callback=self.get_participant)
-        
+        # Only used for adapters that can provider per-participant audio
+        self.individual_audio_input_manager = IndividualAudioInputManager(save_utterance_callback=self.save_individual_audio_utterance, get_participant_callback=self.get_participant)
+        self.closed_caption_manager = ClosedCaptionManager(save_utterance_callback=self.save_closed_caption_utterance, get_participant_callback=self.get_participant)
+
         self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished)
 
         self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080))
@@ -295,6 +299,9 @@ class BotController:
             # Process audio chunks
             self.individual_audio_input_manager.process_chunks()
 
+            # Process captions
+            self.closed_caption_manager.process_captions()
+
             # Process audio output
             self.audio_output_manager.monitor_currently_playing_audio_media_request()
             return True
@@ -304,7 +311,36 @@ class BotController:
             self.cleanup()
             return False
 
-    def save_utterance(self, message):
+    def get_recording_in_progress(self):
+        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
+        if recordings_in_progress.count() == 0:
+            raise Exception("No recording in progress found")
+        if recordings_in_progress.count() > 1:
+            raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
+        return recordings_in_progress.first()
+
+    def save_closed_caption_utterance(self, message):
+        participant, _ = Participant.objects.get_or_create(
+            bot=self.bot_in_db,
+            uuid=message['participant_uuid'],
+            defaults={
+                'user_uuid': message['participant_user_uuid'],
+                'full_name': message['participant_full_name'],
+            }
+        )
+
+        # Create new utterance record
+        recording_in_progress = self.get_recording_in_progress()
+        utterance = Utterance.objects.create(
+            source=Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM,
+            recording=recording_in_progress,
+            participant=participant,
+            transcription={'transcript': message['text']},
+            timestamp_ms=message['timestamp_ms'],
+            duration_ms=message['duration_ms'],
+        )
+
+    def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
 
         print(f"Received message that new utterance was detected")
@@ -320,13 +356,9 @@ class BotController:
         )
 
         # Create new utterance record
-        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
-        if recordings_in_progress.count() == 0:
-            raise Exception("No recording in progress found")
-        if recordings_in_progress.count() > 1:
-            raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
-        recording_in_progress = recordings_in_progress.first()
+        recording_in_progress = self.get_recording_in_progress()
         utterance = Utterance.objects.create(
+            source=Utterance.Sources.PER_PARTICIPANT_AUDIO,
             recording=recording_in_progress,
             participant=participant,
             audio_blob=message['audio_data'],
@@ -352,6 +384,9 @@ class BotController:
             if self.individual_audio_input_manager:
                 print("Flushing utterances...")
                 self.individual_audio_input_manager.flush_utterances()
+            if self.closed_caption_manager:
+                print("Flushing captions...")
+                self.closed_caption_manager.flush_captions()
 
             if self.bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(

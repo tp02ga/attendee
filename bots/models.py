@@ -663,6 +663,11 @@ class RecordingManager:
         return state == RecordingStates.COMPLETE or state == RecordingStates.FAILED
 
 class Utterance(models.Model):
+    class Sources(models.IntegerChoices):
+        PER_PARTICIPANT_AUDIO = 1, 'Per Participant Audio'
+        CLOSED_CAPTION_FROM_PLATFORM = 2, 'Closed Caption From Platform'
+
+
     class AudioFormat(models.IntegerChoices):
         PCM = 1, 'PCM'
         MP3 = 2, 'MP3'
@@ -680,7 +685,8 @@ class Utterance(models.Model):
     audio_blob = models.BinaryField()
     audio_format = models.IntegerField(
         choices=AudioFormat.choices,
-        default=AudioFormat.PCM
+        default=AudioFormat.PCM,
+        null=True
     )
     timestamp_ms = models.BigIntegerField()
     duration_ms = models.IntegerField()
@@ -688,6 +694,12 @@ class Utterance(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    source = models.IntegerField(
+        choices=Sources.choices,
+        default=Sources.PER_PARTICIPANT_AUDIO,
+        null=False
+    )
 
     _relative_timestamp_ms = None  # Cache for relative timestamp
 

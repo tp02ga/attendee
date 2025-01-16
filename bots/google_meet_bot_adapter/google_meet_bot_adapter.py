@@ -110,12 +110,13 @@ def scale_i420(frame, frame_size, new_size):
 
 class GoogleMeetBotAdapter(BotAdapter):
 
-    def __init__(self, *, display_name, send_message_callback, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback):
+    def __init__(self, *, display_name, send_message_callback, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback, upsert_caption_callback):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_mixed_audio_chunk_callback = add_mixed_audio_chunk_callback
         self.add_video_frame_callback = add_video_frame_callback
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
+        self.upsert_caption_callback = upsert_caption_callback
 
         self.meeting_url = meeting_url
 
@@ -131,6 +132,18 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.websocket_server = None
         self.websocket_thread = None
         self.last_websocket_message_processed_time = None
+
+        self.participants_info = {}
+
+    def get_participant(self, participant_id):
+        if participant_id in self.participants_info:
+            return {
+                'participant_uuid': participant_id,
+                'participant_full_name': self.participants_info[participant_id]['fullName'],
+                'participant_user_uuid': None
+            }
+
+        return None
 
     def handle_websocket(self, websocket):
         audio_file = None
@@ -159,6 +172,17 @@ class GoogleMeetBotAdapter(BotAdapter):
                             audio_file.setnchannels(audio_format['numberOfChannels'])
                             audio_file.setsampwidth(4)  # 4 bytes for float32
                             audio_file.setframerate(audio_format['sampleRate']/2)
+
+                        elif json_data.get('type') == 'CaptionUpdate':
+                            self.upsert_caption_callback(json_data['caption'])
+
+                        elif json_data.get('type') == 'UsersUpdate':
+                            for user in json_data['joined']:
+                                user['active'] = True
+                                self.participants_info[user['deviceId']] = user
+                            for user in json_data['left']:
+                                user['active'] = False
+                                self.participants_info[user['deviceId']] = user
                         
                 elif message_type == 2:  # VIDEO
                     if len(message) > 24:  # Minimum length check
