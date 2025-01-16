@@ -495,3 +495,6 @@ class ZoomBotAdapter(BotAdapter):
             print("Authentication successful")
         else:
             print("Authentication failed with error:", result)
+
+    def get_first_buffer_timestamp_ms_offset(self):
+        return 0

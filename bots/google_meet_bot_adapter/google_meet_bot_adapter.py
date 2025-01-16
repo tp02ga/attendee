@@ -132,6 +132,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.websocket_server = None
         self.websocket_thread = None
         self.last_websocket_message_processed_time = None
+        self.first_buffer_timestamp_ms_offset = time.time() * 1000
 
         self.participants_info = {}
 
@@ -391,6 +392,7 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         self.send_frames = True
         self.driver.execute_script("window.ws.enableMediaSending();")
+        self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
         
     def leave(self):
         if self.left_meeting:
@@ -437,3 +439,6 @@ class GoogleMeetBotAdapter(BotAdapter):
                 self.websocket_server.shutdown()
             except Exception as e:
                 print(f"Error shutting down websocket server: {e}")
+
+    def get_first_buffer_timestamp_ms_offset(self):
+        return self.first_buffer_timestamp_ms_offset
