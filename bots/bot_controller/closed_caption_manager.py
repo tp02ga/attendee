@@ -60,7 +60,8 @@ class ClosedCaptionManager:
                         **participant,
                         'timestamp_ms': int(entry.created_at.timestamp() * 1000),
                         'duration_ms': int((entry.modified_at - entry.created_at).total_seconds() * 1000),
-                        'text': entry.caption_data['text']
+                        'text': entry.caption_data['text'],
+                        'source_uuid_suffix': f"{entry.caption_data['deviceId']}-{entry.caption_data['captionId']}",
                     })
                     
                     # Mark as upserted and remove if it hasn't been modified recently

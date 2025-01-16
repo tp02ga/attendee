@@ -331,13 +331,17 @@ class BotController:
 
         # Create new utterance record
         recording_in_progress = self.get_recording_in_progress()
-        utterance = Utterance.objects.create(
-            source=Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM,
+        source_uuid = f"{recording_in_progress.object_id}-{message['source_uuid_suffix']}"
+        utterance, _ = Utterance.objects.update_or_create(
             recording=recording_in_progress,
-            participant=participant,
-            transcription={'transcript': message['text']},
-            timestamp_ms=message['timestamp_ms'],
-            duration_ms=message['duration_ms'],
+            source_uuid=source_uuid,
+            defaults={
+                'source': Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM,
+                'participant': participant,
+                'transcription': {'transcript': message['text']},
+                'timestamp_ms': message['timestamp_ms'],
+                'duration_ms': message['duration_ms'],
+            }
         )
 
     def save_individual_audio_utterance(self, message):

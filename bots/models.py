@@ -691,6 +691,7 @@ class Utterance(models.Model):
     timestamp_ms = models.BigIntegerField()
     duration_ms = models.IntegerField()
     transcription = models.JSONField(null=True, default=None)
+    source_uuid = models.CharField(max_length=255, null=True, unique=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
