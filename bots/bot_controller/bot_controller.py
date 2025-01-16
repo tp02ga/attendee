@@ -362,6 +362,8 @@ class BotController:
             }
         )
 
+        RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
+
     def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
 
