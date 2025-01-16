@@ -4,12 +4,16 @@ from gi.repository import Gst, GLib
 import time
 
 class GstreamerPipeline:
-    def __init__(self, on_new_sample_callback, video_frame_size):
+    AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
+    AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
+
+    def __init__(self, on_new_sample_callback, video_frame_size, audio_format):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.pipeline = None
         self.appsrc = None
         self.recording_active = False
+        self.audio_format = audio_format
 
         self.audio_appsrc = None
         self.audio_recording_active = False
@@ -71,9 +75,7 @@ class GstreamerPipeline:
         self.appsrc.set_property('block', True)  # This helps with synchronization
 
         # Configure audio appsrc
-        audio_caps = Gst.Caps.from_string(
-            'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
-        )
+        audio_caps = Gst.Caps.from_string(self.audio_format)
         self.audio_appsrc.set_property('caps', audio_caps)
         self.audio_appsrc.set_property('format', Gst.Format.TIME)
         self.audio_appsrc.set_property('is-live', True)

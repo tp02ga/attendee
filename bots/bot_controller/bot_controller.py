@@ -7,8 +7,11 @@ import os
 import signal
 import redis
 from bots.bot_adapter import BotAdapter
+from .gstreamer_pipeline import GstreamerPipeline
 
 class BotController:
+    MEETING_TYPE_ZOOM = "zoom"
+    MEETING_TYPE_GOOGLE_MEET = "google_meet"
 
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
@@ -46,13 +49,27 @@ class BotController:
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback
         )
 
-    def get_bot_adapter(self):
+    def get_meeting_type(self):
         if "zoom.us" in self.bot_in_db.meeting_url:
-            return self.get_zoom_bot_adapter()
+            return self.MEETING_TYPE_ZOOM
         elif "meet.google.com" in self.bot_in_db.meeting_url:
-            return self.get_google_meet_bot_adapter()
+            return self.MEETING_TYPE_GOOGLE_MEET
         else:
             raise Exception(f"Unknown meeting type: {self.bot_in_db.meeting_type}")
+
+    def get_audio_format(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == self.MEETING_TYPE_ZOOM:
+            return GstreamerPipeline.AUDIO_FORMAT_PCM
+        elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
+            return GstreamerPipeline.AUDIO_FORMAT_FLOAT
+
+    def get_bot_adapter(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == self.MEETING_TYPE_ZOOM:
+            return self.get_zoom_bot_adapter()
+        elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
+            return self.get_google_meet_bot_adapter()
     
     def get_first_buffer_timestamp_ms(self):
         if self.gstreamer_pipeline.start_time_ns is None:
@@ -131,8 +148,6 @@ class BotController:
         gi.require_version('GLib', '2.0')
         from gi.repository import GLib
 
-        from .gstreamer_pipeline import GstreamerPipeline
-
         # Initialize core objects
         # Only used for adapters that can provider per-participant audio
         self.individual_audio_input_manager = IndividualAudioInputManager(save_utterance_callback=self.save_individual_audio_utterance, get_participant_callback=self.get_participant)
@@ -140,7 +155,7 @@ class BotController:
 
         self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished)
 
-        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080))
+        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080), audio_format=self.get_audio_format())
         self.gstreamer_pipeline.setup()
         
         self.streaming_uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename())
