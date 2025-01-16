@@ -150,26 +150,44 @@ class UserManager {
       this.newUsersListSynced(uniqueUsers);
     }
 
-    newUsersListSynced(newUsersList) {
+    newUsersListSynced(newUsersListRaw) {
+        const newUsersList = newUsersListRaw.map(user => {
+            const userStatusMap = {
+                1: 'in_meeting',
+                6: 'not_in_meeting',
+                7: 'removed_from_meeting'
+            }
+
+            return {
+                ...user,
+                humanized_status: userStatusMap[user.status] || "unknown"
+            }
+        })
         // Get the current user IDs before updating
         const previousUserIds = new Set(this.currentUsersMap.keys());
         const newUserIds = new Set(newUsersList.map(user => user.deviceId));
+        const updatedUserIds = new Set([])
 
         // Update all users map
         for (const user of newUsersList) {
+            if (previousUserIds.has(user.deviceId) && JSON.stringify(this.currentUsersMap.get(user.deviceId)) !== JSON.stringify(user)) {
+                updatedUserIds.add(user.deviceId);
+            }
+
             this.allUsersMap.set(user.deviceId, {
                 deviceId: user.deviceId,
                 displayName: user.displayName,
                 fullName: user.fullName,
                 profile: user.profile,
                 status: user.status,
+                humanized_status: user.humanized_status,
                 parentDeviceId: user.parentDeviceId
             });
         }
 
-        // Calculate joined and left users
-        const joined = newUsersList.filter(user => !previousUserIds.has(user.deviceId));
-        const left = Array.from(previousUserIds)
+        // Calculate new, removed, and updated users
+        const newUsers = newUsersList.filter(user => !previousUserIds.has(user.deviceId));
+        const removedUsers = Array.from(previousUserIds)
             .filter(id => !newUserIds.has(id))
             .map(id => this.currentUsersMap.get(id));
 
@@ -182,15 +200,21 @@ class UserManager {
                 fullName: user.fullName,
                 profilePicture: user.profilePicture,
                 status: user.status,
+                humanized_status: user.humanized_status,
                 parentDeviceId: user.parentDeviceId
             });
         }
 
-        this.ws.sendJson({
-            type: 'UsersUpdate',
-            joined: joined,
-            left: left
-        });
+        const updatedUsers = Array.from(updatedUserIds).map(id => this.currentUsersMap.get(id));
+
+        if (newUsers.length > 0 || removedUsers.length > 0 || updatedUsers.length > 0) {
+            this.ws.sendJson({
+                type: 'UsersUpdate',
+                newUsers: newUsers,
+                removedUsers: removedUsers,
+                updatedUsers: updatedUsers
+            });
+        }
     }
 }
 
@@ -842,7 +866,7 @@ const messageTypes = [
             { name: 'deviceId', fieldNumber: 1, type: 'string' },
             { name: 'fullName', fieldNumber: 2, type: 'string' },
             { name: 'profilePicture', fieldNumber: 3, type: 'string' },
-            { name: 'status', fieldNumber: 4, type: 'varint' }, // in meeting = 1 vs not in meeting = 6
+            { name: 'status', fieldNumber: 4, type: 'varint' }, // in meeting = 1 vs not in meeting = 6. kicked out = 7?
             { name: 'displayName', fieldNumber: 29, type: 'string' },
             { name: 'parentDeviceId', fieldNumber: 21, type: 'string' } // if this is present, then this is a screenshare device. The parentDevice is the person that is sharing
         ]

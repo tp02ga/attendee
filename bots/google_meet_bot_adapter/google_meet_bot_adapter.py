@@ -127,6 +127,8 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.send_frames = True
 
         self.left_meeting = False
+        self.was_removed_from_meeting = False
+        self.cleaned_up = False
 
         self.websocket_port = None
         self.websocket_server = None
@@ -135,6 +137,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.first_buffer_timestamp_ms_offset = time.time() * 1000
 
         self.participants_info = {}
+        self.only_one_participant_in_meeting_at = None
 
     def get_participant(self, participant_id):
         if participant_id in self.participants_info:
@@ -178,13 +181,28 @@ class GoogleMeetBotAdapter(BotAdapter):
                             self.upsert_caption_callback(json_data['caption'])
 
                         elif json_data.get('type') == 'UsersUpdate':
-                            for user in json_data['joined']:
-                                user['active'] = True
+                            for user in json_data['newUsers']:
+                                user['active'] = user['humanized_status'] == 'in_meeting'
                                 self.participants_info[user['deviceId']] = user
-                            for user in json_data['left']:
+                            for user in json_data['removedUsers']:
                                 user['active'] = False
                                 self.participants_info[user['deviceId']] = user
+                            for user in json_data['updatedUsers']:
+                                user['active'] = user['humanized_status'] == 'in_meeting'
+                                self.participants_info[user['deviceId']] = user
+
+                                if user['humanized_status'] == 'removed_from_meeting' and user['fullName'] == self.display_name:
+                                    # if this is the only participant with that name in the meeting, then we can assume that it was us who was removed
+                                    if len([x for x in self.participants_info.values() if x['fullName'] == self.display_name]) == 1:
+                                        self.was_removed_from_meeting = True
+                                        self.send_message_callback({'message': self.Messages.MEETING_ENDED})
                         
+                            if len([x for x in self.participants_info.values() if x['active']]) == 1:
+                                if self.only_one_participant_in_meeting_at is None:
+                                    self.only_one_participant_in_meeting_at = time.time()
+                            else:
+                                self.only_one_participant_in_meeting_at = None
+
                 elif message_type == 2:  # VIDEO
                     if len(message) > 24:  # Minimum length check
                         # Bytes 4-12 contain the timestamp
@@ -341,8 +359,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         sleep(1)
         
         print("Filling the input field with the name...")
-        full_name = "Mr Bot!"
-        name_input.send_keys(full_name)
+        name_input.send_keys(self.display_name)
         
         print("Waiting for the 'Ask to join' button...")
         join_button = self.driver.find_element(By.XPATH, '//button[.//span[text()="Ask to join"]]')
@@ -397,6 +414,8 @@ class GoogleMeetBotAdapter(BotAdapter):
     def leave(self):
         if self.left_meeting:
             return
+        if self.was_removed_from_meeting:
+            return
 
         try:
             print("disable media sending")
@@ -423,8 +442,9 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         # Wait for websocket buffers to be processed
         if self.last_websocket_message_processed_time:
-            while time.time() - self.last_websocket_message_processed_time < 2:
-                print(f"Waiting until it's 2 seconds since last websockets message was processed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds")
+            time_when_shutdown_initiated = time.time() 
+            while time.time() - self.last_websocket_message_processed_time < 2 and time.time() - time_when_shutdown_initiated < 30:
+                print(f"Waiting until it's 2 seconds since last websockets message was processed or 30 seconds have passed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds and {time.time() - time_when_shutdown_initiated} seconds have passed")
                 sleep(0.5)
 
         try:
@@ -439,6 +459,8 @@ class GoogleMeetBotAdapter(BotAdapter):
                 self.websocket_server.shutdown()
             except Exception as e:
                 print(f"Error shutting down websocket server: {e}")
+
+        self.cleaned_up = True
 
     def get_first_buffer_timestamp_ms_offset(self):
         return self.first_buffer_timestamp_ms_offset
