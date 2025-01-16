@@ -159,7 +159,7 @@ def generate_aggregated_utterances(recording):
         if current_aggregated_utterance is None:
             current_aggregated_utterance = AggregatedUtterance(utterance)
         else:
-            if utterance.transcription.get('words') is None and utterance.participant.id == current_aggregated_utterance.participant.id and utterance.timestamp_ms - (current_aggregated_utterance.timestamp_ms + current_aggregated_utterance.duration_ms) < 1000:
+            if utterance.transcription.get('words') is None and utterance.participant.id == current_aggregated_utterance.participant.id and utterance.timestamp_ms - (current_aggregated_utterance.timestamp_ms + current_aggregated_utterance.duration_ms) < 3000:
                 current_aggregated_utterance.aggregate(utterance)
             else:
                 aggregated_utterances.append(current_aggregated_utterance)
@@ -167,7 +167,6 @@ def generate_aggregated_utterances(recording):
 
     if current_aggregated_utterance:
         aggregated_utterances.append(current_aggregated_utterance)
-    print('aggregated_utterances ', list(map(lambda x: x.transcription, aggregated_utterances)))
     return aggregated_utterances
 
 def generate_utterance_json_for_bot_detail_view(recording):
