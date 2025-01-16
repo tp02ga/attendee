@@ -302,6 +302,9 @@ class BotController:
             # Process captions
             self.closed_caption_manager.process_captions()
 
+            #Check if auto-leave conditions are met
+            self.adapter.check_auto_leave_conditions()
+
             # Process audio output
             self.audio_output_manager.monitor_currently_playing_audio_media_request()
             return True

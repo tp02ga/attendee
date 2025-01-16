@@ -498,3 +498,7 @@ class ZoomBotAdapter(BotAdapter):
 
     def get_first_buffer_timestamp_ms_offset(self):
         return 0
+
+    def check_auto_leave_conditions(self):
+        # Nothing implemented for this yet
+        return

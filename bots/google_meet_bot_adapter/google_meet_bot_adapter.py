@@ -134,6 +134,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         self.websocket_server = None
         self.websocket_thread = None
         self.last_websocket_message_processed_time = None
+        self.last_media_message_processed_time = None
         self.first_buffer_timestamp_ms_offset = time.time() * 1000
 
         self.participants_info = {}
@@ -204,6 +205,7 @@ class GoogleMeetBotAdapter(BotAdapter):
                                 self.only_one_participant_in_meeting_at = None
 
                 elif message_type == 2:  # VIDEO
+                    self.last_media_message_processed_time = time.time()
                     if len(message) > 24:  # Minimum length check
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder='little')
@@ -226,6 +228,7 @@ class GoogleMeetBotAdapter(BotAdapter):
                             self.add_video_frame_callback(scaled_i420_frame, timestamp * 1000)
                         
                 elif message_type == 3:  # AUDIO
+                    self.last_media_message_processed_time = time.time()
                     if audio_file is not None and len(message) > 12:
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder='little')
@@ -464,3 +467,21 @@ class GoogleMeetBotAdapter(BotAdapter):
 
     def get_first_buffer_timestamp_ms_offset(self):
         return self.first_buffer_timestamp_ms_offset
+
+    def check_auto_leave_conditions(self):
+        if self.left_meeting:
+            return
+        if self.cleaned_up:
+            return
+
+        if self.only_one_participant_in_meeting_at is not None:
+            if time.time() - self.only_one_participant_in_meeting_at > 30:
+                print("Auto-leaving meeting because there was only one participant in the meeting for 30 seconds")
+                self.leave()
+                return
+
+        if self.last_media_message_processed_time is not None:
+            if time.time() - self.last_media_message_processed_time > 30:
+                print("Auto-leaving meeting because there was no media message for 30 seconds")
+                self.leave()
+                return
