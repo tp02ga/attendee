@@ -775,6 +775,7 @@ const handleMainChannelEvent = (event) => {
 //{"version":"1.1","recognitionResults":[{"speechRecognitionServiceLatency":720.7131,"source":"Ai","duration":8400000,"userId":"8:guest:1565c9e6-7816-49d5-8270-733b8a2d92bf","id":"7dec128d-711a-4dca-9539-14bda6fac3f8/164","spokenLanguage":"en-us","trackLanguage":"en-us","text":"There's no","isFinal":false,"timestampAudioSent":39465874128118696}]}
 
 const handleVideoTrack = async (event) => {  
+    console.log('handleVideoTrack', event);
   try {
     // Create processor to get raw frames
     const processor = new MediaStreamTrackProcessor({ track: event.track });
@@ -806,6 +807,20 @@ const handleVideoTrack = async (event) => {
     const frameInterval = 1000 / targetFPS; // milliseconds between frames
     let lastFrameTime = 0;
 
+    // Create iframe only when document is ready
+    var realConsole;
+    if (document.readyState === 'complete') {
+        createIframe();
+    } else {
+        document.addEventListener('DOMContentLoaded', createIframe);
+    }
+    function createIframe() {
+        const iframe = document.createElement('iframe');
+        iframe.src = 'about:blank';
+        document.body.appendChild(iframe);
+        realConsole = iframe.contentWindow.console;
+    }
+
     const transformStream = new TransformStream({
         async transform(frame, controller) {
             if (!frame) {
@@ -820,6 +835,10 @@ const handleVideoTrack = async (event) => {
                 }
 
                 const currentTime = performance.now();
+
+                if (realConsole) {
+                    realConsole.log('frame', frame);
+                }
                 
                 if (firstStreamId && firstStreamId === videoTrackManager.getStreamIdToSendCached()) {
                     // Check if enough time has passed since the last frame
@@ -1260,7 +1279,7 @@ function handleRosterUpdate(eventDataObject) {
     try {
         const decodedBody = decodeWebSocketBody(eventDataObject.body);
         participantsMap = {...participantsMap, ...decodedBody.participants};
-        console.log('Participants Map:', participantsMap);
+        console.log('Participants Map:', Object.values(participantsMap).map(participant => participant.details.displayName));
     } catch (error) {
         console.error('Error handling roster update:', JSON.stringify(error));
         console.error('Event data:', eventDataObject);
