@@ -347,7 +347,7 @@ class WebSocketClient {
 
   sendAudio(timestamp, audioData) {
       if (this.ws.readyState !== WebSocket.OPEN) {
-          console.error('WebSocket is not connected for audio send', this.ws.readyState);
+          //console.error('WebSocket is not connected for audio send', this.ws.readyState);
           return;
       }
 
@@ -1162,70 +1162,55 @@ class XHRInterceptor {
 
 const xhrInterceptor = new XHRInterceptor({
     onSend: ({ method, url, data }) => {
-        console.log('XHR Request:', method, url, data);
+        //console.log('XHR Request:', method, url, data);
     },
     onResponse: ({ method, url, status, response }) => {
         //if (JSON.stringify(response).includes("roster") || JSON.stringify(response).includes("participants")) {
-            console.log('XHR Response:', method, url, status, response);
+          //  console.log('XHR Response:', method, url, status, response);
         //}
     },
     onError: ({ method, url, error }) => {
-        console.error('XHR Error:', method, url, error);
+        //console.error('XHR Error:', method, url, error);
     }
 });
 
-function decodewebsocketbody(base64Data) {
-    // Base64 decode the input
-    let decodedString = atob(base64Data);
-    
-    // Get the length of the decoded string
-    let byteLength = decodedString.length;
-    
-    // Create a Uint8Array to hold the decoded bytes
-    let byteArray = new Uint8Array(byteLength);
-    
-    // Convert each character to its corresponding byte value
-    for (let i = 0; i < byteLength; i++) {
-        byteArray[i] = decodedString.charCodeAt(i);
-    }
-    
-    // Inflate (decompress) the byte array and convert to a string
-    return pako.inflate(byteArray, { to: "string" });
+function decodeWebSocketBody(encodedData) {
+    const byteArray = Uint8Array.from(atob(encodedData), c => c.charCodeAt(0));
+    return JSON.parse(pako.inflate(byteArray, { to: "string" }));
 }
 
 class WebSocketInterceptor {
-    constructor() {
-        // Store the original WebSocket
+    constructor(callbacks = {}) {
         this.originalWebSocket = window.WebSocket;
+        this.callbacks = {
+            onSend: callbacks.onSend || (() => {}),
+            onMessage: callbacks.onMessage || (() => {}),
+            onOpen: callbacks.onOpen || (() => {}),
+            onClose: callbacks.onClose || (() => {}),
+            onError: callbacks.onError || (() => {})
+        };
         
-        // Replace the global WebSocket with our proxy
         window.WebSocket = this.createWebSocketProxy();
     }
 
     createWebSocketProxy() {
         const OriginalWebSocket = this.originalWebSocket;
+        const callbacks = this.callbacks;
         
         return function(url, protocols) {
-            console.log('WebSocket Connection Attempted:', url, protocols);
-            
-            // Create a real WebSocket instance
             const ws = new OriginalWebSocket(url, protocols);
             
             // Intercept send
             const originalSend = ws.send;
             ws.send = function(data) {
                 try {
-                    // Log the outgoing message
-                    if (data instanceof ArrayBuffer) {
-                        console.log('WebSocket Sending Binary:', {
-                            byteLength: data.byteLength,
-                            view: new Uint8Array(data)
-                        });
-                    } else {
-                        console.log('WebSocket Sending:', data);
-                    }
+                    callbacks.onSend({
+                        url,
+                        data,
+                        ws
+                    });
                 } catch (error) {
-                    console.error('Error logging WebSocket send:', error);
+                    console.error('Error in WebSocket send callback:', error);
                 }
                 
                 return originalSend.apply(ws, arguments);
@@ -1234,45 +1219,66 @@ class WebSocketInterceptor {
             // Intercept onmessage
             ws.addEventListener('message', function(event) {
                 try {
-                    // Log the incoming message
-                    if (event.data instanceof ArrayBuffer) {
-                        console.log('WebSocket Received Binary:', {
-                            byteLength: event.data.byteLength,
-                            view: new Uint8Array(event.data)
-                        });
-                    } else {
-                        console.log('WebSocket Received:', event.data);
-                        if (event.data.startsWith("3:::")) {
-                            var event_data_json = JSON.parse(event.data.slice(4));
-
-                            console.log('WebSocket obj Received:', event_data_json);
-                            console.log('Decoded body:', decodewebsocketbody(event_data_json.body));
-                        }
-
-
-
-                    }
+                    callbacks.onMessage({
+                        url,
+                        data: event.data,
+                        event,
+                        ws
+                    });
                 } catch (error) {
-                    console.error('Error logging WebSocket message received:', error);
+                    console.error('Error in WebSocket message callback:', error);
                 }
             });
             
             // Intercept connection events
-            ws.addEventListener('open', () => console.log('WebSocket Connected:', url));
-            ws.addEventListener('close', (event) => console.log('WebSocket Closed:', url, event.code, event.reason));
-            ws.addEventListener('error', (error) => console.error('WebSocket Error:', url, error));
+            ws.addEventListener('open', (event) => {
+                callbacks.onOpen({ url, event, ws });
+            });
+            
+            ws.addEventListener('close', (event) => {
+                callbacks.onClose({ 
+                    url, 
+                    code: event.code, 
+                    reason: event.reason,
+                    event,
+                    ws 
+                });
+            });
+            
+            ws.addEventListener('error', (event) => {
+                callbacks.onError({ url, event, ws });
+            });
             
             return ws;
         };
     }
-    
-    // Method to restore original WebSocket
-    restore() {
-        window.WebSocket = this.originalWebSocket;
+}
+
+let participantsMap = {};
+
+function handleRosterUpdate(eventDataObject) {
+    try {
+        const decodedBody = decodeWebSocketBody(eventDataObject.body);
+        participantsMap = {...participantsMap, ...decodedBody.participants};
+        console.log('Participants Map:', participantsMap);
+    } catch (error) {
+        console.error('Error handling roster update:', JSON.stringify(error));
+        console.error('Event data:', eventDataObject);
     }
 }
 
-// Initialize the interceptor
-const wsInterceptor = new WebSocketInterceptor();
+// Example usage:
+const wsInterceptor = new WebSocketInterceptor({
+    onMessage: ({ url, data }) => {
+        if (data.startsWith("3:::")) {
+            const eventDataObject = JSON.parse(data.slice(4));
+            
+            console.log('Event Data Object:', eventDataObject.url);
+            if (eventDataObject.url.endsWith("rosterUpdate/") || eventDataObject.url.endsWith("rosterUpdate")) {
+                handleRosterUpdate(eventDataObject);
+            }
+        }
+    }
+});
 
 
