@@ -3,6 +3,29 @@ from drf_spectacular.utils import extend_schema_field, extend_schema_serializer,
 from .models import Bot, BotEventTypes, BotEventSubTypes, BotStates, Recording, RecordingStates, RecordingTranscriptionStates
 import jsonschema
 
+
+@extend_schema_field({
+    "type": "object",
+    "properties": {
+        "deepgram": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "description": "The language code for transcription (e.g. 'en')"
+                },
+                "detect_language": {
+                    "type": "boolean",
+                    "description": "Whether to automatically detect the spoken language"
+                }
+            }
+        }
+    },
+    "required": ["deepgram"]
+})
+class TranscriptionSettingsJSONField(serializers.JSONField): 
+    pass
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -20,7 +43,7 @@ class CreateBotSerializer(serializers.Serializer):
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
     
-    transcription_settings = serializers.JSONField(
+    transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
         required=False,
         default={
