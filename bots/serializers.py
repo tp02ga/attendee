@@ -12,7 +12,7 @@ import jsonschema
             "properties": {
                 "language": {
                     "type": "string",
-                    "description": "The language code for transcription (e.g. 'en')"
+                    "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview"
                 },
                 "detect_language": {
                     "type": "boolean",
