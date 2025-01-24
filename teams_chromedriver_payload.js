@@ -480,6 +480,101 @@ class RTCInterceptor {
                 return dataChannel;
             };
             
+            // Intercept createOffer
+            const originalCreateOffer = peerConnection.createOffer.bind(peerConnection);
+            peerConnection.createOffer = async function(options) {
+                const offer = await originalCreateOffer(options);
+                console.log('Created Offer SDP:', {
+                    type: offer.type,
+                    sdp: offer.sdp,
+                    parsedSDP: parseSDP(offer.sdp)
+                });
+                return offer;
+            };
+
+            // Intercept createAnswer
+            const originalCreateAnswer = peerConnection.createAnswer.bind(peerConnection);
+            peerConnection.createAnswer = async function(options) {
+                const answer = await originalCreateAnswer(options);
+                console.log('Created Answer SDP:', {
+                    type: answer.type,
+                    sdp: answer.sdp,
+                    parsedSDP: parseSDP(answer.sdp)
+                });
+                return answer;
+            };
+            
+/*
+
+how the mapping works:
+the SDP contains x-source-streamid:<some value>
+this corresponds to the stream id in the participants hash
+So that correspondences allows us to map a participant stream to an SDP. But how do we go from SDP to the raw low level track id? 
+The tracks have a streamId that looks like this mainVideo-39016. The SDP has that same streamId contained within it in the msid: header
+
+{"sdp":"v=0\r\no=- 222351 0 IN IP4 127.0.0.1\r\ns=session\r\nc=IN IP4 172.172.100.250\r\nb=CT:10000000\r\nt=0 0\r\na=extmap-allow-mixed\r\na=msid-semantic: WMS *\r\na=group:BUNDLE 0 1 2 3 4 5 6 7 8 9 10 11 12\r\na=x-mediabw:applicationsharing-video send=8100;recv=8100\r\na=x-plaza-msi-range:3196-3295 3296-3395\r\nm=audio 3480 UDP/TLS/RTP/SAVPF 111 97 9 0 8 13 101\r\nc=IN IP4 172.172.100.250\r\na=rtpmap:111 OPUS/48000/2\r\na=rtpmap:97 RED/48000/2\r\na=rtpmap:9 G722/8000\r\na=rtpmap:0 PCMU/8000\r\na=rtpmap:8 PCMA/8000\r\na=rtpmap:13 CN/8000\r\na=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-16\r\na=fmtp:111 usedtx=1;useinbandfec=1\r\na=fmtp:97 111/111\r\na=rtcp:3480\r\na=rtcp-fb:111 transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=setup:passive\r\na=mid:0\r\na=ptime:20\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=candidate:1 1 UDP 54001663 172.172.100.250 3480 typ relay raddr 10.0.129.40 rport 3480\r\na=candidate:3 1 tcp 18087935 172.172.100.250 3478 typ relay raddr 10.0.129.40 rport 3478 tcptype passive\r\na=ssrc:38915 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:38915 msid:mainAudio-38915 mainAudio-38915\r\na=rtcp-mux\r\na=x-source-streamid:3396\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:1\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:38916 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:38916 msid:mainVideo-38916 mainVideo-38916\r\na=ssrc:38966 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:38966 msid:mainVideo-38916 mainVideo-38916\r\na=ssrc-group:FID 38916 38966\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=rid:1 recv\r\na=rid:2 recv\r\na=simulcast:recv ~1;~2\r\na=x-source-streamid:3397\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:2\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39016 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39016 msid:mainVideo-39016 mainVideo-39016\r\na=ssrc:39066 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39066 msid:mainVideo-39016 mainVideo-39016\r\na=ssrc-group:FID 39016 39066\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3398\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:3\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39116 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39116 msid:mainVideo-39116 mainVideo-39116\r\na=ssrc:39166 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39166 msid:mainVideo-39116 mainVideo-39116\r\na=ssrc-group:FID 39116 39166\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3399\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:4\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39216 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39216 msid:mainVideo-39216 mainVideo-39216\r\na=ssrc:39266 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39266 msid:mainVideo-39216 mainVideo-39216\r\na=ssrc-group:FID 39216 39266\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3400\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:5\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39316 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39316 msid:mainVideo-39316 mainVideo-39316\r\na=ssrc:39366 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39366 msid:mainVideo-39316 mainVideo-39316\r\na=ssrc-group:FID 39316 39366\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3401\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:6\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39416 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39416 msid:mainVideo-39416 mainVideo-39416\r\na=ssrc:39466 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39466 msid:mainVideo-39416 mainVideo-39416\r\na=ssrc-group:FID 39416 39466\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3402\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:7\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39516 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39516 msid:mainVideo-39516 mainVideo-39516\r\na=ssrc:39566 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39566 msid:mainVideo-39516 mainVideo-39516\r\na=ssrc-group:FID 39516 39566\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3403\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:8\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39616 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39616 msid:mainVideo-39616 mainVideo-39616\r\na=ssrc:39666 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39666 msid:mainVideo-39616 mainVideo-39616\r\na=ssrc-group:FID 39616 39666\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3404\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:9\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39716 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39716 msid:mainVideo-39716 mainVideo-39716\r\na=ssrc:39766 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39766 msid:mainVideo-39716 mainVideo-39716\r\na=ssrc-group:FID 39716 39766\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3405\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:10\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39816 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39816 msid:mainVideo-39816 mainVideo-39816\r\na=ssrc:39866 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39866 msid:mainVideo-39816 mainVideo-39816\r\na=ssrc-group:FID 39816 39866\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3406\r\nm=video 3480 UDP/TLS/RTP/SAVPF 107 99\r\nc=IN IP4 172.172.100.250\r\nb=AS:3920\r\na=rtpmap:107 H264/90000\r\na=rtpmap:99 rtx/90000\r\na=fmtp:107 packetization-mode=1;profile-level-id=42C02A\r\na=fmtp:99 apt=107\r\na=rtcp:3480\r\na=rtcp-fb:* nack\r\na=rtcp-fb:* nack pli\r\na=rtcp-fb:* goog-remb\r\na=rtcp-fb:* ccm fir\r\na=rtcp-fb:* transport-cc\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=extmap:9 http://www.webrtc.org/experiments/rtp-hdrext/video-layers-allocation00\r\na=setup:passive\r\na=mid:11\r\na=sendonly\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=ssrc:39916 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39916 msid:applicationsharingVideo-39916 applicationsharingVideo-39916\r\na=ssrc:39966 cname:1d3cac01687b45bdbe99ddf3685db9df\r\na=ssrc:39966 msid:applicationsharingVideo-39916 applicationsharingVideo-39916\r\na=ssrc-group:FID 39916 39966\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=x-source-streamid:3407\r\nm=application 3480 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 172.172.100.250\r\na=setup:passive\r\na=mid:12\r\na=ice-ufrag:wmA+\r\na=ice-pwd:KQ5Zkcak+RPw2GY98PNWN7Bu\r\na=fingerprint:sha-256 DA:93:54:F4:88:DA:6D:8D:57:43:C2:A1:A7:77:CA:96:9A:60:DA:63:F0:9E:4E:D2:4E:24:16:69:74:AC:39:ED\r\na=sctp-port:5000\r\na=x-source-streamid:3408\r\n","type":"answer"}
+
+{"28:bdd75849-e0a6-4cce-8fc1-d7c0d4da43e5":{"version":9,"state":"active","advancedMeetingRole":"presenter","details":{"id":"28:bdd75849-e0a6-4cce-8fc1-d7c0d4da43e5","displayName":null,"displayNameSource":"unknown","propertyBag":null,"resourceId":null,"participantType":"inTenant","endpointId":"00000000-0000-0000-0000-000000000000","participantId":null,"languageId":null,"hidden":false},"endpoints":{"dac817a0-c5cd-4bae-b8b1-4e49c2436537":{"call":{"mediaStreams":[{"type":"audio","label":"main-audio","sourceId":414,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"video","label":"main-video","sourceId":415,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"applicationsharing-video","label":"applicationsharing-video","sourceId":425,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"data","label":"data","sourceId":426,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false}],"serverMuteVersion":1,"appliedInteractivityLevel":"interactive"},"endpointCapabilities":67,"participantId":"1d3b8934-0b2a-40bc-bb15-32a3744b595c","clientVersion":"appid:bdd75849-e0a6-4cce-8fc1-d7c0d4da43e5 GraphCommunicationsClient-CallRecorderBot/1.2.0.12281","endpointMetadata":{"__platform":{"ui":{"hidden":true}},"spokenLanguage":"en-us","commandUrl":"https://aks-prod-usea-p06-api.callrecorder.skype.com/v1/oncommand/849dffd0-aa84-41d5-bb9c-a338cd024dd0","joinTime":"2025-01-23T23:46:46.5946692Z","processingModes":{"recording":{"state":"Inactive","userId":""},"closedCaptions":{"state":"Active","userId":"8:guest:d07e8660-85c0-497d-9bc6-9c2807bb57c2","timestamp":"2025-01-23T23:46:47.258907Z"},"realTimeTranscript":{"state":"Inactive","timestamp":"0001-01-01T00:00:00","properties":{"lastStartReason":"Unknown"}},"meetingCoach":{"state":"Inactive","timestamp":"0001-01-01T00:00:00"},"faceStream":{"state":"Inactive","timestamp":"0001-01-01T00:00:00"},"copilot":{"state":"Inactive","timestamp":"0001-01-01T00:00:00"}},"textTracks":[{"source":"Ai","lang":"en-us","translations":[]}],"runtimeErrors":[],"product":"Teams"},"endpointJoinTime":"2025-01-23T23:46:46.7654327Z","modalityJoined":"Call","endpointMeetingRoles":["presenter"]}},"role":"admin","meetingRole":"presenter","meetingRoles":["attendee"]},"8:live:.cid.fda34a0da6d73378":{"version":119,"state":"active","advancedMeetingRole":"organizer","details":{"id":"8:live:.cid.fda34a0da6d73378","displayName":"Noah Duncan","displayNameSource":"unknown","propertyBag":null,"resourceId":null,"participantType":"inTenant","endpointId":"00000000-0000-0000-0000-000000000000","participantId":null,"languageId":null,"hidden":false},"endpoints":{"8ff21765-e2b3-4a00-a45a-4c9ce643ef1d":{"call":{"mediaStreams":[{"type":"audio","label":"main-audio","sourceId":1053,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"video","label":"main-video","sourceId":1054,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"applicationsharing-video","label":"applicationsharing-video","sourceId":1064,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"data","label":"data","sourceId":1065,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false}],"serverMuteVersion":22,"appliedInteractivityLevel":"interactive","clientEndpointCapabilities":16384},"endpointCapabilities":67,"clientEndpointCapabilities":16384,"participantId":"d8e35be2-f69e-4bc3-a243-8a86c40ac91c","clientVersion":"SkypeSpaces/1415/25010618743/os=linux; osVer=undefined; deviceType=computer; browser=chrome; browserVer=131.0.0.0/TsCallingVersion=2024.50.01.7/Ovb=2511af5bf8a88535da31c34672b6c8228e848315","endpointMetadata":{"holographicCapabilities":3},"endpointState":{"endpointStateSequenceNumber":8,"state":{"isMuted":true}},"languageId":"en-US","endpointJoinTime":"2025-01-24T00:04:00.9881348Z","modalityJoined":"Call","endpointMeetingRoles":["organizer"]}},"role":"admin","meetingRole":"organizer","meetingRoles":["attendee"]},"8:guest:8876d0cc-81be-4d7d-9cec-96e777479a91":{"version":123,"state":"active","advancedMeetingRole":"presenter","details":{"id":"8:guest:8876d0cc-81be-4d7d-9cec-96e777479a91","displayName":"Mr Bot!","displayNameSource":"unknown","propertyBag":null,"resourceId":null,"participantType":"anonymous","endpointId":"00000000-0000-0000-0000-000000000000","participantId":null,"languageId":null,"hidden":false},"endpoints":{"6ce3309e-6904-4444-ab71-26c611afce7d":{"call":{"mediaStreams":[{"type":"audio","label":"main-audio","sourceId":3396,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"video","label":"main-video","sourceId":3397,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"applicationsharing-video","label":"applicationsharing-video","sourceId":3407,"direction":"recvonly","serverMuted":false,"notInDefaultRoutingGroup":false},{"type":"data","label":"data","sourceId":3408,"direction":"sendrecv","serverMuted":false,"notInDefaultRoutingGroup":false}],"serverMuteVersion":1,"appliedInteractivityLevel":"interactive","clientEndpointCapabilities":16384},"endpointCapabilities":67,"clientEndpointCapabilities":16384,"participantId":"2553596a-5e36-4289-b0de-c40600d83a20","clientVersion":"SkypeSpaces/1415/24121221944/os=linux; osVer=undefined; deviceType=computer; browser=chrome; browserVer=132.0.0.0/TsCallingVersion=2024.49.01.10/Ovb=bc55abee216a6224c870e9aabe1c1867856d4403","endpointMetadata":{"holographicCapabilities":3,"transcriptionPrefs":{"closedCaptions":false}},"languageId":"en-US","endpointJoinTime":"2025-01-24T02:47:31.8829475Z","modalityJoined":"Call","endpointMeetingRoles":["presenter"]}},"role":"guest","meetingRole":"presenter","meetingRoles":["attendee"]}}
+*/
+            // Override setLocalDescription with detailed logging
+            const originalSetLocalDescription = peerConnection.setLocalDescription;
+            peerConnection.setLocalDescription = async function(description) {
+                console.log('Setting Local SDP:', {
+                    type: description.type,
+                    sdp: description.sdp,
+                    parsedSDP: parseSDP(description.sdp)
+                });
+                return originalSetLocalDescription.apply(this, arguments);
+            };
+
+            // Override setRemoteDescription with detailed logging
+            const originalSetRemoteDescription = peerConnection.setRemoteDescription;
+            peerConnection.setRemoteDescription = async function(description) {
+                console.log('Setting Remote SDP:', {
+                    type: description.type,
+                    sdp: description.sdp,
+                    parsedSDP: parseSDP(description.sdp)
+                });
+                return originalSetRemoteDescription.apply(this, arguments);
+            };
+
+            // Helper function to parse SDP into a more readable format
+            function parseSDP(sdp) {
+                const parsed = {
+                    media: [],
+                    attributes: {}
+                };
+
+                const lines = sdp.split('\r\n');
+                let currentMedia = null;
+
+                for (const line of lines) {
+                    if (line.startsWith('m=')) {
+                        currentMedia = {
+                            type: line.split(' ')[0].substr(2),
+                            description: line,
+                            attributes: {}
+                        };
+                        parsed.media.push(currentMedia);
+                    } else if (line.startsWith('a=')) {
+                        const [key, value] = line.substr(2).split(':');
+                        if (currentMedia) {
+                            if (!currentMedia.attributes[key]) {
+                                currentMedia.attributes[key] = [];
+                            }
+                            currentMedia.attributes[key].push(value || true);
+                        } else {
+                            if (!parsed.attributes[key]) {
+                                parsed.attributes[key] = [];
+                            }
+                            parsed.attributes[key].push(value || true);
+                        }
+                    }
+                }
+
+                return parsed;
+            }
+
             return peerConnection;
         };
     }
@@ -750,7 +845,7 @@ const handleMediaDirectorEvent = (event) => {
 }
 
 const handleMainChannelEvent = (event) => {
-    console.log('handleMainChannelEvent', event);
+    realConsole?.log('handleMainChannelEvent', event);
     const decodedData = new Uint8Array(event.data);
     
     // Find the start of the JSON data (looking for '[' or '{' character)
@@ -767,6 +862,8 @@ const handleMainChannelEvent = (event) => {
     try {
         const parsedData = JSON.parse(jsonString);
         console.log('parsedData', parsedData);
+        // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
+        // it corresponds to active speaker
     } catch (e) {
         console.error('Failed to parse main channel data:', e);
     }
@@ -775,7 +872,6 @@ const handleMainChannelEvent = (event) => {
 //{"version":"1.1","recognitionResults":[{"speechRecognitionServiceLatency":720.7131,"source":"Ai","duration":8400000,"userId":"8:guest:1565c9e6-7816-49d5-8270-733b8a2d92bf","id":"7dec128d-711a-4dca-9539-14bda6fac3f8/164","spokenLanguage":"en-us","trackLanguage":"en-us","text":"There's no","isFinal":false,"timestampAudioSent":39465874128118696}]}
 
 const handleVideoTrack = async (event) => {  
-    console.log('handleVideoTrack', event);
   try {
     // Create processor to get raw frames
     const processor = new MediaStreamTrackProcessor({ track: event.track });
@@ -836,10 +932,32 @@ const handleVideoTrack = async (event) => {
 
                 const currentTime = performance.now();
 
-                if (realConsole) {
-                    realConsole.log('frame', frame);
+                // Add SSRC logging
+                if (event.track.getSettings) {
+                    console.log('Track settings:', event.track.getSettings());
+                }
+                console.log('Track ID:', event.track.id);
+                if (event.streams && event.streams[0]) {
+                    console.log('Stream ID:', event.streams[0].id);
+                    event.streams[0].getTracks().forEach(track => {
+                        if (track.getStats) {
+                            track.getStats().then(stats => {
+                                stats.forEach(report => {
+                                    if (report.type === 'outbound-rtp' || report.type === 'inbound-rtp') {
+                                        console.log('RTP Stats (including SSRC):', report);
+                                    }
+                                });
+                            });
+                        }
+                    });
+                }
+
+                if (Math.random() < 0.01) {
+                    realConsole?.log('frame', frame);
+                    realConsole?.log('handleVideoTrack', event);
                 }
                 
+
                 if (firstStreamId && firstStreamId === videoTrackManager.getStreamIdToSendCached()) {
                     // Check if enough time has passed since the last frame
                     if (currentTime - lastFrameTime >= frameInterval) {
@@ -1035,15 +1153,7 @@ new RTCInterceptor({
 
         peerConnection.addEventListener('track', (event) => {
             // Log the track and its associated streams
-            console.log('New track:', {
-                trackId: event.track.id,
-                streams: event.streams,
-                streamIds: event.streams.map(stream => stream.id),
-                // Get any msid information
-                transceiver: event.transceiver,
-                // Get the RTP parameters which might contain stream IDs
-                rtpParameters: event.transceiver?.sender.getParameters()
-            });
+
             if (event.track.kind === 'audio') {
                 handleAudioTrack(event);
             }
@@ -1286,6 +1396,14 @@ function handleRosterUpdate(eventDataObject) {
     }
 }
 
+function handleControlVideoStreaming(eventDataObject) {
+    console.log('Control Video Streaming:', eventDataObject);
+
+    /*
+    {"id":-2111465519,"method":"POST","url":"/v4/f/9w9ydfvA-0mP6oOTKm2guQ/callAgent/bdc8f7cb-6066-4e2d-ad1d-4bec95f8cbfd/5160d38d/call/controlVideoStreaming/","headers":{"Content-Length":"513","Content-Type":"application/vnd.skype.mc.v2.0+json","Host":"pub-ent-usnc-17.trouter.teams.microsoft.com","X-Microsoft-Skype-Chain-ID":"4915f618-17d0-4387-9d6c-007fd73d1eae","X-Microsoft-Skype-Message-ID":"7e1f9c49-3292-4a86-a8af-f30ee42925b6","Trouter-Timeout":"12298","X-Microsoft-Skype-Original-Message-ID":"50248f0e-5d87-4c2b-82ea-1955b26b0410","MS-CV":"A4seYNtli0Gesn4V4HCakg.1","trouter-request":"{\"id\":\"5e430968-e7b2-4e6a-9298-d7287a90033b\",\"src\":\"10.128.19.24\",\"port\":3443}","Trouter-TimeoutMs":"12798"},"body":"{\"controlVideoStreaming\":{\"sequenceNumber\":3,\"globalTimeStamp\":\"1/24/2025 1:04:00 AM\",\"controlInfo\":[{\"control\":0,\"sourceId\":2758,\"fmtParams\":\"KeyFrame=0;max-br=2083;max-fps=3000.000000;max-fs=3600;max-mbps=108000;rid=1;ssrc=3420776487;vla-debug=960x540@30x897;profile-level-id=42C02A;packetization-mode=1\",\"fmtParamsList\":[\"KeyFrame=0;max-br=2083;max-fps=3000.000000;max-fs=3600;max-mbps=108000;rid=1;ssrc=3420776487;vla-debug=960x540@30x897;profile-level-id=42C02A;packetization-mode=1\"]}]},\"debugContent\":null}"}
+    */
+}
+
 // Example usage:
 const wsInterceptor = new WebSocketInterceptor({
     onMessage: ({ url, data }) => {
@@ -1295,6 +1413,9 @@ const wsInterceptor = new WebSocketInterceptor({
             console.log('Event Data Object:', eventDataObject.url);
             if (eventDataObject.url.endsWith("rosterUpdate/") || eventDataObject.url.endsWith("rosterUpdate")) {
                 handleRosterUpdate(eventDataObject);
+            }
+            if (eventDataObject.url.endsWith("controlVideoStreaming/")) {
+                handleControlVideoStreaming(eventDataObject);
             }
         }
     }
