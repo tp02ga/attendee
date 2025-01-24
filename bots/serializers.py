@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer, OpenApiExample
 from .models import Bot, BotEventTypes, BotEventSubTypes, BotStates, Recording, RecordingStates, RecordingTranscriptionStates
+import jsonschema
 
 @extend_schema_serializer(
     examples=[
@@ -18,6 +19,50 @@ class CreateBotSerializer(serializers.Serializer):
     bot_name = serializers.CharField(
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
+    transcription_settings = serializers.JSONField(
+        help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
+        required=False,
+        default={
+            'deepgram': {
+                'language': 'en'
+            }
+        }
+    )
+
+    TRANSCRIPTION_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "deepgram": {
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                    },
+                    "detect_language": {
+                        "type": "boolean"
+                    }
+                },
+                "oneOf": [
+                    {"required": ["language"]},
+                    {"required": ["detect_language"]}
+                ],
+                "additionalProperties": False
+            }
+        },
+        "required": ["deepgram"],
+        "additionalProperties": False
+    }
+
+    def validate_transcription_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        return value
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='object_id')

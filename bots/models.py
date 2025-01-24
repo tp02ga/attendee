@@ -135,6 +135,14 @@ class Bot(models.Model):
         null=False
     )
 
+    settings = models.JSONField(null=False, default=dict)
+
+    def deepgram_language(self):
+        return self.settings.get('transcription_settings', {}).get('deepgram', {}).get('language', None)
+
+    def deepgram_detect_language(self):
+        return self.settings.get('transcription_settings', {}).get('deepgram', {}).get('detect_language', None)
+
     def last_bot_event(self):
         return self.bot_events.order_by('-created_at').first()
 
