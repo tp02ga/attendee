@@ -7,7 +7,7 @@ import jsonschema
     examples=[
         OpenApiExample(
             'Valid meeting URL',
-            value={'meeting_url': 'https://zoom.us/j/123?pwd=456'},
+            value={'meeting_url': 'https://zoom.us/j/123?pwd=456', 'bot_name': 'My Bot'},
             description='Example of a valid Zoom meeting URL'
         )
     ]
@@ -19,6 +19,7 @@ class CreateBotSerializer(serializers.Serializer):
     bot_name = serializers.CharField(
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
+    
     transcription_settings = serializers.JSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
         required=False,
