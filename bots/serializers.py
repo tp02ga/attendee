@@ -26,6 +26,17 @@ import jsonschema
 class TranscriptionSettingsJSONField(serializers.JSONField): 
     pass
 
+@extend_schema_field({
+    "type": "object",
+    "properties": {
+        "destination_url": {"type": "string", "description": "The URL of the RTMP server to send the stream to"},
+        "stream_key": {"type": "string", "description": "The stream key to use for the RTMP server"}
+    },
+    "required": ["destination_url", "stream_key"]
+})
+class RTMPSettingsJSONField(serializers.JSONField):
+    pass
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -43,6 +54,39 @@ class CreateBotSerializer(serializers.Serializer):
         help_text="The name of the bot to create, e.g. 'My Bot'"
     )
     
+    rtmp_settings = RTMPSettingsJSONField(
+        help_text="The RTMP settings for the bot, e.g. {'destination_url': 'rtmp://global-live.mux.com:5222/app', 'stream_key': 'xxxx'}",
+        required=False,
+        default=None
+    )
+
+    RTMP_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "destination_url": {"type": "string"},
+            "stream_key": {"type": "string"}
+        },
+        "required": ["destination_url", "stream_key"]
+    }
+
+    def validate_rtmp_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.RTMP_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # Validate RTMP URL format
+        destination_url = value.get('destination_url', '')
+        if not destination_url.lower().startswith('rtmp://'):
+            raise serializers.ValidationError({
+                'destination_url': 'URL must start with rtmp://'
+            })
+
+        return value
+
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
         required=False,

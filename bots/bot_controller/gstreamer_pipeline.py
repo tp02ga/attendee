@@ -7,14 +7,16 @@ class GstreamerPipeline:
     AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
     AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
 
-    def __init__(self, on_new_sample_callback, video_frame_size, audio_format):
+    def __init__(self, on_new_sample_callback, video_frame_size, audio_format, rtmp_destination_url):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
+        self.audio_format = audio_format
+        self.rtmp_destination_url = rtmp_destination_url
+
         self.pipeline = None
         self.appsrc = None
         self.recording_active = False
-        self.audio_format = audio_format
-
+        
         self.audio_appsrc = None
         self.audio_recording_active = False
 
@@ -23,8 +25,8 @@ class GstreamerPipeline:
         # Initialize GStreamer
         Gst.init(None)
 
-        self.queue_drops = {f'q{i}': 0 for i in range(1, 8)}
-        self.last_reported_drops = {f'q{i}': 0 for i in range(1, 8)}
+        self.queue_drops = {}
+        self.last_reported_drops = {}
 
     def on_new_sample_from_appsink(self, sink):
         """Handle new samples from the appsink"""
@@ -40,24 +42,47 @@ class GstreamerPipeline:
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
 
-        reduce_video_resolution_pipeline_str = (
-            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
-            'videoconvert ! '
-            'videorate ! '
-            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
-            'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-            'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
-            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'audioconvert ! '
-            'audiorate ! '
-            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'muxer. '
-        )
+
+        if not self.rtmp_destination_url:
+            reduce_video_resolution_pipeline_str = (
+                'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+                'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
+                'videoconvert ! '
+                'videorate ! '
+                'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+                'x264enc tune=zerolatency speed-preset=ultrafast ! '
+                'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+                'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
+                'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+                'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'audioconvert ! '
+                'audiorate ! '
+                'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'voaacenc bitrate=128000 ! '
+                'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'muxer. '
+            )
+        else:
+            reduce_video_resolution_pipeline_str = (
+                'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+                'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
+                'videoconvert ! '
+                'videorate ! '
+                'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+                'x264enc tune=zerolatency speed-preset=ultrafast ! '
+                'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+                'h264parse ! '
+                'flvmux name=muxer streamable=true ! queue name=q4 ! '
+                f'rtmp2sink location={self.rtmp_destination_url} '
+                'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+                'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'audioconvert ! '
+                'audiorate ! '
+                'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'voaacenc bitrate=128000 ! '
+                'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+                'muxer. '
+            )
         
         self.pipeline = Gst.parse_launch(reduce_video_resolution_pipeline_str)
         
@@ -90,7 +115,8 @@ class GstreamerPipeline:
 
         # Connect to the sink element
         sink = self.pipeline.get_by_name('sink')
-        sink.connect("new-sample", self.on_new_sample_from_appsink)
+        if sink:
+            sink.connect("new-sample", self.on_new_sample_from_appsink)
         
         # Start the pipeline
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -98,15 +124,28 @@ class GstreamerPipeline:
         self.recording_active = True
         self.audio_recording_active = True
 
+        # Initialize queue monitoring
+        self.queue_drops = {}
+        self.last_reported_drops = {}
+        
+        # Find all queue elements and connect drop signals
+        iterator = self.pipeline.iterate_elements()
+        while True:
+            result, element = iterator.next()
+            if result == Gst.IteratorResult.DONE:
+                break
+            if result != Gst.IteratorResult.OK:
+                continue
+            
+            if isinstance(element, Gst.Element) and element.get_factory().get_name() == 'queue':
+                queue_name = element.get_name()
+                self.queue_drops[queue_name] = 0
+                self.last_reported_drops[queue_name] = 0
+                element.connect('overrun', self.on_queue_overrun, queue_name)
+
         # Start statistics monitoring
         self.monitoring_active = True
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
-
-        # Connect drop signals for all queues
-        for i in range(1, 8):
-            queue = self.pipeline.get_by_name(f'q{i}')
-            if queue:
-                queue.connect('overrun', self.on_queue_overrun, f'q{i}')
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""

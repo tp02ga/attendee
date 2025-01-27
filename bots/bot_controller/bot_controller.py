@@ -155,7 +155,7 @@ class BotController:
 
         self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished)
 
-        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080), audio_format=self.get_audio_format())
+        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080), audio_format=self.get_audio_format(), rtmp_destination_url=self.bot_in_db.rtmp_destination_url())
         self.gstreamer_pipeline.setup()
         
         self.streaming_uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename())

@@ -143,6 +143,19 @@ class Bot(models.Model):
     def deepgram_detect_language(self):
         return self.settings.get('transcription_settings', {}).get('deepgram', {}).get('detect_language', None)
 
+    def rtmp_destination_url(self):
+        rtmp_settings = self.settings.get('rtmp_settings')
+        if not rtmp_settings:
+            return None
+            
+        destination_url = rtmp_settings.get('destination_url', '').rstrip('/')
+        stream_key = rtmp_settings.get('stream_key', '')
+        
+        if not destination_url:
+            return None
+            
+        return f"{destination_url}/{stream_key}"
+
     def last_bot_event(self):
         return self.bot_events.order_by('-created_at').first()
 
