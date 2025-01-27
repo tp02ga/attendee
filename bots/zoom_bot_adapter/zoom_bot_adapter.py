@@ -462,6 +462,9 @@ class ZoomBotAdapter(BotAdapter):
         if status == zoom.MEETING_STATUS_ENDED:
             self.send_message_callback({'message': self.Messages.MEETING_ENDED})
 
+        if status == zoom.MEETING_STATUS_FAILED:
+            self.send_message_callback({'message': self.Messages.ZOOM_MEETING_STATUS_FAILED, 'zoom_result_code': iResult})
+
 
         if status == zoom.MEETING_STATUS_INMEETING:
             return self.on_join()
