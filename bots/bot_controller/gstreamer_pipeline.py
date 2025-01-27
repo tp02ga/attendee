@@ -65,23 +65,24 @@ class GstreamerPipeline:
         else:
             reduce_video_resolution_pipeline_str = (
                 'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-                'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
-                'videoconvert ! '
-                'videorate ! '
-                'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+                'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+                'videoconvert ! videorate ! '
+                'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! '
                 'x264enc tune=zerolatency speed-preset=ultrafast ! '
                 'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-                'h264parse ! '
-                'flvmux name=muxer streamable=true ! queue name=q4 ! '
+                'h264parse ! tee name=video_tee ! '
+                'queue name=q4 ! flvmux name=flvmuxer streamable=true ! '
                 f'rtmp2sink location={self.rtmp_destination_url} '
+                'video_tee. ! queue name=q8 ! mp4mux name=mp4muxer ! '
+                'queue name=q9 ! appsink name=sink emit-signals=true sync=false drop=false '
                 'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
                 'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-                'audioconvert ! '
-                'audiorate ! '
+                'audioconvert ! audiorate ! '
                 'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
                 'voaacenc bitrate=128000 ! '
                 'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-                'muxer. '
+                'tee name=audio_tee ! queue name=q10 ! flvmuxer. '
+                'audio_tee. ! queue name=q11 ! mp4muxer. '
             )
         
         self.pipeline = Gst.parse_launch(reduce_video_resolution_pipeline_str)
