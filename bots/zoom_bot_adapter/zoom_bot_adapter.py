@@ -107,6 +107,7 @@ class ZoomBotAdapter(BotAdapter):
 
         self.active_speaker_id = None
         self.active_sharer_id = None
+        self.active_sharer_source_id = None
 
         self._participant_cache = {}
 
@@ -135,11 +136,11 @@ class ZoomBotAdapter(BotAdapter):
         if not self.recording_permission_granted:
             return
         
-        print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id)
+        print("set_video_input_manager_based_on_state self.active_sharer_id =", self.active_sharer_id, "self.active_speaker_id =", self.active_speaker_id, "self.active_sharer_source_id =", self.active_sharer_source_id)
         if self.active_sharer_id:
-            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SHARER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SHARER, active_sharer_id=self.active_sharer_id, active_sharer_source_id=self.active_sharer_source_id, active_speaker_id=self.active_speaker_id)
         elif self.active_speaker_id:
-            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_sharer_id=self.active_sharer_id, active_speaker_id=self.active_speaker_id)
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_sharer_id=self.active_sharer_id, active_sharer_source_id=self.active_sharer_source_id, active_speaker_id=self.active_speaker_id)
         else:
             # If there is no active sharer or speaker, we'll just use the video of the first participant that is not the bot
             # or if there are no participants, we'll use the bot
@@ -152,12 +153,19 @@ class ZoomBotAdapter(BotAdapter):
                     break
 
             print("set_video_input_manager_based_on_state hit default case. default_participant_id =", default_participant_id)
-            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None)
+            self.video_input_manager.set_mode(mode=VideoInputManager.Mode.ACTIVE_SPEAKER, active_speaker_id=default_participant_id, active_sharer_id=None, active_sharer_source_id=None)
             
     def set_up_video_input_manager(self):
         # If someone was sharing before we joined, we will not receive an event, so we need to poll for the active sharer
         viewable_sharing_user_list = self.meeting_sharing_controller.GetViewableSharingUserList()
-        self.active_sharer_id = viewable_sharing_user_list[0] if viewable_sharing_user_list else None
+        self.active_sharer_id = None
+        self.active_sharer_source_id = None
+
+        if viewable_sharing_user_list:
+            sharing_source_info_list = self.meeting_sharing_controller.GetSharingSourceInfoList(viewable_sharing_user_list[0])
+            if sharing_source_info_list:
+                self.active_sharer_id = sharing_source_info_list[0].userid
+                self.active_sharer_source_id = sharing_source_info_list[0].shareSourceID
 
         self.set_video_input_manager_based_on_state()
 
@@ -236,11 +244,14 @@ class ZoomBotAdapter(BotAdapter):
 
         if sharing_status == zoom.Sharing_Other_Share_Begin or sharing_status == zoom.Sharing_View_Other_Sharing:
             new_active_sharer_id = user_id
+            new_active_sharer_source_id = sharing_info.shareSourceID
         else:
             new_active_sharer_id = None
+            new_active_sharer_source_id = None
 
-        if new_active_sharer_id != self.active_sharer_id:
+        if new_active_sharer_id != self.active_sharer_id or new_active_sharer_source_id != self.active_sharer_source_id:
             self.active_sharer_id = new_active_sharer_id
+            self.active_sharer_source_id = new_active_sharer_source_id
             self.set_video_input_manager_based_on_state()
 
     def on_join(self):
