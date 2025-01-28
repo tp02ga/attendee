@@ -425,21 +425,19 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get('message') == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:
+            print(f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
+                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+            )
+            self.cleanup()
+            return
+
         if message.get('message') == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED:
             print(f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}")
-            # We'll handle the case of an unpublished Zoom app as its own sub event type, since it's pretty common
-            # TODO modify the python SDK bindings so this comes through as an enum, not a magic number
-            if message.get('zoom_result_code') == 63:
-                BotEventManager.create_event(
-                    bot=self.bot_in_db,
-                    event_type=BotEventTypes.COULD_NOT_JOIN,
-                    event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
-                    event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
-                )
-                self.cleanup()
-                return    
-
-            # If it's not one of the common cases, we'll just use the generic meeting status failed event
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
