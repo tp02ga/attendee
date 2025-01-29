@@ -424,7 +424,29 @@ class BotController:
                 )
             self.cleanup()
             return
-        
+
+        if message.get('message') == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:
+            print(f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
+                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+            )
+            self.cleanup()
+            return
+
+        if message.get('message') == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED:
+            print(f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED,
+                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+            )
+            self.cleanup()
+            return
+
         if message.get('message') == BotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
             print(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
