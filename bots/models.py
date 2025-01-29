@@ -200,6 +200,8 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST = 1, 'Bot could not join meeting - Meeting Not Started - Waiting for Host'
     FATAL_ERROR_PROCESS_TERMINATED = 2, 'Fatal error - Process Terminated'
     COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED = 3, 'Bot could not join meeting - Zoom Authorization Failed'
+    COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED = 4, 'Bot could not join meeting - Zoom Meeting Status Failed'
+    COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP = 5, 'Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/blog/prepare-meeting-sdk-app-for-review'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -207,7 +209,9 @@ class BotEventSubTypes(models.IntegerChoices):
         mapping = {
             cls.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST: 'meeting_not_started_waiting_for_host',
             cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated',
-            cls.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED: 'zoom_authorization_failed'
+            cls.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED: 'zoom_authorization_failed',
+            cls.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED: 'zoom_meeting_status_failed',
+            cls.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP: 'unpublished_zoom_app'
         }
         return mapping.get(value)
 
@@ -259,7 +263,9 @@ class BotEvent(models.Model):
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 
                      (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) |
-                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED))) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP))) |
                     
                     # For all other events, event_sub_type must be null
                     (~Q(event_type=BotEventTypes.FATAL_ERROR) & 
