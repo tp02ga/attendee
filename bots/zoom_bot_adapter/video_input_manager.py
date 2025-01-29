@@ -155,8 +155,8 @@ class VideoInputStream:
         self.black_frame_timer_id = GLib.timeout_add(250, self.send_black_frame)
 
         logger.info(f"In VideoInputStream.init self.renderer = {self.renderer}")
-        logger.info(f"In VideoInputStream.init set_resolution_result for user {self.user_id} share source id = {self.share_source_id} is {set_resolution_result}")
-        logger.info(f"In VideoInputStream.init subscribe_result for user {self.user_id} share source id = {self.share_source_id} is {subscribe_result}")
+        logger.info(f"In VideoInputStream.init set_resolution_result for user {self.user_id} and share source id {self.share_source_id} is {set_resolution_result}")
+        logger.info(f"In VideoInputStream.init subscribe_result for user {self.user_id} and share source id {self.share_source_id} is {subscribe_result}")
         self.last_debug_frame_time = None
 
     def on_raw_data_status_changed_callback(self, status):
@@ -184,9 +184,9 @@ class VideoInputStream:
             GLib.source_remove(self.black_frame_timer_id)
             self.black_frame_timer_id = None
 
-        logger.info(f"starting renderer unsubscription for user {self.user_id} share source id = {self.share_source_id}")
+        logger.info(f"starting renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}")
         self.renderer.unSubscribe()
-        logger.info(f"finished renderer unsubscription for user {self.user_id} share source id = {self.share_source_id}")
+        logger.info(f"finished renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}")
 
     def on_renderer_destroyed_callback(self):
         self.renderer_destroyed = True
