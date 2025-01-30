@@ -80,9 +80,9 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate RTMP URL format
         destination_url = value.get('destination_url', '')
-        if not destination_url.lower().startswith('rtmp://'):
+        if not (destination_url.lower().startswith('rtmp://') or destination_url.lower().startswith('rtmps://')):
             raise serializers.ValidationError({
-                'destination_url': 'URL must start with rtmp://'
+                'destination_url': 'URL must start with rtmp:// or rtmps://'
             })
 
         return value
