@@ -76,7 +76,7 @@ class GstreamerPipeline:
             'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
             'h264parse ! tee name=video_tee ! '
             'queue name=q4 ! flvmux name=flvmuxer streamable=true ! '
-            f'rtmp2sink location={self.rtmp_destination_url} '
+            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
             'video_tee. ! queue name=q8 ! mp4mux name=mp4muxer ! '
             'queue name=q9 ! appsink name=sink emit-signals=true sync=false drop=false '
             'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
@@ -99,7 +99,7 @@ class GstreamerPipeline:
             'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
             'h264parse ! '
             'flvmux name=muxer streamable=true ! queue name=q4 ! '
-            f'rtmp2sink location={self.rtmp_destination_url} '
+            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
             'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
             'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'audioconvert ! '
@@ -187,7 +187,17 @@ class GstreamerPipeline:
             err, debug = message.parse_error()
             print(f"GStreamer Error: {err}, Debug: {debug}")
 
-            if "send_connect_error" in str(debug) and "rtmp2sink0" in str(debug):
+            src = message.src
+            src_name = src.name if src else "unknown"
+            print(f"src_name: {src_name}")
+            print(f"err: {err}")
+            if "connection closed remotely" in str(err) and src_name == "myrtmpsink":
+                print("RTMP connection closed remotely - restarting RTMP sink")
+                rtmp_sink = self.pipeline.get_by_name('myrtmpsink')
+                rtmp_sink.set_state(Gst.State.NULL)
+                rtmp_sink.set_state(Gst.State.PLAYING)
+
+            if "send_connect_error" in str(debug) and src_name == "myrtmpsink":
                 print("RTMP connection failed - shutting down pipeline")
                 self.hard_cleanup_necessary = True
                 GLib.idle_add(self.send_rtmp_connection_failed_message)
@@ -295,7 +305,7 @@ class GstreamerPipeline:
             )
         else:
             msg = bus.timed_pop_filtered(
-                Gst.CLOCK_TIME_NONE,
+                5 * 60 * Gst.SECOND, # 5 minute timeout
                 Gst.MessageType.EOS | Gst.MessageType.ERROR
             )
         
