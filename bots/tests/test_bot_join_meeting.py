@@ -11,6 +11,9 @@ from bots.bots_api_views import send_sync_command
 import base64
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 import json
+from bots.bot_controller.gstreamer_pipeline import GstreamerPipeline
+import random
+import string
 
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
@@ -883,3 +886,94 @@ class TestBotJoinMeeting(TransactionTestCase):
         
         # Close the database connection since we're in a thread
         connection.close()
+
+    @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
+    @patch('bots.bot_controller.bot_controller.StreamingUploader')
+    @patch('deepgram.DeepgramClient')
+    def test_bot_handles_rtmp_connection_failure(self, MockDeepgramClient, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+        # Set up Deepgram mock
+        MockDeepgramClient.return_value = create_mock_deepgram()
+        
+        # Configure the mock uploader
+        mock_uploader = create_mock_streaming_uploader()
+        MockStreamingUploader.return_value = mock_uploader
+        
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+        
+        # Set RTMP URL for the bot
+        random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        self.bot.settings = {
+            "rtmp_settings": {
+                "destination_url": f"rtmp://fake-rtmp-server-{random_string}.com/live/stream",
+                "stream_key": "1234"
+            }
+        }
+        self.bot.save()
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def simulate_join_flow():
+            adapter = controller.adapter
+            # Simulate successful auth
+            if adapter.auth_event:
+                adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
+
+            # Simulate connecting
+            if adapter.meeting_service_event:
+                adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                    mock_zoom_sdk_adapter.MEETING_STATUS_CONNECTING, 
+                    mock_zoom_sdk_adapter.SDKERR_SUCCESS
+                )
+            
+            # Simulate successful join
+            if adapter.meeting_service_event:
+                adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                    mock_zoom_sdk_adapter.MEETING_STATUS_INMEETING, 
+                    mock_zoom_sdk_adapter.SDKERR_SUCCESS
+                )
+
+            # Wait for the video input manager to be set up
+            time.sleep(2)
+
+            # Error will be triggered because the rtmp url we gave was bad
+            # This will trigger the GStreamer pipeline to send a message to the bot
+            connection.close()
+        
+        # Run join flow simulation after a short delay
+        threading.Timer(3, simulate_join_flow).start()
+        
+        # Give the bot some time to process
+        bot_thread.join(timeout=10)
+        
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the bot is in the FATAL_ERROR state
+        self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
+        
+        # Verify bot events in sequence
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 2)  # We expect 5 events in total
+
+        # Verify join_requested_event (Event 1)
+        join_requested_event = bot_events[0]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+
+        # Verify fatal_error_event (Event 4)
+        fatal_error_event = bot_events[1]
+        self.assertEqual(fatal_error_event.event_type, BotEventTypes.FATAL_ERROR)
+        self.assertEqual(fatal_error_event.old_state, BotStates.JOINING)
+        self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
+        self.assertEqual(fatal_error_event.event_sub_type, BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED)
+        self.assertEqual(fatal_error_event.debug_message, f"rtmp_destination_url=rtmp://fake-rtmp-server-{random_string}.com/live/stream/1234")
