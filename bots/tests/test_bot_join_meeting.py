@@ -962,7 +962,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 2)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 2) 
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -970,7 +970,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
 
-        # Verify fatal_error_event (Event 4)
+        # Verify fatal_error_event (Event 2)
         fatal_error_event = bot_events[1]
         self.assertEqual(fatal_error_event.event_type, BotEventTypes.FATAL_ERROR)
         self.assertEqual(fatal_error_event.old_state, BotStates.JOINING)
