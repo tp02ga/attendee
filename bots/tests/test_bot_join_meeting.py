@@ -127,6 +127,7 @@ def create_mock_zoom_sdk():
     # Add SDKError class mock with SDKERR_SUCCESS
     base_mock.SDKError = MagicMock()
     base_mock.SDKError.SDKERR_SUCCESS = 0  # Use the same value as SDKERR_SUCCESS
+    base_mock.SDKError.SDKERR_INTERNAL_ERROR = 1
 
     # Create a mock PerformanceData class
     class MockPerformanceData:
@@ -990,3 +991,68 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(fatal_error_event.event_sub_type, BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED)
         self.assertEqual(fatal_error_event.debug_message, "rtmp_destination_url=rtmp://example.com/live/stream/1234")
+
+    @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
+    @patch('bots.bot_controller.bot_controller.StreamingUploader')
+    def test_bot_can_handle_zoom_sdk_internal_error(self, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+        # Configure the mock class to return our mock instance
+        mock_uploader = create_mock_streaming_uploader()
+        MockStreamingUploader.return_value = mock_uploader
+        
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+        
+        # Configure the auth service to return an error
+        mock_zoom_sdk_adapter.CreateAuthService.return_value.SDKAuth.return_value = mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR
+        
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+        
+        # Give the bot some time to process
+        bot_thread.join(timeout=10)
+        
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+        
+        # Check the bot events
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 2)
+        join_requested_event = bot_events[0]
+        could_not_join_event = bot_events[1]
+
+        # Verify join_requested_event properties
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertIsNone(join_requested_event.debug_message)
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
+
+        # Verify could_not_join_event properties
+        self.assertEqual(could_not_join_event.event_type, BotEventTypes.COULD_NOT_JOIN)
+        self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
+        self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
+        self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR)
+        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
+
+        # Verify expected SDK calls
+        mock_zoom_sdk_adapter.InitSDK.assert_called_once()
+        mock_zoom_sdk_adapter.CreateMeetingService.assert_called_once()
+        mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
+        controller.adapter.meeting_service.Join.assert_not_called()
+        
+        # Cleanup
+        # no need to cleanup since we already hit error
+        # controller.cleanup() will be called by the bot controller
+        bot_thread.join(timeout=5)
+        
+        # Close the database connection since we're in a thread
+        connection.close()
