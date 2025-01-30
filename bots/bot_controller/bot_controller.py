@@ -470,6 +470,17 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get('message') == BotAdapter.Messages.ZOOM_SDK_INTERNAL_ERROR:
+            print(f"Received message that SDK internal error with zoom_result_code={message.get('zoom_result_code')}")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR,
+                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+            )
+            self.cleanup()
+            return
+
         if message.get('message') == BotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
             print("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(

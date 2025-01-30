@@ -515,7 +515,8 @@ class ZoomBotAdapter(BotAdapter):
             print("Authentication successful")
         else:
             print("Authentication failed with error:", result)
-
+            self.send_message_callback({'message': self.Messages.ZOOM_SDK_INTERNAL_ERROR, 'zoom_result_code': result})
+    
     def get_first_buffer_timestamp_ms_offset(self):
         return 0
 
