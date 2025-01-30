@@ -7,14 +7,20 @@ class GstreamerPipeline:
     AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
     AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
 
-    def __init__(self, on_new_sample_callback, video_frame_size, audio_format):
+    class Messages:
+        RTMP_CONNECTION_FAILED = "RTMP connection failed"
+
+    def __init__(self, *, send_message_callback, on_new_sample_callback, video_frame_size, audio_format, rtmp_destination_url):
+        self.send_message_callback = send_message_callback
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
+        self.audio_format = audio_format
+        self.rtmp_destination_url = rtmp_destination_url
+
         self.pipeline = None
         self.appsrc = None
         self.recording_active = False
-        self.audio_format = audio_format
-
+        
         self.audio_appsrc = None
         self.audio_recording_active = False
 
@@ -23,8 +29,9 @@ class GstreamerPipeline:
         # Initialize GStreamer
         Gst.init(None)
 
-        self.queue_drops = {f'q{i}': 0 for i in range(1, 8)}
-        self.last_reported_drops = {f'q{i}': 0 for i in range(1, 8)}
+        self.queue_drops = {}
+        self.last_reported_drops = {}
+        self.hard_cleanup_necessary = False
 
     def on_new_sample_from_appsink(self, sink):
         """Handle new samples from the appsink"""
@@ -40,7 +47,7 @@ class GstreamerPipeline:
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
 
-        reduce_video_resolution_pipeline_str = (
+        output_to_s3_pipeline_str = (
             'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
             'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
             'videoconvert ! '
@@ -58,8 +65,57 @@ class GstreamerPipeline:
             'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
             'muxer. '
         )
+
+        # Not used for now, because it's complicated. We'll assume if you want rtmp you don't care about s3
+        output_to_s3_and_rtmp_pipeline_str = (
+            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+            'videoconvert ! videorate ! '
+            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! '
+            'x264enc tune=zerolatency speed-preset=ultrafast ! '
+            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+            'h264parse ! tee name=video_tee ! '
+            'queue name=q4 ! flvmux name=flvmuxer streamable=true ! '
+            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
+            'video_tee. ! queue name=q8 ! mp4mux name=mp4muxer ! '
+            'queue name=q9 ! appsink name=sink emit-signals=true sync=false drop=false '
+            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'audioconvert ! audiorate ! '
+            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'voaacenc bitrate=128000 ! '
+            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'tee name=audio_tee ! queue name=q10 ! flvmuxer. '
+            'audio_tee. ! queue name=q11 ! mp4muxer. '
+        )
+
+        output_to_rtmp_pipeline_str = (
+            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
+            'videoconvert ! '
+            'videorate ! '
+            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+            'x264enc tune=zerolatency speed-preset=ultrafast ! '
+            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+            'h264parse ! '
+            'flvmux name=muxer streamable=true ! queue name=q4 ! '
+            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
+            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'audioconvert ! '
+            'audiorate ! '
+            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'voaacenc bitrate=128000 ! '
+            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'muxer. '
+        )
+
+        if not self.rtmp_destination_url:
+            pipeline_str = output_to_s3_pipeline_str
+        else:
+            pipeline_str = output_to_rtmp_pipeline_str
         
-        self.pipeline = Gst.parse_launch(reduce_video_resolution_pipeline_str)
+        self.pipeline = Gst.parse_launch(pipeline_str)
         
         # Get both appsrc elements
         self.appsrc = self.pipeline.get_by_name('video_source')
@@ -90,7 +146,8 @@ class GstreamerPipeline:
 
         # Connect to the sink element
         sink = self.pipeline.get_by_name('sink')
-        sink.connect("new-sample", self.on_new_sample_from_appsink)
+        if sink:
+            sink.connect("new-sample", self.on_new_sample_from_appsink)
         
         # Start the pipeline
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -98,15 +155,30 @@ class GstreamerPipeline:
         self.recording_active = True
         self.audio_recording_active = True
 
+        # Initialize queue monitoring
+        self.queue_drops = {}
+        self.last_reported_drops = {}
+        
+        # Find all queue elements and connect drop signals
+        iterator = self.pipeline.iterate_elements()
+        while True:
+            result, element = iterator.next()
+            if result == Gst.IteratorResult.DONE:
+                break
+            if result != Gst.IteratorResult.OK:
+                continue
+            
+            if isinstance(element, Gst.Element) and element.get_factory().get_name() == 'queue':
+                queue_name = element.get_name()
+                self.queue_drops[queue_name] = 0
+                self.last_reported_drops[queue_name] = 0
+                element.connect('overrun', self.on_queue_overrun, queue_name)
+
         # Start statistics monitoring
-        self.monitoring_active = True
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
 
-        # Connect drop signals for all queues
-        for i in range(1, 8):
-            queue = self.pipeline.get_by_name(f'q{i}')
-            if queue:
-                queue.connect('overrun', self.on_queue_overrun, f'q{i}')
+    def send_rtmp_connection_failed_message(self):
+        self.send_message_callback({'message': self.Messages.RTMP_CONNECTION_FAILED})
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
@@ -114,6 +186,22 @@ class GstreamerPipeline:
         if t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print(f"GStreamer Error: {err}, Debug: {debug}")
+
+            src = message.src
+            src_name = src.name if src else "unknown"
+            print(f"src_name: {src_name}")
+            print(f"err: {err}")
+            if "connection closed remotely" in str(err) and src_name == "myrtmpsink":
+                print("RTMP connection closed remotely - restarting RTMP sink")
+                rtmp_sink = self.pipeline.get_by_name('myrtmpsink')
+                rtmp_sink.set_state(Gst.State.NULL)
+                rtmp_sink.set_state(Gst.State.PLAYING)
+
+            if "send_connect_error" in str(debug) and src_name == "myrtmpsink":
+                print("RTMP connection failed - shutting down pipeline")
+                self.hard_cleanup_necessary = True
+                GLib.idle_add(self.send_rtmp_connection_failed_message)
+
         elif t == Gst.MessageType.EOS:
             print(f"GStreamer pipeline reached end of stream")
 
@@ -182,8 +270,7 @@ class GstreamerPipeline:
             buffer = Gst.Buffer.new_wrapped(frame)
             buffer.pts = buffer_pts
             
-            # Calculate duration based on time until next frame
-            # Default to 33ms (30fps) if this is the last frame
+            # Default to 33ms (30fps)
             buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
             
             # Push buffer to pipeline
@@ -210,10 +297,17 @@ class GstreamerPipeline:
         if self.audio_appsrc:
             self.audio_appsrc.emit('end-of-stream')
 
-        msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
+        if self.hard_cleanup_necessary:
+            # Wait for 1 second for any pending messages
+            msg = bus.timed_pop_filtered(
+                1 * Gst.SECOND,  # 1 second timeout
+                Gst.MessageType.EOS | Gst.MessageType.ERROR
+            )
+        else:
+            msg = bus.timed_pop_filtered(
+                5 * 60 * Gst.SECOND, # 5 minute timeout
+                Gst.MessageType.EOS | Gst.MessageType.ERROR
+            )
         
         if msg and msg.type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()
