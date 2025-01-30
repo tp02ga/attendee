@@ -891,8 +891,7 @@ class TestBotJoinMeeting(TransactionTestCase):
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
     @patch('bots.bot_controller.bot_controller.StreamingUploader')
     @patch('deepgram.DeepgramClient')
-    @patch('bots.bot_controller.bot_controller.GstreamerPipeline')
-    def test_bot_handles_rtmp_connection_failure(self, MockGstreamerPipeline, MockDeepgramClient, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+    def test_bot_handles_rtmp_connection_failure(self, MockDeepgramClient, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
         # Set up Deepgram mock
         MockDeepgramClient.return_value = create_mock_deepgram()
         
@@ -911,15 +910,6 @@ class TestBotJoinMeeting(TransactionTestCase):
             }
         }
         self.bot.save()
-
-        # Create a mock GstreamerPipeline instance
-        mock_pipeline = MagicMock()
-        # Define Messages as a simple object with a string constant instead of a MagicMock
-        class Messages:
-            RTMP_CONNECTION_FAILED = "RTMP connection failed"
-        mock_pipeline.Messages = Messages
-        MockGstreamerPipeline.return_value = mock_pipeline
-        MockGstreamerPipeline.Messages = Messages
 
         # Create bot controller
         controller = BotController(self.bot.id)
@@ -945,9 +935,12 @@ class TestBotJoinMeeting(TransactionTestCase):
                 mock_zoom_sdk_adapter.MEETING_STATUS_INMEETING, 
                 mock_zoom_sdk_adapter.SDKERR_SUCCESS
             )
-            # Simulate RTMP connection failure by calling the callback
-            controller.on_message_from_gstreamer_pipeline({'message': mock_pipeline.Messages.RTMP_CONNECTION_FAILED})
-            
+
+            # Wait for the video input manager to be set up
+            time.sleep(2)
+
+            # Error will be triggered because the rtmp url we gave was bad
+            # This will trigger the GStreamer pipeline to send a message to the bot
             connection.close()
         
         # Run join flow simulation after a short delay

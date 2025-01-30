@@ -82,6 +82,11 @@ ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 
+# Used to deal w gstreamer crash under RTMP: See https://april.dev/2021/01/02/gstreamer-segfaulting-randomly.html
+# This is a workaround to avoid the crash by disabling libproxy. When we can upgrade to Ubuntu 24.04, we can remove this. 
+# The root cause is libproxy. The version in Ubuntu 22.04 is bad but the version in Ubuntu 24.04 is good.
+ENV NO_PROXY=-
+
 WORKDIR /opt
 
 FROM deps AS build
