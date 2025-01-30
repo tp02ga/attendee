@@ -202,6 +202,7 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED = 3, 'Bot could not join meeting - Zoom Authorization Failed'
     COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED = 4, 'Bot could not join meeting - Zoom Meeting Status Failed'
     COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP = 5, 'Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/blog/prepare-meeting-sdk-app-for-review'
+    FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, 'Fatal error - RTMP Connection Failed'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -211,7 +212,8 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.FATAL_ERROR_PROCESS_TERMINATED: 'process_terminated',
             cls.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED: 'zoom_authorization_failed',
             cls.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED: 'zoom_meeting_status_failed',
-            cls.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP: 'unpublished_zoom_app'
+            cls.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP: 'unpublished_zoom_app',
+            cls.FATAL_ERROR_RTMP_CONNECTION_FAILED: 'rtmp_connection_failed'
         }
         return mapping.get(value)
 
@@ -258,7 +260,8 @@ class BotEvent(models.Model):
                 check=(
                     # For FATAL_ERROR event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.FATAL_ERROR) & 
-                     (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED))) |
+                     (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) |
+                      Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED))) |
                     
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 

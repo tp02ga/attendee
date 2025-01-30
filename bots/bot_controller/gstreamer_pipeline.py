@@ -7,7 +7,11 @@ class GstreamerPipeline:
     AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
     AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
 
-    def __init__(self, on_new_sample_callback, video_frame_size, audio_format, rtmp_destination_url):
+    class Messages:
+        RTMP_CONNECTION_FAILED = "RTMP connection failed"
+
+    def __init__(self, *, send_message_callback, on_new_sample_callback, video_frame_size, audio_format, rtmp_destination_url):
+        self.send_message_callback = send_message_callback
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
@@ -27,6 +31,7 @@ class GstreamerPipeline:
 
         self.queue_drops = {}
         self.last_reported_drops = {}
+        self.hard_cleanup_necessary = False
 
     def on_new_sample_from_appsink(self, sink):
         """Handle new samples from the appsink"""
@@ -170,8 +175,10 @@ class GstreamerPipeline:
                 element.connect('overrun', self.on_queue_overrun, queue_name)
 
         # Start statistics monitoring
-        self.monitoring_active = True
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
+
+    def send_rtmp_connection_failed_message(self):
+        self.send_message_callback({'message': self.Messages.RTMP_CONNECTION_FAILED})
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
@@ -179,6 +186,12 @@ class GstreamerPipeline:
         if t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print(f"GStreamer Error: {err}, Debug: {debug}")
+
+            if "send_connect_error" in str(debug) and "rtmp2sink0" in str(debug):
+                print("RTMP connection failed - shutting down pipeline")
+                self.hard_cleanup_necessary = True
+                GLib.idle_add(self.send_rtmp_connection_failed_message)
+
         elif t == Gst.MessageType.EOS:
             print(f"GStreamer pipeline reached end of stream")
 
@@ -247,8 +260,7 @@ class GstreamerPipeline:
             buffer = Gst.Buffer.new_wrapped(frame)
             buffer.pts = buffer_pts
             
-            # Calculate duration based on time until next frame
-            # Default to 33ms (30fps) if this is the last frame
+            # Default to 33ms (30fps)
             buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
             
             # Push buffer to pipeline
@@ -275,10 +287,17 @@ class GstreamerPipeline:
         if self.audio_appsrc:
             self.audio_appsrc.emit('end-of-stream')
 
-        msg = bus.timed_pop_filtered(
-            Gst.CLOCK_TIME_NONE,
-            Gst.MessageType.EOS | Gst.MessageType.ERROR
-        )
+        if self.hard_cleanup_necessary:
+            # Wait for 1 second for any pending messages
+            msg = bus.timed_pop_filtered(
+                1 * Gst.SECOND,  # 1 second timeout
+                Gst.MessageType.EOS | Gst.MessageType.ERROR
+            )
+        else:
+            msg = bus.timed_pop_filtered(
+                Gst.CLOCK_TIME_NONE,
+                Gst.MessageType.EOS | Gst.MessageType.ERROR
+            )
         
         if msg and msg.type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()

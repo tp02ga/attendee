@@ -9,6 +9,10 @@ import redis
 from bots.bot_adapter import BotAdapter
 from .gstreamer_pipeline import GstreamerPipeline
 
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
+
 class BotController:
     MEETING_TYPE_ZOOM = "zoom"
     MEETING_TYPE_GOOGLE_MEET = "google_meet"
@@ -144,9 +148,6 @@ class BotController:
         pubsub = redis_client.pubsub()
         channel = f"bot_{self.bot_in_db.id}"
         pubsub.subscribe(channel)
-        import gi
-        gi.require_version('GLib', '2.0')
-        from gi.repository import GLib
 
         # Initialize core objects
         # Only used for adapters that can provider per-participant audio
@@ -155,7 +156,7 @@ class BotController:
 
         self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished)
 
-        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080), audio_format=self.get_audio_format(), rtmp_destination_url=self.bot_in_db.rtmp_destination_url())
+        self.gstreamer_pipeline = GstreamerPipeline(on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline, video_frame_size=(1920, 1080), audio_format=self.get_audio_format(), rtmp_destination_url=self.bot_in_db.rtmp_destination_url(), send_message_callback=self.on_message_from_gstreamer_pipeline)
         self.gstreamer_pipeline.setup()
         
         self.streaming_uploader = StreamingUploader(os.environ.get('AWS_RECORDING_STORAGE_BUCKET_NAME'), self.get_recording_filename())
@@ -394,14 +395,25 @@ class BotController:
         # Process the utterance immediately
         process_utterance.delay(utterance.id)
         return
+
+    def on_message_from_gstreamer_pipeline(self, message):
+        GLib.idle_add(lambda: self.take_action_based_on_message_from_gstreamer_pipeline(message))
     
     def on_message_from_adapter(self, message):
-        import gi
-        gi.require_version('GLib', '2.0')
-        from gi.repository import GLib
-
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
-        
+
+    def take_action_based_on_message_from_gstreamer_pipeline(self, message):
+        if message.get('message') == GstreamerPipeline.Messages.RTMP_CONNECTION_FAILED:
+            print("Received message that RTMP connection failed")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED,
+                event_debug_message=f"rtmp_destination_url={self.bot_in_db.rtmp_destination_url()}"
+            )
+            self.cleanup()
+            return
+
     def take_action_based_on_message_from_adapter(self, message):
         if message.get('message') == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
