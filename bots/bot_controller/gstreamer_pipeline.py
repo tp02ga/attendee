@@ -185,22 +185,22 @@ class GstreamerPipeline:
         t = message.type
         if t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
-            print(f"GStreamer Error: {err}, Debug: {debug}")
 
             src = message.src
             src_name = src.name if src else "unknown"
-            print(f"src_name: {src_name}")
-            print(f"err: {err}")
-            if "connection closed remotely" in str(err) and src_name == "myrtmpsink":
-                print("RTMP connection closed remotely - restarting RTMP sink")
+
+            print(f"GStreamer Error: {err}, Debug: {debug}, src_name: {src_name}")
+            if src_name == "myrtmpsink":
+                print("Possibly transient RTMP connection error occurred - restarting RTMP sink")
                 rtmp_sink = self.pipeline.get_by_name('myrtmpsink')
                 rtmp_sink.set_state(Gst.State.NULL)
                 rtmp_sink.set_state(Gst.State.PLAYING)
 
-            if "send_connect_error" in str(debug) and src_name == "myrtmpsink":
-                print("RTMP connection failed - shutting down pipeline")
-                self.hard_cleanup_necessary = True
-                GLib.idle_add(self.send_rtmp_connection_failed_message)
+                # This indicates a non-transient error
+                if "send_connect_error" in str(debug):
+                    print("RTMP connection failed - shutting down pipeline")
+                    self.hard_cleanup_necessary = True
+                    GLib.idle_add(self.send_rtmp_connection_failed_message)
 
         elif t == Gst.MessageType.EOS:
             print(f"GStreamer pipeline reached end of stream")
