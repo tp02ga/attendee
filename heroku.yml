@@ -12,4 +12,4 @@ run:
 release:
   image: web
   command:
-    - ./post-deploy-tasks.sh
+    - python manage.py collectstatic --noinput
