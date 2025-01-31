@@ -9,3 +9,7 @@ build:
 run:
   web: gunicorn attendee.wsgi
   worker: celery -A attendee worker -l info
+release:
+  image: web
+  command:
+    - ./post-deploy-tasks.sh
