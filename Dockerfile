@@ -89,5 +89,8 @@ FROM deps AS build
 WORKDIR $cwd
 COPY . .
 
+# Create static files directory and collect static files
+RUN python manage.py collectstatic --noinput
+
 CMD ["/bin/bash"]
 
