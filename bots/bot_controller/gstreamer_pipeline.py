@@ -6,16 +6,14 @@ import time
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
     AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
+    OUTPUT_FORMAT_FLV = 'flv'
+    OUTPUT_FORMAT_MP4 = 'mp4'
 
-    class Messages:
-        RTMP_CONNECTION_FAILED = "RTMP connection failed"
-
-    def __init__(self, *, send_message_callback, on_new_sample_callback, video_frame_size, audio_format, rtmp_destination_url):
-        self.send_message_callback = send_message_callback
+    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
-        self.rtmp_destination_url = rtmp_destination_url
+        self.output_format = output_format
 
         self.pipeline = None
         self.appsrc = None
@@ -31,7 +29,6 @@ class GstreamerPipeline:
 
         self.queue_drops = {}
         self.last_reported_drops = {}
-        self.hard_cleanup_necessary = False
 
     def on_new_sample_from_appsink(self, sink):
         """Handle new samples from the appsink"""
@@ -47,74 +44,33 @@ class GstreamerPipeline:
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
 
-        output_to_s3_pipeline_str = (
-            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
-            'videoconvert ! '
-            'videorate ! '
-            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
-            'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-            'mp4mux name=muxer ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
-            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'audioconvert ! '
-            'audiorate ! '
-            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'muxer. '
-        )
-
-        # Not used for now, because it's complicated. We'll assume if you want rtmp you don't care about s3
-        output_to_s3_and_rtmp_pipeline_str = (
-            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-            'videoconvert ! videorate ! '
-            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! '
-            'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-            'h264parse ! tee name=video_tee ! '
-            'queue name=q4 ! flvmux name=flvmuxer streamable=true ! '
-            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
-            'video_tee. ! queue name=q8 ! mp4mux name=mp4muxer ! '
-            'queue name=q9 ! appsink name=sink emit-signals=true sync=false drop=false '
-            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'audioconvert ! audiorate ! '
-            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'tee name=audio_tee ! queue name=q10 ! flvmuxer. '
-            'audio_tee. ! queue name=q11 ! mp4muxer. '
-        )
-
-        output_to_rtmp_pipeline_str = (
-            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
-            'videoconvert ! '
-            'videorate ! '
-            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
-            'x264enc tune=zerolatency speed-preset=ultrafast ! '
-            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
-            'h264parse ! '
-            'flvmux name=muxer streamable=true ! queue name=q4 ! '
-            f'rtmp2sink name=myrtmpsink location={self.rtmp_destination_url} '
-            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
-            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'audioconvert ! '
-            'audiorate ! '
-            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'voaacenc bitrate=128000 ! '
-            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
-            'muxer. '
-        )
-
-        if not self.rtmp_destination_url:
-            pipeline_str = output_to_s3_pipeline_str
+        # Setup muxer based on output format
+        if self.output_format == self.OUTPUT_FORMAT_MP4:
+            muxer_string = 'mp4mux name=muxer'
+        elif self.output_format == self.OUTPUT_FORMAT_FLV:
+            muxer_string = 'h264parse ! flvmux name=muxer streamable=true'
         else:
-            pipeline_str = output_to_rtmp_pipeline_str
+            raise ValueError(f"Invalid output format: {self.output_format}")
         
+        pipeline_str = (
+            'appsrc name=video_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! ' # q1 can contain 100mb of video before it drops
+            'videoconvert ! '
+            'videorate ! '
+            'queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! ' # q2 can contain 100mb of video before it drops
+            'x264enc tune=zerolatency speed-preset=ultrafast ! '
+            'queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! '
+            f'{muxer_string} ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false '
+            'appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! '
+            'queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'audioconvert ! '
+            'audiorate ! '
+            'queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'voaacenc bitrate=128000 ! '
+            'queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! '
+            'muxer. '
+        )
+
         self.pipeline = Gst.parse_launch(pipeline_str)
         
         # Get both appsrc elements
@@ -146,8 +102,7 @@ class GstreamerPipeline:
 
         # Connect to the sink element
         sink = self.pipeline.get_by_name('sink')
-        if sink:
-            sink.connect("new-sample", self.on_new_sample_from_appsink)
+        sink.connect("new-sample", self.on_new_sample_from_appsink)
         
         # Start the pipeline
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -177,9 +132,6 @@ class GstreamerPipeline:
         # Start statistics monitoring
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
 
-    def send_rtmp_connection_failed_message(self):
-        self.send_message_callback({'message': self.Messages.RTMP_CONNECTION_FAILED})
-
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
         t = message.type
@@ -190,17 +142,6 @@ class GstreamerPipeline:
             src_name = src.name if src else "unknown"
 
             print(f"GStreamer Error: {err}, Debug: {debug}, src_name: {src_name}")
-            if src_name == "myrtmpsink":
-                print("Possibly transient RTMP connection error occurred - restarting RTMP sink")
-                rtmp_sink = self.pipeline.get_by_name('myrtmpsink')
-                rtmp_sink.set_state(Gst.State.NULL)
-                rtmp_sink.set_state(Gst.State.PLAYING)
-
-                # This indicates a non-transient error
-                if "send_connect_error" in str(debug):
-                    print("RTMP connection failed - shutting down pipeline")
-                    self.hard_cleanup_necessary = True
-                    GLib.idle_add(self.send_rtmp_connection_failed_message)
 
         elif t == Gst.MessageType.EOS:
             print(f"GStreamer pipeline reached end of stream")
@@ -297,17 +238,10 @@ class GstreamerPipeline:
         if self.audio_appsrc:
             self.audio_appsrc.emit('end-of-stream')
 
-        if self.hard_cleanup_necessary:
-            # Wait for 1 second for any pending messages
-            msg = bus.timed_pop_filtered(
-                1 * Gst.SECOND,  # 1 second timeout
-                Gst.MessageType.EOS | Gst.MessageType.ERROR
-            )
-        else:
-            msg = bus.timed_pop_filtered(
+        msg = bus.timed_pop_filtered(
                 5 * 60 * Gst.SECOND, # 5 minute timeout
                 Gst.MessageType.EOS | Gst.MessageType.ERROR
-            )
+            )            
         
         if msg and msg.type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()

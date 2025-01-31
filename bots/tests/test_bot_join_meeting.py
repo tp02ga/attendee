@@ -939,6 +939,11 @@ class TestBotJoinMeeting(TransactionTestCase):
             # Wait for the video input manager to be set up
             time.sleep(2)
 
+            # Simulate video frame received
+            adapter.video_input_manager.input_streams[0].renderer_delegate.onRawDataFrameReceivedCallback(
+                MockVideoFrame()
+            )
+
             # Error will be triggered because the rtmp url we gave was bad
             # This will trigger the GStreamer pipeline to send a message to the bot
             connection.close()
