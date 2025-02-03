@@ -1,12 +1,25 @@
 import time
+from .text_to_speech import generate_audio_from_text
 
 class AudioOutputManager:
-    def __init__(self, currently_playing_audio_media_request_finished_callback):
+    def __init__(self, currently_playing_audio_media_request_finished_callback, play_raw_audio_callback):
         self.currently_playing_audio_media_request = None
         self.currently_playing_audio_media_request_started_at = None
         self.currently_playing_audio_media_request_finished_callback = currently_playing_audio_media_request_finished_callback
+        self.play_raw_audio_callback = play_raw_audio_callback
 
     def start_playing_audio_media_request(self, audio_media_request):
+        if audio_media_request.media_blob:
+            # Handle raw audio blob case
+            self.play_raw_audio_callback(mp3_to_pcm(audio_media_request.media_blob.blob, sample_rate=8000))
+        else:
+            # Handle text-to-speech case
+            audio_blob = generate_audio_from_text(
+                text=audio_media_request.text_to_speak,
+                settings=audio_media_request.text_to_speech_settings
+            )
+            self.play_raw_audio_callback(audio_blob)
+        
         self.currently_playing_audio_media_request = audio_media_request
         self.currently_playing_audio_media_request_started_at = time.time()
 
