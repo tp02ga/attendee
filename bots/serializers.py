@@ -222,3 +222,51 @@ class RecordingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recording
         fields = ['url', 'start_timestamp_ms']
+
+@extend_schema_field({
+    "type": "object",
+    "properties": {
+        "google": {
+            "type": "object",
+            "properties": {
+                "voice_language_code": {"type": "string"},
+                "voice_name": {"type": "string"}
+            }
+        }
+    },
+    "required": ["google"]
+})
+class TextToSpeechSettingsJSONField(serializers.JSONField):
+    pass
+
+class SpeakSerializer(serializers.Serializer):
+    text = serializers.CharField()
+    text_to_speech_settings = TextToSpeechSettingsJSONField()
+
+    TEXT_TO_SPEECH_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "google": {
+                "type": "object",
+                "properties": {
+                    "voice_language_code": {"type": "string"},
+                    "voice_name": {"type": "string"}
+                },
+                "required": ["voice_language_code", "voice_name"],
+                "additionalProperties": False
+            }
+        },
+        "required": ["google"],
+        "additionalProperties": False
+    }
+
+    def validate_text_to_speech_settings(self, value):
+        if value is None:
+            return None
+
+        try:
+            jsonschema.validate(instance=value, schema=self.TEXT_TO_SPEECH_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        return value
