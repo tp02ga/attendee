@@ -7,17 +7,21 @@ def generate_audio_from_text(bot, text, settings, sample_rate):
     Generate audio from text using text-to-speech settings.
     
     Args:
+        bot (Bot): The bot instance
         text (str): The text to convert to speech
         settings (dict): Text-to-speech configuration settings containing:
             google:
                 voice_language_code (str): Language code (e.g., "en-US")
                 voice_name (str): Name of the voice to use
-        
+        sample_rate (int): The sample rate in Hz        
     Returns:
         tuple: (bytes, int) containing:
             - Audio data in LINEAR16 format
             - Duration in milliseconds
     """
+
+
+    # Additional providers will be added, for now we only support Google TTS
     google_tts_credentials = bot.project.credentials.filter(
         credential_type=Credentials.CredentialTypes.GOOGLE_TTS
     ).first()
