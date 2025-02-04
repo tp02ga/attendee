@@ -218,6 +218,20 @@ class SpeakView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check for Google TTS credentials. This is currently the only supported text-to-speech provider.
+        google_tts_credentials = bot.project.credentials.filter(
+            credential_type=Credentials.CredentialTypes.GOOGLE_TTS
+        ).first()
+        
+        if not google_tts_credentials:
+            settings_url = request.build_absolute_uri(
+                reverse('bots:project-settings', kwargs={'object_id': bot.project.object_id})
+            )
+            return Response(
+                {'error': f'Google Text-to-Speech credentials are required. Please add credentials at {settings_url}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Create the media request
         media_request = BotMediaRequest.objects.create(
             bot=bot,

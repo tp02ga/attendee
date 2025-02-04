@@ -43,7 +43,8 @@ class AudioOutputManager:
             audio_blob, duration_ms = generate_audio_from_text(
                 text=audio_media_request.text_to_speak,
                 settings=audio_media_request.text_to_speech_settings,
-                sample_rate=self.SAMPLE_RATE
+                sample_rate=self.SAMPLE_RATE,
+                bot=audio_media_request.bot
             )
             self.currently_playing_audio_media_request_raw_audio_pcm_bytes = audio_blob
             self.currently_playing_audio_media_request_duration_ms = duration_ms

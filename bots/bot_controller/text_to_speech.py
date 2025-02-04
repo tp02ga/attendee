@@ -1,6 +1,8 @@
 from google.cloud import texttospeech
+from bots.models import Credentials
+import json
 
-def generate_audio_from_text(text, settings, sample_rate):
+def generate_audio_from_text(bot, text, settings, sample_rate):
     """
     Generate audio from text using text-to-speech settings.
     
@@ -16,10 +18,22 @@ def generate_audio_from_text(text, settings, sample_rate):
             - Audio data in LINEAR16 format
             - Duration in milliseconds
     """
-    # Create client with credentials
-    client = texttospeech.TextToSpeechClient.from_service_account_file(
-        "/home/nduncan/Downloads/text-to-speech-test-449821-dd6ba8df3b4c.json"
-    )
+    google_tts_credentials = bot.project.credentials.filter(
+        credential_type=Credentials.CredentialTypes.GOOGLE_TTS
+    ).first()
+
+    if not google_tts_credentials:
+        raise ValueError("Could not find Google Text-to-Speech credentials.")
+
+    try:
+        # Create client with credentials
+        client = texttospeech.TextToSpeechClient.from_service_account_info(
+            json.loads(google_tts_credentials.get_credentials().get('service_account_json', {}))
+        )
+    except (ValueError, json.JSONDecodeError) as e:
+        raise ValueError("Invalid Google Text-to-Speech credentials format: " + str(e)) from e
+    except Exception as e:
+        raise ValueError("Failed to initialize Google Text-to-Speech client: " + str(e)) from e
 
     # Set up text input
     synthesis_input = texttospeech.SynthesisInput(text=text)

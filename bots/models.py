@@ -742,6 +742,7 @@ class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
         DEEPGRAM = 1, 'Deepgram'
         ZOOM_OAUTH = 2, 'Zoom OAuth'
+        GOOGLE_TTS = 3, 'Google Text To Speech'
 
     project = models.ForeignKey(
         Project,
