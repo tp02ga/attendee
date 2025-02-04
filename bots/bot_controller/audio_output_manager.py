@@ -3,6 +3,8 @@ import threading
 from .text_to_speech import generate_audio_from_text
 
 class AudioOutputManager:
+    SAMPLE_RATE = 44100
+
     def __init__(self, currently_playing_audio_media_request_finished_callback, play_raw_audio_callback):
         self.currently_playing_audio_media_request = None
         self.currently_playing_audio_media_request_started_at = None
@@ -18,26 +20,30 @@ class AudioOutputManager:
             if self.stop_audio_thread:
                 break
             chunk = audio_data[i:i + chunk_size]
-            print("PLAY RAW AUDIO CHUNK in thread ", i, "of", len(audio_data), "bytes")
-            self.play_raw_audio_callback(chunk)
-            time.sleep(0.9)
+            self.play_raw_audio_callback(bytes =chunk, sample_rate = self.SAMPLE_RATE)
+            time.sleep(0.9) # the chunk size is a second's worth of audio so we'll sleep for almost that much
 
-    def start_playing_audio_media_request(self, audio_media_request):
-        # Stop any existing audio playback
+    def _stop_audio_thread(self):
+        """Stop the currently running audio thread if it exists."""
         self.stop_audio_thread = True
         if self.audio_thread and self.audio_thread.is_alive():
             self.audio_thread.join()
         self.stop_audio_thread = False
 
+    def start_playing_audio_media_request(self, audio_media_request):
+        # Stop any existing audio playback
+        self._stop_audio_thread()
+
         if audio_media_request.media_blob:
             # Handle raw audio blob case
-            self.currently_playing_audio_media_request_raw_audio_pcm_bytes = mp3_to_pcm(audio_media_request.media_blob.blob, sample_rate=8000)
+            self.currently_playing_audio_media_request_raw_audio_pcm_bytes = mp3_to_pcm(audio_media_request.media_blob.blob, sample_rate=self.SAMPLE_RATE)
             self.currently_playing_audio_media_request_duration_ms = audio_media_request.media_blob.duration_ms
         else:
             # Handle text-to-speech case
             audio_blob, duration_ms = generate_audio_from_text(
                 text=audio_media_request.text_to_speak,
-                settings=audio_media_request.text_to_speech_settings
+                settings=audio_media_request.text_to_speech_settings,
+                sample_rate=self.SAMPLE_RATE
             )
             self.currently_playing_audio_media_request_raw_audio_pcm_bytes = audio_blob
             self.currently_playing_audio_media_request_duration_ms = duration_ms
@@ -45,10 +51,11 @@ class AudioOutputManager:
         self.currently_playing_audio_media_request = audio_media_request
         self.currently_playing_audio_media_request_started_at = time.time()
         
+        bytes_per_sample = 2
         # Start audio playback in a new thread
         self.audio_thread = threading.Thread(
             target=self._play_audio_chunks,
-            args=(self.currently_playing_audio_media_request_raw_audio_pcm_bytes, 44100 * 2)
+            args=(self.currently_playing_audio_media_request_raw_audio_pcm_bytes, self.SAMPLE_RATE * bytes_per_sample)
         )
         self.audio_thread.start()
 
@@ -61,9 +68,7 @@ class AudioOutputManager:
         return False
     
     def clear_currently_playing_audio_media_request(self):
-        self.stop_audio_thread = True
-        if self.audio_thread and self.audio_thread.is_alive():
-            self.audio_thread.join()
+        self._stop_audio_thread()
         self.currently_playing_audio_media_request = None
         self.currently_playing_audio_media_request_started_at = None
 
