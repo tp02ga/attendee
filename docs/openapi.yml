@@ -7,7 +7,7 @@ paths:
   /api/v1/bots:
     post:
       operationId: Create Bot
-      description: After being created,the bot will attempt to join the specified
+      description: After being created, the bot will attempt to join the specified
         meeting.
       summary: Create a new bot
       parameters:
@@ -25,6 +25,16 @@ paths:
           default: application/json
         description: Should always be application/json
         required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       requestBody:
@@ -87,7 +97,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       security:
@@ -138,7 +153,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       security:
@@ -169,6 +189,53 @@ paths:
           description: Successfully requested to leave meeting
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/speak:
+    post:
+      operationId: Output speech
+      description: Causes the bot to speak a message in the meeting.
+      summary: Output speech
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeakRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Speak request created successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Bot not found   
   /api/v1/bots/{object_id}/output_audio:
     post:
       operationId: Output Audio
@@ -193,7 +260,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       requestBody:
@@ -246,7 +318,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       requestBody:
@@ -299,7 +376,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       security:
@@ -342,7 +424,12 @@ paths:
         name: object_id
         schema:
           type: string
+        description: Bot ID
         required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxxxxxxx
+            summary: Bot ID Example
       tags:
       - Bots
       security:
@@ -467,6 +554,30 @@ components:
       - in_progress
       - complete
       - failed
+    SpeakRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: The text to speak
+        text_to_speech_settings:
+          type: object
+          properties:
+            google:
+              type: object
+              properties:
+                voice_language_code:
+                  type: string
+                voice_name:
+                  type: string
+          required:
+          - google
+          description: 'The text-to-speech settings for the bot, e.g. {''google'':
+            {''voice_language_code'': ''en'', ''voice_name'': ''en-US-Wavenet-1''}}'
+      required:
+      - text
+      - text_to_speech_settings
     StateEnum:
       type: string
       enum:

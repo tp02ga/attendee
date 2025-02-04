@@ -119,7 +119,19 @@ class BotCreateView(APIView):
             201: OpenApiResponse(response=BotSerializer, description='Bot created successfully', examples=[NewlyCreatedBotExample]),
             400: OpenApiResponse(description='Invalid input')
         },
-        parameters=TokenHeaderParameter, 
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ], 
         tags=['Bots'],
     )
     def post(self, request):
@@ -184,8 +196,8 @@ class SpeakView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
     @extend_schema(
-        operation_id='Speak',
-        summary='Speak',
+        operation_id='Output speech',
+        summary='Output speech',
         description='Causes the bot to speak a message in the meeting.',
         request=SpeakSerializer,
         responses={
@@ -193,7 +205,19 @@ class SpeakView(APIView):
             400: OpenApiResponse(description='Invalid input'),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def post(self, request, object_id):
@@ -267,7 +291,19 @@ class OutputAudioView(APIView):
             400: OpenApiResponse(description='Invalid input'),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def post(self, request, object_id):
@@ -351,7 +387,19 @@ class OutputImageView(APIView):
             400: OpenApiResponse(description='Invalid input'),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def post(self, request, object_id):
@@ -428,7 +476,19 @@ class BotLeaveView(APIView):
                 ),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def post(self, request, object_id):
@@ -460,7 +520,19 @@ class RecordingView(APIView):
         responses={
             200: OpenApiResponse(response=RecordingSerializer, description='Short-lived S3 URL for the recording')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def get(self, request, object_id):
@@ -500,7 +572,19 @@ class TranscriptView(APIView):
             200: OpenApiResponse(response=TranscriptUtteranceSerializer(many=True), description='List of transcribed utterances'),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )
     def get(self, request, object_id):
@@ -553,7 +637,19 @@ class BotDetailView(APIView):
             200: OpenApiResponse(response=BotSerializer, description='Bot details', examples=[NewlyCreatedBotExample]),
             404: OpenApiResponse(description='Bot not found')
         },
-        parameters=TokenHeaderParameter,
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample(
+                    'Bot ID Example',
+                    value="bot_xxxxxxxxxxx"
+                )]
+            )
+        ],
         tags=['Bots'],
     )        
     def get(self, request, object_id):
