@@ -356,8 +356,8 @@ class ZoomBotAdapter(BotAdapter):
     def send_raw_audio(self, bytes):
         if not self.on_mic_start_send_callback_called:
             raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
-        self.audio_raw_data_sender.send(bytes, 8000, zoom.ZoomSDKAudioChannel_Mono)
-
+        send_result = self.audio_raw_data_sender.send(bytes, 44100, zoom.ZoomSDKAudioChannel_Mono)
+        print("send_raw_audio send_result =", send_result)
     def on_mic_start_send_callback(self):
         self.on_mic_start_send_callback_called = True
         print("on_mic_start_send_callback called")

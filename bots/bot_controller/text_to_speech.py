@@ -38,7 +38,7 @@ def generate_audio_from_text(text, settings):
     # Configure audio output as PCM (LINEAR16)
     audio_config = texttospeech.AudioConfig(
         audio_encoding=texttospeech.AudioEncoding.LINEAR16,
-        sample_rate_hertz=8000  # Using 8kHz sample rate
+        sample_rate_hertz=44100  # Using 8kHz sample rate
     )
 
     # Perform the text-to-speech request
@@ -54,7 +54,7 @@ def generate_audio_from_text(text, settings):
     # Calculate duration in milliseconds
     # For LINEAR16: 2 bytes per sample, sample_rate samples per second
     bytes_per_sample = 2
-    duration_ms = int((len(audio_content) / bytes_per_sample / 8000) * 1000)
+    duration_ms = int((len(audio_content) / bytes_per_sample / 44100) * 1000)
 
     # Return both audio content and duration
     return audio_content, duration_ms 
