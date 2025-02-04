@@ -175,8 +175,6 @@ class BotController:
         self.individual_audio_input_manager = IndividualAudioInputManager(save_utterance_callback=self.save_individual_audio_utterance, get_participant_callback=self.get_participant)
         self.closed_caption_manager = ClosedCaptionManager(save_utterance_callback=self.save_closed_caption_utterance, get_participant_callback=self.get_participant)
 
-        self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished)
-
         gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_MP4
         self.rtmp_client = None
         if self.bot_in_db.rtmp_destination_url():
@@ -196,6 +194,8 @@ class BotController:
         self.streaming_uploader.start_upload()
 
         self.adapter = self.get_bot_adapter()
+
+        self.audio_output_manager = AudioOutputManager(currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished, play_raw_audio_callback=self.adapter.send_raw_audio)
 
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()

@@ -12,7 +12,9 @@ def generate_audio_from_text(text, settings):
                 voice_name (str): Name of the voice to use
         
     Returns:
-        bytes: Audio data in MP3 format
+        tuple: (bytes, int) containing:
+            - Audio data in LINEAR16 format
+            - Duration in milliseconds
     """
     # Create client with credentials
     client = texttospeech.TextToSpeechClient.from_service_account_file(
@@ -46,5 +48,10 @@ def generate_audio_from_text(text, settings):
         audio_config=audio_config
     )
 
-    # Return the audio content as bytes
-    return response.audio_content    
+    # Calculate duration in milliseconds
+    # For LINEAR16: 2 bytes per sample, sample_rate samples per second
+    bytes_per_sample = 2
+    duration_ms = int((len(response.audio_content) / bytes_per_sample / 8000) * 1000)
+
+    # Return both audio content and duration
+    return response.audio_content, duration_ms 
