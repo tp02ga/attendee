@@ -575,7 +575,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         print("utterance.transcription = ", utterance.transcription)
 
         # Verify the bot adapter received the media
-        controller.adapter.audio_raw_data_sender.send.assert_called_once_with(mp3_to_pcm(self.test_mp3_bytes, sample_rate=8000), 8000, mock_zoom_sdk_adapter.ZoomSDKAudioChannel_Mono)
+        controller.adapter.audio_raw_data_sender.send.assert_called_once_with(mp3_to_pcm(self.test_mp3_bytes, sample_rate=44100), 44100, mock_zoom_sdk_adapter.ZoomSDKAudioChannel_Mono)
         controller.adapter.video_sender.sendVideoFrame.assert_called_with(png_to_yuv420_frame(self.test_png_bytes), 640, 360, 0, mock_zoom_sdk_adapter.FrameDataFormat_I420_FULL)
 
         # Cleanup

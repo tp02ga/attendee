@@ -263,7 +263,6 @@ class BotController:
             print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
             return
         
-        from bots.utils import mp3_to_pcm
         try:
             BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
             self.audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)

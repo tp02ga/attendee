@@ -119,19 +119,7 @@ class BotCreateView(APIView):
             201: OpenApiResponse(response=BotSerializer, description='Bot created successfully', examples=[NewlyCreatedBotExample]),
             400: OpenApiResponse(description='Invalid input')
         },
-        parameters=[
-            *TokenHeaderParameter,
-            OpenApiParameter(
-                name="object_id",
-                type=str,
-                location=OpenApiParameter.PATH,
-                description="Bot ID",
-                examples=[OpenApiExample(
-                    'Bot ID Example',
-                    value="bot_xxxxxxxxxxx"
-                )]
-            )
-        ], 
+        parameters=TokenHeaderParameter, 
         tags=['Bots'],
     )
     def post(self, request):
