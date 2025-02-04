@@ -33,7 +33,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -101,7 +101,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -157,7 +157,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -217,7 +217,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -264,7 +264,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -322,7 +322,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -380,7 +380,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -428,7 +428,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxxxxxxxxxx
+            value: bot_xxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
