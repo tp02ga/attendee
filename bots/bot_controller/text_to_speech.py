@@ -48,10 +48,13 @@ def generate_audio_from_text(text, settings):
         audio_config=audio_config
     )
 
+    # Skip the WAV header (first 44 bytes) to get raw PCM data
+    audio_content = response.audio_content[44:]
+
     # Calculate duration in milliseconds
     # For LINEAR16: 2 bytes per sample, sample_rate samples per second
     bytes_per_sample = 2
-    duration_ms = int((len(response.audio_content) / bytes_per_sample / 8000) * 1000)
+    duration_ms = int((len(audio_content) / bytes_per_sample / 8000) * 1000)
 
     # Return both audio content and duration
-    return response.audio_content, duration_ms 
+    return audio_content, duration_ms 
