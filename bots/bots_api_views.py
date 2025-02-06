@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Bot, BotEventTypes, BotEventManager, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Utterance, MediaBlob, BotMediaRequest, BotMediaRequestMediaTypes, Credentials, BotStates
-from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer, SpeakSerializer
+from .serializers import CreateBotSerializer, BotSerializer, TranscriptUtteranceSerializer, RecordingSerializer, SpeechSerializer
 from .authentication import ApiKeyAuthentication
 from .tasks import run_bot
 import redis
@@ -180,16 +180,16 @@ class BotCreateView(APIView):
             status=status.HTTP_201_CREATED
         )
 
-class SpeakView(APIView):
+class SpeechView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
     @extend_schema(
         operation_id='Output speech',
         summary='Output speech',
         description='Causes the bot to speak a message in the meeting.',
-        request=SpeakSerializer,
+        request=SpeechSerializer,
         responses={
-            200: OpenApiResponse(description='Speak request created successfully'),
+            200: OpenApiResponse(description='Speech request created successfully'),
             400: OpenApiResponse(description='Invalid input'),
             404: OpenApiResponse(description='Bot not found')
         },
@@ -219,7 +219,7 @@ class SpeakView(APIView):
             )
 
         # Validate the request data
-        serializer = SpeakSerializer(data=request.data)
+        serializer = SpeechSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

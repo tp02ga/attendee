@@ -239,7 +239,7 @@ class RecordingSerializer(serializers.ModelSerializer):
 class TextToSpeechSettingsJSONField(serializers.JSONField):
     pass
 
-class SpeakSerializer(serializers.Serializer):
+class SpeechSerializer(serializers.Serializer):
     text = serializers.CharField()
     text_to_speech_settings = TextToSpeechSettingsJSONField()
 
