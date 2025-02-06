@@ -27,7 +27,7 @@ Join a meeting with a POST request to `/bots`:
 curl -X POST https://app.attendee.dev/api/v1/bots \
 -H 'Authorization: Token <YOUR_API_KEY>' \
 -H 'Content-Type: application/json' \
--d '{"meeting_url": "https://us05web.zoom.us/j/84315220467?pwd=9M1SQg2Pu2l0cB078uz6AHeWelSK19.1"}'
+-d '{"meeting_url": "https://us05web.zoom.us/j/84315220467?pwd=9M1SQg2Pu2l0cB078uz6AHeWelSK19.1", "bot_name": "My Bot"}'
 ```
 Response:
 ```{"id":"bot_3hfP0PXEsNinIZmh","meeting_url":"https://us05web.zoom.us/j/4849920355?pwd=aTBpNz760UTEBwUT2mQFtdXbl3SS3i.1","state":"joining","transcription_state":"not_started"}```
