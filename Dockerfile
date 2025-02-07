@@ -48,8 +48,8 @@ RUN apt-get update  \
 
 # Install Chrome dependencies
 RUN apt-get install -y xvfb x11-xkb-utils xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic x11-apps libvulkan1 fonts-liberation xdg-utils wget
-# Install a specific version of Chrome. Google doesn't seem to be maintaining a version specific url, so using this UChicago mirror
-RUN wget -q https://mirror.cs.uchicago.edu/google-chrome/pool/main/g/google-chrome-stable/google-chrome-stable_132.0.6834.83-1_amd64.deb
+# Install a specific version of Chrome.
+RUN wget -q http://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_132.0.6834.83-1_amd64.deb
 RUN apt-get install -y ./google-chrome-stable_132.0.6834.83-1_amd64.deb
 
 # Install ALSA
