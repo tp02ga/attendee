@@ -25,16 +25,6 @@ paths:
           default: application/json
         description: Should always be application/json
         required: true
-      - in: path
-        name: object_id
-        schema:
-          type: string
-        description: Bot ID
-        required: true
-        examples:
-          BotIDExample:
-            value: bot_xxxxxxxx
-            summary: Bot ID Example
       tags:
       - Bots
       requestBody:
@@ -101,7 +91,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -157,7 +147,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -189,53 +179,6 @@ paths:
           description: Successfully requested to leave meeting
         '404':
           description: Bot not found
-  /api/v1/bots/{object_id}/speak:
-    post:
-      operationId: Output speech
-      description: Causes the bot to speak a message in the meeting.
-      summary: Output speech
-      parameters:
-      - in: header
-        name: Authorization
-        schema:
-          type: string
-          default: Token YOUR_API_KEY_HERE
-        description: API key for authentication
-        required: true
-      - in: header
-        name: Content-Type
-        schema:
-          type: string
-          default: application/json
-        description: Should always be application/json
-        required: true
-      - in: path
-        name: object_id
-        schema:
-          type: string
-        description: Bot ID
-        required: true
-        examples:
-          BotIDExample:
-            value: bot_xxxxxxxx
-            summary: Bot ID Example
-      tags:
-      - Bots
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SpeakRequest'
-        required: true
-      security:
-      - {}
-      responses:
-        '200':
-          description: Speak request created successfully
-        '400':
-          description: Invalid input
-        '404':
-          description: Bot not found   
   /api/v1/bots/{object_id}/output_audio:
     post:
       operationId: Output Audio
@@ -264,7 +207,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -322,7 +265,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -380,7 +323,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -399,6 +342,63 @@ paths:
                     start_timestamp_ms: 1733114771000
                   summary: Recording Upload
           description: Short-lived S3 URL for the recording
+  /api/v1/bots/{object_id}/speech:
+    post:
+      operationId: Output speech
+      description: Causes the bot to speak a message in the meeting.
+      summary: Output speech
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeechRequest'
+            examples:
+              ValidSpeechRequest:
+                value:
+                  text: Hello, this is a bot speaking text.
+                  text_to_speech_settings:
+                    google:
+                      voice_language_code: en-US
+                      voice_name: en-US-Casual-K
+                summary: Valid speech request
+                description: Example of a valid speech request
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Speech request created successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/transcript:
     get:
       operationId: Get Bot Transcript
@@ -428,7 +428,7 @@ paths:
         required: true
         examples:
           BotIDExample:
-            value: bot_xxxxxxxx
+            value: bot_xxxxxxxxxxx
             summary: Bot ID Example
       tags:
       - Bots
@@ -554,13 +554,12 @@ components:
       - in_progress
       - complete
       - failed
-    SpeakRequest:
+    SpeechRequest:
       type: object
       properties:
         text:
           type: string
           minLength: 1
-          description: The text to speak
         text_to_speech_settings:
           type: object
           properties:
@@ -569,12 +568,13 @@ components:
               properties:
                 voice_language_code:
                   type: string
+                  description: The voice language code (e.g. 'en-US'). See https://cloud.google.com/text-to-speech/docs/voices
+                    for a list of available language codes and voices.
                 voice_name:
                   type: string
+                  description: The name of the voice to use (e.g. 'en-US-Casual-K')
           required:
           - google
-          description: 'The text-to-speech settings for the bot, e.g. {''google'':
-            {''voice_language_code'': ''en'', ''voice_name'': ''en-US-Wavenet-1''}}'
       required:
       - text
       - text_to_speech_settings
