@@ -1061,3 +1061,99 @@ new RTCInterceptor({
         }
     }
 });
+
+
+class AudioStreamHandler {
+    constructor(audioUrl) {
+        this.audio = null;
+        this.stream = null;
+        this.audioUrl = audioUrl;
+        this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
+    }
+
+    // Initialize the audio element
+    createAudioElement() {
+        this.audio = document.createElement('audio');
+        this.audio.setAttribute('controls', '');
+        this.audio.setAttribute('crossorigin', 'anonymous');
+        this.audio.setAttribute('autoplay', '');
+        // Most browsers require muted for autoplay
+        this.audio.setAttribute('muted', '');
+        
+        // Error handling for audio loading
+        this.audio.onerror = (error) => {
+            console.error('Error loading audio:', error);
+        };
+
+        // Only set source if URL is provided and valid
+        if (this.audioUrl && typeof this.audioUrl === 'string') {
+            this.audio.src = this.audioUrl;
+        } else {
+            throw new Error('Invalid audio URL provided');
+        }
+    }
+
+    
+
+    // Set up stream capture
+    setupStreamCapture() {
+        try {
+            this.stream = this.audio.captureStream();
+        } catch (error) {
+            console.error('Error capturing stream:', error);
+            throw error;
+        }
+    }
+
+    // Override getUserMedia immediately
+    overrideGetUserMedia() {
+        navigator.mediaDevices.getUserMedia = async () => {
+            console.log('getUserMedia called');
+            if (!this.stream) {
+                throw new Error('No audio stream available');
+            }
+            return this.stream;
+        };
+    }
+
+    // Add new playAudio method
+    playAudio() {
+        console.log('playAudio called');
+        if (this.audio) {
+            this.audio.muted = false;  // Unmute the audio
+            this.audio.play().catch(error => {
+                console.error('Error playing audio:', error);
+            });
+        }
+    }
+
+    // Modify init to include delayed play
+    init() {
+        try {
+            this.createAudioElement();
+            this.setupStreamCapture();
+            this.overrideGetUserMedia();
+
+            // Add to document when ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.appendChild(this.audio);
+                });
+            } else {
+                document.body.appendChild(this.audio);
+            }
+
+            // Add 15-second delay before playing
+            setTimeout(() => {
+                this.playAudio();
+            }, 15000);
+        } catch (error) {
+            console.error('Initialization error:', error);
+            throw error;
+        }
+    }
+}
+
+// Create and initialize as soon as possible
+const audioHandler = new AudioStreamHandler('https://audio-samples.github.io/samples/mp3/blizzard_unconditional/sample-0.mp3');
+audioHandler.init();
