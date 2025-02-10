@@ -131,6 +131,13 @@ class BotCreateView(APIView):
         project = request.auth.project
         
         meeting_url = serializer.validated_data['meeting_url']
+
+        if "meet.google.com" in meeting_url:
+            if not meeting_url.startswith("https://meet.google.com/"):
+                return Response(
+                    {'error': 'Google Meet URL must start with https://meet.google.com/'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Check if this is a Zoom meeting and validate credentials
         if "zoom.us" in meeting_url:

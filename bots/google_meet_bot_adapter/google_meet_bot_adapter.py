@@ -426,7 +426,7 @@ class GoogleMeetBotAdapter(BotAdapter):
 
         try:
             print("disable media sending")
-            self.driver.execute_script("window.ws.disableMediaSending();")
+            self.driver.execute_script("window.ws?.disableMediaSending();")
             
             print("Waiting for the leave button")
             leave_button = WebDriverWait(self.driver, 6).until(
@@ -443,7 +443,7 @@ class GoogleMeetBotAdapter(BotAdapter):
     def cleanup(self):
         try:
             print("disable media sending")
-            self.driver.execute_script("window.ws.disableMediaSending();")
+            self.driver.execute_script("window.ws?.disableMediaSending();")
         except Exception as e:
             print(f"Error during media sending disable: {e}")
 
