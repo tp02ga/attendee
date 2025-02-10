@@ -1069,7 +1069,6 @@ class AudioStreamHandler {
         this.stream = null;
         this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
-        this.sampleRate = 44100; // Default sample rate
         this.isPlaying = false;
     }
 
@@ -1098,7 +1097,8 @@ class AudioStreamHandler {
     }
 
     // Play raw PCM audio data
-    async playPCM(pcmData) {
+    async playPCM(pcmData, sampleRate) {
+        console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');
         }
@@ -1119,7 +1119,7 @@ class AudioStreamHandler {
         const audioBuffer = this.audioContext.createBuffer(
             1, // mono
             floatData.length,
-            this.sampleRate
+            sampleRate
         );
 
         // Fill the buffer
@@ -1144,27 +1144,14 @@ class AudioStreamHandler {
             };
         });
     }
-
-    // Set sample rate
-    setSampleRate(rate) {
-        this.sampleRate = rate;
-    }
-
-    // Clean up resources
-    dispose() {
-        if (this.audioContext) {
-            this.audioContext.close();
-        }
-        navigator.mediaDevices.getUserMedia = this.originalGetUserMedia;
-    }
 }
 
 // Create and initialize as soon as possible
 const audioHandler = new AudioStreamHandler();
 audioHandler.init();
 
-const playAudio = (rawAudioData) => {
-    audioHandler.playPCM(rawAudioData).then(() => {
+const playAudio = (rawAudioData, sampleRate) => {
+    audioHandler.playPCM(rawAudioData, sampleRate).then(() => {
         console.log('Audio playback completed');
     }).catch(error => {
         console.error('Error playing audio:', error);

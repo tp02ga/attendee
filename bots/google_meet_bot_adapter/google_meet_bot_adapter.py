@@ -496,5 +496,5 @@ class GoogleMeetBotAdapter(BotAdapter):
         
         # Play the audio through the audio handler
         self.driver.execute_script("""
-            playAudio(arguments[0]);
-        """, audio_data.tolist())
+            playAudio(arguments[0], arguments[1]);
+        """, audio_data.tolist(), sample_rate)
