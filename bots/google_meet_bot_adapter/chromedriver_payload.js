@@ -1062,7 +1062,6 @@ new RTCInterceptor({
     }
 });
 
-
 class AudioStreamHandler {
     constructor() {
         this.audioContext = null;
@@ -1098,12 +1097,19 @@ class AudioStreamHandler {
 
     // Play raw PCM audio data
     async playPCM(pcmData, sampleRate) {
-        console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
+        // console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');
         }
 
-        // Ensure pcmData is an Int16Array
+        // Always try to resume the context before playback
+        // console.log('AudioContext state:', this.audioContext.state);
+        if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+            //console.log('AudioContext resumed');
+        }
+
+        // Convert Int16 to Float32
         const audioData = (pcmData instanceof Int16Array) ? 
             pcmData : 
             new Int16Array(pcmData.buffer || pcmData);
@@ -1152,7 +1158,7 @@ audioHandler.init();
 
 const playAudio = (rawAudioData, sampleRate) => {
     audioHandler.playPCM(rawAudioData, sampleRate).then(() => {
-        console.log('Audio playback completed');
+        // console.log('Audio playback completed');
     }).catch(error => {
         console.error('Error playing audio:', error);
     });
