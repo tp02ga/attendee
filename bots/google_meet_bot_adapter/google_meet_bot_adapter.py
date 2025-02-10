@@ -293,6 +293,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         options.add_argument("--window-size=1920x1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-setuid-sandbox")
+        options.add_argument("--mute-audio")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-extensions")
@@ -489,3 +490,11 @@ class GoogleMeetBotAdapter(BotAdapter):
                 print("Auto-leaving meeting because there was no media message for 30 seconds")
                 self.leave()
                 return
+
+    def send_raw_audio(self, bytes, sample_rate):
+        audio_data = np.frombuffer(bytes, dtype=np.int16)
+        
+        # Play the audio through the audio handler
+        self.driver.execute_script("""
+            playAudio(arguments[0]);
+        """, audio_data.tolist())

@@ -1064,48 +1064,29 @@ new RTCInterceptor({
 
 
 class AudioStreamHandler {
-    constructor(audioUrl) {
-        this.audio = null;
+    constructor() {
+        this.audioContext = null;
         this.stream = null;
-        this.audioUrl = audioUrl;
+        this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
+        this.sampleRate = 44100; // Default sample rate
+        this.isPlaying = false;
     }
 
-    // Initialize the audio element
-    createAudioElement() {
-        this.audio = document.createElement('audio');
-        this.audio.setAttribute('controls', '');
-        this.audio.setAttribute('crossorigin', 'anonymous');
-        this.audio.setAttribute('autoplay', '');
-        // Most browsers require muted for autoplay
-        this.audio.setAttribute('muted', '');
-        
-        // Error handling for audio loading
-        this.audio.onerror = (error) => {
-            console.error('Error loading audio:', error);
-        };
-
-        // Only set source if URL is provided and valid
-        if (this.audioUrl && typeof this.audioUrl === 'string') {
-            this.audio.src = this.audioUrl;
-        } else {
-            throw new Error('Invalid audio URL provided');
-        }
-    }
-
-    
-
-    // Set up stream capture
-    setupStreamCapture() {
+    // Initialize Web Audio components
+    async init() {
         try {
-            this.stream = this.audio.captureStream();
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.streamDestination = this.audioContext.createMediaStreamDestination();
+            this.stream = this.streamDestination.stream;
+            this.overrideGetUserMedia();
         } catch (error) {
-            console.error('Error capturing stream:', error);
+            console.error('Initialization error:', error);
             throw error;
         }
     }
 
-    // Override getUserMedia immediately
+    // Override getUserMedia
     overrideGetUserMedia() {
         navigator.mediaDevices.getUserMedia = async () => {
             console.log('getUserMedia called');
@@ -1116,44 +1097,76 @@ class AudioStreamHandler {
         };
     }
 
-    // Add new playAudio method
-    playAudio() {
-        console.log('playAudio called');
-        if (this.audio) {
-            this.audio.muted = false;  // Unmute the audio
-            this.audio.play().catch(error => {
-                console.error('Error playing audio:', error);
-            });
+    // Play raw PCM audio data
+    async playPCM(pcmData) {
+        if (!this.audioContext) {
+            throw new Error('AudioContext not initialized');
         }
+
+        // Ensure pcmData is an Int16Array
+        const audioData = (pcmData instanceof Int16Array) ? 
+            pcmData : 
+            new Int16Array(pcmData.buffer || pcmData);
+
+        // Convert Int16 to Float32
+        const floatData = new Float32Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+            // Convert from Int16 (-32768 to 32767) to Float32 (-1.0 to 1.0)
+            floatData[i] = audioData[i] / 32768.0;
+        }
+
+        // Create audio buffer
+        const audioBuffer = this.audioContext.createBuffer(
+            1, // mono
+            floatData.length,
+            this.sampleRate
+        );
+
+        // Fill the buffer
+        audioBuffer.getChannelData(0).set(floatData);
+
+        // Create buffer source
+        const source = this.audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        // Connect to stream destination
+        source.connect(this.streamDestination);
+        
+        // Start playback
+        source.start();
+        this.isPlaying = true;
+
+        // Return promise that resolves when playback completes
+        return new Promise((resolve) => {
+            source.onended = () => {
+                this.isPlaying = false;
+                resolve();
+            };
+        });
     }
 
-    // Modify init to include delayed play
-    init() {
-        try {
-            this.createAudioElement();
-            this.setupStreamCapture();
-            this.overrideGetUserMedia();
+    // Set sample rate
+    setSampleRate(rate) {
+        this.sampleRate = rate;
+    }
 
-            // Add to document when ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                    document.body.appendChild(this.audio);
-                });
-            } else {
-                document.body.appendChild(this.audio);
-            }
-
-            // Add 15-second delay before playing
-            setTimeout(() => {
-                this.playAudio();
-            }, 15000);
-        } catch (error) {
-            console.error('Initialization error:', error);
-            throw error;
+    // Clean up resources
+    dispose() {
+        if (this.audioContext) {
+            this.audioContext.close();
         }
+        navigator.mediaDevices.getUserMedia = this.originalGetUserMedia;
     }
 }
 
 // Create and initialize as soon as possible
-const audioHandler = new AudioStreamHandler('https://audio-samples.github.io/samples/mp3/blizzard_unconditional/sample-0.mp3');
+const audioHandler = new AudioStreamHandler();
 audioHandler.init();
+
+const playAudio = (rawAudioData) => {
+    audioHandler.playPCM(rawAudioData).then(() => {
+        console.log('Audio playback completed');
+    }).catch(error => {
+        console.error('Error playing audio:', error);
+    });
+}
