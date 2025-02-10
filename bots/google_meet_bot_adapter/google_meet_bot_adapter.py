@@ -277,15 +277,121 @@ class GoogleMeetBotAdapter(BotAdapter):
                 condition
             )
             return element
-        except TimeoutException:
-            # Take screenshot when element is not found
+        except Exception as e:
+            # Take screenshot when any exception occurs
             current_time = datetime.datetime.now()
             timestamp = current_time.strftime("%Y%m%d_%H%M%S")
             screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
             self.driver.save_screenshot(screenshot_path)
-            self.send_message_callback({'message': self.Messages.UI_ELEMENT_NOT_FOUND, 'step': step, 'current_time': current_time, 'screenshot_path': screenshot_path})
-            raise TimeoutException
+            self.send_message_callback({
+                'message': self.Messages.UI_ELEMENT_NOT_FOUND, 
+                'step': step, 
+                'current_time': current_time, 
+                'screenshot_path': screenshot_path,
+                'exception_type': e.__class__.__name__
+            })
+            raise  # Re-raise the original exception
 
+    # returns a tuple (succeeded, should_retry)
+    def attempt_to_join_meeting(self):
+        self.driver.get(self.meeting_url)
+
+        self.driver.execute_cdp_cmd(
+            "Browser.grantPermissions",
+            {
+                "origin": self.meeting_url,
+                "permissions": [
+                    "geolocation",
+                    "audioCapture",
+                    "displayCapture",
+                    "videoCapture",
+                    "videoCapturePanTiltZoom",
+                ],
+            },
+        )
+
+        try:
+            print("Waiting for the name input field...")
+            name_input = self.locate_element(
+                step="name_input",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')),
+                wait_time_seconds=60
+            )
+
+            print("Waiting for 1 second...")
+            sleep(1)
+        
+            print("Filling the input field with the name...")
+            name_input.send_keys(self.display_name)
+
+            print("Waiting for the 'Ask to join' button...")
+            join_button = self.locate_element(
+                step="join_button",
+                condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
+                wait_time_seconds=60
+            )
+            print("Clicking the 'Ask to join' button...")
+            join_button.click()
+
+            try:
+                cannot_join_element = WebDriverWait(self.driver, 1).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[contains(text(), "You can\'t join this video call")]'))
+                )
+                return False, True
+            except TimeoutException:
+                # Element not found, which means we can proceed normally
+                pass
+
+            print("Waiting for captions button...")
+            captions_button = self.locate_element(
+                step="captions_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]')),
+                wait_time_seconds=600
+            )
+            print("Clicking captions button...")
+            captions_button.click()
+
+            print("Waiting for the more options button...")
+            MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
+            more_options_button = self.locate_element(
+                step="more_options_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
+                wait_time_seconds=6
+            )
+            print("Clicking the more options button...")
+            more_options_button.click()
+
+            print("Waiting for the 'Change layout' list item...")
+            change_layout_list_item = self.locate_element(
+                step="change_layout_item",
+                condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the 'Change layout' list item...")
+            change_layout_list_item.click()
+
+            print("Waiting for the 'Spotlight' label element")
+            spotlight_label = self.locate_element(
+                step="spotlight_label",
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the 'Spotlight' label element")
+            spotlight_label.click()
+            
+            print("Waiting for the close button")
+            close_button = self.locate_element(
+                step="close_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the close button")
+            close_button.click()
+
+            return True, False
+
+        except TimeoutException:
+            return False, False
 
     def init(self):
         if os.environ.get('DISPLAY') is None:
@@ -301,8 +407,7 @@ class GoogleMeetBotAdapter(BotAdapter):
         if not self.websocket_port:
             raise Exception("WebSocket server failed to start")
 
-        meet_link = self.meeting_url
-        print(f"start recorder for {meet_link}")
+        print(f"Trying to join google meet meeting at {self.meeting_url}")
 
         options = uc.ChromeOptions()
 
@@ -356,94 +461,25 @@ class GoogleMeetBotAdapter(BotAdapter):
             'source': combined_code
         })
 
-        self.driver.get(meet_link)
-
-        self.driver.execute_cdp_cmd(
-            "Browser.grantPermissions",
-            {
-                "origin": meet_link,
-                "permissions": [
-                    "geolocation",
-                    "audioCapture",
-                    "displayCapture",
-                    "videoCapture",
-                    "videoCapturePanTiltZoom",
-                ],
-            },
-        )
-
-        try:
-            print("Waiting for the name input field...")
-            name_input = self.locate_element(
-                step="name_input",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')),
-                wait_time_seconds=60
-            )
-
-            print("Waiting for 1 second...")
+        succeeded = False
+        num_retries = 0
+        max_retries = 3
+        while num_retries < max_retries: 
+            succeeded, should_retry = self.attempt_to_join_meeting()
+            if not succeeded and not should_retry:
+                print("Failed to join meeting and should_retry = false so returning")
+                return
+            if not succeeded and should_retry and num_retries >= max_retries:
+                print("Failed to join meeting and should_retry = true but number of retries exceeded, so returning")
+                return
+            if not succeeded and should_retry:
+                print(f"Failed to join meeting and should_retry = true and number of retries is {num_retries} so retrying")
+            if succeeded:
+                print("Successfully joined meeting")
+                break
+            num_retries += 1
             sleep(1)
-        
-            print("Filling the input field with the name...")
-            name_input.send_keys(self.display_name)
 
-            print("Waiting for the 'Ask to join' button...")
-            join_button = self.locate_element(
-                step="join_button",
-                condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
-                wait_time_seconds=60
-            )
-            print("Clicking the 'Ask to join' button...")
-            join_button.click()
-
-            print("Waiting for captions button...")
-            captions_button = self.locate_element(
-                step="captions_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]')),
-                wait_time_seconds=600
-            )
-            print("Clicking captions button...")
-            captions_button.click()
-
-            print("Waiting for the more options button...")
-            MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
-            more_options_button = self.locate_element(
-                step="more_options_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
-                wait_time_seconds=6
-            )
-            print("Clicking the more options button...")
-            more_options_button.click()
-
-            print("Waiting for the 'Change layout' list item...")
-            change_layout_list_item = self.locate_element(
-                step="change_layout_item",
-                condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Change layout' list item...")
-            change_layout_list_item.click()
-
-            print("Waiting for the 'Spotlight' label element")
-            spotlight_label = self.locate_element(
-                step="spotlight_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Spotlight' label element")
-            spotlight_label.click()
-            
-            print("Waiting for the close button")
-            close_button = self.locate_element(
-                step="close_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the close button")
-            close_button.click()
-
-        except TimeoutException:
-            return
-        
         self.send_message_callback({'message': self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 

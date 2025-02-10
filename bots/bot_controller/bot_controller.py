@@ -447,6 +447,7 @@ class BotController:
                 metadata={
                     'step': message.get('step'),
                     'current_time': message.get('current_time').isoformat(),
+                    'exception_type': message.get('exception_type'),
                 }
             )
             
