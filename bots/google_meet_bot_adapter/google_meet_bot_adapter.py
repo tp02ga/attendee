@@ -372,67 +372,78 @@ class GoogleMeetBotAdapter(BotAdapter):
             },
         )
 
-        print("Waiting for the name input field...")
         try:
+            print("Waiting for the name input field...")
             name_input = self.locate_element(
                 step="name_input",
                 condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')),
-                wait_time_seconds=1
+                wait_time_seconds=60
             )
+
+            print("Waiting for 1 second...")
+            sleep(1)
+        
+            print("Filling the input field with the name...")
+            name_input.send_keys(self.display_name)
+
+            print("Waiting for the 'Ask to join' button...")
+            join_button = self.locate_element(
+                step="join_button",
+                condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
+                wait_time_seconds=60
+            )
+            print("Clicking the 'Ask to join' button...")
+            join_button.click()
+
+            print("Waiting for captions button...")
+            captions_button = self.locate_element(
+                step="captions_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]')),
+                wait_time_seconds=600
+            )
+            print("Clicking captions button...")
+            captions_button.click()
+
+            print("Waiting for the more options button...")
+            MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
+            more_options_button = self.locate_element(
+                step="more_options_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
+                wait_time_seconds=6
+            )
+            print("Clicking the more options button...")
+            more_options_button.click()
+
+            print("Waiting for the 'Change layout' list item...")
+            change_layout_list_item = self.locate_element(
+                step="change_layout_item",
+                condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the 'Change layout' list item...")
+            change_layout_list_item.click()
+
+            print("Waiting for the 'Spotlight' label element")
+            spotlight_label = self.locate_element(
+                step="spotlight_label",
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the 'Spotlight' label element")
+            spotlight_label.click()
+            
+            print("Waiting for the close button")
+            close_button = self.locate_element(
+                step="close_button",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
+                wait_time_seconds=6
+            )
+            print("Clicking the close button")
+            close_button.click()
+
         except TimeoutException:
             return
         
-        print("Waiting for 1 second...")
-        sleep(1)
-        
-        print("Filling the input field with the name...")
-        name_input.send_keys(self.display_name)
-        
-        print("Waiting for the 'Ask to join' button...")
-        join_button = WebDriverWait(self.driver, 60).until(
-            EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]'))
-        )
-        
-        print("Clicking the 'Ask to join' button...")
-        join_button.click()
-
-
-        print("Waiting for captions button...")
-        captions_button = WebDriverWait(self.driver, 600).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]'))
-        )
-        print("Clicking captions button...")
-        captions_button.click()
-
-        print("Waiting for the more options button...")
-        MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
-        more_options_button = WebDriverWait(self.driver, 6).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR))
-        )
-        print("Clicking the more options button...")
-        more_options_button.click()
-
-        print("Waiting for the 'Change layout' list item...")
-        change_layout_list_item = WebDriverWait(self.driver, 6).until(
-            EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]'))
-        )
-        print("Clicking the 'Change layout' list item...")
-        change_layout_list_item.click()
-
-        print("Waiting for the 'Spotlight' label element")
-        spotlight_label = WebDriverWait(self.driver, 6).until(
-            EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]'))
-        )
-        print("Clicking the 'Spotlight' label element")
-        spotlight_label.click()
-        
-        print("Waiting for the close button")
-        close_button = WebDriverWait(self.driver, 6).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]'))
-        )
-        print("Clicking the close button")
-        close_button.click()
-
         self.send_message_callback({'message': self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
