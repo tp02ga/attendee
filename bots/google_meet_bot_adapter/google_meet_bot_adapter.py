@@ -22,6 +22,7 @@ import websockets
 from websockets.sync.server import serve
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 from bots.bot_adapter import BotAdapter
 
@@ -270,6 +271,22 @@ class GoogleMeetBotAdapter(BotAdapter):
                     continue
                 raise  # Re-raise other OSErrors
 
+    def locate_element(self, step, condition, wait_time_seconds=60):
+        try:
+            element = WebDriverWait(self.driver, wait_time_seconds).until(
+                condition
+            )
+            return element
+        except TimeoutException:
+            # Take screenshot when element is not found
+            current_time = datetime.datetime.now()
+            timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+            screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
+            self.driver.save_screenshot(screenshot_path)
+            self.send_message_callback({'message': self.Messages.UI_ELEMENT_NOT_FOUND, 'step': step, 'current_time': current_time, 'screenshot_path': screenshot_path})
+            raise TimeoutException
+
+
     def init(self):
         if os.environ.get('DISPLAY') is None:
             # Create virtual display only if no real display is available
@@ -356,9 +373,14 @@ class GoogleMeetBotAdapter(BotAdapter):
         )
 
         print("Waiting for the name input field...")
-        name_input = WebDriverWait(self.driver, 60).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]'))
-        )
+        try:
+            name_input = self.locate_element(
+                step="name_input",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')),
+                wait_time_seconds=1
+            )
+        except TimeoutException:
+            return
         
         print("Waiting for 1 second...")
         sleep(1)

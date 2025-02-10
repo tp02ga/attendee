@@ -204,6 +204,7 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP = 5, 'Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/blog/prepare-meeting-sdk-app-for-review'
     FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, 'Fatal error - RTMP Connection Failed'
     COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR = 7, 'Bot could not join meeting - Zoom SDK Internal Error'
+    FATAL_ERROR_UI_ELEMENT_NOT_FOUND = 8, 'Fatal error - UI Element Not Found'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -215,7 +216,8 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED: 'zoom_meeting_status_failed',
             cls.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP: 'unpublished_zoom_app',
             cls.FATAL_ERROR_RTMP_CONNECTION_FAILED: 'rtmp_connection_failed',
-            cls.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR: 'zoom_sdk_internal_error'
+            cls.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR: 'zoom_sdk_internal_error',
+            cls.FATAL_ERROR_UI_ELEMENT_NOT_FOUND: 'ui_element_not_found'
         }
         return mapping.get(value)
 
@@ -263,7 +265,8 @@ class BotEvent(models.Model):
                     # For FATAL_ERROR event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.FATAL_ERROR) & 
                      (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) |
-                      Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED))) |
+                      Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) |
+                      Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND))) |
                     
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & 
@@ -868,7 +871,6 @@ class MediaBlob(models.Model):
             content_type=content_type
         )
 
-
 class TextToSpeechProviders(models.IntegerChoices):
     GOOGLE = 1, 'Google'
 
@@ -988,3 +990,50 @@ class BotMediaRequestManager:
 
         media_request.state = BotMediaRequestStates.DROPPED
         media_request.save()
+
+class BotDebugScreenshotStorage(S3Boto3Storage):
+    bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME
+
+class BotDebugScreenshot(models.Model):
+    OBJECT_ID_PREFIX = 'shot_'
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+
+    bot_event = models.ForeignKey(
+        BotEvent,
+        on_delete=models.CASCADE,
+        related_name='debug_screenshots'
+    )
+
+    metadata = models.JSONField(
+        null=True,
+        default=None
+    )
+
+    file = models.FileField(
+        storage=BotDebugScreenshotStorage()
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
+    @property
+    def url(self):
+        if not self.file.name:
+            return None
+        # Generate a temporary signed URL that expires in 30 minutes (1800 seconds)
+        return self.file.storage.bucket.meta.client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': self.file.storage.bucket_name,
+                'Key': self.file.name
+            },
+            ExpiresIn=1800
+        )
+
+    def __str__(self):
+        return f"Debug Screenshot {self.object_id} for event {self.bot_event}"

@@ -9,6 +9,7 @@ import redis
 from bots.bot_adapter import BotAdapter
 from .gstreamer_pipeline import GstreamerPipeline
 from .rtmp_client import RTMPClient
+from django.core.files.base import ContentFile
 
 import gi
 gi.require_version('GLib', '2.0')
@@ -431,6 +432,33 @@ class BotController:
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
     def take_action_based_on_message_from_adapter(self, message):
+        if message.get('message') == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
+            print(f"Received message that UI element not found at {message.get('current_time')}")
+            new_bot_event = BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
+                event_debug_message=f"step={message.get('step')}"
+            )
+            
+            # Create debug screenshot
+            debug_screenshot = BotDebugScreenshot.objects.create(
+                bot_event=new_bot_event,
+                metadata={
+                    'step': message.get('step'),
+                    'current_time': message.get('current_time').isoformat(),
+                }
+            )
+            
+            # Read the file content from the path
+            with open(message.get('screenshot_path'), 'rb') as f:
+                screenshot_content = f.read()
+                debug_screenshot.file.save('debug_screenshot.png', ContentFile(screenshot_content), save=True)
+            
+            self.cleanup()
+            return
+
+
         if message.get('message') == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             if self.individual_audio_input_manager:
