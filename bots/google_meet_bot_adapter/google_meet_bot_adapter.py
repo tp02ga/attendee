@@ -489,3 +489,6 @@ class GoogleMeetBotAdapter(BotAdapter):
                 print("Auto-leaving meeting because there was no media message for 30 seconds")
                 self.leave()
                 return
+                
+    def send_raw_audio(self, bytes, sample_rate):
+        print("send_raw_audio not supported in google meet bots")
