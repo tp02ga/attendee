@@ -26,8 +26,8 @@ def create_mock_zoom_sdk():
     base_mock = MagicMock()
 
     class MeetingFailCode:
-        MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN = 100
-        MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING = 101
+        MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN = '100'
+        MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING = '101'
     base_mock.MeetingFailCode = MeetingFailCode
 
     # Create a custom ZoomSDKRendererDelegateCallbacks class that actually stores the callback
