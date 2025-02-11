@@ -287,21 +287,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             'exception_type': e.__class__.__name__ if e else "original_exception_not_available"
         })
 
-    def init(self):
-        if os.environ.get('DISPLAY') is None:
-            # Create virtual display only if no real display is available
-            display = Display(visible=0, size=(1920, 1080))
-            display.start()
-        
-        # Start websocket server in a separate thread
-        websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
-        websocket_thread.start()
-        
-        sleep(0.5)  # Give the websocketserver time to start
-        if not self.websocket_port:
-            raise Exception("WebSocket server failed to start")
-
-        print(f"Trying to join google meet meeting at {self.meeting_url}")
+    def init_driver(self):
+        log_path = "chromedriver.log"
 
         options = uc.ChromeOptions()
 
@@ -315,7 +302,13 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         options.add_argument("--disable-application-cache")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        log_path = "chromedriver.log"
+
+        if self.driver:
+            try:
+                self.driver.quit()
+            except Exception as e:
+                print(f"Error closing existing driver: {e}")
+            self.driver = None
 
         self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=True, options=options, version_main=132)
 
@@ -355,11 +348,27 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             'source': combined_code
         })
 
+    def init(self):
+        if os.environ.get('DISPLAY') is None:
+            # Create virtual display only if no real display is available
+            display = Display(visible=0, size=(1920, 1080))
+            display.start()
+        
+        # Start websocket server in a separate thread
+        websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
+        websocket_thread.start()
+        
+        sleep(0.5)  # Give the websocketserver time to start
+        if not self.websocket_port:
+            raise Exception("WebSocket server failed to start")
+
+        print(f"Trying to join google meet meeting at {self.meeting_url}")
+
         num_retries = 0
         max_retries = 3
         while num_retries < max_retries: 
             try:
-            
+                self.init_driver()
                 self.attempt_to_join_meeting()
                 print("Successfully joined meeting")
                 break
