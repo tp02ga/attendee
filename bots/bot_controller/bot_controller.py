@@ -9,6 +9,7 @@ import redis
 from bots.bot_adapter import BotAdapter
 from .gstreamer_pipeline import GstreamerPipeline
 from .rtmp_client import RTMPClient
+from django.core.files.base import ContentFile
 
 import gi
 gi.require_version('GLib', '2.0')
@@ -97,7 +98,7 @@ class BotController:
             bot=self.bot_in_db,
             event_type=BotEventTypes.FATAL_ERROR,
             event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED,
-            event_debug_message=f"rtmp_destination_url={self.bot_in_db.rtmp_destination_url()}"
+            event_metadata={"rtmp_destination_url": self.bot_in_db.rtmp_destination_url()}
         )
         self.cleanup()
 
@@ -431,6 +432,44 @@ class BotController:
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
     def take_action_based_on_message_from_adapter(self, message):
+        if message.get('message') == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
+            print("Received message that request to join was denied")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED
+            )
+            self.cleanup()
+            return
+
+        if message.get('message') == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
+            print(f"Received message that UI element not found at {message.get('current_time')}")
+            new_bot_event = BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
+                event_metadata={"step": message.get('step')}
+            )
+            
+            # Create debug screenshot
+            debug_screenshot = BotDebugScreenshot.objects.create(
+                bot_event=new_bot_event,
+                metadata={
+                    'step': message.get('step'),
+                    'current_time': message.get('current_time').isoformat(),
+                    'exception_type': message.get('exception_type'),
+                }
+            )
+            
+            # Read the file content from the path
+            with open(message.get('screenshot_path'), 'rb') as f:
+                screenshot_content = f.read()
+                debug_screenshot.file.save('debug_screenshot.png', ContentFile(screenshot_content), save=True)
+            
+            self.cleanup()
+            return
+
+
         if message.get('message') == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             if self.individual_audio_input_manager:
@@ -459,7 +498,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -470,7 +509,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -481,7 +520,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -492,7 +531,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return

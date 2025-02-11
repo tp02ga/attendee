@@ -25,6 +25,11 @@ def create_mock_zoom_sdk():
     # Create mock zoom_meeting_sdk module with proper callback handling
     base_mock = MagicMock()
 
+    class MeetingFailCode:
+        MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN = '100'
+        MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING = '101'
+    base_mock.MeetingFailCode = MeetingFailCode
+
     # Create a custom ZoomSDKRendererDelegateCallbacks class that actually stores the callback
     class MockZoomSDKRendererDelegateCallbacks:
         def __init__(self, onRawDataFrameReceivedCallback, onRendererBeDestroyedCallback, onRawDataStatusChangedCallback):
@@ -574,7 +579,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify bot_joined_meeting_event (Event 2)
@@ -583,7 +588,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
         self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
         self.assertIsNone(bot_joined_meeting_event.event_sub_type)
-        self.assertIsNone(bot_joined_meeting_event.debug_message)
+        self.assertEqual(bot_joined_meeting_event.metadata, {})
         self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
 
         # Verify recording_permission_granted_event (Event 3)
@@ -592,7 +597,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
         self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
-        self.assertIsNone(recording_permission_granted_event.debug_message)
+        self.assertEqual(recording_permission_granted_event.metadata, {})
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
         print("bot_events = ", bot_events)
         # Verify meeting_ended_event (Event 4)
@@ -601,7 +606,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
         self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
         self.assertIsNone(meeting_ended_event.event_sub_type)
-        self.assertIsNone(meeting_ended_event.debug_message)
+        self.assertEqual(meeting_ended_event.metadata, {})
         self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
             
         # Verify expected SDK calls
@@ -698,7 +703,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify could_not_join_event properties
@@ -706,7 +711,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
         self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED)
-        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertEqual(could_not_join_event.metadata, {"zoom_result_code": mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
@@ -776,7 +781,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify could_not_join_event properties
@@ -784,7 +789,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
         self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST)
-        self.assertIsNone(could_not_join_event.debug_message)
+        self.assertEqual(could_not_join_event.metadata, {})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
@@ -852,7 +857,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify could_not_join_event properties
@@ -860,7 +865,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
         self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP)
-        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertEqual(could_not_join_event.metadata, {"zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
@@ -928,7 +933,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify could_not_join_event properties
@@ -936,7 +941,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
         self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED)
-        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertEqual(could_not_join_event.metadata, {'zoom_result_code': mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
@@ -1047,18 +1052,27 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertEqual(join_requested_event.metadata, {})
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify bot_joined_meeting_event (Event 2)
         bot_joined_meeting_event = bot_events[1]
         self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
         self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
         self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertIsNone(bot_joined_meeting_event.event_sub_type)
+        self.assertEqual(bot_joined_meeting_event.metadata, {})
+        self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
 
         # Verify recording_permission_granted_event (Event 3)
         recording_permission_granted_event = bot_events[2]
         self.assertEqual(recording_permission_granted_event.event_type, BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED)
         self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
         self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
+        self.assertIsNone(recording_permission_granted_event.event_sub_type)
+        self.assertEqual(recording_permission_granted_event.metadata, {})
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
 
         # Verify fatal_error_event (Event 4)
         fatal_error_event = bot_events[3]
@@ -1066,7 +1080,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(fatal_error_event.old_state, BotStates.JOINED_RECORDING)
         self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(fatal_error_event.event_sub_type, BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED)
-        self.assertEqual(fatal_error_event.debug_message, "rtmp_destination_url=rtmp://example.com/live/stream/1234")
+        self.assertEqual(fatal_error_event.metadata, {"rtmp_destination_url": "rtmp://example.com/live/stream/1234"})
 
     @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
     @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
@@ -1108,7 +1122,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(join_requested_event.old_state, BotStates.READY)
         self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
         self.assertIsNone(join_requested_event.event_sub_type)
-        self.assertIsNone(join_requested_event.debug_message)
+        self.assertEqual(join_requested_event.metadata, {})
         self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
 
         # Verify could_not_join_event properties
@@ -1116,7 +1130,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(could_not_join_event.old_state, BotStates.JOINING)
         self.assertEqual(could_not_join_event.new_state, BotStates.FATAL_ERROR)
         self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR)
-        self.assertIsNotNone(could_not_join_event.debug_message)
+        self.assertEqual(could_not_join_event.metadata, {"zoom_result_code": mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
