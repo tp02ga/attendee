@@ -107,62 +107,52 @@ class GoogleMeetUIMethods:
             },
         )
 
-        try:
-            self.fill_out_name_input()
+        self.fill_out_name_input()
 
-            print("Waiting for the 'Ask to join' button...")
-            join_button = self.locate_element(
-                step="join_button",
-                condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
-                wait_time_seconds=60
-            )
-            print("Clicking the 'Ask to join' button...")
-            join_button.click()
+        print("Waiting for the 'Ask to join' button...")
+        join_button = self.locate_element(
+            step="join_button",
+            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
+            wait_time_seconds=60
+        )
+        print("Clicking the 'Ask to join' button...")
+        join_button.click()
 
-            self.click_captions_button()
+        self.click_captions_button()
 
-            print("Waiting for the more options button...")
-            MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
-            more_options_button = self.locate_element(
-                step="more_options_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
-                wait_time_seconds=6
-            )
-            print("Clicking the more options button...")
-            more_options_button.click()
+        print("Waiting for the more options button...")
+        MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
+        more_options_button = self.locate_element(
+            step="more_options_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
+            wait_time_seconds=6
+        )
+        print("Clicking the more options button...")
+        more_options_button.click()
 
-            print("Waiting for the 'Change layout' list item...")
-            change_layout_list_item = self.locate_element(
-                step="change_layout_item",
-                condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Change layout' list item...")
-            change_layout_list_item.click()
+        print("Waiting for the 'Change layout' list item...")
+        change_layout_list_item = self.locate_element(
+            step="change_layout_item",
+            condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
+            wait_time_seconds=6
+        )
+        print("Clicking the 'Change layout' list item...")
+        change_layout_list_item.click()
 
-            print("Waiting for the 'Spotlight' label element")
-            spotlight_label = self.locate_element(
-                step="spotlight_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Spotlight' label element")
-            spotlight_label.click()
-            
-            print("Waiting for the close button")
-            close_button = self.locate_element(
-                step="close_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the close button")
-            close_button.click()
-
-        # If it's a UI exception, pass it up the chain
-        except UiException as e:
-            raise e
-
-        # If it's a miscellaneous exception, raise a fatal UI exception
-        except Exception as e:
-            print(f"Miscellaneous exception happened in attempt_to_join_meeting: {e}")
-            raise UiFatalException(f"Miscellaneous exception happened in attempt_to_join_meeting: {e.__class__.__name__}")
+        print("Waiting for the 'Spotlight' label element")
+        spotlight_label = self.locate_element(
+            step="spotlight_label",
+            condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
+            wait_time_seconds=6
+        )
+        print("Clicking the 'Spotlight' label element")
+        spotlight_label.click()
+        
+        print("Waiting for the close button")
+        close_button = self.locate_element(
+            step="close_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
+            wait_time_seconds=6
+        )
+        print("Clicking the close button")
+        close_button.click()
