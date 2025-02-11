@@ -98,7 +98,7 @@ class BotController:
             bot=self.bot_in_db,
             event_type=BotEventTypes.FATAL_ERROR,
             event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED,
-            event_debug_message=f"rtmp_destination_url={self.bot_in_db.rtmp_destination_url()}"
+            event_metadata={"rtmp_destination_url": self.bot_in_db.rtmp_destination_url()}
         )
         self.cleanup()
 
@@ -438,7 +438,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.FATAL_ERROR,
                 event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
-                event_debug_message=f"step={message.get('step')}"
+                event_metadata={"step": message.get('step')}
             )
             
             # Create debug screenshot
@@ -488,7 +488,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -499,7 +499,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -510,7 +510,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return
@@ -521,7 +521,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR,
-                event_debug_message=f"zoom_result_code={message.get('zoom_result_code')}"
+                event_metadata={"zoom_result_code": message.get('zoom_result_code')}
             )
             self.cleanup()
             return

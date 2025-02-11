@@ -205,6 +205,7 @@ class BotEventSubTypes(models.IntegerChoices):
     FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, 'Fatal error - RTMP Connection Failed'
     COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR = 7, 'Bot could not join meeting - Zoom SDK Internal Error'
     FATAL_ERROR_UI_ELEMENT_NOT_FOUND = 8, 'Fatal error - UI Element Not Found'
+    COULD_NOT_JOIN_MEETING_NOT_ADMITTED = 9, 'Bot could not join meeting - Not Admitted'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -217,7 +218,8 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP: 'unpublished_zoom_app',
             cls.FATAL_ERROR_RTMP_CONNECTION_FAILED: 'rtmp_connection_failed',
             cls.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR: 'zoom_sdk_internal_error',
-            cls.FATAL_ERROR_UI_ELEMENT_NOT_FOUND: 'ui_element_not_found'
+            cls.FATAL_ERROR_UI_ELEMENT_NOT_FOUND: 'ui_element_not_found',
+            cls.COULD_NOT_JOIN_MEETING_NOT_ADMITTED: 'not_admitted'
         }
         return mapping.get(value)
 
@@ -236,7 +238,10 @@ class BotEvent(models.Model):
 
     event_type = models.IntegerField(choices=BotEventTypes.choices) # What happened
     event_sub_type = models.IntegerField(choices=BotEventSubTypes.choices, null=True) # Why it happened
-    debug_message = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(
+        null=False,
+        default=dict
+    )
     requested_bot_action_taken_at = models.DateTimeField(null=True, blank=True) # For when a bot action is requested, this is the time it was taken    
     version = IntegerVersionField()
 
@@ -274,7 +279,8 @@ class BotEvent(models.Model):
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) |
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) |
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) |
-                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR))) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_ADMITTED))) |
                     
                     # For all other events, event_sub_type must be null
                     (~Q(event_type=BotEventTypes.FATAL_ERROR) & 
@@ -363,7 +369,7 @@ class BotEventManager:
         return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
     @classmethod
-    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, event_debug_message: str = None, max_retries: int = 3) -> BotEvent:
+    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, event_metadata: dict = dict, max_retries: int = 3) -> BotEvent:
         """
         Creates a new event and updates the bot state, handling concurrency issues.
         
@@ -424,7 +430,7 @@ class BotEventManager:
                         new_state=bot.state,
                         event_type=event_type,
                         event_sub_type=event_sub_type,
-                        debug_message=event_debug_message
+                        metadata=event_metadata
                     )
 
                     # If we moved to the recording state
@@ -1005,8 +1011,8 @@ class BotDebugScreenshot(models.Model):
     )
 
     metadata = models.JSONField(
-        null=True,
-        default=None
+        null=False,
+        default=dict
     )
 
     file = models.FileField(
