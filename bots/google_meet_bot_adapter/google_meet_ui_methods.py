@@ -4,13 +4,25 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 
 class UiException(Exception):
-    pass
+    def __init__(self, message, step, original_exception):
+        self.step = step
+        self.original_exception = original_exception
+        super().__init__(message)
 
 class UiRetryableException(UiException):
-    pass
+    def __init__(self, message, step=None, original_exception=None):
+        super().__init__(message, step, original_exception)
 
+# When this exception is raised, the bot will stop running and it will take a screenshot
+# of the UI to help with debugging
 class UiFatalException(UiException):
-    pass
+    def __init__(self, message, step=None, original_exception=None):
+        super().__init__(message, step, original_exception)
+
+# When this exception is raised, the bot will stop running and log that it was denied access to the meeting
+class UiRequestToJoinDeniedException(UiFatalException):
+    def __init__(self, message, step=None, original_exception=None):
+        super().__init__(message, step, original_exception)
 
 class GoogleMeetUIMethods:
     def locate_element(self, step, condition, wait_time_seconds=60):
@@ -21,8 +33,8 @@ class GoogleMeetUIMethods:
             return element
         except Exception as e:
             # Take screenshot when any exception occurs
-            self.send_debug_screenshot_message(step, e)
-            raise UiFatalException(f"Exception happened when trying to find element for {step}: {e.__class__.__name__}")
+            print(f"Exception raised in locate_element for {step}")
+            raise UiFatalException(f"Exception raised in locate_element for {step}", step, e)
 
     def find_element_by_selector(self, selector_type, selector):
         try:
@@ -30,17 +42,18 @@ class GoogleMeetUIMethods:
         except NoSuchElementException as e:
             return None
 
-    def look_for_blocked_element(self):
+    def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
         if cannot_join_element:
             # This means google is blocking us for whatever reason, but we can retry
-            raise UiRetryableException("You can't join this video call")
+            print("Google is blocking us for whatever reason, but we can retry. Raising UiRetryableException")
+            raise UiRetryableException("You can't join this video call", step)
 
-    def look_for_denied_your_request_element(self):
+    def look_for_denied_your_request_element(self, step):
         denied_your_request_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Someone in the call denied your request to join")]')
         if denied_your_request_element:
-            self.send_request_to_join_denied_message()
-            raise UiFatalException("Someone in the call denied your request to join")
+            print("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
+            raise UiRequestToJoinDeniedException("Someone in the call denied your request to join", step)
 
     def fill_out_name_input(self):
         num_attempts_to_look_for_name_input = 30
@@ -54,16 +67,16 @@ class GoogleMeetUIMethods:
                 name_input.send_keys(self.display_name)
                 return
             except TimeoutException as e:
-                self.look_for_blocked_element()
+                self.look_for_blocked_element("name_input")
 
                 last_check_timed_out = attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1
                 if last_check_timed_out:
-                    self.send_debug_screenshot_message("name_input", e)
-                    raise UiFatalException("Could not find name input. Timed out.")
+                    print("Could not find name input. Timed out. Raising UiFatalException")
+                    raise UiFatalException("Could not find name input. Timed out.", "name_input", e)
 
             except Exception as e:
-                self.send_debug_screenshot_message("name_input", e)
-                raise UiFatalException("Could not find name input. Unknown error.")
+                print("Could not find name input. Unknown error. Raising UiFatalException")
+                raise UiFatalException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
         num_attempts_to_look_for_captions_button = 120
@@ -77,17 +90,17 @@ class GoogleMeetUIMethods:
                 captions_button.click()
                 return
             except TimeoutException as e:
-                self.look_for_blocked_element()
-                self.look_for_denied_your_request_element()
+                self.look_for_blocked_element("click_captions_button")
+                self.look_for_denied_your_request_element("click_captions_button")
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
-                    self.send_debug_screenshot_message("captions_button", e)
-                    raise UiFatalException("Could not find captions button. Timed out.")
+                    print("Could not find captions button. Timed out. Raising UiFatalException")
+                    raise UiFatalException("Could not find captions button. Timed out.", "click_captions_button", e)
 
             except Exception as e:
-                self.send_debug_screenshot_message("captions_button", e)
-                raise UiFatalException("Could not find captions button. Unknown error.")
+                print("Could not find captions button. Unknown error. Raising UiFatalException")
+                raise UiFatalException("Could not find captions button. Unknown error.", "click_captions_button", e)
 
    # returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):

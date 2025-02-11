@@ -25,7 +25,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from bots.bot_adapter import BotAdapter
-from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiException, UiRetryableException, UiFatalException
+from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiException, UiRetryableException, UiFatalException, UiRequestToJoinDeniedException
 
 def scale_i420(frame, frame_size, new_size):
     new_width, new_height = new_size
@@ -284,7 +284,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             'step': step, 
             'current_time': current_time, 
             'screenshot_path': screenshot_path,
-            'exception_type': e.__class__.__name__
+            'exception_type': e.__class__.__name__ if e else "original_exception_not_available"
         })
 
     def init(self):
@@ -363,20 +363,24 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 self.attempt_to_join_meeting()
                 print("Successfully joined meeting")
                 break
-            
+
+            except UiRequestToJoinDeniedException as e:
+                self.send_request_to_join_denied_message()
+                return
+
+            except UiFatalException as e:
+                self.send_debug_screenshot_message(e.step, e.original_exception)
+                return
+
             except UiRetryableException as e:
 
                 if num_retries >= max_retries:
-                    print("Failed to join meeting and should_retry = true but number of retries exceeded, so returning")
+                    print("Failed to join meeting and the exception is retryable but the number of retries exceeded the limit, so returning")
+                    self.send_debug_screenshot_message(e.step, e.original_exception)
                     return
                 
-                print(f"Failed to join meeting and should_retry = true so retrying")
-            
-            except UiFatalException as e:
-            
-                print(f"Failed to join meeting and should_retry = false so returning")
-                return
-            
+                print(f"Failed to join meeting and the exception is retryable so retrying")
+
             num_retries += 1
             sleep(1)
 
