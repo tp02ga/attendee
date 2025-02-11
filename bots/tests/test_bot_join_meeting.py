@@ -1005,25 +1005,6 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Wait for the video input manager to be set up
             time.sleep(2)
-        def simulate_join_flow():
-            adapter = controller.adapter
-            # Simulate successful auth            
-            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
-
-            # Simulate connecting
-            adapter.meeting_service_event.onMeetingStatusChangedCallback(
-                mock_zoom_sdk_adapter.MEETING_STATUS_CONNECTING, 
-                mock_zoom_sdk_adapter.SDKERR_SUCCESS
-            )
-            
-            # Simulate successful join
-            adapter.meeting_service_event.onMeetingStatusChangedCallback(
-                mock_zoom_sdk_adapter.MEETING_STATUS_INMEETING, 
-                mock_zoom_sdk_adapter.SDKERR_SUCCESS
-            )
-
-            # Wait for the video input manager to be set up
-            time.sleep(2)
 
             # Send a bunch of frames to the bot it takes some time to recognize the rtmp failure
             for i in range(5):

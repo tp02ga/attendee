@@ -369,13 +369,15 @@ class BotEventManager:
         return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
 
     @classmethod
-    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, event_metadata: dict = dict, max_retries: int = 3) -> BotEvent:
+    def create_event(cls, bot: Bot, event_type: int, event_sub_type: int = None, event_metadata: dict = None, max_retries: int = 3) -> BotEvent:
         """
         Creates a new event and updates the bot state, handling concurrency issues.
         
         Args:
             bot: The Bot instance
             event_type: The type of event (from BotEventTypes)
+            event_sub_type: Optional sub-type of the event
+            event_metadata: Optional metadata dictionary (defaults to empty dict)
             max_retries: Maximum number of retries for concurrent modifications
         
         Returns:
@@ -384,6 +386,8 @@ class BotEventManager:
         Raises:
             ValidationError: If the state transition is not valid
         """
+        if event_metadata is None:
+            event_metadata = {}
         retry_count = 0
         
         while retry_count < max_retries:
