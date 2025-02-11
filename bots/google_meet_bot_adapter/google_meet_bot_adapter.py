@@ -25,7 +25,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from bots.bot_adapter import BotAdapter
-
+from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiException, UiRetryableException, UiFatalException
 
 def scale_i420(frame, frame_size, new_size):
     new_width, new_height = new_size
@@ -109,7 +109,7 @@ def scale_i420(frame, frame_size, new_size):
         final_v.flatten()
     ]).astype(np.uint8).tobytes()
 
-class GoogleMeetBotAdapter(BotAdapter):
+class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
     def __init__(self, *, display_name, send_message_callback, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback, upsert_caption_callback):
         self.display_name = display_name
@@ -287,155 +287,6 @@ class GoogleMeetBotAdapter(BotAdapter):
             'exception_type': e.__class__.__name__
         })
 
-    def locate_element(self, step, condition, wait_time_seconds=60):
-        try:
-            element = WebDriverWait(self.driver, wait_time_seconds).until(
-                condition
-            )
-            return element
-        except Exception as e:
-            # Take screenshot when any exception occurs
-            self.send_debug_screenshot_message(step, e)
-            raise  # Re-raise the original exception
-
-    def find_element_by_selector(self, selector_type, selector):
-        try:
-            return self.driver.find_element(selector_type, selector)
-        except NoSuchElementException as e:
-            return None
-
-    def fill_out_name_input(self):
-        num_attempts_to_look_for_name_input = 30
-        print("Waiting for the name input field...")
-        for attempt_to_look_for_name_input_index in range(num_attempts_to_look_for_name_input):
-            try:
-                name_input = WebDriverWait(self.driver, 1).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]'))
-                )
-                print("name input found")
-                name_input.send_keys(self.display_name)
-                break
-            except TimeoutException as e:
-                cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
-                if cannot_join_element:
-                    # This means google is blocking us for whatever reason, but we can retry
-                    return False, True
-                if attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1:
-                    self.send_debug_screenshot_message("name_input", e)
-                    raise
-            except Exception as e:
-                self.send_debug_screenshot_message("name_input", e)
-                raise
-        return None
-
-
-    def click_captions_button(self):
-        num_attempts_to_look_for_captions_button = 120
-        print("Waiting for captions button...")
-        for attempt_to_look_for_captions_button_index in range(num_attempts_to_look_for_captions_button):
-            try:
-                captions_button = WebDriverWait(self.driver, 1).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]'))
-                )
-                print("Captions button found")
-                captions_button.click()
-                break
-            except TimeoutException as e:
-                cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
-                if cannot_join_element:
-                    # This means google is blocking us for whatever reason, but we can retry
-                    return False, True
-                denied_your_request_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Someone in the call denied your request to join")]')
-                if denied_your_request_element:
-                    self.send_request_to_join_denied_message()
-                    return False, False
-                if attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1:
-                    self.send_debug_screenshot_message("captions_button", e)
-                    raise
-            except Exception as e:
-                self.send_debug_screenshot_message("captions_button", e)
-                raise
-        return None
-
-    # returns a tuple (succeeded, should_retry)
-    def attempt_to_join_meeting(self):
-        self.driver.get(self.meeting_url)
-
-        self.driver.execute_cdp_cmd(
-            "Browser.grantPermissions",
-            {
-                "origin": self.meeting_url,
-                "permissions": [
-                    "geolocation",
-                    "audioCapture",
-                    "displayCapture",
-                    "videoCapture",
-                    "videoCapturePanTiltZoom",
-                ],
-            },
-        )
-
-        try:
-            fill_out_name_input_result = self.fill_out_name_input()
-            if fill_out_name_input_result is not None:
-                return fill_out_name_input_result
-
-            print("Waiting for the 'Ask to join' button...")
-            join_button = self.locate_element(
-                step="join_button",
-                condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
-                wait_time_seconds=60
-            )
-            print("Clicking the 'Ask to join' button...")
-            join_button.click()
-
-
-            click_captions_button_result = self.click_captions_button()
-            if click_captions_button_result is not None:
-                return click_captions_button_result
-
-            print("Waiting for the more options button...")
-            MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
-            more_options_button = self.locate_element(
-                step="more_options_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
-                wait_time_seconds=6
-            )
-            print("Clicking the more options button...")
-            more_options_button.click()
-
-            print("Waiting for the 'Change layout' list item...")
-            change_layout_list_item = self.locate_element(
-                step="change_layout_item",
-                condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Change layout' list item...")
-            change_layout_list_item.click()
-
-            print("Waiting for the 'Spotlight' label element")
-            spotlight_label = self.locate_element(
-                step="spotlight_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the 'Spotlight' label element")
-            spotlight_label.click()
-            
-            print("Waiting for the close button")
-            close_button = self.locate_element(
-                step="close_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
-                wait_time_seconds=6
-            )
-            print("Clicking the close button")
-            close_button.click()
-
-            return True, False
-
-        except TimeoutException:
-            return False, False
-
     def init(self):
         if os.environ.get('DISPLAY') is None:
             # Create virtual display only if no real display is available
@@ -504,22 +355,28 @@ class GoogleMeetBotAdapter(BotAdapter):
             'source': combined_code
         })
 
-        succeeded = False
         num_retries = 0
         max_retries = 3
         while num_retries < max_retries: 
-            succeeded, should_retry = self.attempt_to_join_meeting()
-            if not succeeded and not should_retry:
-                print("Failed to join meeting and should_retry = false so returning")
-                return
-            if not succeeded and should_retry and num_retries >= max_retries:
-                print("Failed to join meeting and should_retry = true but number of retries exceeded, so returning")
-                return
-            if not succeeded and should_retry:
-                print(f"Failed to join meeting and should_retry = true and number of retries is {num_retries} so retrying")
-            if succeeded:
+            try:
+            
+                self.attempt_to_join_meeting()
                 print("Successfully joined meeting")
                 break
+            
+            except UiRetryableException as e:
+
+                if num_retries >= max_retries:
+                    print("Failed to join meeting and should_retry = true but number of retries exceeded, so returning")
+                    return
+                
+                print(f"Failed to join meeting and should_retry = true so retrying")
+            
+            except UiFatalException as e:
+            
+                print(f"Failed to join meeting and should_retry = false so returning")
+                return
+            
             num_retries += 1
             sleep(1)
 
