@@ -432,6 +432,16 @@ class BotController:
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
     def take_action_based_on_message_from_adapter(self, message):
+        if message.get('message') == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
+            print("Received message that request to join was denied")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED
+            )
+            self.cleanup()
+            return
+
         if message.get('message') == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
             print(f"Received message that UI element not found at {message.get('current_time')}")
             new_bot_event = BotEventManager.create_event(

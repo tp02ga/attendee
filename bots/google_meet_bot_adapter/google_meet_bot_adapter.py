@@ -22,7 +22,7 @@ import websockets
 from websockets.sync.server import serve
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from bots.bot_adapter import BotAdapter
 
@@ -271,6 +271,22 @@ class GoogleMeetBotAdapter(BotAdapter):
                     continue
                 raise  # Re-raise other OSErrors
 
+    def send_request_to_join_denied_message(self):
+        self.send_message_callback({'message': self.Messages.REQUEST_TO_JOIN_DENIED})
+
+    def send_debug_screenshot_message(self, step, e):
+        current_time = datetime.datetime.now()
+        timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+        screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
+        self.driver.save_screenshot(screenshot_path)
+        self.send_message_callback({
+            'message': self.Messages.UI_ELEMENT_NOT_FOUND, 
+            'step': step, 
+            'current_time': current_time, 
+            'screenshot_path': screenshot_path,
+            'exception_type': e.__class__.__name__
+        })
+
     def locate_element(self, step, condition, wait_time_seconds=60):
         try:
             element = WebDriverWait(self.driver, wait_time_seconds).until(
@@ -279,18 +295,67 @@ class GoogleMeetBotAdapter(BotAdapter):
             return element
         except Exception as e:
             # Take screenshot when any exception occurs
-            current_time = datetime.datetime.now()
-            timestamp = current_time.strftime("%Y%m%d_%H%M%S")
-            screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
-            self.driver.save_screenshot(screenshot_path)
-            self.send_message_callback({
-                'message': self.Messages.UI_ELEMENT_NOT_FOUND, 
-                'step': step, 
-                'current_time': current_time, 
-                'screenshot_path': screenshot_path,
-                'exception_type': e.__class__.__name__
-            })
+            self.send_debug_screenshot_message(step, e)
             raise  # Re-raise the original exception
+
+    def find_element_by_selector(self, selector_type, selector):
+        try:
+            return self.driver.find_element(selector_type, selector)
+        except NoSuchElementException as e:
+            return None
+
+    def fill_out_name_input(self):
+        num_attempts_to_look_for_name_input = 30
+        print("Waiting for the name input field...")
+        for attempt_to_look_for_name_input_index in range(num_attempts_to_look_for_name_input):
+            try:
+                name_input = WebDriverWait(self.driver, 1).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]'))
+                )
+                print("name input found")
+                name_input.send_keys(self.display_name)
+                break
+            except TimeoutException as e:
+                cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
+                if cannot_join_element:
+                    # This means google is blocking us for whatever reason, but we can retry
+                    return False, True
+                if attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1:
+                    self.send_debug_screenshot_message("name_input", e)
+                    raise
+            except Exception as e:
+                self.send_debug_screenshot_message("name_input", e)
+                raise
+        return None
+
+
+    def click_captions_button(self):
+        num_attempts_to_look_for_captions_button = 120
+        print("Waiting for captions button...")
+        for attempt_to_look_for_captions_button_index in range(num_attempts_to_look_for_captions_button):
+            try:
+                captions_button = WebDriverWait(self.driver, 1).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]'))
+                )
+                print("Captions button found")
+                captions_button.click()
+                break
+            except TimeoutException as e:
+                cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
+                if cannot_join_element:
+                    # This means google is blocking us for whatever reason, but we can retry
+                    return False, True
+                denied_your_request_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Someone in the call denied your request to join")]')
+                if denied_your_request_element:
+                    self.send_request_to_join_denied_message()
+                    return False, False
+                if attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1:
+                    self.send_debug_screenshot_message("captions_button", e)
+                    raise
+            except Exception as e:
+                self.send_debug_screenshot_message("captions_button", e)
+                raise
+        return None
 
     # returns a tuple (succeeded, should_retry)
     def attempt_to_join_meeting(self):
@@ -311,18 +376,9 @@ class GoogleMeetBotAdapter(BotAdapter):
         )
 
         try:
-            print("Waiting for the name input field...")
-            name_input = self.locate_element(
-                step="name_input",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')),
-                wait_time_seconds=60
-            )
-
-            print("Waiting for 1 second...")
-            sleep(1)
-        
-            print("Filling the input field with the name...")
-            name_input.send_keys(self.display_name)
+            fill_out_name_input_result = self.fill_out_name_input()
+            if fill_out_name_input_result is not None:
+                return fill_out_name_input_result
 
             print("Waiting for the 'Ask to join' button...")
             join_button = self.locate_element(
@@ -333,23 +389,10 @@ class GoogleMeetBotAdapter(BotAdapter):
             print("Clicking the 'Ask to join' button...")
             join_button.click()
 
-            try:
-                cannot_join_element = WebDriverWait(self.driver, 1).until(
-                    EC.presence_of_element_located((By.XPATH, '//*[contains(text(), "You can\'t join this video call")]'))
-                )
-                return False, True
-            except TimeoutException:
-                # Element not found, which means we can proceed normally
-                pass
 
-            print("Waiting for captions button...")
-            captions_button = self.locate_element(
-                step="captions_button",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Turn on captions"]')),
-                wait_time_seconds=600
-            )
-            print("Clicking captions button...")
-            captions_button.click()
+            click_captions_button_result = self.click_captions_button()
+            if click_captions_button_result is not None:
+                return click_captions_button_result
 
             print("Waiting for the more options button...")
             MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'

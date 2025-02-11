@@ -205,7 +205,7 @@ class BotEventSubTypes(models.IntegerChoices):
     FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, 'Fatal error - RTMP Connection Failed'
     COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR = 7, 'Bot could not join meeting - Zoom SDK Internal Error'
     FATAL_ERROR_UI_ELEMENT_NOT_FOUND = 8, 'Fatal error - UI Element Not Found'
-    COULD_NOT_JOIN_MEETING_NOT_ADMITTED = 9, 'Bot could not join meeting - Not Admitted'
+    COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED = 9, 'Bot could not join meeting - Request to join denied'
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -219,7 +219,7 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.FATAL_ERROR_RTMP_CONNECTION_FAILED: 'rtmp_connection_failed',
             cls.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR: 'zoom_sdk_internal_error',
             cls.FATAL_ERROR_UI_ELEMENT_NOT_FOUND: 'ui_element_not_found',
-            cls.COULD_NOT_JOIN_MEETING_NOT_ADMITTED: 'not_admitted'
+            cls.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED: 'request_to_join_denied'
         }
         return mapping.get(value)
 
@@ -280,7 +280,7 @@ class BotEvent(models.Model):
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) |
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) |
                       Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) |
-                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_ADMITTED))) |
+                      Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED))) |
                     
                     # For all other events, event_sub_type must be null
                     (~Q(event_type=BotEventTypes.FATAL_ERROR) & 
