@@ -82,6 +82,7 @@ RUN pip install -r requirements.txt
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
+RUN pulseaudio -D --exit-idle-time=-1 --system
 
 WORKDIR /opt
 

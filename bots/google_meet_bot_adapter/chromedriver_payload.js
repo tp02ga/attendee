@@ -1062,6 +1062,83 @@ new RTCInterceptor({
     }
 });
 
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function selectDifferentAudioDevice() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    console.log('devices', devices);
+    ws.sendJson({
+        type: 'debug message',
+        message: 'devices = ' + JSON.stringify(devices)
+    });
+
+    const audio_settings_element = document.querySelector('[aria-label="Audio settings"]');
+    if (audio_settings_element) {
+        audio_settings_element.click();
+    }
+    else {
+        console.error('Audio settings element not found');
+        ws.sendJson({
+            type: 'debug message',
+            message: 'Audio settings element not found'
+        });
+    }
+    await sleep(200);
+    
+    const micButton = document.querySelector('button[aria-label*="Microphone"]');
+    if (micButton) {
+        micButton.click();
+    }
+    else {
+        console.error('Microphone button not found');
+        ws.sendJson({
+            type: 'debug message',
+            message: 'Microphone button not found'
+        });
+    }
+
+    await sleep(200);
+
+    const microphoneMenu = document.querySelector('ul[aria-label="Device selection for the microphone"]');
+    
+    if (microphoneMenu) {
+        // Find the first li element that's a descendant
+        const outerLi = microphoneMenu.querySelector('li[role="none"]');
+        
+        if (outerLi) {
+            const numOptions = outerLi.querySelector('ul').childElementCount;
+
+            ws.sendJson({
+                type: 'debug message',
+                message: 'numOptions = ' + numOptions.toString(),
+                innerLi: outerLi.innerHTML.toString()
+            });
+
+            const innerLi = outerLi.querySelector('li:last-child');
+            if (innerLi) {
+                innerLi.click();
+            }
+            else {
+                console.error('Last child li element not found');
+                ws.sendJson({
+                    type: 'debug message',
+                    message: 'Last child li element not found'
+                });
+            }
+        }
+    } else {
+        console.error('Microphone device selection menu not found');
+        ws.sendJson({
+            type: 'debug message',
+            message: 'Microphone device selection menu not found'
+        });
+    }
+}
+
+
+
 class AudioStreamHandler {
     constructor() {
         this.audioContext = null;
@@ -1069,7 +1146,20 @@ class AudioStreamHandler {
         this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
         this.isPlaying = false;
+        this.neverChangedAudioDevice = true;
 
+        // Add interval to switch audio devices every 15 seconds
+        setInterval(async () => {
+            try {
+                await selectDifferentAudioDevice();
+            } catch (error) {
+                console.error('Error switching audio device:', error);
+                ws.sendJson({
+                    type: 'debug message',
+                    message: 'Error switching audio device: ' + error.toString()
+                });
+            }
+        }, 15000); // 15000 milliseconds = 15 seconds
 
         ws.sendJson({
             type: 'debug message',
@@ -1109,6 +1199,10 @@ class AudioStreamHandler {
 
     // Play raw PCM audio data
     async playPCM(pcmData, sampleRate) {
+        if (this.neverChangedAudioDevice) {
+            await selectDifferentAudioDevice();
+            this.neverChangedAudioDevice = false;
+        }
         // console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');
