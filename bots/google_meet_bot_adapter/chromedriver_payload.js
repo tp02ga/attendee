@@ -1068,40 +1068,42 @@ async function sleep(ms) {
 
 async function selectDifferentAudioDevice() {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    console.log('devices', devices);
     ws.sendJson({
-        type: 'debug message',
+        type: 'debug_message',
         message: 'devices = ' + JSON.stringify(devices)
     });
 
-    const audio_settings_element = document.querySelector('[aria-label="Audio settings"]');
+    const audio_settings_element = window.document.querySelector('[aria-label="Audio settings"]');
     if (audio_settings_element) {
         audio_settings_element.click();
     }
     else {
         console.error('Audio settings element not found');
         ws.sendJson({
-            type: 'debug message',
+            type: 'debug_message',
             message: 'Audio settings element not found'
         });
+        return;
     }
+    
     await sleep(200);
     
-    const micButton = document.querySelector('button[aria-label*="Microphone"]');
+    const micButton = window.document.querySelector('button[aria-label*="Microphone"]');
     if (micButton) {
         micButton.click();
     }
     else {
         console.error('Microphone button not found');
         ws.sendJson({
-            type: 'debug message',
+            type: 'debug_message',
             message: 'Microphone button not found'
         });
+        return;
     }
 
     await sleep(200);
 
-    const microphoneMenu = document.querySelector('ul[aria-label="Device selection for the microphone"]');
+    const microphoneMenu = window.document.querySelector('ul[aria-label="Device selection for the microphone"]');
     
     if (microphoneMenu) {
         // Find the first li element that's a descendant
@@ -1111,33 +1113,33 @@ async function selectDifferentAudioDevice() {
             const numOptions = outerLi.querySelector('ul').childElementCount;
 
             ws.sendJson({
-                type: 'debug message',
-                message: 'numOptions = ' + numOptions.toString(),
+                type: 'debug_message',
+                message: 'numOptions for outerLi = ' + numOptions.toString(),
                 innerLi: outerLi.innerHTML.toString()
             });
 
             const innerLi = outerLi.querySelector('li:last-child');
             if (innerLi) {
                 innerLi.click();
+                ws.sendJson({
+                    type: 'debug_message',
+                    message: 'Last child li element clicked'
+                });
             }
             else {
-                console.error('Last child li element not found');
                 ws.sendJson({
-                    type: 'debug message',
+                    type: 'debug_message',
                     message: 'Last child li element not found'
                 });
             }
         }
     } else {
-        console.error('Microphone device selection menu not found');
         ws.sendJson({
-            type: 'debug message',
+            type: 'debug_message',
             message: 'Microphone device selection menu not found'
         });
     }
 }
-
-
 
 class AudioStreamHandler {
     constructor() {
@@ -1146,25 +1148,6 @@ class AudioStreamHandler {
         this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
         this.isPlaying = false;
-        this.neverChangedAudioDevice = true;
-
-        // Add interval to switch audio devices every 15 seconds
-        setInterval(async () => {
-            try {
-                await selectDifferentAudioDevice();
-            } catch (error) {
-                console.error('Error switching audio device:', error);
-                ws.sendJson({
-                    type: 'debug message',
-                    message: 'Error switching audio device: ' + error.toString()
-                });
-            }
-        }, 15000); // 15000 milliseconds = 15 seconds
-
-        ws.sendJson({
-            type: 'debug message',
-            message: 'AudioStreamHandler constructor called'
-        });
     }
 
     // Initialize Web Audio components
@@ -1186,7 +1169,7 @@ class AudioStreamHandler {
             console.log('getUserMedia called');
 
             ws.sendJson({
-                type: 'debug message',
+                type: 'debug_message',
                 message: 'getUserMedia called'
             });
 
@@ -1199,10 +1182,6 @@ class AudioStreamHandler {
 
     // Play raw PCM audio data
     async playPCM(pcmData, sampleRate) {
-        if (this.neverChangedAudioDevice) {
-            await selectDifferentAudioDevice();
-            this.neverChangedAudioDevice = false;
-        }
         // console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');
@@ -1247,11 +1226,6 @@ class AudioStreamHandler {
         // Start playback
         source.start();
         this.isPlaying = true;
-
-        ws.sendJson({
-            type: 'debug message',
-            message: 'playPCM called'
-        });
 
         // Return promise that resolves when playback completes
         return new Promise((resolve) => {

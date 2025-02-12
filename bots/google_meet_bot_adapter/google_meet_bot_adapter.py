@@ -140,6 +140,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
         self.participants_info = {}
         self.only_one_participant_in_meeting_at = None
+        self.selected_different_audio_device = False
 
     def get_participant(self, participant_id):
         if participant_id in self.participants_info:
@@ -474,7 +475,16 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 self.leave()
                 return
 
+    def select_different_audio_device(self):
+        self.driver.execute_script("selectDifferentAudioDevice();")
+        print("select_different_audio_device called")
+
+
     def send_raw_audio(self, bytes, sample_rate):
+        if not self.selected_different_audio_device:
+            self.select_different_audio_device()
+            self.selected_different_audio_device = True
+
         audio_data = np.frombuffer(bytes, dtype=np.int16)
         
         # Play the audio through the audio handler
