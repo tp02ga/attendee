@@ -232,6 +232,9 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             )
         )
 
+        # Prefetch bot events with their debug screenshots
+        bot.bot_events.prefetch_related('debug_screenshots')
+
         context = self.get_project_context(object_id, project)
         context.update({
             'bot': bot,
