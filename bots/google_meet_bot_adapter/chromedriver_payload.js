@@ -1069,6 +1069,12 @@ class AudioStreamHandler {
         this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
         this.isPlaying = false;
+
+
+        ws.sendJson({
+            type: 'debug message',
+            message: 'AudioStreamHandler constructor called'
+        });
     }
 
     // Initialize Web Audio components
@@ -1088,6 +1094,12 @@ class AudioStreamHandler {
     overrideGetUserMedia() {
         navigator.mediaDevices.getUserMedia = async () => {
             console.log('getUserMedia called');
+
+            ws.sendJson({
+                type: 'debug message',
+                message: 'getUserMedia called'
+            });
+
             if (!this.stream) {
                 throw new Error('No audio stream available');
             }
@@ -1141,6 +1153,11 @@ class AudioStreamHandler {
         // Start playback
         source.start();
         this.isPlaying = true;
+
+        ws.sendJson({
+            type: 'debug message',
+            message: 'playPCM called'
+        });
 
         // Return promise that resolves when playback completes
         return new Promise((resolve) => {
