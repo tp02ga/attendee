@@ -1067,12 +1067,22 @@ async function sleep(ms) {
 }
 
 async function selectDifferentAudioDevice() {
+
     const devices = await navigator.mediaDevices.enumerateDevices();
     console.log('devices', devices);
     ws.sendJson({
         type: 'debug message',
         message: 'devices = ' + JSON.stringify(devices)
     });
+
+
+    ws.sendJson({
+        type: 'debug message',
+        message: 'navigator.mediaDevices.getUserMedia() = ' + JSON.stringify(navigator.mediaDevices.getUserMedia())
+    });
+
+
+    return
 
     const audio_settings_element = document.querySelector('[aria-label="Audio settings"]');
     if (audio_settings_element) {
