@@ -293,6 +293,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         options = uc.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
+        options.add_argument("--use-fake-device-for-media-stream")
         options.add_argument("--window-size=1920x1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-setuid-sandbox")
