@@ -54,7 +54,10 @@ def parse_join_url(join_url):
 
 class ZoomBotAdapter(BotAdapter):
 
-    def __init__(self, *, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback):
+    def __init__(self, *, use_one_way_audio, use_mixed_audio, use_video, display_name, send_message_callback, add_audio_chunk_callback, zoom_client_id, zoom_client_secret, meeting_url, add_video_frame_callback, wants_any_video_frames_callback, add_mixed_audio_chunk_callback):
+        self.use_one_way_audio = use_one_way_audio
+        self.use_mixed_audio = use_mixed_audio
+        self.use_video = use_video
         self.display_name = display_name
         self.send_message_callback = send_message_callback
         self.add_audio_chunk_callback = add_audio_chunk_callback
@@ -100,7 +103,14 @@ class ZoomBotAdapter(BotAdapter):
         self.video_source_helper = None
         self.video_frame_size = (1920, 1080)
 
-        self.video_input_manager = VideoInputManager(new_frame_callback=self.add_video_frame_callback, wants_any_frames_callback=self.wants_any_video_frames_callback, video_frame_size=self.video_frame_size)
+        if self.use_video:
+            self.video_input_manager = VideoInputManager(
+                new_frame_callback=self.add_video_frame_callback, 
+                wants_any_frames_callback=self.wants_any_video_frames_callback, 
+                video_frame_size=self.video_frame_size
+            )
+        else:
+            self.video_input_manager = None
 
         self.meeting_sharing_controller = None
         self.meeting_share_ctrl_event = None
@@ -134,6 +144,9 @@ class ZoomBotAdapter(BotAdapter):
             return
         
         if not self.recording_permission_granted:
+            return
+
+        if not self.video_input_manager:
             return
         
         print("set_video_input_manager_based_on_state self.active_speaker_id =", self.active_speaker_id, "self.active_sharer_id =", self.active_sharer_id, "self.active_sharer_source_id =", self.active_sharer_source_id)
@@ -398,8 +411,8 @@ class ZoomBotAdapter(BotAdapter):
         if self.audio_source is None:
             self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(
                 collectPerformanceData=True, 
-                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback,
-                onMixedAudioRawDataReceivedCallback=self.add_mixed_audio_chunk_convert_to_bytes
+                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback if self.use_one_way_audio else None,
+                onMixedAudioRawDataReceivedCallback=self.add_mixed_audio_chunk_convert_to_bytes if self.use_mixed_audio else None
             )
 
         audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
