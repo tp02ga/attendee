@@ -11,7 +11,6 @@ from bots.bots_api_views import send_sync_command
 import base64
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 import json
-from bots.bot_controller.gstreamer_pipeline import GstreamerPipeline
 from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)

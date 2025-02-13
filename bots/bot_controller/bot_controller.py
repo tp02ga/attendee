@@ -409,7 +409,7 @@ class BotController:
     def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
 
-        print(f"Received message that new utterance was detected")
+        print("Received message that new utterance was detected")
 
         # Create participant record if it doesn't exist
         participant, _ = Participant.objects.get_or_create(
