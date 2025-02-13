@@ -12,7 +12,7 @@ import base64
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 import json
 from bots.bot_controller.gstreamer_pipeline import GstreamerPipeline
-
+from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
     mock_streaming_uploader.upload_part.return_value = None
@@ -649,6 +649,176 @@ class TestBotJoinMeeting(TransactionTestCase):
         controller.adapter.video_sender.sendVideoFrame.assert_has_calls([
             call(png_to_yuv420_frame(self.test_png_bytes), 640, 360, 0, mock_zoom_sdk_adapter.FrameDataFormat_I420_FULL)
         ], any_order=True)
+
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+        
+        # Close the database connection since we're in a thread
+        connection.close()
+
+
+    @patch('bots.zoom_bot_adapter.video_input_manager.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.zoom', new_callable=create_mock_zoom_sdk)
+    @patch('bots.zoom_bot_adapter.zoom_bot_adapter.jwt')
+    @patch('bots.bot_controller.bot_controller.StreamingUploader')
+    @patch('deepgram.DeepgramClient')
+    def test_bot_can_join_meeting_and_record_audio_when_in_voice_agent_configuration(self, MockDeepgramClient, MockStreamingUploader, mock_jwt, mock_zoom_sdk_adapter, mock_zoom_sdk_video):
+        # Set up Deepgram mock
+        MockDeepgramClient.return_value = create_mock_deepgram()
+        
+        # Store uploaded data for verification
+        uploaded_data = bytearray()
+        
+        # Configure the mock uploader to capture uploaded data
+        mock_uploader = create_mock_streaming_uploader()
+        def capture_upload_part(data):
+            uploaded_data.extend(data)
+        mock_uploader.upload_part.side_effect = capture_upload_part
+        MockStreamingUploader.return_value = mock_uploader
+        
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+        
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        controller.pipeline_configuration = PipelineConfiguration.voice_agent()
+        
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        audio_request = None
+        image_request = None
+        speech_request = None
+        
+        def simulate_join_flow():
+            nonlocal audio_request, image_request, speech_request
+
+            adapter = controller.adapter
+            # Simulate successful auth            
+            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
+
+            # Simulate connecting
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_CONNECTING, 
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS
+            )
+            
+            # Simulate successful join
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_INMEETING, 
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS
+            )
+
+            time.sleep(2)
+
+            # Simulate audio frame received
+            adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
+                MockAudioFrame(),
+                2  # Simulated participant ID that's not the bot
+            )
+            
+            # simulate audio mic initialized
+            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
+
+            # simulate audio mic started
+            adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
+
+            # simulate video source initialized
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
+
+            # simulate video source started
+            adapter.virtual_camera_video_source.onStartSendCallback()
+
+            time.sleep(2)
+
+            # Simulate meeting ended
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_ENDED, 
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS
+            )
+
+            #sleep a bit for the utterance to be saved
+            time.sleep(5)
+            
+            connection.close()
+        
+        # Run join flow simulation after a short delay
+        threading.Timer(3, simulate_join_flow).start()
+        
+        # Give the bot some time to process
+        bot_thread.join(timeout=10)
+        
+        # Verify that we received no data
+        self.assertEqual(len(uploaded_data), 977, "Uploaded data length is not correct")
+        
+        # Additional verification for StreamingUploader
+        mock_uploader.start_upload.assert_called_once()
+        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the bot is in the ENDED state
+        self.assertEqual(self.bot.state, BotStates.ENDED)
+        
+        # Verify all bot events in sequence
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+
+        # Verify join_requested_event (Event 1)
+        join_requested_event = bot_events[0]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        self.assertIsNone(join_requested_event.event_sub_type)
+        self.assertEqual(join_requested_event.metadata, {})
+        self.assertIsNotNone(join_requested_event.requested_bot_action_taken_at)
+
+        # Verify bot_joined_meeting_event (Event 2)
+        bot_joined_meeting_event = bot_events[1]
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
+        self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertIsNone(bot_joined_meeting_event.event_sub_type)
+        self.assertEqual(bot_joined_meeting_event.metadata, {})
+        self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
+
+        # Verify recording_permission_granted_event (Event 3)
+        recording_permission_granted_event = bot_events[2]
+        self.assertEqual(recording_permission_granted_event.event_type, BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED)
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
+        self.assertIsNone(recording_permission_granted_event.event_sub_type)
+        self.assertEqual(recording_permission_granted_event.metadata, {})
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
+        print("bot_events = ", bot_events)
+        # Verify meeting_ended_event (Event 4)
+        meeting_ended_event = bot_events[3]
+        self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
+        self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertIsNone(meeting_ended_event.event_sub_type)
+        self.assertEqual(meeting_ended_event.metadata, {})
+        self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+            
+        # Verify expected SDK calls
+        mock_zoom_sdk_adapter.InitSDK.assert_called_once()
+        mock_zoom_sdk_adapter.CreateMeetingService.assert_called_once()
+        mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
+        controller.adapter.meeting_service.Join.assert_called_once()
+
+        # Verify that the recording was finished
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+        self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE)
+
+        # Verify that the recording has an utterance
+        utterance = self.recording.utterances.first()
+        self.assertEqual(self.recording.utterances.count(), 1)
+        self.assertIsNotNone(utterance.transcription)
 
         # Cleanup
         controller.cleanup()
