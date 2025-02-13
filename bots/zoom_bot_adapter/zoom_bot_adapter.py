@@ -145,6 +145,9 @@ class ZoomBotAdapter(BotAdapter):
         
         if not self.recording_permission_granted:
             return
+
+        if not self.video_input_manager:
+            return
         
         print("set_video_input_manager_based_on_state self.active_speaker_id =", self.active_speaker_id, "self.active_sharer_id =", self.active_sharer_id, "self.active_sharer_source_id =", self.active_sharer_source_id)
         if self.active_sharer_id:

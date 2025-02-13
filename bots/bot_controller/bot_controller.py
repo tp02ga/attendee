@@ -10,6 +10,7 @@ from bots.bot_adapter import BotAdapter
 from .gstreamer_pipeline import GstreamerPipeline
 from .rtmp_client import RTMPClient
 from django.core.files.base import ContentFile
+from .pipeline_configuration import PipelineConfiguration
 
 import gi
 gi.require_version('GLib', '2.0')
