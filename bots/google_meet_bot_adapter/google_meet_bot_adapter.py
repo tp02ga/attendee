@@ -1,7 +1,5 @@
 import asyncio
 import os
-import subprocess
-import click
 import datetime
 import requests
 import json
@@ -16,16 +14,13 @@ from time import sleep
 import undetected_chromedriver as uc
 from pyvirtualdisplay import Display
 
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-import websockets
 from websockets.sync.server import serve
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from bots.bot_adapter import BotAdapter
-from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiException, UiRetryableException, UiFatalException, UiRequestToJoinDeniedException
+from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiRetryableException, UiFatalException, UiRequestToJoinDeniedException
 
 def scale_i420(frame, frame_size, new_size):
     new_width, new_height = new_size
@@ -375,7 +370,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 print("Successfully joined meeting")
                 break
 
-            except UiRequestToJoinDeniedException as e:
+            except UiRequestToJoinDeniedException:
                 self.send_request_to_join_denied_message()
                 return
 
@@ -390,7 +385,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                     self.send_debug_screenshot_message(e.step, e.original_exception)
                     return
                 
-                print(f"Failed to join meeting and the exception is retryable so retrying")
+                print("Failed to join meeting and the exception is retryable so retrying")
 
             num_retries += 1
             sleep(1)

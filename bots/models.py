@@ -8,7 +8,6 @@ from concurrency.fields import IntegerVersionField
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from concurrency.exceptions import RecordModifiedError
-from django.db import models
 from django.db.models import Q
 from cryptography.fernet import Fernet
 from django.conf import settings

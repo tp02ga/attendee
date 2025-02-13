@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import FrozenSet, Tuple
+from typing import FrozenSet
 
 # Specifies how the bot will use the media from the meeting platform
 # For now there are only a few valid configurations, to avoid having to make the bot

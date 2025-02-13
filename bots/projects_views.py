@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Project, Bot, BotStates, Bot, Credentials, RecordingStates, Utterance
+from .models import Project, BotStates, Bot, Credentials, RecordingStates, Utterance
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.http import HttpResponse
