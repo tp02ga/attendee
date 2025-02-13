@@ -1066,11 +1066,14 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function selectDifferentAudioDevice() {
+// We need to select a different audio input device in order to make bot audio output work
+// It's not clear why this is needed, it seems to re-initialize the internal audio tracks.
+// This is a brittle workaround, but we'll use it for now.
+async function selectDifferentAudioInputDevice() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     ws.sendJson({
         type: 'debug_message',
-        message: 'devices = ' + JSON.stringify(devices)
+        message: 'SelectDifferentAudioInputDevice - devices = ' + JSON.stringify(devices)
     });
 
     const audio_settings_element = window.document.querySelector('[aria-label="Audio settings"]');
@@ -1078,14 +1081,14 @@ async function selectDifferentAudioDevice() {
         audio_settings_element.click();
     }
     else {
-        console.error('Audio settings element not found');
+        console.error('SelectDifferentAudioInputDevice - Audio settings element not found');
         ws.sendJson({
             type: 'debug_message',
-            message: 'Audio settings element not found'
+            message: 'SelectDifferentAudioInputDevice - Audio settings element not found'
         });
         return;
     }
-    
+
     await sleep(200);
     
     const micButton = window.document.querySelector('button[aria-label*="Microphone"]');
@@ -1093,10 +1096,10 @@ async function selectDifferentAudioDevice() {
         micButton.click();
     }
     else {
-        console.error('Microphone button not found');
+        console.error('SelectDifferentAudioInputDevice - Microphone button not found');
         ws.sendJson({
             type: 'debug_message',
-            message: 'Microphone button not found'
+            message: 'SelectDifferentAudioInputDevice - Microphone button not found'
         });
         return;
     }
@@ -1114,7 +1117,7 @@ async function selectDifferentAudioDevice() {
 
             ws.sendJson({
                 type: 'debug_message',
-                message: 'numOptions for outerLi = ' + numOptions.toString(),
+                message: 'SelectDifferentAudioInputDevice - Numer of Options for outerLi = ' + numOptions.toString(),
                 innerLi: outerLi.innerHTML.toString()
             });
 
@@ -1123,20 +1126,20 @@ async function selectDifferentAudioDevice() {
                 innerLi.click();
                 ws.sendJson({
                     type: 'debug_message',
-                    message: 'Last child li element clicked'
+                    message: 'SelectDifferentAudioInputDevice - Last child li element clicked'
                 });
             }
             else {
                 ws.sendJson({
                     type: 'debug_message',
-                    message: 'Last child li element not found'
+                    message: 'SelectDifferentAudioInputDevice - Last child li element not found'
                 });
             }
         }
     } else {
         ws.sendJson({
             type: 'debug_message',
-            message: 'Microphone device selection menu not found'
+            message: 'SelectDifferentAudioInputDevice - Microphone device selection menu not found'
         });
     }
 }
@@ -1148,6 +1151,7 @@ class AudioStreamHandler {
         this.streamDestination = null;
         this.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
         this.isPlaying = false;
+        this.selectedDifferentAudioInputDevice = false;
     }
 
     // Initialize Web Audio components
@@ -1183,6 +1187,11 @@ class AudioStreamHandler {
     // Play raw PCM audio data
     async playPCM(pcmData, sampleRate) {
         // console.log('playPCM called', pcmData, 'sampleRate', sampleRate);
+        if (!this.selectedDifferentAudioInputDevice) {
+            await selectDifferentAudioInputDevice();
+            this.selectedDifferentAudioInputDevice = true;
+        }
+
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');
         }
