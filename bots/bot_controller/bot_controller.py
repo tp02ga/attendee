@@ -44,6 +44,9 @@ class BotController:
             raise Exception("Zoom OAuth credentials data not found")
         
         return ZoomBotAdapter(
+            use_one_way_audio=self.pipeline_configuration.transcribe_audio,
+            use_mixed_audio=self.pipeline_configuration.record_audio or self.pipeline_configuration.rtmp_stream_audio,
+            use_video=self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video,
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
             add_audio_chunk_callback=self.individual_audio_input_manager.add_chunk,
@@ -160,6 +163,11 @@ class BotController:
         self.cleanup_called = False
         self.run_called = False
 
+        if self.bot_in_db.rtmp_destination_url():
+            self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
+        else:
+            self.pipeline_configuration = PipelineConfiguration.recorder_bot()
+
     def run(self):
         if self.run_called:
             raise Exception("Run already called, exiting")
@@ -178,7 +186,7 @@ class BotController:
 
         gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_MP4
         self.rtmp_client = None
-        if self.bot_in_db.rtmp_destination_url():
+        if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_FLV
             self.rtmp_client = RTMPClient(rtmp_url=self.bot_in_db.rtmp_destination_url())
             self.rtmp_client.start()
