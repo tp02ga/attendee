@@ -118,4 +118,4 @@ For more details, follow [this guide](https://developers.zoom.us/docs/meeting-sd
 - [ ] Webhooks for state changes
 - [ ] Microsoft Teams support
 
-
+Have suggestions for the roadmap? Join the [Slack Community](https://join.slack.com/t/attendeecommu-rff8300/shared_invite/zt-2uhpam6p2-ZzLAoVrljbL2UEjqdSHrgQ) or open an issue.
