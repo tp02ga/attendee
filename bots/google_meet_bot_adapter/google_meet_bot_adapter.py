@@ -20,7 +20,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from bots.bot_adapter import BotAdapter
-from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiRetryableException, UiFatalException, UiRequestToJoinDeniedException
+from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods, UiRetryableException, UiRequestToJoinDeniedException
 
 def scale_i420(frame, frame_size, new_size):
     new_width, new_height = new_size
@@ -269,7 +269,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
     def send_request_to_join_denied_message(self):
         self.send_message_callback({'message': self.Messages.REQUEST_TO_JOIN_DENIED})
 
-    def send_debug_screenshot_message(self, step, e):
+    def send_debug_screenshot_message(self, step, exception, inner_exception):
         current_time = datetime.datetime.now()
         timestamp = current_time.strftime("%Y%m%d_%H%M%S")
         screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
@@ -279,7 +279,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             'step': step, 
             'current_time': current_time, 
             'screenshot_path': screenshot_path,
-            'exception_type': e.__class__.__name__ if e else "original_exception_not_available"
+            'exception_type': exception.__class__.__name__ if exception else "exception_not_available",
+            'inner_exception_type': inner_exception.__class__.__name__ if inner_exception else "inner_exception_not_available"
         })
 
     def init_driver(self):
@@ -374,18 +375,14 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 self.send_request_to_join_denied_message()
                 return
 
-            except UiFatalException as e:
-                self.send_debug_screenshot_message(e.step, e.original_exception)
-                return
-
             except UiRetryableException as e:
 
                 if num_retries >= max_retries:
-                    print("Failed to join meeting and the exception is retryable but the number of retries exceeded the limit, so returning")
-                    self.send_debug_screenshot_message(e.step, e.original_exception)
+                    print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
+                    self.send_debug_screenshot_message(step = e.step, exception = e, inner_exception = e.inner_exception)
                     return
                 
-                print("Failed to join meeting and the exception is retryable so retrying")
+                print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
 
             num_retries += 1
             sleep(1)
