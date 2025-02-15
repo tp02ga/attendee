@@ -91,7 +91,7 @@ class GoogleMeetUIMethods:
                     raise UiCouldNotLocateElementException("Could not find name input. Timed out.", "name_input", e)
 
             except Exception as e:
-                print(f"Could not find name input. Unknown error {e}. Raising UiCouldNotLocateElementException")
+                print(f"Could not find name input. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
@@ -117,7 +117,7 @@ class GoogleMeetUIMethods:
                     raise UiCouldNotLocateElementException("Could not find captions button. Timed out.", "click_captions_button", e)
 
             except Exception as e:
-                print(f"Could not find captions button. Unknown error {e}. Raising UiCouldNotLocateElementException")
+                print(f"Could not find captions button. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")
                 raise UiCouldNotLocateElementException("Could not find captions button. Unknown error.", "click_captions_button", e)
 
    # returns nothing if succeeded, raises an exception if failed
