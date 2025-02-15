@@ -276,7 +276,6 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:
             print(f"Websocket error: {e}")
-            raise e
 
 
     def run_websocket_server(self):
