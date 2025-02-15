@@ -285,7 +285,9 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             'current_time': current_time, 
             'screenshot_path': screenshot_path,
             'exception_type': exception.__class__.__name__ if exception else "exception_not_available",
-            'inner_exception_type': inner_exception.__class__.__name__ if inner_exception else "inner_exception_not_available"
+            'exception_message': exception.__str__() if exception else "exception_message_not_available",
+            'inner_exception_type': inner_exception.__class__.__name__ if inner_exception else "inner_exception_not_available",
+            'inner_exception_message': inner_exception.__str__() if inner_exception else "inner_exception_message_not_available"
         })
 
     def init_driver(self):

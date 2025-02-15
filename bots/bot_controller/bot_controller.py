@@ -463,19 +463,20 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.FATAL_ERROR,
                 event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
-                event_metadata={"step": message.get('step'), "screenshot_available": screenshot_available}
+                event_metadata={
+                        'step': message.get('step'),
+                        'current_time': message.get('current_time').isoformat(),
+                        'exception_type': message.get('exception_type'),
+                        'exception_message': message.get('exception_message'),
+                        'inner_exception_type': message.get('inner_exception_type'),
+                        'inner_exception_message': message.get('inner_exception_message'),
+                    }
             )
 
             if screenshot_available:
                 # Create debug screenshot
                 debug_screenshot = BotDebugScreenshot.objects.create(
-                    bot_event=new_bot_event,
-                    metadata={
-                        'step': message.get('step'),
-                        'current_time': message.get('current_time').isoformat(),
-                        'exception_type': message.get('exception_type'),
-                        'inner_exception_type': message.get('inner_exception_type'),
-                    }
+                    bot_event=new_bot_event
                 )
                 
                 # Read the file content from the path
