@@ -5,7 +5,7 @@ import time
 
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = 'audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved'
-    AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved'
+    AUDIO_FORMAT_FLOAT = 'audio/x-raw,format=F32LE,channels=1,rate=16000,layout=interleaved'
     OUTPUT_FORMAT_FLV = 'flv'
     OUTPUT_FORMAT_MP4 = 'mp4'
 
