@@ -465,8 +465,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 return
 
         if self.last_media_message_processed_time is not None:
-            if time.time() - self.last_media_message_processed_time > 30:
-                print("Auto-leaving meeting because there was no media message for 30 seconds")
+            if time.time() - self.last_media_message_processed_time > 300:
+                print("Auto-leaving meeting because there was no media message for 300 seconds")
                 self.leave()
                 return
 
