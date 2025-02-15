@@ -353,9 +353,6 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
         self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=True, options=options, version_main=133)
 
-        # Trying making it smaller so GMeet sends smaller video frames
-        self.driver.set_window_size(1920/2, 1080/2)
-
         initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
 
         # Define the CDN libraries needed
@@ -430,6 +427,9 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
             num_retries += 1
             sleep(1)
+
+        # Trying making it smaller so GMeet sends smaller video frames
+        self.driver.set_window_size(1920/2, 1080/2)
 
         self.send_message_callback({'message': self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({'message': self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
