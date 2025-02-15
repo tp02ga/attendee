@@ -47,6 +47,9 @@ class GoogleMeetUIMethods:
             return self.driver.find_element(selector_type, selector)
         except NoSuchElementException:
             return None
+        except Exception as e:
+            print(f"Unknown error occurred in find_element_by_selector. Exception type = {type(e)}")
+            return None
 
     def click_element(self, element, step):
         try:

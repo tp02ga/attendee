@@ -273,7 +273,12 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         current_time = datetime.datetime.now()
         timestamp = current_time.strftime("%Y%m%d_%H%M%S")
         screenshot_path = f"/tmp/ui_element_not_found_{timestamp}.png"
-        self.driver.save_screenshot(screenshot_path)
+        try:
+            self.driver.save_screenshot(screenshot_path)
+        except Exception as e:
+            print(f"Error saving screenshot: {e}")
+            screenshot_path = None
+
         self.send_message_callback({
             'message': self.Messages.UI_ELEMENT_NOT_FOUND, 
             'step': step, 
@@ -362,8 +367,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         print(f"Trying to join google meet meeting at {self.meeting_url}")
 
         num_retries = 0
-        max_retries = 3
-        while num_retries < max_retries: 
+        max_retries = 2
+        while num_retries <= max_retries: 
             try:
                 self.init_driver()
                 self.attempt_to_join_meeting()
