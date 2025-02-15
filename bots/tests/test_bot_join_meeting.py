@@ -204,22 +204,6 @@ def create_mock_zoom_sdk():
         def GetPersistentId(self):
             return self._persistent_id
 
-    # Create a mock participants controller class
-    class MockParticipant:
-        def __init__(self, user_id, user_name, persistent_id):
-            self._user_id = user_id
-            self._user_name = user_name
-            self._persistent_id = persistent_id
-
-        def GetUserID(self):
-            return self._user_id
-
-        def GetUserName(self):
-            return self._user_name
-
-        def GetPersistentId(self):
-            return self._persistent_id
-
     # Create a mock participants controller
     mock_participants_controller = MagicMock()
     mock_participants_controller.GetParticipantsList.return_value = [2]  # Return test user ID
