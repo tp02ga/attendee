@@ -130,7 +130,6 @@ class GoogleMeetUIMethods:
                     "audioCapture",
                     "displayCapture",
                     "videoCapture",
-                    "videoCapturePanTiltZoom",
                 ],
             },
         )

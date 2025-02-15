@@ -292,7 +292,6 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         options.add_argument("--use-fake-device-for-media-stream")
         options.add_argument("--window-size=1920x1080")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--mute-audio")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
@@ -308,7 +307,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 print(f"Error closing existing driver: {e}")
             self.driver = None
 
-        self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=True, options=options, version_main=132)
+        self.driver = uc.Chrome(service_log_path=log_path, use_subprocess=True, options=options, version_main=133)
 
         self.driver.set_window_size(1920, 1080)
 
