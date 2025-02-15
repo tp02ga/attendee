@@ -296,10 +296,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         options = uc.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
-        options.add_argument("--use-fake-device-for-media-stream")
         options.add_argument("--window-size=1920x1080")
         options.add_argument("--no-sandbox")
-        options.add_argument("--mute-audio")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-extensions")
@@ -473,9 +471,4 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 return
 
     def send_raw_audio(self, bytes, sample_rate):
-        audio_data = np.frombuffer(bytes, dtype=np.int16)
-        
-        # Play the audio through the audio handler
-        self.driver.execute_script("""
-            playAudio(arguments[0], arguments[1]);
-        """, audio_data.tolist(), sample_rate)
+        print("send_raw_audio not supported in google meet bots")
