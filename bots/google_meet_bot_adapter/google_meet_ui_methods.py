@@ -63,10 +63,10 @@ class GoogleMeetUIMethods:
     def click_element(self, element, step):
         try:
             element.click()
-        except Exception:
+        except Exception as e:
             print(f"Error occurred when clicking element {step}, will retry")
             raise UiCouldNotClickElementException(
-                "Error occurred when clicking element", step
+                "Error occurred when clicking element", step, e
             )
 
     def look_for_blocked_element(self, step):
