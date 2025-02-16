@@ -785,7 +785,7 @@ const handleVideoTrack = async (event) => {
     }
 
     // Add frame rate control variables
-    const targetFPS = isScreenShare ? 5 : 24;
+    const targetFPS = isScreenShare ? 5 : 15;
     const frameInterval = 1000 / targetFPS; // milliseconds between frames
     let lastFrameTime = 0;
 
@@ -874,26 +874,6 @@ const handleVideoTrack = async (event) => {
   }
 };
 
-function downsampleAudio(audioData, originalSampleRate, targetSampleRate, numChannels) {
-    if (originalSampleRate === targetSampleRate) {
-        return audioData;
-    }
-
-    const samplesPerChannel = audioData.length / numChannels;
-    const ratio = originalSampleRate / targetSampleRate;
-    const newLength = Math.floor(samplesPerChannel / ratio) * numChannels;
-    const downsampledData = new Float32Array(newLength);
-
-    for (let channel = 0; channel < numChannels; channel++) {
-        for (let i = 0; i < newLength / numChannels; i++) {
-            const originalIndex = Math.floor(i * ratio) * numChannels + channel;
-            downsampledData[i * numChannels + channel] = audioData[originalIndex];
-        }
-    }
-
-    return downsampledData;
-}
-
 const handleAudioTrack = async (event) => {
   let lastAudioFormat = null;  // Track last seen format
   
@@ -931,13 +911,6 @@ const handleAudioTrack = async (event) => {
                               { planeIndex: channel });
                 }
 
-                const downsampledData = downsampleAudio(
-                    audioData, 
-                    frame.sampleRate, 
-                    16000,
-                    numChannels
-                );
-                
                 // console.log('frame', frame)
                 // console.log('audioData', audioData)
 
@@ -961,13 +934,13 @@ const handleAudioTrack = async (event) => {
                 }
 
                 // If the audioData buffer is all zeros, then we don't want to send it
-                if (downsampledData.every(value => value === 0)) {
+                if (audioData.every(value => value === 0)) {
                     return;
                 }
 
                 // Send audio data through websocket
                 const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
-                ws.sendAudio(currentTimeMicros, downsampledData);
+                ws.sendAudio(currentTimeMicros, audioData);
 
                 // Pass through the original frame
                 controller.enqueue(frame);
