@@ -31,11 +31,7 @@ class Command(BaseCommand):
         project = Project.objects.get(object_id=options["projectid"])
 
         meeting_url = options["joinurl"]
-        rtmp_settings = (
-            json.loads(options.get("rtmpsettings"))
-            if options.get("rtmpsettings")
-            else None
-        )
+        rtmp_settings = json.loads(options.get("rtmpsettings")) if options.get("rtmpsettings") else None
         bot_name = options["botname"]
         bot = Bot.objects.create(
             project=project,

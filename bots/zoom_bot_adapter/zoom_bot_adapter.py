@@ -215,18 +215,12 @@ class ZoomBotAdapter(BotAdapter):
 
     def set_up_video_input_manager(self):
         # If someone was sharing before we joined, we will not receive an event, so we need to poll for the active sharer
-        viewable_sharing_user_list = (
-            self.meeting_sharing_controller.GetViewableSharingUserList()
-        )
+        viewable_sharing_user_list = self.meeting_sharing_controller.GetViewableSharingUserList()
         self.active_sharer_id = None
         self.active_sharer_source_id = None
 
         if viewable_sharing_user_list:
-            sharing_source_info_list = (
-                self.meeting_sharing_controller.GetSharingSourceInfoList(
-                    viewable_sharing_user_list[0]
-                )
-            )
+            sharing_source_info_list = self.meeting_sharing_controller.GetSharingSourceInfoList(viewable_sharing_user_list[0])
             if sharing_source_info_list:
                 self.active_sharer_id = sharing_source_info_list[0].userid
                 self.active_sharer_source_id = sharing_source_info_list[0].shareSourceID
@@ -251,15 +245,11 @@ class ZoomBotAdapter(BotAdapter):
             )
             print(
                 "meanProcessingTimeMicroseconds =",
-                float(performance_data.totalProcessingTimeMicroseconds)
-                / performance_data.numCalls,
+                float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls,
             )
 
             # Print processing time distribution
-            bin_size = (
-                performance_data.processingTimeBinMax
-                - performance_data.processingTimeBinMin
-            ) / len(performance_data.processingTimeBinCounts)
+            bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
             print("\nProcessing time distribution (microseconds):")
             for bin_idx, count in enumerate(performance_data.processingTimeBinCounts):
                 if count > 0:
@@ -279,9 +269,7 @@ class ZoomBotAdapter(BotAdapter):
 
         if self.audio_helper:
             audio_helper_unsubscribe_result = self.audio_helper.unSubscribe()
-            print(
-                "audio_helper.unSubscribe() returned", audio_helper_unsubscribe_result
-            )
+            print("audio_helper.unSubscribe() returned", audio_helper_unsubscribe_result)
 
         if self.video_input_manager:
             self.video_input_manager.cleanup()
@@ -329,37 +317,27 @@ class ZoomBotAdapter(BotAdapter):
             user_id,
         )
 
-        if (
-            sharing_status == zoom.Sharing_Other_Share_Begin
-            or sharing_status == zoom.Sharing_View_Other_Sharing
-        ):
+        if sharing_status == zoom.Sharing_Other_Share_Begin or sharing_status == zoom.Sharing_View_Other_Sharing:
             new_active_sharer_id = user_id
             new_active_sharer_source_id = sharing_info.shareSourceID
         else:
             new_active_sharer_id = None
             new_active_sharer_source_id = None
 
-        if (
-            new_active_sharer_id != self.active_sharer_id
-            or new_active_sharer_source_id != self.active_sharer_source_id
-        ):
+        if new_active_sharer_id != self.active_sharer_id or new_active_sharer_source_id != self.active_sharer_source_id:
             self.active_sharer_id = new_active_sharer_id
             self.active_sharer_source_id = new_active_sharer_source_id
             self.set_video_input_manager_based_on_state()
 
     def on_join(self):
         # Meeting reminder controller
-        self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(
-            onReminderNotifyCallback=self.on_reminder_notify
-        )
+        self.meeting_reminder_event = zoom.MeetingReminderEventCallbacks(onReminderNotifyCallback=self.on_reminder_notify)
         self.reminder_controller = self.meeting_service.GetMeetingReminderController()
         self.reminder_controller.SetEvent(self.meeting_reminder_event)
 
         # Participants controller
         self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
-        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(
-            onUserJoinCallback=self.on_user_join_callback
-        )
+        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback)
         self.participants_ctrl.SetEvent(self.participants_ctrl_event)
         self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
         participant_ids_list = self.participants_ctrl.GetParticipantsList()
@@ -367,19 +345,13 @@ class ZoomBotAdapter(BotAdapter):
             self.get_participant(participant_id)
 
         # Meeting sharing controller
-        self.meeting_sharing_controller = (
-            self.meeting_service.GetMeetingShareController()
-        )
-        self.meeting_share_ctrl_event = zoom.MeetingShareCtrlEventCallbacks(
-            onSharingStatusCallback=self.on_sharing_status_callback
-        )
+        self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()
+        self.meeting_share_ctrl_event = zoom.MeetingShareCtrlEventCallbacks(onSharingStatusCallback=self.on_sharing_status_callback)
         self.meeting_sharing_controller.SetEvent(self.meeting_share_ctrl_event)
 
         # Audio controller
         self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
-        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(
-            onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback
-        )
+        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
         self.audio_ctrl.SetEvent(self.audio_ctrl_event)
 
         if self.use_raw_recording:
@@ -392,9 +364,7 @@ class ZoomBotAdapter(BotAdapter):
                 else:
                     self.stop_raw_recording()
 
-            self.recording_event = zoom.MeetingRecordingCtrlEventCallbacks(
-                onRecordPrivilegeChangedCallback=on_recording_privilege_changed
-            )
+            self.recording_event = zoom.MeetingRecordingCtrlEventCallbacks(onRecordPrivilegeChangedCallback=on_recording_privilege_changed)
             self.recording_ctrl.SetEvent(self.recording_event)
 
             self.start_raw_recording()
@@ -410,18 +380,10 @@ class ZoomBotAdapter(BotAdapter):
         )
         self.video_source_helper = zoom.GetRawdataVideoSourceHelper()
         if self.video_source_helper:
-            set_external_video_source_result = (
-                self.video_source_helper.setExternalVideoSource(
-                    self.virtual_camera_video_source
-                )
-            )
-            print(
-                "set_external_video_source_result =", set_external_video_source_result
-            )
+            set_external_video_source_result = self.video_source_helper.setExternalVideoSource(self.virtual_camera_video_source)
+            print("set_external_video_source_result =", set_external_video_source_result)
             if set_external_video_source_result == zoom.SDKERR_SUCCESS:
-                self.meeting_video_controller = (
-                    self.meeting_service.GetMeetingVideoController()
-                )
+                self.meeting_video_controller = self.meeting_service.GetMeetingVideoController()
                 unmute_video_result = self.meeting_video_controller.UnmuteVideo()
                 print("unmute_video_result =", unmute_video_result)
         else:
@@ -434,27 +396,17 @@ class ZoomBotAdapter(BotAdapter):
         # Not sure why this happens.
         if self.video_sender and not self.on_virtual_camera_start_send_callback_called:
             blank = create_black_yuv420_frame(640, 360)
-            initial_send_video_frame_response = self.video_sender.sendVideoFrame(
-                blank, 640, 360, 0, zoom.FrameDataFormat_I420_FULL
-            )
-            print(
-                "initial_send_video_frame_response =", initial_send_video_frame_response
-            )
+            initial_send_video_frame_response = self.video_sender.sendVideoFrame(blank, 640, 360, 0, zoom.FrameDataFormat_I420_FULL)
+            print("initial_send_video_frame_response =", initial_send_video_frame_response)
         self.on_virtual_camera_start_send_callback_called = True
 
-    def on_virtual_camera_initialize_callback(
-        self, video_sender, support_cap_list, suggest_cap
-    ):
+    def on_virtual_camera_initialize_callback(self, video_sender, support_cap_list, suggest_cap):
         self.video_sender = video_sender
 
     def send_raw_image(self, yuv420_image_bytes):
         if not self.on_virtual_camera_start_send_callback_called:
-            raise Exception(
-                "on_virtual_camera_start_send_callback_called not called so cannot send raw image"
-            )
-        send_video_frame_response = self.video_sender.sendVideoFrame(
-            yuv420_image_bytes, 640, 360, 0, zoom.FrameDataFormat_I420_FULL
-        )
+            raise Exception("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+        send_video_frame_response = self.video_sender.sendVideoFrame(yuv420_image_bytes, 640, 360, 0, zoom.FrameDataFormat_I420_FULL)
         print("send_raw_image send_video_frame_response =", send_video_frame_response)
 
     def set_up_bot_audio_input(self):
@@ -465,18 +417,12 @@ class ZoomBotAdapter(BotAdapter):
             print("set_up_bot_audio_input failed because audio_helper is None")
             return
 
-        self.virtual_audio_mic_event_passthrough = (
-            zoom.ZoomSDKVirtualAudioMicEventCallbacks(
-                onMicInitializeCallback=self.on_mic_initialize_callback,
-                onMicStartSendCallback=self.on_mic_start_send_callback,
-            )
+        self.virtual_audio_mic_event_passthrough = zoom.ZoomSDKVirtualAudioMicEventCallbacks(
+            onMicInitializeCallback=self.on_mic_initialize_callback,
+            onMicStartSendCallback=self.on_mic_start_send_callback,
         )
 
-        audio_helper_set_external_audio_source_result = (
-            self.audio_helper.setExternalAudioSource(
-                self.virtual_audio_mic_event_passthrough
-            )
-        )
+        audio_helper_set_external_audio_source_result = self.audio_helper.setExternalAudioSource(self.virtual_audio_mic_event_passthrough)
         print(
             "audio_helper_set_external_audio_source_result =",
             audio_helper_set_external_audio_source_result,
@@ -490,12 +436,8 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_audio(self, bytes, sample_rate):
         if not self.on_mic_start_send_callback_called:
-            raise Exception(
-                "on_mic_start_send_callback_called not called so cannot send raw audio"
-            )
-        send_result = self.audio_raw_data_sender.send(
-            bytes, sample_rate, zoom.ZoomSDKAudioChannel_Mono
-        )
+            raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
+        send_result = self.audio_raw_data_sender.send(bytes, sample_rate, zoom.ZoomSDKAudioChannel_Mono)
         if send_result != zoom.SDKERR_SUCCESS:
             print("error with send_raw_audio send_result =", send_result)
 
@@ -537,22 +479,14 @@ class ZoomBotAdapter(BotAdapter):
         if self.audio_source is None:
             self.audio_source = zoom.ZoomSDKAudioRawDataDelegateCallbacks(
                 collectPerformanceData=True,
-                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback
-                if self.use_one_way_audio
-                else None,
-                onMixedAudioRawDataReceivedCallback=self.add_mixed_audio_chunk_convert_to_bytes
-                if self.use_mixed_audio
-                else None,
+                onOneWayAudioRawDataReceivedCallback=self.on_one_way_audio_raw_data_received_callback if self.use_one_way_audio else None,
+                onMixedAudioRawDataReceivedCallback=self.add_mixed_audio_chunk_convert_to_bytes if self.use_mixed_audio else None,
             )
 
-        audio_helper_subscribe_result = self.audio_helper.subscribe(
-            self.audio_source, False
-        )
+        audio_helper_subscribe_result = self.audio_helper.subscribe(self.audio_source, False)
         print("audio_helper_subscribe_result =", audio_helper_subscribe_result)
 
-        self.send_message_callback(
-            {"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED}
-        )
+        self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
         self.recording_permission_granted = True
 
         GLib.timeout_add(100, self.set_up_video_input_manager)
@@ -618,14 +552,10 @@ class ZoomBotAdapter(BotAdapter):
         print("meeting_status_changed called. status =", status, "iResult=", iResult)
 
         if status == zoom.MEETING_STATUS_WAITINGFORHOST:
-            self.send_message_callback(
-                {"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST}
-            )
+            self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
 
         if status == zoom.MEETING_STATUS_IN_WAITING_ROOM:
-            self.send_message_callback(
-                {"message": self.Messages.BOT_PUT_IN_WAITING_ROOM}
-            )
+            self.send_message_callback({"message": self.Messages.BOT_PUT_IN_WAITING_ROOM})
 
         if status == zoom.MEETING_STATUS_INMEETING:
             self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
@@ -635,10 +565,7 @@ class ZoomBotAdapter(BotAdapter):
 
         if status == zoom.MEETING_STATUS_FAILED:
             # Since the unable to join external meeting issue is so common, we'll handle it separately
-            if (
-                iResult
-                == zoom.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING
-            ):
+            if iResult == zoom.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING:
                 self.send_message_callback(
                     {
                         "message": self.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING,
@@ -661,19 +588,13 @@ class ZoomBotAdapter(BotAdapter):
 
         self.setting_service = zoom.CreateSettingService()
 
-        self.meeting_service_event = zoom.MeetingServiceEventCallbacks(
-            onMeetingStatusChangedCallback=self.meeting_status_changed
-        )
+        self.meeting_service_event = zoom.MeetingServiceEventCallbacks(onMeetingStatusChangedCallback=self.meeting_status_changed)
 
-        meeting_service_set_revent_result = self.meeting_service.SetEvent(
-            self.meeting_service_event
-        )
+        meeting_service_set_revent_result = self.meeting_service.SetEvent(self.meeting_service_event)
         if meeting_service_set_revent_result != zoom.SDKERR_SUCCESS:
             raise Exception("Meeting Service set event failed")
 
-        self.auth_event = zoom.AuthServiceEventCallbacks(
-            onAuthenticationReturnCallback=self.auth_return
-        )
+        self.auth_event = zoom.AuthServiceEventCallbacks(onAuthenticationReturnCallback=self.auth_return)
 
         self.auth_service = zoom.CreateAuthService()
 

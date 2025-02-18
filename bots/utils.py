@@ -48,9 +48,7 @@ def pcm_to_mp3(
     return mp3_data
 
 
-def mp3_to_pcm(
-    mp3_data: bytes, sample_rate: int = 32000, channels: int = 1, sample_width: int = 2
-) -> bytes:
+def mp3_to_pcm(mp3_data: bytes, sample_rate: int = 32000, channels: int = 1, sample_width: int = 2) -> bytes:
     """
     Convert MP3 audio data to PCM format.
 
@@ -97,9 +95,7 @@ def calculate_audio_duration_ms(audio_data: bytes, content_type: str) -> int:
     if content_type == "audio/mp3":
         audio = AudioSegment.from_mp3(buffer)
     else:
-        raise ValueError(
-            f"Unsupported content type for duration calculation: {content_type}"
-        )
+        raise ValueError(f"Unsupported content type for duration calculation: {content_type}")
 
     buffer.close()
     # len(audio) returns duration in milliseconds for pydub AudioSegment objects
@@ -157,11 +153,7 @@ class AggregatedUtterance:
         self.transcription["words"] = utterance_words(utterance)
 
     def aggregate(self, utterance):
-        self.transcription["words"].extend(
-            utterance_words(
-                utterance, offset=(utterance.timestamp_ms - self.timestamp_ms) / 1000.0
-            )
-        )
+        self.transcription["words"].extend(utterance_words(utterance, offset=(utterance.timestamp_ms - self.timestamp_ms) / 1000.0))
         self.transcription["transcript"] += " " + utterance.transcription["transcript"]
         self.duration_ms += utterance.duration_ms
 
@@ -180,17 +172,7 @@ def generate_aggregated_utterances(recording):
         if current_aggregated_utterance is None:
             current_aggregated_utterance = AggregatedUtterance(utterance)
         else:
-            if (
-                utterance.transcription.get("words") is None
-                and utterance.participant.id
-                == current_aggregated_utterance.participant.id
-                and utterance.timestamp_ms
-                - (
-                    current_aggregated_utterance.timestamp_ms
-                    + current_aggregated_utterance.duration_ms
-                )
-                < 3000
-            ):
+            if utterance.transcription.get("words") is None and utterance.participant.id == current_aggregated_utterance.participant.id and utterance.timestamp_ms - (current_aggregated_utterance.timestamp_ms + current_aggregated_utterance.duration_ms) < 3000:
                 current_aggregated_utterance.aggregate(utterance)
             else:
                 aggregated_utterances.append(current_aggregated_utterance)
@@ -214,17 +196,11 @@ def generate_utterance_json_for_bot_detail_view(recording):
 
         if recording_first_buffer_timestamp_ms:
             if utterance.transcription.get("words"):
-                first_word_start_relative_ms = int(
-                    utterance.transcription.get("words")[0].get("start") * 1000
-                )
+                first_word_start_relative_ms = int(utterance.transcription.get("words")[0].get("start") * 1000)
             else:
                 first_word_start_relative_ms = 0
 
-            relative_timestamp_ms = (
-                utterance.timestamp_ms
-                - recording_first_buffer_timestamp_ms
-                + first_word_start_relative_ms
-            )
+            relative_timestamp_ms = utterance.timestamp_ms - recording_first_buffer_timestamp_ms + first_word_start_relative_ms
         else:
             # If we don't have a first buffer timestamp, we use the absolute timestamp
             relative_timestamp_ms = utterance.timestamp_ms
@@ -232,21 +208,15 @@ def generate_utterance_json_for_bot_detail_view(recording):
         relative_words_data = []
         if utterance.transcription.get("words"):
             if recording_first_buffer_timestamp_ms:
-                utterance_start_relative_ms = (
-                    utterance.timestamp_ms - recording_first_buffer_timestamp_ms
-                )
+                utterance_start_relative_ms = utterance.timestamp_ms - recording_first_buffer_timestamp_ms
             else:
                 # If we don't have a first buffer timestamp, we use the absolute timestamp
                 utterance_start_relative_ms = utterance.timestamp_ms
 
             for word in utterance.transcription["words"]:
                 relative_word = word.copy()
-                relative_word["start"] = utterance_start_relative_ms + int(
-                    word["start"] * 1000
-                )
-                relative_word["end"] = utterance_start_relative_ms + int(
-                    word["end"] * 1000
-                )
+                relative_word["start"] = utterance_start_relative_ms + int(word["start"] * 1000)
+                relative_word["end"] = utterance_start_relative_ms + int(word["end"] * 1000)
                 relative_words_data.append(relative_word)
 
         relative_words_data_with_spaces = []
@@ -272,11 +242,7 @@ def generate_utterance_json_for_bot_detail_view(recording):
                     }
                 )
 
-        timestamp_ms = (
-            relative_timestamp_ms
-            if recording_first_buffer_timestamp_ms is not None
-            else utterance.timestamp_ms
-        )
+        timestamp_ms = relative_timestamp_ms if recording_first_buffer_timestamp_ms is not None else utterance.timestamp_ms
         seconds = timestamp_ms // 1000
         timestamp_display = f"{seconds // 60}:{seconds % 60:02d}"
 

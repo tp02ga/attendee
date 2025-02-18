@@ -64,9 +64,7 @@ def create_mock_zoom_sdk():
         ):
             self.stored_callback = onRawDataFrameReceivedCallback
             self.stored_renderer_destroyed_callback = onRendererBeDestroyedCallback
-            self.stored_raw_data_status_changed_callback = (
-                onRawDataStatusChangedCallback
-            )
+            self.stored_raw_data_status_changed_callback = onRawDataStatusChangedCallback
 
         def onRawDataFrameReceivedCallback(self, data):
             return self.stored_callback(data)
@@ -87,9 +85,7 @@ def create_mock_zoom_sdk():
         def onRecordPrivilegeChangedCallback(self, can_record):
             return self.stored_callback(can_record)
 
-    base_mock.MeetingRecordingCtrlEventCallbacks = (
-        MockMeetingRecordingCtrlEventCallbacks
-    )
+    base_mock.MeetingRecordingCtrlEventCallbacks = MockMeetingRecordingCtrlEventCallbacks
 
     # Create a custom AuthServiceEventCallbacks class that actually stores the callback
     class MockAuthServiceEventCallbacks:
@@ -148,13 +144,9 @@ def create_mock_zoom_sdk():
 
     # Add mock recording controller
     mock_recording_controller = MagicMock()
-    mock_recording_controller.CanStartRawRecording.return_value = (
-        base_mock.SDKERR_SUCCESS
-    )
+    mock_recording_controller.CanStartRawRecording.return_value = base_mock.SDKERR_SUCCESS
     mock_recording_controller.StartRawRecording.return_value = base_mock.SDKERR_SUCCESS
-    mock_meeting_service.GetMeetingRecordingController.return_value = (
-        mock_recording_controller
-    )
+    mock_meeting_service.GetMeetingRecordingController.return_value = mock_recording_controller
 
     mock_auth_service.SetEvent.return_value = base_mock.SDKERR_SUCCESS
     mock_auth_service.SDKAuth.return_value = base_mock.SDKERR_SUCCESS
@@ -214,9 +206,7 @@ def create_mock_zoom_sdk():
         def getPerformanceData(self):
             return MockPerformanceData()
 
-    base_mock.ZoomSDKAudioRawDataDelegateCallbacks = (
-        MockZoomSDKAudioRawDataDelegateCallbacks
-    )
+    base_mock.ZoomSDKAudioRawDataDelegateCallbacks = MockZoomSDKAudioRawDataDelegateCallbacks
 
     class MockZoomSDKVirtualAudioMicEventCallbacks:
         def __init__(self, onMicInitializeCallback, onMicStartSendCallback):
@@ -229,9 +219,7 @@ def create_mock_zoom_sdk():
         def onMicStartSendCallback(self):
             return self.stored_start_send_callback()
 
-    base_mock.ZoomSDKVirtualAudioMicEventCallbacks = (
-        MockZoomSDKVirtualAudioMicEventCallbacks
-    )
+    base_mock.ZoomSDKVirtualAudioMicEventCallbacks = MockZoomSDKVirtualAudioMicEventCallbacks
 
     class MockZoomSDKVideoSourceCallbacks:
         def __init__(self, onInitializeCallback, onStartSendCallback):
@@ -239,9 +227,7 @@ def create_mock_zoom_sdk():
             self.stored_start_send_callback = onStartSendCallback
 
         def onInitializeCallback(self, sender, support_cap_list, suggest_cap):
-            return self.stored_initialize_callback(
-                sender, support_cap_list, suggest_cap
-            )
+            return self.stored_initialize_callback(sender, support_cap_list, suggest_cap)
 
         def onStartSendCallback(self):
             return self.stored_start_send_callback()
@@ -266,20 +252,12 @@ def create_mock_zoom_sdk():
 
     # Create a mock participants controller
     mock_participants_controller = MagicMock()
-    mock_participants_controller.GetParticipantsList.return_value = [
-        2
-    ]  # Return test user ID
-    mock_participants_controller.GetUserByUserID.return_value = MockParticipant(
-        2, "Test User", "test_persistent_id_123"
-    )
-    mock_participants_controller.GetMySelfUser.return_value = MockParticipant(
-        1, "Bot User", "bot_persistent_id"
-    )
+    mock_participants_controller.GetParticipantsList.return_value = [2]  # Return test user ID
+    mock_participants_controller.GetUserByUserID.return_value = MockParticipant(2, "Test User", "test_persistent_id_123")
+    mock_participants_controller.GetMySelfUser.return_value = MockParticipant(1, "Bot User", "bot_persistent_id")
 
     # Add participants controller to meeting service
-    mock_meeting_service.GetMeetingParticipantsController.return_value = (
-        mock_participants_controller
-    )
+    mock_meeting_service.GetMeetingParticipantsController.return_value = mock_participants_controller
 
     return base_mock
 
@@ -311,9 +289,7 @@ def create_mock_deepgram():
     mock_response.results = mock_results
 
     # Set up the mock client
-    mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = (
-        mock_response
-    )
+    mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
     return mock_deepgram
 
 
@@ -384,29 +360,15 @@ class TestBotJoinMeeting(TransactionTestCase):
     def setUp(self):
         # Recreate organization and project for each test
         self.organization = Organization.objects.create(name="Test Org")
-        self.project = Project.objects.create(
-            name="Test Project", organization=self.organization
-        )
+        self.project = Project.objects.create(name="Test Project", organization=self.organization)
 
         # Recreate credentials
-        self.credentials = Credentials.objects.create(
-            project=self.project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
-        )
-        self.credentials.set_credentials(
-            {"client_id": "test_client_id", "client_secret": "test_client_secret"}
-        )
-        self.deepgram_credentials = Credentials.objects.create(
-            project=self.project, credential_type=Credentials.CredentialTypes.DEEPGRAM
-        )
+        self.credentials = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH)
+        self.credentials.set_credentials({"client_id": "test_client_id", "client_secret": "test_client_secret"})
+        self.deepgram_credentials = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.DEEPGRAM)
         self.deepgram_credentials.set_credentials({"api_key": "test_api_key"})
-        self.google_credentials = Credentials.objects.create(
-            project=self.project, credential_type=Credentials.CredentialTypes.GOOGLE_TTS
-        )
-        self.google_credentials.set_credentials(
-            {
-                "service_account_json": '{"type": "service_account", "project_id": "test-project", "private_key_id": "test-private-key-id", "private_key": "test-private-key", "client_email": "test-client-email", "client_id": "test-client-id", "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token", "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs", "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test-client-email"}'
-            }
-        )
+        self.google_credentials = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.GOOGLE_TTS)
+        self.google_credentials.set_credentials({"service_account_json": '{"type": "service_account", "project_id": "test-project", "private_key_id": "test-private-key-id", "private_key": "test-private-key", "client_email": "test-client-email", "client_id": "test-client-id", "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token", "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs", "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test-client-email"}'})
 
         # Create a bot for each test
         self.bot = Bot.objects.create(
@@ -427,20 +389,12 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Try to transition the state from READY to JOINING
         BotEventManager.create_event(self.bot, BotEventTypes.JOIN_REQUESTED)
 
-        self.test_mp3_bytes = base64.b64decode(
-            "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU2LjQxAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFN//MUZAMAAAGkAAAAAAAAA0gAAAAARTMu//MUZAYAAAGkAAAAAAAAA0gAAAAAOTku//MUZAkAAAGkAAAAAAAAA0gAAAAANVVV"
-        )
-        self.test_png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-        )
+        self.test_mp3_bytes = base64.b64decode("SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU2LjQxAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFN//MUZAMAAAGkAAAAAAAAA0gAAAAARTMu//MUZAYAAAGkAAAAAAAAA0gAAAAAOTku//MUZAkAAAGkAAAAAAAAA0gAAAAANVVV")
+        self.test_png_bytes = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 
-        self.audio_blob = MediaBlob.get_or_create_from_blob(
-            project=self.bot.project, blob=self.test_mp3_bytes, content_type="audio/mp3"
-        )
+        self.audio_blob = MediaBlob.get_or_create_from_blob(project=self.bot.project, blob=self.test_mp3_bytes, content_type="audio/mp3")
 
-        self.image_blob = MediaBlob.get_or_create_from_blob(
-            project=self.bot.project, blob=self.test_png_bytes, content_type="image/png"
-        )
+        self.image_blob = MediaBlob.get_or_create_from_blob(project=self.bot.project, blob=self.test_png_bytes, content_type="image/png")
 
         # Configure Celery to run tasks eagerly (synchronously)
         from django.conf import settings
@@ -452,9 +406,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     @patch("deepgram.DeepgramClient")
@@ -531,9 +483,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             adapter = controller.adapter
             # Simulate successful auth
-            adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
 
             # Simulate connecting
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
@@ -551,9 +501,7 @@ class TestBotJoinMeeting(TransactionTestCase):
             time.sleep(2)
 
             # Simulate video frame received
-            adapter.video_input_manager.input_streams[
-                0
-            ].renderer_delegate.onRawDataFrameReceivedCallback(MockVideoFrame())
+            adapter.video_input_manager.input_streams[0].renderer_delegate.onRawDataFrameReceivedCallback(MockVideoFrame())
 
             # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
@@ -563,17 +511,13 @@ class TestBotJoinMeeting(TransactionTestCase):
             adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
 
             # simulate audio mic initialized
-            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(
-                MagicMock()
-            )
+            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
 
             # simulate audio mic started
             adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
 
             # simulate video source initialized
-            adapter.virtual_camera_video_source.onInitializeCallback(
-                MagicMock(), None, None
-            )
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
@@ -630,21 +574,15 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_thread.join(timeout=10)
 
         # Verify that we received some data
-        self.assertGreater(
-            len(uploaded_data), 100, "Uploaded data length is not correct"
-        )
+        self.assertGreater(len(uploaded_data), 100, "Uploaded data length is not correct")
 
         # Check for MP4 file signature (starts with 'ftyp')
         mp4_signature_found = b"ftyp" in uploaded_data[:1000]
-        self.assertTrue(
-            mp4_signature_found, "MP4 file signature not found in uploaded data"
-        )
+        self.assertTrue(mp4_signature_found, "MP4 file signature not found in uploaded data")
 
         # Additional verification for StreamingUploader
         mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(
-            mock_uploader.upload_part.call_count, 0, "upload_part was never called"
-        )
+        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -667,13 +605,9 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify bot_joined_meeting_event (Event 2)
         bot_joined_meeting_event = bot_events[1]
-        self.assertEqual(
-            bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING
-        )
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
         self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
-        self.assertEqual(
-            bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING
-        )
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
         self.assertIsNone(bot_joined_meeting_event.event_sub_type)
         self.assertEqual(bot_joined_meeting_event.metadata, {})
         self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
@@ -684,17 +618,11 @@ class TestBotJoinMeeting(TransactionTestCase):
             recording_permission_granted_event.event_type,
             BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
         )
-        self.assertEqual(
-            recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING
-        )
-        self.assertEqual(
-            recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING
-        )
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
-        self.assertIsNone(
-            recording_permission_granted_event.requested_bot_action_taken_at
-        )
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
         print("bot_events = ", bot_events)
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
@@ -726,9 +654,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Verify that the recording was finished
         self.recording.refresh_from_db()
         self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
-        self.assertEqual(
-            self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE
-        )
+        self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE)
 
         # Verify that the recording has an utterance
         utterance = self.recording.utterances.first()
@@ -779,9 +705,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     @patch("deepgram.DeepgramClient")
@@ -829,9 +753,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             adapter = controller.adapter
             # Simulate successful auth
-            adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
 
             # Simulate connecting
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
@@ -854,17 +776,13 @@ class TestBotJoinMeeting(TransactionTestCase):
             )
 
             # simulate audio mic initialized
-            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(
-                MagicMock()
-            )
+            adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
 
             # simulate audio mic started
             adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
 
             # simulate video source initialized
-            adapter.virtual_camera_video_source.onInitializeCallback(
-                MagicMock(), None, None
-            )
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
@@ -893,9 +811,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Additional verification for StreamingUploader
         mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(
-            mock_uploader.upload_part.call_count, 0, "upload_part was never called"
-        )
+        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -918,13 +834,9 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify bot_joined_meeting_event (Event 2)
         bot_joined_meeting_event = bot_events[1]
-        self.assertEqual(
-            bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING
-        )
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
         self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
-        self.assertEqual(
-            bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING
-        )
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
         self.assertIsNone(bot_joined_meeting_event.event_sub_type)
         self.assertEqual(bot_joined_meeting_event.metadata, {})
         self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
@@ -935,17 +847,11 @@ class TestBotJoinMeeting(TransactionTestCase):
             recording_permission_granted_event.event_type,
             BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
         )
-        self.assertEqual(
-            recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING
-        )
-        self.assertEqual(
-            recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING
-        )
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
-        self.assertIsNone(
-            recording_permission_granted_event.requested_bot_action_taken_at
-        )
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
         print("bot_events = ", bot_events)
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
@@ -965,9 +871,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         # Verify that the recording was finished
         self.recording.refresh_from_db()
         self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
-        self.assertEqual(
-            self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE
-        )
+        self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.COMPLETE)
 
         # Verify that the recording has an utterance
         utterance = self.recording.utterances.first()
@@ -985,9 +889,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     def test_bot_can_handle_failed_zoom_auth(
@@ -1014,9 +916,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         def simulate_failed_auth_flow():
             # Simulate failed auth
-            controller.adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG
-            )
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG)
             # Clean up connections in thread
             connection.close()
 
@@ -1080,9 +980,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     def test_bot_can_handle_waiting_for_host(
@@ -1109,13 +1007,9 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         def simulate_waiting_for_host_flow():
             # Simulate successful auth
-            controller.adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
             # Simulate waiting for host status
-            controller.adapter.meeting_service_event.onMeetingStatusChangedCallback(
-                mock_zoom_sdk_adapter.MEETING_STATUS_WAITINGFORHOST, 0
-            )
+            controller.adapter.meeting_service_event.onMeetingStatusChangedCallback(mock_zoom_sdk_adapter.MEETING_STATUS_WAITINGFORHOST, 0)
             # Clean up connections in thread
             connection.close()
 
@@ -1171,9 +1065,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     def test_bot_can_handle_unable_to_join_external_meeting(
@@ -1200,9 +1092,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         def simulate_unable_to_join_external_meeting_flow():
             # Simulate successful auth
-            controller.adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
             # Simulate meeting failed status with unable to join external meeting code
             controller.adapter.meeting_service_event.onMeetingStatusChangedCallback(
                 mock_zoom_sdk_adapter.MEETING_STATUS_FAILED,
@@ -1244,9 +1134,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {
-                "zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING
-            },
+            {"zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1268,9 +1156,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     def test_bot_can_handle_meeting_failed_blocked_by_admin(
@@ -1297,9 +1183,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         def simulate_meeting_failed_flow():
             # Simulate successful auth
-            controller.adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            controller.adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
             # Simulate meeting failed status with blocked by admin code
             controller.adapter.meeting_service_event.onMeetingStatusChangedCallback(
                 mock_zoom_sdk_adapter.MEETING_STATUS_FAILED,
@@ -1341,9 +1225,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {
-                "zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN
-            },
+            {"zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1365,9 +1247,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     @patch("deepgram.DeepgramClient")
@@ -1409,9 +1289,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         def simulate_join_flow():
             adapter = controller.adapter
             # Simulate successful auth
-            adapter.auth_event.onAuthenticationReturnCallback(
-                mock_zoom_sdk_adapter.AUTHRET_SUCCESS
-            )
+            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
 
             # Simulate connecting
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
@@ -1431,18 +1309,14 @@ class TestBotJoinMeeting(TransactionTestCase):
             # Send a bunch of frames to the bot it takes some time to recognize the rtmp failure
             for i in range(5):
                 # Simulate video frame received
-                adapter.video_input_manager.input_streams[
-                    0
-                ].renderer_delegate.onRawDataFrameReceivedCallback(MockVideoFrame())
+                adapter.video_input_manager.input_streams[0].renderer_delegate.onRawDataFrameReceivedCallback(MockVideoFrame())
 
                 # Simulate audio frame received
                 adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
                     MockAudioFrame(),
                     2,  # Simulated participant ID that's not the bot
                 )
-                adapter.audio_source.onMixedAudioRawDataReceivedCallback(
-                    MockAudioFrame()
-                )
+                adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
 
                 time.sleep(5.0)
 
@@ -1477,13 +1351,9 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify bot_joined_meeting_event (Event 2)
         bot_joined_meeting_event = bot_events[1]
-        self.assertEqual(
-            bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING
-        )
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
         self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
-        self.assertEqual(
-            bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING
-        )
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
         self.assertIsNone(bot_joined_meeting_event.event_sub_type)
         self.assertEqual(bot_joined_meeting_event.metadata, {})
         self.assertIsNone(bot_joined_meeting_event.requested_bot_action_taken_at)
@@ -1494,17 +1364,11 @@ class TestBotJoinMeeting(TransactionTestCase):
             recording_permission_granted_event.event_type,
             BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
         )
-        self.assertEqual(
-            recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING
-        )
-        self.assertEqual(
-            recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING
-        )
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
-        self.assertIsNone(
-            recording_permission_granted_event.requested_bot_action_taken_at
-        )
+        self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
 
         # Verify fatal_error_event (Event 4)
         fatal_error_event = bot_events[3]
@@ -1524,9 +1388,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
     )
-    @patch(
-        "bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk
-    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     def test_bot_can_handle_zoom_sdk_internal_error(
@@ -1544,9 +1406,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         mock_jwt.encode.return_value = "fake_jwt_token"
 
         # Configure the auth service to return an error
-        mock_zoom_sdk_adapter.CreateAuthService.return_value.SDKAuth.return_value = (
-            mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR
-        )
+        mock_zoom_sdk_adapter.CreateAuthService.return_value.SDKAuth.return_value = mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR
 
         # Create bot controller
         controller = BotController(self.bot.id)

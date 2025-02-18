@@ -75,12 +75,8 @@ class RTMPSettingsJSONField(serializers.JSONField):
     ]
 )
 class CreateBotSerializer(serializers.Serializer):
-    meeting_url = serializers.CharField(
-        help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456"
-    )
-    bot_name = serializers.CharField(
-        help_text="The name of the bot to create, e.g. 'My Bot'"
-    )
+    meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
+    bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
@@ -115,9 +111,7 @@ class CreateBotSerializer(serializers.Serializer):
             return value
 
         try:
-            jsonschema.validate(
-                instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA
-            )
+            jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
 
@@ -149,13 +143,8 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate RTMP URL format
         destination_url = value.get("destination_url", "")
-        if not (
-            destination_url.lower().startswith("rtmp://")
-            or destination_url.lower().startswith("rtmps://")
-        ):
-            raise serializers.ValidationError(
-                {"destination_url": "URL must start with rtmp:// or rtmps://"}
-            )
+        if not (destination_url.lower().startswith("rtmp://") or destination_url.lower().startswith("rtmps://")):
+            raise serializers.ValidationError({"destination_url": "URL must start with rtmp:// or rtmps://"})
 
         return value
 
@@ -196,9 +185,7 @@ class BotSerializer(serializers.ModelSerializer):
             event_data = {"type": event_type, "created_at": event.created_at}
 
             if event.event_sub_type:
-                event_data["sub_type"] = BotEventSubTypes.sub_type_to_api_code(
-                    event.event_sub_type
-                )
+                event_data["sub_type"] = BotEventSubTypes.sub_type_to_api_code(event.event_sub_type)
 
             events.append(event_data)
         return events
@@ -206,36 +193,24 @@ class BotSerializer(serializers.ModelSerializer):
     @extend_schema_field(
         {
             "type": "string",
-            "enum": [
-                RecordingTranscriptionStates.state_to_api_code(state.value)
-                for state in RecordingTranscriptionStates
-            ],
+            "enum": [RecordingTranscriptionStates.state_to_api_code(state.value) for state in RecordingTranscriptionStates],
         }
     )
     def get_transcription_state(self, obj):
-        default_recording = Recording.objects.filter(
-            bot=obj, is_default_recording=True
-        ).first()
+        default_recording = Recording.objects.filter(bot=obj, is_default_recording=True).first()
         if not default_recording:
             return None
 
-        return RecordingTranscriptionStates.state_to_api_code(
-            default_recording.transcription_state
-        )
+        return RecordingTranscriptionStates.state_to_api_code(default_recording.transcription_state)
 
     @extend_schema_field(
         {
             "type": "string",
-            "enum": [
-                RecordingStates.state_to_api_code(state.value)
-                for state in RecordingStates
-            ],
+            "enum": [RecordingStates.state_to_api_code(state.value) for state in RecordingStates],
         }
     )
     def get_recording_state(self, obj):
-        default_recording = Recording.objects.filter(
-            bot=obj, is_default_recording=True
-        ).first()
+        default_recording = Recording.objects.filter(bot=obj, is_default_recording=True).first()
         if not default_recording:
             return None
 
@@ -350,9 +325,7 @@ class SpeechSerializer(serializers.Serializer):
             return None
 
         try:
-            jsonschema.validate(
-                instance=value, schema=self.TEXT_TO_SPEECH_SETTINGS_SCHEMA
-            )
+            jsonschema.validate(instance=value, schema=self.TEXT_TO_SPEECH_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
 

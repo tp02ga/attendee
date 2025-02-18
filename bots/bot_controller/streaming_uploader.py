@@ -86,14 +86,10 @@ class StreamingUploader:
             Bucket=self.bucket,
             Key=self.key,
             UploadId=self.upload_id,
-            MultipartUpload={
-                "Parts": sorted(self.parts, key=lambda x: x["PartNumber"])
-            },
+            MultipartUpload={"Parts": sorted(self.parts, key=lambda x: x["PartNumber"])},
         )
 
     def start_upload(self):
         """Initialize the multipart upload and get the upload ID"""
-        response = self.s3_client.create_multipart_upload(
-            Bucket=self.bucket, Key=self.key
-        )
+        response = self.s3_client.create_multipart_upload(Bucket=self.bucket, Key=self.key)
         self.upload_id = response["UploadId"]

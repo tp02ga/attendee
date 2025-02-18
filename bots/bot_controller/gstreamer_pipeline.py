@@ -7,18 +7,12 @@ from gi.repository import GLib, Gst
 
 
 class GstreamerPipeline:
-    AUDIO_FORMAT_PCM = (
-        "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"
-    )
-    AUDIO_FORMAT_FLOAT = (
-        "audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved"
-    )
+    AUDIO_FORMAT_PCM = "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"
+    AUDIO_FORMAT_FLOAT = "audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved"
     OUTPUT_FORMAT_FLV = "flv"
     OUTPUT_FORMAT_MP4 = "mp4"
 
-    def __init__(
-        self, *, on_new_sample_callback, video_frame_size, audio_format, output_format
-    ):
+    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
@@ -87,9 +81,7 @@ class GstreamerPipeline:
         self.audio_appsrc = self.pipeline.get_by_name("audio_source")
 
         # Configure video appsrc
-        video_caps = Gst.Caps.from_string(
-            f"video/x-raw,format=I420,width={self.video_frame_size[0]},height={self.video_frame_size[1]},framerate=30/1"
-        )
+        video_caps = Gst.Caps.from_string(f"video/x-raw,format=I420,width={self.video_frame_size[0]},height={self.video_frame_size[1]},framerate=30/1")
         self.appsrc.set_property("caps", video_caps)
         self.appsrc.set_property("format", Gst.Format.TIME)
         self.appsrc.set_property("is-live", True)
@@ -134,10 +126,7 @@ class GstreamerPipeline:
             if result != Gst.IteratorResult.OK:
                 continue
 
-            if (
-                isinstance(element, Gst.Element)
-                and element.get_factory().get_name() == "queue"
-            ):
+            if isinstance(element, Gst.Element) and element.get_factory().get_name() == "queue":
                 queue_name = element.get_name()
                 self.queue_drops[queue_name] = 0
                 self.last_reported_drops[queue_name] = 0
@@ -169,9 +158,7 @@ class GstreamerPipeline:
             # Print dropped buffer counts since last check
             print("\nDropped Buffers Since Last Check:")
             for queue_name in self.queue_drops:
-                drops = (
-                    self.queue_drops[queue_name] - self.last_reported_drops[queue_name]
-                )
+                drops = self.queue_drops[queue_name] - self.last_reported_drops[queue_name]
                 if drops > 0:
                     print(f"  {queue_name}: {drops} buffers dropped")
                 self.last_reported_drops[queue_name] = self.queue_drops[queue_name]
@@ -187,12 +174,7 @@ class GstreamerPipeline:
         return True
 
     def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None):
-        if (
-            not self.audio_recording_active
-            or not self.audio_appsrc
-            or not self.recording_active
-            or not self.appsrc
-        ):
+        if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
             return
 
         try:
@@ -214,12 +196,7 @@ class GstreamerPipeline:
             print(f"Error processing audio data: {e}")
 
     def wants_any_video_frames(self):
-        if (
-            not self.audio_recording_active
-            or not self.audio_appsrc
-            or not self.recording_active
-            or not self.appsrc
-        ):
+        if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
             return False
 
         return True

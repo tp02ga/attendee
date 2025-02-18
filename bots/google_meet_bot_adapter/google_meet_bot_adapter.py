@@ -53,9 +53,7 @@ def scale_i420(frame, frame_size, new_size):
 
     # 3) Extract Y, U, V planes from the byte array
     y = np.frombuffer(frame[0:y_plane_size], dtype=np.uint8)
-    u = np.frombuffer(
-        frame[y_plane_size : y_plane_size + uv_plane_size], dtype=np.uint8
-    )
+    u = np.frombuffer(frame[y_plane_size : y_plane_size + uv_plane_size], dtype=np.uint8)
     v = np.frombuffer(
         frame[y_plane_size + uv_plane_size : y_plane_size + 2 * uv_plane_size],
         dtype=np.uint8,
@@ -74,28 +72,18 @@ def scale_i420(frame, frame_size, new_size):
 
     if abs(input_aspect - output_aspect) < 1e-6:
         # Same aspect ratio; do a straightforward resize
-        scaled_y = cv2.resize(
-            y, (new_width, new_height), interpolation=cv2.INTER_LINEAR
-        )
+        scaled_y = cv2.resize(y, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
 
         # For U, V we should scale to half-dimensions (rounded up)
         # of the new size. But OpenCV requires exact (int) dims, so:
         target_u_width = half_ceil(new_width)
         target_u_height = half_ceil(new_height)
 
-        scaled_u = cv2.resize(
-            u, (target_u_width, target_u_height), interpolation=cv2.INTER_LINEAR
-        )
-        scaled_v = cv2.resize(
-            v, (target_u_width, target_u_height), interpolation=cv2.INTER_LINEAR
-        )
+        scaled_u = cv2.resize(u, (target_u_width, target_u_height), interpolation=cv2.INTER_LINEAR)
+        scaled_v = cv2.resize(v, (target_u_width, target_u_height), interpolation=cv2.INTER_LINEAR)
 
         # Flatten and return
-        return (
-            np.concatenate([scaled_y.flatten(), scaled_u.flatten(), scaled_v.flatten()])
-            .astype(np.uint8)
-            .tobytes()
-        )
+        return np.concatenate([scaled_y.flatten(), scaled_u.flatten(), scaled_v.flatten()]).astype(np.uint8).tobytes()
 
     # Otherwise, the aspect ratios differ => letterbox or pillarbox
     if input_aspect > output_aspect:
@@ -108,37 +96,25 @@ def scale_i420(frame, frame_size, new_size):
         scaled_width = int(round(new_height * input_aspect))
 
     # 5) Resize Y, U, and V to the scaled dimensions
-    scaled_y = cv2.resize(
-        y, (scaled_width, scaled_height), interpolation=cv2.INTER_LINEAR
-    )
+    scaled_y = cv2.resize(y, (scaled_width, scaled_height), interpolation=cv2.INTER_LINEAR)
 
     # For U, V, use half-dimensions of the scaled result, rounding up.
     scaled_u_width = half_ceil(scaled_width)
     scaled_u_height = half_ceil(scaled_height)
-    scaled_u = cv2.resize(
-        u, (scaled_u_width, scaled_u_height), interpolation=cv2.INTER_LINEAR
-    )
-    scaled_v = cv2.resize(
-        v, (scaled_u_width, scaled_u_height), interpolation=cv2.INTER_LINEAR
-    )
+    scaled_u = cv2.resize(u, (scaled_u_width, scaled_u_height), interpolation=cv2.INTER_LINEAR)
+    scaled_v = cv2.resize(v, (scaled_u_width, scaled_u_height), interpolation=cv2.INTER_LINEAR)
 
     # 6) Create the output buffers. For "dark" black:
     #    Y=0, U=128, V=128.
     final_y = np.zeros((new_height, new_width), dtype=np.uint8)
-    final_u = np.full(
-        (half_ceil(new_height), half_ceil(new_width)), 128, dtype=np.uint8
-    )
-    final_v = np.full(
-        (half_ceil(new_height), half_ceil(new_width)), 128, dtype=np.uint8
-    )
+    final_u = np.full((half_ceil(new_height), half_ceil(new_width)), 128, dtype=np.uint8)
+    final_v = np.full((half_ceil(new_height), half_ceil(new_width)), 128, dtype=np.uint8)
 
     # 7) Compute centering offsets for each plane (Y first)
     offset_y = (new_height - scaled_height) // 2
     offset_x = (new_width - scaled_width) // 2
 
-    final_y[offset_y : offset_y + scaled_height, offset_x : offset_x + scaled_width] = (
-        scaled_y
-    )
+    final_y[offset_y : offset_y + scaled_height, offset_x : offset_x + scaled_width] = scaled_y
 
     # Offsets for U and V planes are half of the Y offsets (integer floor)
     offset_y_uv = offset_y // 2
@@ -155,11 +131,7 @@ def scale_i420(frame, frame_size, new_size):
 
     # 8) Flatten back to I420 layout and return bytes
 
-    return (
-        np.concatenate([final_y.flatten(), final_u.flatten(), final_v.flatten()])
-        .astype(np.uint8)
-        .tobytes()
-    )
+    return np.concatenate([final_y.flatten(), final_u.flatten(), final_v.flatten()]).astype(np.uint8).tobytes()
 
 
 class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
@@ -208,9 +180,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         if participant_id in self.participants_info:
             return {
                 "participant_uuid": participant_id,
-                "participant_full_name": self.participants_info[participant_id][
-                    "fullName"
-                ],
+                "participant_full_name": self.participants_info[participant_id]["fullName"],
                 "participant_user_uuid": None,
             }
 
@@ -248,53 +218,24 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
                         elif json_data.get("type") == "UsersUpdate":
                             for user in json_data["newUsers"]:
-                                user["active"] = (
-                                    user["humanized_status"] == "in_meeting"
-                                )
+                                user["active"] = user["humanized_status"] == "in_meeting"
                                 self.participants_info[user["deviceId"]] = user
                             for user in json_data["removedUsers"]:
                                 user["active"] = False
                                 self.participants_info[user["deviceId"]] = user
                             for user in json_data["updatedUsers"]:
-                                user["active"] = (
-                                    user["humanized_status"] == "in_meeting"
-                                )
+                                user["active"] = user["humanized_status"] == "in_meeting"
                                 self.participants_info[user["deviceId"]] = user
 
-                                if (
-                                    user["humanized_status"] == "removed_from_meeting"
-                                    and user["fullName"] == self.display_name
-                                ):
+                                if user["humanized_status"] == "removed_from_meeting" and user["fullName"] == self.display_name:
                                     # if this is the only participant with that name in the meeting, then we can assume that it was us who was removed
-                                    if (
-                                        len(
-                                            [
-                                                x
-                                                for x in self.participants_info.values()
-                                                if x["fullName"] == self.display_name
-                                            ]
-                                        )
-                                        == 1
-                                    ):
+                                    if len([x for x in self.participants_info.values() if x["fullName"] == self.display_name]) == 1:
                                         self.was_removed_from_meeting = True
-                                        self.send_message_callback(
-                                            {"message": self.Messages.MEETING_ENDED}
-                                        )
+                                        self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
-                            if (
-                                len(
-                                    [
-                                        x
-                                        for x in self.participants_info.values()
-                                        if x["active"]
-                                    ]
-                                )
-                                == 1
-                            ):
+                            if len([x for x in self.participants_info.values() if x["active"]]) == 1:
                                 if self.only_one_participant_in_meeting_at is None:
-                                    self.only_one_participant_in_meeting_at = (
-                                        time.time()
-                                    )
+                                    self.only_one_participant_in_meeting_at = time.time()
                             else:
                                 self.only_one_participant_in_meeting_at = None
 
@@ -305,19 +246,13 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                         timestamp = int.from_bytes(message[4:12], byteorder="little")
 
                         # Get stream ID length and string
-                        stream_id_length = int.from_bytes(
-                            message[12:16], byteorder="little"
-                        )
+                        stream_id_length = int.from_bytes(message[12:16], byteorder="little")
                         message[16 : 16 + stream_id_length].decode("utf-8")
 
                         # Get width and height after stream ID
                         offset = 16 + stream_id_length
-                        width = int.from_bytes(
-                            message[offset : offset + 4], byteorder="little"
-                        )
-                        height = int.from_bytes(
-                            message[offset + 4 : offset + 8], byteorder="little"
-                        )
+                        width = int.from_bytes(message[offset : offset + 4], byteorder="little")
+                        height = int.from_bytes(message[offset + 4 : offset + 8], byteorder="little")
 
                         # Keep track of the video frame dimensions
                         if self.video_frame_ticker % 300 == 0:
@@ -331,27 +266,14 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                         self.video_frame_ticker += 1
 
                         # Convert I420 format to BGR for OpenCV
-                        expected_video_data_length = width * height + 2 * half_ceil(
-                            width
-                        ) * half_ceil(height)
-                        video_data = np.frombuffer(
-                            message[offset + 8 :], dtype=np.uint8
-                        )
+                        expected_video_data_length = width * height + 2 * half_ceil(width) * half_ceil(height)
+                        video_data = np.frombuffer(message[offset + 8 :], dtype=np.uint8)
 
                         # Check if len(video_data) does not agree with width and height
-                        if (
-                            len(video_data) == expected_video_data_length
-                        ):  # I420 format uses 1.5 bytes per pixel
-                            scaled_i420_frame = scale_i420(
-                                video_data, (width, height), (1920, 1080)
-                            )
-                            if (
-                                self.wants_any_video_frames_callback()
-                                and self.send_frames
-                            ):
-                                self.add_video_frame_callback(
-                                    scaled_i420_frame, timestamp * 1000
-                                )
+                        if len(video_data) == expected_video_data_length:  # I420 format uses 1.5 bytes per pixel
+                            scaled_i420_frame = scale_i420(video_data, (width, height), (1920, 1080))
+                            if self.wants_any_video_frames_callback() and self.send_frames:
+                                self.add_video_frame_callback(scaled_i420_frame, timestamp * 1000)
 
                         else:
                             print(
@@ -370,9 +292,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                         audio_data = np.frombuffer(message[12:], dtype=np.float32)
 
                         if self.wants_any_video_frames_callback() and self.send_frames:
-                            self.add_mixed_audio_chunk_callback(
-                                audio_data.tobytes(), timestamp * 1000
-                            )
+                            self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000)
 
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:
@@ -403,9 +323,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                     print(f"Port {port} is already in use, trying next port...")
                     port += 1
                     if attempt == max_retries - 1:
-                        raise Exception(
-                            f"Could not find available port after {max_retries} attempts"
-                        )
+                        raise Exception(f"Could not find available port after {max_retries} attempts")
                     continue
                 raise  # Re-raise other OSErrors
 
@@ -428,18 +346,10 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 "step": step,
                 "current_time": current_time,
                 "screenshot_path": screenshot_path,
-                "exception_type": exception.__class__.__name__
-                if exception
-                else "exception_not_available",
-                "exception_message": exception.__str__()
-                if exception
-                else "exception_message_not_available",
-                "inner_exception_type": inner_exception.__class__.__name__
-                if inner_exception
-                else "inner_exception_not_available",
-                "inner_exception_message": inner_exception.__str__()
-                if inner_exception
-                else "inner_exception_message_not_available",
+                "exception_type": exception.__class__.__name__ if exception else "exception_not_available",
+                "exception_message": exception.__str__() if exception else "exception_message_not_available",
+                "inner_exception_type": inner_exception.__class__.__name__ if inner_exception else "inner_exception_not_available",
+                "inner_exception_message": inner_exception.__str__() if inner_exception else "inner_exception_message_not_available",
             }
         )
 
@@ -472,9 +382,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             version_main=133,
         )
 
-        initial_data_code = (
-            f"window.initialData = {{websocketPort: {self.websocket_port}}}"
-        )
+        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
 
         # Define the CDN libraries needed
         CDN_LIBRARIES = [
@@ -504,9 +412,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         """
 
         # Add the combined script to execute on new document
-        self.driver.execute_cdp_cmd(
-            "Page.addScriptToEvaluateOnNewDocument", {"source": combined_code}
-        )
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": combined_code})
 
     def init(self):
         if os.environ.get("DISPLAY") is None:
@@ -515,9 +421,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             display.start()
 
         # Start websocket server in a separate thread
-        websocket_thread = threading.Thread(
-            target=self.run_websocket_server, daemon=True
-        )
+        websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
         websocket_thread.start()
 
         sleep(0.5)  # Give the websocketserver time to start
@@ -541,17 +445,11 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
             except UiRetryableException as e:
                 if num_retries >= max_retries:
-                    print(
-                        f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning"
-                    )
-                    self.send_debug_screenshot_message(
-                        step=e.step, exception=e, inner_exception=e.inner_exception
-                    )
+                    print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
+                    self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
                     return
 
-                print(
-                    f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying"
-                )
+                print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
 
             num_retries += 1
             sleep(1)
@@ -560,15 +458,11 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         self.driver.set_window_size(1920 / 2, 1080 / 2)
 
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
-        self.send_message_callback(
-            {"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED}
-        )
+        self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.send_frames = True
         self.driver.execute_script("window.ws.enableMediaSending();")
-        self.first_buffer_timestamp_ms_offset = self.driver.execute_script(
-            "return performance.timeOrigin;"
-        )
+        self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
 
     def leave(self):
         if self.left_meeting:
@@ -607,13 +501,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         # Wait for websocket buffers to be processed
         if self.last_websocket_message_processed_time:
             time_when_shutdown_initiated = time.time()
-            while (
-                time.time() - self.last_websocket_message_processed_time < 2
-                and time.time() - time_when_shutdown_initiated < 30
-            ):
-                print(
-                    f"Waiting until it's 2 seconds since last websockets message was processed or 30 seconds have passed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds and {time.time() - time_when_shutdown_initiated} seconds have passed"
-                )
+            while time.time() - self.last_websocket_message_processed_time < 2 and time.time() - time_when_shutdown_initiated < 30:
+                print(f"Waiting until it's 2 seconds since last websockets message was processed or 30 seconds have passed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds and {time.time() - time_when_shutdown_initiated} seconds have passed")
                 sleep(0.5)
 
         try:
@@ -642,17 +531,13 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
         if self.only_one_participant_in_meeting_at is not None:
             if time.time() - self.only_one_participant_in_meeting_at > 30:
-                print(
-                    "Auto-leaving meeting because there was only one participant in the meeting for 30 seconds"
-                )
+                print("Auto-leaving meeting because there was only one participant in the meeting for 30 seconds")
                 self.leave()
                 return
 
         if self.last_media_message_processed_time is not None:
             if time.time() - self.last_media_message_processed_time > 300:
-                print(
-                    "Auto-leaving meeting because there was no media message for 300 seconds"
-                )
+                print("Auto-leaving meeting because there was no media message for 300 seconds")
                 self.leave()
                 return
 

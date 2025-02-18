@@ -20,9 +20,7 @@ from accounts.models import Organization
 
 class Project(models.Model):
     name = models.CharField(max_length=255)
-    organization = models.ForeignKey(
-        Organization, on_delete=models.PROTECT, related_name="projects"
-    )
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="projects")
 
     OBJECT_ID_PREFIX = "proj_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
@@ -33,9 +31,7 @@ class Project(models.Model):
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
 
@@ -45,9 +41,7 @@ class Project(models.Model):
 
 class ApiKey(models.Model):
     name = models.CharField(max_length=255)
-    project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="api_keys"
-    )
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="api_keys")
 
     OBJECT_ID_PREFIX = "key_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
@@ -55,9 +49,7 @@ class ApiKey(models.Model):
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
 
@@ -125,25 +117,15 @@ class Bot(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     version = IntegerVersionField()
 
-    state = models.IntegerField(
-        choices=BotStates.choices, default=BotStates.READY, null=False
-    )
+    state = models.IntegerField(choices=BotStates.choices, default=BotStates.READY, null=False)
 
     settings = models.JSONField(null=False, default=dict)
 
     def deepgram_language(self):
-        return (
-            self.settings.get("transcription_settings", {})
-            .get("deepgram", {})
-            .get("language", None)
-        )
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
     def deepgram_detect_language(self):
-        return (
-            self.settings.get("transcription_settings", {})
-            .get("deepgram", {})
-            .get("detect_language", None)
-        )
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("detect_language", None)
 
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
@@ -164,9 +146,7 @@ class Bot(models.Model):
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
 
@@ -257,13 +237,9 @@ class BotEvent(models.Model):
     new_state = models.IntegerField(choices=BotStates.choices)
 
     event_type = models.IntegerField(choices=BotEventTypes.choices)  # What happened
-    event_sub_type = models.IntegerField(
-        choices=BotEventSubTypes.choices, null=True
-    )  # Why it happened
+    event_sub_type = models.IntegerField(choices=BotEventSubTypes.choices, null=True)  # Why it happened
     metadata = models.JSONField(null=False, default=dict)
-    requested_bot_action_taken_at = models.DateTimeField(
-        null=True, blank=True
-    )  # For when a bot action is requested, this is the time it was taken
+    requested_bot_action_taken_at = models.DateTimeField(null=True, blank=True)  # For when a bot action is requested, this is the time it was taken
     version = IntegerVersionField()
 
     def __str__(self):
@@ -288,52 +264,13 @@ class BotEvent(models.Model):
             models.CheckConstraint(
                 check=(
                     # For FATAL_ERROR event type, must have one of the valid event subtypes
-                    (
-                        Q(event_type=BotEventTypes.FATAL_ERROR)
-                        & (
-                            Q(
-                                event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND
-                            )
-                        )
-                    )
+                    (Q(event_type=BotEventTypes.FATAL_ERROR) & (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND)))
                     |
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
-                    (
-                        Q(event_type=BotEventTypes.COULD_NOT_JOIN)
-                        & (
-                            Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR
-                            )
-                            | Q(
-                                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED
-                            )
-                        )
-                    )
+                    (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED)))
                     |
                     # For all other events, event_sub_type must be null
-                    (
-                        ~Q(event_type=BotEventTypes.FATAL_ERROR)
-                        & ~Q(event_type=BotEventTypes.COULD_NOT_JOIN)
-                        & Q(event_sub_type__isnull=True)
-                    )
+                    (~Q(event_type=BotEventTypes.FATAL_ERROR) & ~Q(event_type=BotEventTypes.COULD_NOT_JOIN) & Q(event_sub_type__isnull=True))
                 ),
                 name="valid_event_type_event_sub_type_combinations",
             )
@@ -407,36 +344,25 @@ class BotEventManager:
         }[bot.state]
 
         if event_type is None:
-            raise ValueError(
-                f"Bot {bot.object_id} is in state {bot.state}. This is not a valid state to initiate a bot request."
-            )
+            raise ValueError(f"Bot {bot.object_id} is in state {bot.state}. This is not a valid state to initiate a bot request.")
 
         last_bot_event = bot.last_bot_event()
 
         if last_bot_event is None:
-            raise ValueError(
-                f"Bot {bot.object_id} has no bot events. This is not a valid state to initiate a bot request."
-            )
+            raise ValueError(f"Bot {bot.object_id} has no bot events. This is not a valid state to initiate a bot request.")
 
         if last_bot_event.event_type != event_type:
-            raise ValueError(
-                f"Bot {bot.object_id} has unexpected event type {last_bot_event.event_type}. We expected {event_type} since it's in state {bot.state}"
-            )
+            raise ValueError(f"Bot {bot.object_id} has unexpected event type {last_bot_event.event_type}. We expected {event_type} since it's in state {bot.state}")
 
         if last_bot_event.requested_bot_action_taken_at is not None:
-            raise ValueError(
-                f"Bot {bot.object_id} has already initiated this bot request"
-            )
+            raise ValueError(f"Bot {bot.object_id} has already initiated this bot request")
 
         last_bot_event.requested_bot_action_taken_at = timezone.now()
         last_bot_event.save()
 
     @classmethod
     def is_state_that_can_play_media(cls, state: int):
-        return (
-            state == BotStates.JOINED_RECORDING
-            or state == BotStates.JOINED_NOT_RECORDING
-        )
+        return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING
 
     @classmethod
     def is_terminal_state(cls, state: int):
@@ -481,23 +407,15 @@ class BotEventManager:
                     # Get valid transition for this event type
                     transition = cls.VALID_TRANSITIONS.get(event_type)
                     if not transition:
-                        raise ValidationError(
-                            f"No valid transitions defined for event type {event_type}"
-                        )
+                        raise ValidationError(f"No valid transitions defined for event type {event_type}")
 
                     # Check if current state is valid for this transition
                     valid_from_states = transition["from"]
                     if isinstance(valid_from_states, (list, tuple)):
                         if old_state not in valid_from_states:
-                            raise ValidationError(
-                                f"Invalid state transition. Event {event_type} not allowed in state {old_state}. "
-                                f"Valid states are: {valid_from_states}"
-                            )
+                            raise ValidationError(f"Invalid state transition. Event {event_type} not allowed in state {old_state}. Valid states are: {valid_from_states}")
                     elif old_state != valid_from_states:
-                        raise ValidationError(
-                            f"Invalid state transition. Event {event_type} not allowed in state {old_state}. "
-                            f"Valid state is: {valid_from_states}"
-                        )
+                        raise ValidationError(f"Invalid state transition. Event {event_type} not allowed in state {old_state}. Valid state is: {valid_from_states}")
 
                     # Update bot state based on 'to' definition
                     new_state = transition["to"]
@@ -508,9 +426,7 @@ class BotEventManager:
                     # There's a chance that some other thread in the same process will modify the bot state to be something other than new_state. This should never happen, but we
                     # should raise an exception if it does.
                     if bot.state != new_state:
-                        raise ValidationError(
-                            f"Bot state was modified by another thread to be {bot.state} instead of {new_state}."
-                        )
+                        raise ValidationError(f"Bot state was modified by another thread to be {bot.state} instead of {new_state}.")
 
                     # Create event record
                     event = BotEvent.objects.create(
@@ -524,26 +440,18 @@ class BotEventManager:
 
                     # If we moved to the recording state
                     if new_state == BotStates.JOINED_RECORDING:
-                        pending_recordings = bot.recordings.filter(
-                            state=RecordingStates.NOT_STARTED
-                        )
+                        pending_recordings = bot.recordings.filter(state=RecordingStates.NOT_STARTED)
                         if pending_recordings.count() != 1:
-                            raise ValidationError(
-                                f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {pending_recordings.count()}"
-                            )
+                            raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {pending_recordings.count()}")
                         pending_recording = pending_recordings.first()
                         RecordingManager.set_recording_in_progress(pending_recording)
 
                     # If we're in a terminal state
                     if cls.is_terminal_state(new_state):
                         # If there is an in progress recording, set it to complete
-                        in_progress_recordings = bot.recordings.filter(
-                            state=RecordingStates.IN_PROGRESS
-                        )
+                        in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
                         if in_progress_recordings.count() > 1:
-                            raise ValidationError(
-                                f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {in_progress_recordings.count()}"
-                            )
+                            raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {in_progress_recordings.count()}")
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
@@ -566,11 +474,7 @@ class Participant(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["bot", "uuid"], name="unique_participant_per_bot"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["bot", "uuid"], name="unique_participant_per_bot")]
 
     def __str__(self):
         display_name = self.full_name or self.uuid
@@ -640,15 +544,11 @@ class Recording(models.Model):
 
     recording_type = models.IntegerField(choices=RecordingTypes.choices, null=False)
 
-    transcription_type = models.IntegerField(
-        choices=TranscriptionTypes.choices, null=False
-    )
+    transcription_type = models.IntegerField(choices=TranscriptionTypes.choices, null=False)
 
     is_default_recording = models.BooleanField(default=False)
 
-    state = models.IntegerField(
-        choices=RecordingStates.choices, default=RecordingStates.NOT_STARTED, null=False
-    )
+    state = models.IntegerField(choices=RecordingStates.choices, default=RecordingStates.NOT_STARTED, null=False)
 
     transcription_state = models.IntegerField(
         choices=RecordingTranscriptionStates.choices,
@@ -656,9 +556,7 @@ class Recording(models.Model):
         null=False,
     )
 
-    transcription_provider = models.IntegerField(
-        choices=TranscriptionProviders.choices, null=True, blank=True
-    )
+    transcription_provider = models.IntegerField(choices=TranscriptionProviders.choices, null=True, blank=True)
 
     version = IntegerVersionField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -689,9 +587,7 @@ class Recording(models.Model):
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
 
@@ -704,9 +600,7 @@ class RecordingManager:
         if recording.state == RecordingStates.IN_PROGRESS:
             return
         if recording.state != RecordingStates.NOT_STARTED:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
         recording.state = RecordingStates.IN_PROGRESS
         recording.started_at = timezone.now()
@@ -719,9 +613,7 @@ class RecordingManager:
         if recording.state == RecordingStates.COMPLETE:
             return
         if recording.state != RecordingStates.IN_PROGRESS:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
         recording.state = RecordingStates.COMPLETE
         recording.completed_at = timezone.now()
@@ -729,13 +621,7 @@ class RecordingManager:
 
         # If there is an in progress transcription recording
         # that has no utterances left to transcribe, set it to complete
-        if (
-            recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS
-            and Utterance.objects.filter(
-                recording=recording, transcription__isnull=True
-            ).count()
-            == 0
-        ):
+        if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS and Utterance.objects.filter(recording=recording, transcription__isnull=True).count() == 0:
             RecordingManager.set_recording_transcription_complete(recording)
 
     @classmethod
@@ -745,9 +631,7 @@ class RecordingManager:
         if recording.state == RecordingStates.FAILED:
             return
         if recording.state != RecordingStates.IN_PROGRESS:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
         # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
 
@@ -761,17 +645,9 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS:
             return
         if recording.transcription_state != RecordingTranscriptionStates.NOT_STARTED:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}"
-            )
-        if (
-            recording.state != RecordingStates.COMPLETE
-            and recording.state != RecordingStates.FAILED
-            and recording.state != RecordingStates.IN_PROGRESS
-        ):
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
         recording.transcription_state = RecordingTranscriptionStates.IN_PROGRESS
         recording.save()
@@ -783,16 +659,9 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.COMPLETE:
             return
         if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}"
-            )
-        if (
-            recording.state != RecordingStates.COMPLETE
-            and recording.state != RecordingStates.FAILED
-        ):
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
         recording.transcription_state = RecordingTranscriptionStates.COMPLETE
         recording.save()
@@ -804,17 +673,9 @@ class RecordingManager:
         if recording.transcription_state == RecordingTranscriptionStates.FAILED:
             return
         if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}"
-            )
-        if (
-            recording.state != RecordingStates.COMPLETE
-            and recording.state != RecordingStates.FAILED
-            and recording.state != RecordingStates.IN_PROGRESS
-        ):
-            raise ValueError(
-                f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
         # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
         recording.transcription_state = RecordingTranscriptionStates.FAILED
@@ -834,16 +695,10 @@ class Utterance(models.Model):
         PCM = 1, "PCM"
         MP3 = 2, "MP3"
 
-    recording = models.ForeignKey(
-        Recording, on_delete=models.CASCADE, related_name="utterances"
-    )
-    participant = models.ForeignKey(
-        Participant, on_delete=models.PROTECT, related_name="utterances"
-    )
+    recording = models.ForeignKey(Recording, on_delete=models.CASCADE, related_name="utterances")
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name="utterances")
     audio_blob = models.BinaryField()
-    audio_format = models.IntegerField(
-        choices=AudioFormat.choices, default=AudioFormat.PCM, null=True
-    )
+    audio_format = models.IntegerField(choices=AudioFormat.choices, default=AudioFormat.PCM, null=True)
     timestamp_ms = models.BigIntegerField()
     duration_ms = models.IntegerField()
     transcription = models.JSONField(null=True, default=None)
@@ -852,9 +707,7 @@ class Utterance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    source = models.IntegerField(
-        choices=Sources.choices, default=Sources.PER_PARTICIPANT_AUDIO, null=False
-    )
+    source = models.IntegerField(choices=Sources.choices, default=Sources.PER_PARTICIPANT_AUDIO, null=False)
 
     def __str__(self):
         return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
@@ -866,9 +719,7 @@ class Credentials(models.Model):
         ZOOM_OAUTH = 2, "Zoom OAuth"
         GOOGLE_TTS = 3, "Google Text To Speech"
 
-    project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="credentials"
-    )
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
 
     _encrypted_data = models.BinaryField(
@@ -880,11 +731,7 @@ class Credentials(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["project", "credential_type"], name="unique_project_credentials"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["project", "credential_type"], name="unique_project_credentials")]
 
     def set_credentials(self, credentials_dict):
         """Encrypt and save credentials"""
@@ -917,29 +764,21 @@ class MediaBlob(models.Model):
     OBJECT_ID_PREFIX = "blob_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
-    project = models.ForeignKey(
-        Project, on_delete=models.PROTECT, related_name="media_blobs"
-    )
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="media_blobs")
 
     blob = models.BinaryField()
     content_type = models.CharField(
         max_length=255,
-        choices=VALID_AUDIO_CONTENT_TYPES
-        + VALID_VIDEO_CONTENT_TYPES
-        + VALID_IMAGE_CONTENT_TYPES,
+        choices=VALID_AUDIO_CONTENT_TYPES + VALID_VIDEO_CONTENT_TYPES + VALID_IMAGE_CONTENT_TYPES,
     )
-    checksum = models.CharField(
-        max_length=64, editable=False
-    )  # SHA-256 hash is 64 chars
+    checksum = models.CharField(max_length=64, editable=False)  # SHA-256 hash is 64 chars
     created_at = models.DateTimeField(auto_now_add=True)
     duration_ms = models.IntegerField()
 
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
 
         # Calculate checksum if this is a new object
@@ -947,18 +786,12 @@ class MediaBlob(models.Model):
             self.checksum = hashlib.sha256(self.blob).hexdigest()
 
         # Calculate duration for audio content types
-        if any(
-            content_type == self.content_type
-            for content_type, _ in self.VALID_AUDIO_CONTENT_TYPES
-        ):
+        if any(content_type == self.content_type for content_type, _ in self.VALID_AUDIO_CONTENT_TYPES):
             from .utils import calculate_audio_duration_ms
 
             self.duration_ms = calculate_audio_duration_ms(self.blob, self.content_type)
 
-        if any(
-            content_type == self.content_type
-            for content_type, _ in self.VALID_IMAGE_CONTENT_TYPES
-        ):
+        if any(content_type == self.content_type for content_type, _ in self.VALID_IMAGE_CONTENT_TYPES):
             self.duration_ms = 0
 
         if self.id:
@@ -968,19 +801,13 @@ class MediaBlob(models.Model):
 
     class Meta:
         # Ensure we don't store duplicate blobs within a project
-        constraints = [
-            models.UniqueConstraint(
-                fields=["project", "checksum"], name="unique_project_blob"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["project", "checksum"], name="unique_project_blob")]
 
     def __str__(self):
         return f"{self.object_id} ({len(self.blob)} bytes)"
 
     @classmethod
-    def get_or_create_from_blob(
-        cls, project: Project, blob: bytes, content_type: str
-    ) -> "MediaBlob":
+    def get_or_create_from_blob(cls, project: Project, blob: bytes, content_type: str) -> "MediaBlob":
         checksum = hashlib.sha256(blob).hexdigest()
 
         existing = cls.objects.filter(project=project, checksum=checksum).first()
@@ -1021,9 +848,7 @@ class BotMediaRequestStates(models.IntegerChoices):
 
 
 class BotMediaRequest(models.Model):
-    bot = models.ForeignKey(
-        Bot, on_delete=models.CASCADE, related_name="media_requests"
-    )
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="media_requests")
 
     text_to_speak = models.TextField(null=True, blank=True)
 
@@ -1037,9 +862,7 @@ class BotMediaRequest(models.Model):
         blank=True,
     )
 
-    media_type = models.IntegerField(
-        choices=BotMediaRequestMediaTypes.choices, null=False
-    )
+    media_type = models.IntegerField(choices=BotMediaRequestMediaTypes.choices, null=False)
 
     state = models.IntegerField(
         choices=BotMediaRequestStates.choices,
@@ -1070,9 +893,7 @@ class BotMediaRequestManager:
         if media_request.state == BotMediaRequestStates.PLAYING:
             return
         if media_request.state != BotMediaRequestStates.ENQUEUED:
-            raise ValueError(
-                f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
 
         media_request.state = BotMediaRequestStates.PLAYING
         media_request.save()
@@ -1082,9 +903,7 @@ class BotMediaRequestManager:
         if media_request.state == BotMediaRequestStates.FINISHED:
             return
         if media_request.state != BotMediaRequestStates.PLAYING:
-            raise ValueError(
-                f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
 
         media_request.state = BotMediaRequestStates.FINISHED
         media_request.save()
@@ -1094,9 +913,7 @@ class BotMediaRequestManager:
         if media_request.state == BotMediaRequestStates.FAILED_TO_PLAY:
             return
         if media_request.state != BotMediaRequestStates.PLAYING:
-            raise ValueError(
-                f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}"
-            )
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
 
         media_request.state = BotMediaRequestStates.FAILED_TO_PLAY
         media_request.save()
@@ -1105,13 +922,8 @@ class BotMediaRequestManager:
     def set_media_request_dropped(cls, media_request: BotMediaRequest):
         if media_request.state == BotMediaRequestStates.DROPPED:
             return
-        if (
-            media_request.state != BotMediaRequestStates.PLAYING
-            and media_request.state != BotMediaRequestStates.ENQUEUED
-        ):
-            raise ValueError(
-                f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}"
-            )
+        if media_request.state != BotMediaRequestStates.PLAYING and media_request.state != BotMediaRequestStates.ENQUEUED:
+            raise ValueError(f"Invalid state transition. Media request {media_request.id} is in state {media_request.get_state_display()}")
 
         media_request.state = BotMediaRequestStates.DROPPED
         media_request.save()
@@ -1125,9 +937,7 @@ class BotDebugScreenshot(models.Model):
     OBJECT_ID_PREFIX = "shot_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
-    bot_event = models.ForeignKey(
-        BotEvent, on_delete=models.CASCADE, related_name="debug_screenshots"
-    )
+    bot_event = models.ForeignKey(BotEvent, on_delete=models.CASCADE, related_name="debug_screenshots")
 
     metadata = models.JSONField(null=False, default=dict)
 
@@ -1137,9 +947,7 @@ class BotDebugScreenshot(models.Model):
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
-            random_string = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
 

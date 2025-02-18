@@ -24,9 +24,7 @@ def create_black_i420_frame(video_frame_size):
     v_plane = np.full((height // 2, width // 2), 128, dtype=np.uint8)
 
     # Concatenate all planes
-    yuv_frame = np.concatenate(
-        [y_plane.flatten(), u_plane.flatten(), v_plane.flatten()]
-    )
+    yuv_frame = np.concatenate([y_plane.flatten(), u_plane.flatten(), v_plane.flatten()])
 
     return yuv_frame.astype(np.uint8).tobytes()
 
@@ -52,15 +50,9 @@ def scale_i420(frame, new_size):
     orig_height = frame.GetStreamHeight()
 
     # 1) Convert buffers to NumPy arrays without extra copies if possible.
-    y = np.frombuffer(
-        frame.GetYBuffer(), dtype=np.uint8, count=orig_width * orig_height
-    )
-    u = np.frombuffer(
-        frame.GetUBuffer(), dtype=np.uint8, count=(orig_width // 2) * (orig_height // 2)
-    )
-    v = np.frombuffer(
-        frame.GetVBuffer(), dtype=np.uint8, count=(orig_width // 2) * (orig_height // 2)
-    )
+    y = np.frombuffer(frame.GetYBuffer(), dtype=np.uint8, count=orig_width * orig_height)
+    u = np.frombuffer(frame.GetUBuffer(), dtype=np.uint8, count=(orig_width // 2) * (orig_height // 2))
+    v = np.frombuffer(frame.GetVBuffer(), dtype=np.uint8, count=(orig_width // 2) * (orig_height // 2))
 
     # Reshape planes
     y = y.reshape(orig_height, orig_width)
@@ -73,22 +65,12 @@ def scale_i420(frame, new_size):
 
     if abs(input_aspect - output_aspect) < 1e-6:
         # Aspect ratios match (or extremely close). Just do a simple stretch to (new_width, new_height).
-        scaled_y = cv2.resize(
-            y, (new_width, new_height), interpolation=cv2.INTER_LINEAR
-        )
-        scaled_u = cv2.resize(
-            u, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR
-        )
-        scaled_v = cv2.resize(
-            v, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR
-        )
+        scaled_y = cv2.resize(y, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        scaled_u = cv2.resize(u, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
+        scaled_v = cv2.resize(v, (new_width // 2, new_height // 2), interpolation=cv2.INTER_LINEAR)
 
         # Flatten and return
-        return (
-            np.concatenate([scaled_y.flatten(), scaled_u.flatten(), scaled_v.flatten()])
-            .astype(np.uint8)
-            .tobytes()
-        )
+        return np.concatenate([scaled_y.flatten(), scaled_u.flatten(), scaled_v.flatten()]).astype(np.uint8).tobytes()
 
     # Otherwise, the aspect ratios differ => letterbox or pillarbox
     # 3) Compute scaled dimensions that fit entirely within (new_width, new_height)
@@ -102,15 +84,9 @@ def scale_i420(frame, new_size):
         scaled_width = int(round(new_height * input_aspect))
 
     # 4) Resize Y, U, and V to the scaled dimensions
-    scaled_y = cv2.resize(
-        y, (scaled_width, scaled_height), interpolation=cv2.INTER_LINEAR
-    )
-    scaled_u = cv2.resize(
-        u, (scaled_width // 2, scaled_height // 2), interpolation=cv2.INTER_LINEAR
-    )
-    scaled_v = cv2.resize(
-        v, (scaled_width // 2, scaled_height // 2), interpolation=cv2.INTER_LINEAR
-    )
+    scaled_y = cv2.resize(y, (scaled_width, scaled_height), interpolation=cv2.INTER_LINEAR)
+    scaled_u = cv2.resize(u, (scaled_width // 2, scaled_height // 2), interpolation=cv2.INTER_LINEAR)
+    scaled_v = cv2.resize(v, (scaled_width // 2, scaled_height // 2), interpolation=cv2.INTER_LINEAR)
 
     # 5) Create the black background only if needed
     # For I420, black is typically (Y=0, U=128, V=128) or (Y=16, U=128, V=128).
@@ -125,9 +101,7 @@ def scale_i420(frame, new_size):
     offset_x = (new_width - scaled_width) // 2
 
     # Insert Y
-    final_y[offset_y : offset_y + scaled_height, offset_x : offset_x + scaled_width] = (
-        scaled_y
-    )
+    final_y[offset_y : offset_y + scaled_height, offset_x : offset_x + scaled_width] = scaled_y
 
     # For U, V planes (subsampled by 2 in each dimension)
     offset_y_uv = offset_y // 2
@@ -143,11 +117,7 @@ def scale_i420(frame, new_size):
     ] = scaled_v
 
     # 7) Flatten back to I420 layout and return bytes
-    return (
-        np.concatenate([final_y.flatten(), final_u.flatten(), final_v.flatten()])
-        .astype(np.uint8)
-        .tobytes()
-    )
+    return np.concatenate([final_y.flatten(), final_u.flatten(), final_v.flatten()]).astype(np.uint8).tobytes()
 
 
 class VideoInputStream:
@@ -164,18 +134,14 @@ class VideoInputStream:
         )
 
         self.renderer = zoom.createRenderer(self.renderer_delegate)
-        set_resolution_result = self.renderer.setRawDataResolution(
-            zoom.ZoomSDKResolution_180P
-        )
+        set_resolution_result = self.renderer.setRawDataResolution(zoom.ZoomSDKResolution_180P)
         raw_data_type = {
             VideoInputManager.StreamType.SCREENSHARE: zoom.ZoomSDKRawDataType.RAW_DATA_TYPE_SHARE,
             VideoInputManager.StreamType.VIDEO: zoom.ZoomSDKRawDataType.RAW_DATA_TYPE_VIDEO,
         }[stream_type]
 
         if stream_type == VideoInputManager.StreamType.SCREENSHARE:
-            subscribe_result = self.renderer.subscribe(
-                self.share_source_id, raw_data_type
-            )
+            subscribe_result = self.renderer.subscribe(self.share_source_id, raw_data_type)
         else:
             subscribe_result = self.renderer.subscribe(self.user_id, raw_data_type)
 
@@ -185,37 +151,24 @@ class VideoInputStream:
         self.black_frame_timer_id = GLib.timeout_add(250, self.send_black_frame)
 
         logger.info(f"In VideoInputStream.init self.renderer = {self.renderer}")
-        logger.info(
-            f"In VideoInputStream.init set_resolution_result for user {self.user_id} and share source id {self.share_source_id} is {set_resolution_result}"
-        )
-        logger.info(
-            f"In VideoInputStream.init subscribe_result for user {self.user_id} and share source id {self.share_source_id} is {subscribe_result}"
-        )
+        logger.info(f"In VideoInputStream.init set_resolution_result for user {self.user_id} and share source id {self.share_source_id} is {set_resolution_result}")
+        logger.info(f"In VideoInputStream.init subscribe_result for user {self.user_id} and share source id {self.share_source_id} is {subscribe_result}")
         self.last_debug_frame_time = None
 
     def on_raw_data_status_changed_callback(self, status):
         self.raw_data_status = status
-        logger.info(
-            f"In VideoInputStream.on_raw_data_status_changed_callback raw_data_status for user {self.user_id} is {self.raw_data_status}"
-        )
+        logger.info(f"In VideoInputStream.on_raw_data_status_changed_callback raw_data_status for user {self.user_id} is {self.raw_data_status}")
 
     def send_black_frame(self):
         if self.renderer_destroyed:
             return False
 
         current_time = time.time()
-        if (
-            current_time - self.last_frame_time >= 0.25
-            and self.raw_data_status == zoom.RawData_Off
-        ):
+        if current_time - self.last_frame_time >= 0.25 and self.raw_data_status == zoom.RawData_Off:
             # Create a black frame of the same dimensions
-            black_frame = create_black_i420_frame(
-                self.video_input_manager.video_frame_size
-            )
+            black_frame = create_black_i420_frame(self.video_input_manager.video_frame_size)
             self.video_input_manager.new_frame_callback(black_frame, time.time_ns())
-            logger.info(
-                f"In VideoInputStream.send_black_frame for user {self.user_id} sent black frame"
-            )
+            logger.info(f"In VideoInputStream.send_black_frame for user {self.user_id} sent black frame")
 
         return not self.renderer_destroyed  # Continue timer if not cleaned up
 
@@ -227,13 +180,9 @@ class VideoInputStream:
             GLib.source_remove(self.black_frame_timer_id)
             self.black_frame_timer_id = None
 
-        logger.info(
-            f"starting renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}"
-        )
+        logger.info(f"starting renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}")
         self.renderer.unSubscribe()
-        logger.info(
-            f"finished renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}"
-        )
+        logger.info(f"finished renderer unsubscription for user {self.user_id} and share source id {self.share_source_id}")
 
     def on_renderer_destroyed_callback(self):
         self.renderer_destroyed = True
@@ -253,18 +202,11 @@ class VideoInputStream:
         i420_frame = data.GetBuffer()
 
         if i420_frame is None or len(i420_frame) == 0:
-            logger.warning(
-                f"In VideoInputStream.on_raw_video_frame_received_callback invalid frame received for user {self.user_id}"
-            )
+            logger.warning(f"In VideoInputStream.on_raw_video_frame_received_callback invalid frame received for user {self.user_id}")
             return
 
-        if (
-            self.last_debug_frame_time is None
-            or time.time() - self.last_debug_frame_time > 1
-        ):
-            logger.info(
-                f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame"
-            )
+        if self.last_debug_frame_time is None or time.time() - self.last_debug_frame_time > 1:
+            logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
             self.last_debug_frame_time = time.time()
 
         scaled_i420_frame = scale_i420(data, self.video_input_manager.video_frame_size)
@@ -280,9 +222,7 @@ class VideoInputManager:
         ACTIVE_SPEAKER = 1
         ACTIVE_SHARER = 2
 
-    def __init__(
-        self, *, new_frame_callback, wants_any_frames_callback, video_frame_size
-    ):
+    def __init__(self, *, new_frame_callback, wants_any_frames_callback, video_frame_size):
         self.new_frame_callback = new_frame_callback
         self.wants_any_frames_callback = wants_any_frames_callback
         self.video_frame_size = video_frame_size
@@ -293,28 +233,14 @@ class VideoInputManager:
         return len(self.input_streams) > 0
 
     def add_input_streams_if_needed(self, streams_info):
-        streams_to_remove = [
-            input_stream
-            for input_stream in self.input_streams
-            if not any(
-                stream_info["user_id"] == input_stream.user_id
-                and stream_info["stream_type"] == input_stream.stream_type
-                and stream_info["share_source_id"] == input_stream.share_source_id
-                for stream_info in streams_info
-            )
-        ]
+        streams_to_remove = [input_stream for input_stream in self.input_streams if not any(stream_info["user_id"] == input_stream.user_id and stream_info["stream_type"] == input_stream.stream_type and stream_info["share_source_id"] == input_stream.share_source_id for stream_info in streams_info)]
 
         for stream in streams_to_remove:
             stream.cleanup()
             self.input_streams.remove(stream)
 
         for stream_info in streams_info:
-            if any(
-                input_stream.user_id == stream_info["user_id"]
-                and input_stream.stream_type == stream_info["stream_type"]
-                and input_stream.share_source_id == stream_info["share_source_id"]
-                for input_stream in self.input_streams
-            ):
+            if any(input_stream.user_id == stream_info["user_id"] and input_stream.stream_type == stream_info["stream_type"] and input_stream.share_source_id == stream_info["share_source_id"] for input_stream in self.input_streams):
                 continue
 
             self.input_streams.append(
@@ -330,18 +256,11 @@ class VideoInputManager:
         for input_stream in self.input_streams:
             input_stream.cleanup()
 
-    def set_mode(
-        self, *, mode, active_speaker_id, active_sharer_id, active_sharer_source_id
-    ):
-        if (
-            mode != VideoInputManager.Mode.ACTIVE_SPEAKER
-            and mode != VideoInputManager.Mode.ACTIVE_SHARER
-        ):
+    def set_mode(self, *, mode, active_speaker_id, active_sharer_id, active_sharer_source_id):
+        if mode != VideoInputManager.Mode.ACTIVE_SPEAKER and mode != VideoInputManager.Mode.ACTIVE_SHARER:
             raise Exception("Unsupported mode " + str(mode))
 
-        print(
-            f"In VideoInputManager.set_mode mode = {mode} active_speaker_id = {active_speaker_id} active_sharer_id = {active_sharer_id} active_sharer_source_id = {active_sharer_source_id}"
-        )
+        print(f"In VideoInputManager.set_mode mode = {mode} active_speaker_id = {active_speaker_id} active_sharer_id = {active_sharer_id} active_sharer_source_id = {active_sharer_source_id}")
 
         self.mode = mode
 
@@ -374,16 +293,10 @@ class VideoInputManager:
         if not self.wants_any_frames_callback():
             return False
 
-        if (
-            self.mode == VideoInputManager.Mode.ACTIVE_SPEAKER
-            and user_id != self.active_speaker_id
-        ):
+        if self.mode == VideoInputManager.Mode.ACTIVE_SPEAKER and user_id != self.active_speaker_id:
             return False
 
-        if (
-            self.mode == VideoInputManager.Mode.ACTIVE_SHARER
-            and user_id != self.active_sharer_id
-        ):
+        if self.mode == VideoInputManager.Mode.ACTIVE_SHARER and user_id != self.active_sharer_id:
             return False
 
         return True

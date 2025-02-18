@@ -24,28 +24,18 @@ def generate_audio_from_text(bot, text, settings, sample_rate):
     """
 
     # Additional providers will be added, for now we only support Google TTS
-    google_tts_credentials = bot.project.credentials.filter(
-        credential_type=Credentials.CredentialTypes.GOOGLE_TTS
-    ).first()
+    google_tts_credentials = bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.GOOGLE_TTS).first()
 
     if not google_tts_credentials:
         raise ValueError("Could not find Google Text-to-Speech credentials.")
 
     try:
         # Create client with credentials
-        client = texttospeech.TextToSpeechClient.from_service_account_info(
-            json.loads(
-                google_tts_credentials.get_credentials().get("service_account_json", {})
-            )
-        )
+        client = texttospeech.TextToSpeechClient.from_service_account_info(json.loads(google_tts_credentials.get_credentials().get("service_account_json", {})))
     except (ValueError, json.JSONDecodeError) as e:
-        raise ValueError(
-            "Invalid Google Text-to-Speech credentials format: " + str(e)
-        ) from e
+        raise ValueError("Invalid Google Text-to-Speech credentials format: " + str(e)) from e
     except Exception as e:
-        raise ValueError(
-            "Failed to initialize Google Text-to-Speech client: " + str(e)
-        ) from e
+        raise ValueError("Failed to initialize Google Text-to-Speech client: " + str(e)) from e
 
     # Set up text input
     synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -56,9 +46,7 @@ def generate_audio_from_text(bot, text, settings, sample_rate):
     voice_name = google_settings.get("voice_name")
 
     # Build voice parameters
-    voice = texttospeech.VoiceSelectionParams(
-        language_code=language_code, name=voice_name
-    )
+    voice = texttospeech.VoiceSelectionParams(language_code=language_code, name=voice_name)
 
     # Configure audio output as PCM (LINEAR16)
     audio_config = texttospeech.AudioConfig(
@@ -67,9 +55,7 @@ def generate_audio_from_text(bot, text, settings, sample_rate):
     )
 
     # Perform the text-to-speech request
-    response = client.synthesize_speech(
-        input=synthesis_input, voice=voice, audio_config=audio_config
-    )
+    response = client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
 
     # Skip the WAV header (first 44 bytes) to get raw PCM data
     audio_content = response.audio_content[44:]

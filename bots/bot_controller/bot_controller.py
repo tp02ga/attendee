@@ -59,9 +59,7 @@ class BotController:
     def get_zoom_bot_adapter(self):
         from bots.zoom_bot_adapter import ZoomBotAdapter
 
-        zoom_oauth_credentials_record = self.bot_in_db.project.credentials.filter(
-            credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
-        ).first()
+        zoom_oauth_credentials_record = self.bot_in_db.project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
         if not zoom_oauth_credentials_record:
             raise Exception("Zoom OAuth credentials not found")
 
@@ -71,10 +69,8 @@ class BotController:
 
         return ZoomBotAdapter(
             use_one_way_audio=self.pipeline_configuration.transcribe_audio,
-            use_mixed_audio=self.pipeline_configuration.record_audio
-            or self.pipeline_configuration.rtmp_stream_audio,
-            use_video=self.pipeline_configuration.record_video
-            or self.pipeline_configuration.rtmp_stream_video,
+            use_mixed_audio=self.pipeline_configuration.record_audio or self.pipeline_configuration.rtmp_stream_audio,
+            use_video=self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video,
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
             add_audio_chunk_callback=self.individual_audio_input_manager.add_chunk,
@@ -111,10 +107,7 @@ class BotController:
     def get_first_buffer_timestamp_ms(self):
         if self.gstreamer_pipeline.start_time_ns is None:
             return None
-        return (
-            int(self.gstreamer_pipeline.start_time_ns / 1_000_000)
-            + self.adapter.get_first_buffer_timestamp_ms_offset()
-        )
+        return int(self.gstreamer_pipeline.start_time_ns / 1_000_000) + self.adapter.get_first_buffer_timestamp_ms_offset()
 
     def recording_file_saved(self, s3_storage_key):
         recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
@@ -132,9 +125,7 @@ class BotController:
             bot=self.bot_in_db,
             event_type=BotEventTypes.FATAL_ERROR,
             event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED,
-            event_metadata={
-                "rtmp_destination_url": self.bot_in_db.rtmp_destination_url()
-            },
+            event_metadata={"rtmp_destination_url": self.bot_in_db.rtmp_destination_url()},
         )
         self.cleanup()
 
@@ -208,9 +199,7 @@ class BotController:
             raise Exception("Run already called, exiting")
         self.run_called = True
 
-        redis_url = os.getenv("REDIS_URL") + (
-            "?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else ""
-        )
+        redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
         redis_client = redis.from_url(redis_url)
         pubsub = redis_client.pubsub()
         channel = f"bot_{self.bot_in_db.id}"
@@ -229,14 +218,9 @@ class BotController:
 
         gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_MP4
         self.rtmp_client = None
-        if (
-            self.pipeline_configuration.rtmp_stream_audio
-            or self.pipeline_configuration.rtmp_stream_video
-        ):
+        if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_FLV
-            self.rtmp_client = RTMPClient(
-                rtmp_url=self.bot_in_db.rtmp_destination_url()
-            )
+            self.rtmp_client = RTMPClient(rtmp_url=self.bot_in_db.rtmp_destination_url())
             self.rtmp_client.start()
 
         self.gstreamer_pipeline = GstreamerPipeline(
@@ -285,12 +269,8 @@ class BotController:
         GLib.timeout_add(100, self.on_main_loop_timeout)
 
         # Add signal handlers so that when we get a SIGTERM or SIGINT, we can clean up the bot
-        GLib.unix_signal_add(
-            GLib.PRIORITY_HIGH, signal.SIGTERM, self.handle_glib_shutdown
-        )
-        GLib.unix_signal_add(
-            GLib.PRIORITY_HIGH, signal.SIGINT, self.handle_glib_shutdown
-        )
+        GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal.SIGTERM, self.handle_glib_shutdown)
+        GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal.SIGINT, self.handle_glib_shutdown)
 
         # Run the main loop
         try:
@@ -323,36 +303,20 @@ class BotController:
 
     def take_action_based_on_audio_media_requests_in_db(self):
         media_type = BotMediaRequestMediaTypes.AUDIO
-        oldest_enqueued_media_request = (
-            self.bot_in_db.media_requests.filter(
-                state=BotMediaRequestStates.ENQUEUED, media_type=media_type
-            )
-            .order_by("created_at")
-            .first()
-        )
+        oldest_enqueued_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by("created_at").first()
         if not oldest_enqueued_media_request:
             return
-        currently_playing_media_request = self.bot_in_db.media_requests.filter(
-            state=BotMediaRequestStates.PLAYING, media_type=media_type
-        ).first()
+        currently_playing_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.PLAYING, media_type=media_type).first()
         if currently_playing_media_request:
-            print(
-                f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request"
-            )
+            print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
             return
 
         try:
-            BotMediaRequestManager.set_media_request_playing(
-                oldest_enqueued_media_request
-            )
-            self.audio_output_manager.start_playing_audio_media_request(
-                oldest_enqueued_media_request
-            )
+            BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+            self.audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
         except Exception as e:
             print(f"Error sending raw audio: {e}")
-            BotMediaRequestManager.set_media_request_failed_to_play(
-                oldest_enqueued_media_request
-            )
+            BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
 
     def take_action_based_on_image_media_requests_in_db(self):
         from bots.utils import png_to_yuv420_frame
@@ -360,9 +324,7 @@ class BotController:
         media_type = BotMediaRequestMediaTypes.IMAGE
 
         # Get all enqueued image media requests for this bot, ordered by creation time
-        enqueued_requests = self.bot_in_db.media_requests.filter(
-            state=BotMediaRequestStates.ENQUEUED, media_type=media_type
-        ).order_by("created_at")
+        enqueued_requests = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by("created_at")
 
         if not enqueued_requests.exists():
             return
@@ -373,9 +335,7 @@ class BotController:
         # Mark the most recent request as FINISHED
         try:
             BotMediaRequestManager.set_media_request_playing(most_recent_request)
-            self.adapter.send_raw_image(
-                png_to_yuv420_frame(most_recent_request.media_blob.blob)
-            )
+            self.adapter.send_raw_image(png_to_yuv420_frame(most_recent_request.media_blob.blob))
             BotMediaRequestManager.set_media_request_finished(most_recent_request)
         except Exception as e:
             print(f"Error sending raw image: {e}")
@@ -449,15 +409,11 @@ class BotController:
             return False
 
     def get_recording_in_progress(self):
-        recordings_in_progress = Recording.objects.filter(
-            bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS
-        )
+        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
         if recordings_in_progress.count() == 0:
             raise Exception("No recording in progress found")
         if recordings_in_progress.count() > 1:
-            raise Exception(
-                f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}"
-            )
+            raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
         return recordings_in_progress.first()
 
     def save_closed_caption_utterance(self, message):
@@ -472,9 +428,7 @@ class BotController:
 
         # Create new utterance record
         recording_in_progress = self.get_recording_in_progress()
-        source_uuid = (
-            f"{recording_in_progress.object_id}-{message['source_uuid_suffix']}"
-        )
+        source_uuid = f"{recording_in_progress.object_id}-{message['source_uuid_suffix']}"
         utterance, _ = Utterance.objects.update_or_create(
             recording=recording_in_progress,
             source_uuid=source_uuid,
@@ -535,9 +489,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
-            print(
-                f"Received message that UI element not found at {message.get('current_time')}"
-            )
+            print(f"Received message that UI element not found at {message.get('current_time')}")
 
             screenshot_available = message.get("screenshot_path") is not None
 
@@ -557,9 +509,7 @@ class BotController:
 
             if screenshot_available:
                 # Create debug screenshot
-                debug_screenshot = BotDebugScreenshot.objects.create(
-                    bot_event=new_bot_event
-                )
+                debug_screenshot = BotDebugScreenshot.objects.create(bot_event=new_bot_event)
 
                 # Read the file content from the path
                 with open(message.get("screenshot_path"), "rb") as f:
@@ -583,23 +533,14 @@ class BotController:
                 self.closed_caption_manager.flush_captions()
 
             if self.bot_in_db.state == BotStates.LEAVING:
-                BotEventManager.create_event(
-                    bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING
-                )
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
             else:
-                BotEventManager.create_event(
-                    bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED
-                )
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
             self.cleanup()
             return
 
-        if (
-            message.get("message")
-            == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING
-        ):
-            print(
-                f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}"
-            )
+        if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:
+            print(f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -610,9 +551,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED:
-            print(
-                f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}"
-            )
+            print(f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -623,9 +562,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
-            print(
-                f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}"
-            )
+            print(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -636,9 +573,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_SDK_INTERNAL_ERROR:
-            print(
-                f"Received message that SDK internal error with zoom_result_code={message.get('zoom_result_code')}"
-            )
+            print(f"Received message that SDK internal error with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -649,9 +584,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
-            print(
-                "Received message to Leave meeting because received waiting for host status"
-            )
+            print("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -662,22 +595,15 @@ class BotController:
 
         if message.get("message") == BotAdapter.Messages.BOT_PUT_IN_WAITING_ROOM:
             print("Received message to put bot in waiting room")
-            BotEventManager.create_event(
-                bot=self.bot_in_db, event_type=BotEventTypes.BOT_PUT_IN_WAITING_ROOM
-            )
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_PUT_IN_WAITING_ROOM)
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_JOINED_MEETING:
             print("Received message that bot joined meeting")
-            BotEventManager.create_event(
-                bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING
-            )
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
             return
 
-        if (
-            message.get("message")
-            == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED
-        ):
+        if message.get("message") == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
             print("Received message that bot recording permission granted")
             BotEventManager.create_event(
                 bot=self.bot_in_db,

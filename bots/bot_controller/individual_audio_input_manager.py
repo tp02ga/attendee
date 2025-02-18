@@ -79,9 +79,7 @@ class IndividualAudioInputManager:
 
         # Check for silence
         if audio_is_silent:
-            silence_duration = (
-                chunk_time - self.last_nonsilent_audio_time[speaker_id]
-            ).total_seconds()
+            silence_duration = (chunk_time - self.last_nonsilent_audio_time[speaker_id]).total_seconds()
             if silence_duration >= self.SILENCE_DURATION_LIMIT:
                 should_flush = True
                 reason = "silence_limit"
@@ -98,10 +96,7 @@ class IndividualAudioInputManager:
                     {
                         **participant,
                         "audio_data": bytes(self.utterances[speaker_id]),
-                        "timestamp_ms": int(
-                            self.first_nonsilent_audio_time[speaker_id].timestamp()
-                            * 1000
-                        ),
+                        "timestamp_ms": int(self.first_nonsilent_audio_time[speaker_id].timestamp() * 1000),
                         "flush_reason": reason,
                     }
                 )

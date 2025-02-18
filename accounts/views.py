@@ -16,6 +16,4 @@ def home(request):
         )
     if project:
         return redirect("projects:project-dashboard", object_id=project.object_id)
-    raise Http404(
-        "No projects found for this organization. You need to create a project first."
-    )
+    raise Http404("No projects found for this organization. You need to create a project first.")

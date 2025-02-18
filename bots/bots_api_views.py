@@ -110,9 +110,7 @@ class NotFoundView(APIView):
 
 
 def send_sync_command(bot, command="sync"):
-    redis_url = os.getenv("REDIS_URL") + (
-        "?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else ""
-    )
+    redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
     redis_client = redis.from_url(redis_url)
     channel = f"bot_{bot.id}"
     message = {"command": command}
@@ -151,28 +149,18 @@ class BotCreateView(APIView):
         if "meet.google.com" in meeting_url:
             if not meeting_url.startswith("https://meet.google.com/"):
                 return Response(
-                    {
-                        "error": "Google Meet URL must start with https://meet.google.com/"
-                    },
+                    {"error": "Google Meet URL must start with https://meet.google.com/"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
         # Check if this is a Zoom meeting and validate credentials
         if "zoom.us" in meeting_url:
-            zoom_credentials = project.credentials.filter(
-                credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
-            ).first()
+            zoom_credentials = project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
 
             if not zoom_credentials:
-                settings_url = request.build_absolute_uri(
-                    reverse(
-                        "bots:project-settings", kwargs={"object_id": project.object_id}
-                    )
-                )
+                settings_url = request.build_absolute_uri(reverse("bots:project-settings", kwargs={"object_id": project.object_id}))
                 return Response(
-                    {
-                        "error": f"Zoom App credentials are required to create a Zoom bot. Please add Zoom credentials at {settings_url}"
-                    },
+                    {"error": f"Zoom App credentials are required to create a Zoom bot. Please add Zoom credentials at {settings_url}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -237,9 +225,7 @@ class SpeechView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Validate the request data
         serializer = SpeechSerializer(data=request.data)
@@ -249,27 +235,17 @@ class SpeechView(APIView):
         # Check if bot is in a state that can play media
         if not BotEventManager.is_state_that_can_play_media(bot.state):
             return Response(
-                {
-                    "error": f"Bot is in state {BotStates(bot.state).label} and cannot play media"
-                },
+                {"error": f"Bot is in state {BotStates(bot.state).label} and cannot play media"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Check for Google TTS credentials. This is currently the only supported text-to-speech provider.
-        google_tts_credentials = bot.project.credentials.filter(
-            credential_type=Credentials.CredentialTypes.GOOGLE_TTS
-        ).first()
+        google_tts_credentials = bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.GOOGLE_TTS).first()
 
         if not google_tts_credentials:
-            settings_url = request.build_absolute_uri(
-                reverse(
-                    "bots:project-settings", kwargs={"object_id": bot.project.object_id}
-                )
-            )
+            settings_url = request.build_absolute_uri(reverse("bots:project-settings", kwargs={"object_id": bot.project.object_id}))
             return Response(
-                {
-                    "error": f"Google Text-to-Speech credentials are required. Please add credentials at {settings_url}"
-                },
+                {"error": f"Google Text-to-Speech credentials are required. Please add credentials at {settings_url}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -277,9 +253,7 @@ class SpeechView(APIView):
         BotMediaRequest.objects.create(
             bot=bot,
             text_to_speak=serializer.validated_data["text"],
-            text_to_speech_settings=serializer.validated_data[
-                "text_to_speech_settings"
-            ],
+            text_to_speech_settings=serializer.validated_data["text_to_speech_settings"],
             media_type=BotMediaRequestMediaTypes.AUDIO,
         )
 
@@ -340,9 +314,7 @@ class OutputAudioView(APIView):
                 )
 
             content_type = request.data["type"]
-            if content_type not in [
-                ct[0] for ct in MediaBlob.VALID_AUDIO_CONTENT_TYPES
-            ]:
+            if content_type not in [ct[0] for ct in MediaBlob.VALID_AUDIO_CONTENT_TYPES]:
                 return Response(
                     {"error": "Invalid audio content type"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -368,9 +340,7 @@ class OutputAudioView(APIView):
                 )
 
             # Create or get existing MediaBlob
-            media_blob = MediaBlob.get_or_create_from_blob(
-                project=request.auth.project, blob=audio_data, content_type=content_type
-            )
+            media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -385,9 +355,7 @@ class OutputAudioView(APIView):
             return Response(status=status.HTTP_200_OK)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class OutputImageView(APIView):
@@ -441,9 +409,7 @@ class OutputImageView(APIView):
                 )
 
             content_type = request.data["type"]
-            if content_type not in [
-                ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES
-            ]:
+            if content_type not in [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES]:
                 return Response(
                     {"error": "Invalid image content type"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -469,9 +435,7 @@ class OutputImageView(APIView):
                 )
 
             # Create or get existing MediaBlob
-            media_blob = MediaBlob.get_or_create_from_blob(
-                project=request.auth.project, blob=image_data, content_type=content_type
-            )
+            media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -486,9 +450,7 @@ class OutputImageView(APIView):
             return Response(status=status.HTTP_200_OK)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class BotLeaveView(APIView):
@@ -529,9 +491,7 @@ class BotLeaveView(APIView):
             return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class RecordingView(APIView):
@@ -563,9 +523,7 @@ class RecordingView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
 
-            recording = Recording.objects.filter(
-                bot=bot, is_default_recording=True
-            ).first()
+            recording = Recording.objects.filter(bot=bot, is_default_recording=True).first()
             if not recording:
                 return Response(
                     {"error": "No recording found for bot"},
@@ -582,9 +540,7 @@ class RecordingView(APIView):
             return Response(RecordingSerializer(recording).data)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class TranscriptView(APIView):
@@ -617,9 +573,7 @@ class TranscriptView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
 
-            recording = Recording.objects.filter(
-                bot=bot, is_default_recording=True
-            ).first()
+            recording = Recording.objects.filter(bot=bot, is_default_recording=True).first()
             if not recording:
                 return Response(
                     {"error": "No recording found for bot"},
@@ -627,11 +581,7 @@ class TranscriptView(APIView):
                 )
 
             # Get all utterances with transcriptions, sorted by timeline
-            utterances = (
-                Utterance.objects.select_related("participant")
-                .filter(recording=recording, transcription__isnull=False)
-                .order_by("timestamp_ms")
-            )
+            utterances = Utterance.objects.select_related("participant").filter(recording=recording, transcription__isnull=False).order_by("timestamp_ms")
 
             # Format the response, skipping empty transcriptions
             transcript_data = [
@@ -651,9 +601,7 @@ class TranscriptView(APIView):
             return Response(serializer.data)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class BotDetailView(APIView):
@@ -688,6 +636,4 @@ class BotDetailView(APIView):
             return Response(BotSerializer(bot).data)
 
         except Bot.DoesNotExist:
-            return Response(
-                {"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)

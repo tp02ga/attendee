@@ -34,7 +34,7 @@ exclude = [
 ]
 
 # Same as Black.
-line-length = 88  # This is still here but won't be enforced due to E501 in ignore
+line-length = 999  # Setting a very large line length to prevent wrapping
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
@@ -48,3 +48,8 @@ max-complexity = 10
 
 [tool.ruff.isort]
 known-first-party = ["attendee"]
+
+[tool.ruff.format]
+line-ending = "auto"
+quote-style = "double"
+indent-style = "space"

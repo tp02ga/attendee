@@ -26,26 +26,18 @@ class ProjectUrlContextMixin:
 class ProjectDashboardView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         try:
-            project = get_object_or_404(
-                Project, object_id=object_id, organization=request.user.organization
-            )
+            project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         except:
             return redirect("/")
 
         # Quick start guide status checks
-        zoom_credentials = Credentials.objects.filter(
-            project=project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
-        ).exists()
+        zoom_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).exists()
 
-        deepgram_credentials = Credentials.objects.filter(
-            project=project, credential_type=Credentials.CredentialTypes.DEEPGRAM
-        ).exists()
+        deepgram_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.DEEPGRAM).exists()
 
         has_api_keys = ApiKey.objects.filter(project=project).exists()
 
-        has_ended_bots = Bot.objects.filter(
-            project=project, state=BotStates.ENDED
-        ).exists()
+        has_ended_bots = Bot.objects.filter(project=project, state=BotStates.ENDED).exists()
 
         context = self.get_project_context(object_id, project)
         context.update(
@@ -63,21 +55,15 @@ class ProjectDashboardView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectApiKeysView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         context = self.get_project_context(object_id, project)
-        context["api_keys"] = ApiKey.objects.filter(project=project).order_by(
-            "-created_at"
-        )
+        context["api_keys"] = ApiKey.objects.filter(project=project).order_by("-created_at")
         return render(request, "projects/project_api_keys.html", context)
 
 
 class CreateApiKeyView(LoginRequiredMixin, View):
     def post(self, request, object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         name = request.POST.get("name")
 
         if not name:
@@ -102,9 +88,7 @@ class DeleteApiKeyView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         )
         api_key.delete()
         context = self.get_project_context(object_id, api_key.project)
-        context["api_keys"] = ApiKey.objects.filter(project=api_key.project).order_by(
-            "-created_at"
-        )
+        context["api_keys"] = ApiKey.objects.filter(project=api_key.project).order_by("-created_at")
         return render(request, "projects/project_api_keys.html", context)
 
 
@@ -115,21 +99,15 @@ class RedirectToDashboardView(LoginRequiredMixin, View):
 
 class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
         try:
             credential_type = int(request.POST.get("credential_type"))
-            if credential_type not in [
-                choice[0] for choice in Credentials.CredentialTypes.choices
-            ]:
+            if credential_type not in [choice[0] for choice in Credentials.CredentialTypes.choices]:
                 return HttpResponse("Invalid credential type", status=400)
 
             # Get or create the credential instance
-            credential, created = Credentials.objects.get_or_create(
-                project=project, credential_type=credential_type
-            )
+            credential, created = Credentials.objects.get_or_create(project=project, credential_type=credential_type)
 
             # Parse the credentials data based on type
             if credential_type == Credentials.CredentialTypes.ZOOM_OAUTH:
@@ -147,9 +125,7 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 if not all(credentials_data.values()):
                     return HttpResponse("Missing required credentials data", status=400)
             elif credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
-                credentials_data = {
-                    "service_account_json": request.POST.get("service_account_json")
-                }
+                credentials_data = {"service_account_json": request.POST.get("service_account_json")}
 
                 if not all(credentials_data.values()):
                     return HttpResponse("Missing required credentials data", status=400)
@@ -164,21 +140,13 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             context["credentials"] = credential.get_credentials()
             context["credential_type"] = credential.credential_type
             if credential.credential_type == Credentials.CredentialTypes.ZOOM_OAUTH:
-                return render(
-                    request, "projects/partials/zoom_credentials.html", context
-                )
+                return render(request, "projects/partials/zoom_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.DEEPGRAM:
-                return render(
-                    request, "projects/partials/deepgram_credentials.html", context
-                )
+                return render(request, "projects/partials/deepgram_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
-                return render(
-                    request, "projects/partials/google_tts_credentials.html", context
-                )
+                return render(request, "projects/partials/google_tts_credentials.html", context)
             else:
-                return HttpResponse(
-                    "Cannot render the partial for this credential type", status=400
-                )
+                return HttpResponse("Cannot render the partial for this credential type", status=400)
 
         except Exception as e:
             return HttpResponse(str(e), status=400)
@@ -186,37 +154,23 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectSettingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
         # Try to get existing credentials
-        zoom_credentials = Credentials.objects.filter(
-            project=project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH
-        ).first()
+        zoom_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
 
-        deepgram_credentials = Credentials.objects.filter(
-            project=project, credential_type=Credentials.CredentialTypes.DEEPGRAM
-        ).first()
+        deepgram_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
 
-        google_tts_credentials = Credentials.objects.filter(
-            project=project, credential_type=Credentials.CredentialTypes.GOOGLE_TTS
-        ).first()
+        google_tts_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.GOOGLE_TTS).first()
 
         context = self.get_project_context(object_id, project)
         context.update(
             {
-                "zoom_credentials": zoom_credentials.get_credentials()
-                if zoom_credentials
-                else None,
+                "zoom_credentials": zoom_credentials.get_credentials() if zoom_credentials else None,
                 "zoom_credential_type": Credentials.CredentialTypes.ZOOM_OAUTH,
-                "deepgram_credentials": deepgram_credentials.get_credentials()
-                if deepgram_credentials
-                else None,
+                "deepgram_credentials": deepgram_credentials.get_credentials() if deepgram_credentials else None,
                 "deepgram_credential_type": Credentials.CredentialTypes.DEEPGRAM,
-                "google_tts_credentials": google_tts_credentials.get_credentials()
-                if google_tts_credentials
-                else None,
+                "google_tts_credentials": google_tts_credentials.get_credentials() if google_tts_credentials else None,
                 "google_tts_credential_type": Credentials.CredentialTypes.GOOGLE_TTS,
             }
         )
@@ -226,9 +180,7 @@ class ProjectSettingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
         bots = Bot.objects.filter(project=project).order_by("-created_at")
 
@@ -245,18 +197,12 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id, bot_object_id):
-        project = get_object_or_404(
-            Project, object_id=object_id, organization=request.user.organization
-        )
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
         bot = get_object_or_404(Bot, object_id=bot_object_id, project=project)
 
         # Prefetch recordings with their utterances and participants
-        bot.recordings.all().prefetch_related(
-            models.Prefetch(
-                "utterances", queryset=Utterance.objects.select_related("participant")
-            )
-        )
+        bot.recordings.all().prefetch_related(models.Prefetch("utterances", queryset=Utterance.objects.select_related("participant")))
 
         # Prefetch bot events with their debug screenshots
         bot.bot_events.prefetch_related("debug_screenshots")

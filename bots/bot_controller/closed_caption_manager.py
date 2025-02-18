@@ -16,15 +16,10 @@ class CaptionEntry:
     def should_upsert_to_db(self, should_flush=False) -> bool:
         # If never upserted to db, and it's been at least a few seconds since creation
         if not self.last_upsert_to_db_at:
-            return (
-                (datetime.utcnow() - self.created_at) > timedelta(seconds=15)
-            ) or should_flush
+            return ((datetime.utcnow() - self.created_at) > timedelta(seconds=15)) or should_flush
 
         # If modified since last upsert to db and hasn't been updated recently
-        return self.modified_at > self.last_upsert_to_db_at and (
-            ((datetime.utcnow() - self.modified_at) > timedelta(seconds=15))
-            or should_flush
-        )
+        return self.modified_at > self.last_upsert_to_db_at and (((datetime.utcnow() - self.modified_at) > timedelta(seconds=15)) or should_flush)
 
     def mark_upserted_to_db(self):
         self.last_upsert_to_db_at = datetime.utcnow()
@@ -67,10 +62,7 @@ class ClosedCaptionManager:
                         {
                             **participant,
                             "timestamp_ms": int(entry.created_at.timestamp() * 1000),
-                            "duration_ms": int(
-                                (entry.modified_at - entry.created_at).total_seconds()
-                                * 1000
-                            ),
+                            "duration_ms": int((entry.modified_at - entry.created_at).total_seconds() * 1000),
                             "text": entry.caption_data.get("text", ""),
                             "source_uuid_suffix": f"{entry.caption_data['deviceId']}-{entry.caption_data['captionId']}",
                         }
