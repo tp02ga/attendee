@@ -74,6 +74,7 @@ class ZoomBotAdapter(BotAdapter):
         add_video_frame_callback,
         wants_any_video_frames_callback,
         add_mixed_audio_chunk_callback,
+        automatic_leave_configuration: AutomaticLeaveConfiguration,
     ):
         self.use_one_way_audio = use_one_way_audio
         self.use_mixed_audio = use_mixed_audio
@@ -122,6 +123,9 @@ class ZoomBotAdapter(BotAdapter):
         self.virtual_camera_video_source = None
         self.video_source_helper = None
         self.video_frame_size = (1920, 1080)
+
+        self.automatic_leave_configuration = automatic_leave_configuration
+        self.leave_reason = None
 
         if self.use_video:
             self.video_input_manager = VideoInputManager(
@@ -496,7 +500,7 @@ class ZoomBotAdapter(BotAdapter):
         if rec_ctrl.StopRawRecording() != zoom.SDKERR_SUCCESS:
             raise Exception("Error with stop raw recording")
 
-    def leave(self):
+    def leave(self, reason: BotAdapter.LEAVE_REASON):
         if self.meeting_service is None:
             return
 
@@ -506,6 +510,7 @@ class ZoomBotAdapter(BotAdapter):
             return
 
         print("Leaving meeting...")
+        self.leave_reason = reason
         leave_result = self.meeting_service.Leave(zoom.LEAVE_MEETING)
         print("Left meeting. result =", leave_result)
 

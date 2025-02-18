@@ -12,3 +12,12 @@ class BotAdapter:
         NEW_UTTERANCE = "New utterance"
         UI_ELEMENT_NOT_FOUND = "UI Element Not Found"
         REQUEST_TO_JOIN_DENIED = "Request to join denied"
+        BOT_LEFT_MEETING = "Bot left meeting"
+        ADAPTER_REQUESTED_BOT_LEAVE_MEETING = "Adapter requested bot leave meeting"
+
+
+    class LEAVE_REASON:
+        USER_REQUESTED = "USER_REQUESTED"
+        AUTO_LEAVE_SILENCE = "AUTO_LEAVE_SILENCE"
+        AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING = "AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING"
+        FOR_CLEANUP = "FOR_CLEANUP"

@@ -28,6 +28,7 @@ from bots.models import (
 )
 
 from .audio_output_manager import AudioOutputManager
+from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
@@ -54,6 +55,7 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
+            automatic_leave_configuration=self.automatic_leave_configuration,
         )
 
     def get_zoom_bot_adapter(self):
@@ -175,7 +177,7 @@ class BotController:
 
         if self.adapter:
             print("Telling adapter to leave meeting...")
-            self.adapter.leave()
+            self.adapter.leave(reason=BotAdapter.LEAVE_REASON.FOR_CLEANUP)
             print("Telling adapter to cleanup...")
             self.adapter.cleanup()
 
@@ -188,6 +190,8 @@ class BotController:
         self.bot_in_db = Bot.objects.get(id=bot_id)
         self.cleanup_called = False
         self.run_called = False
+
+        self.automatic_leave_configuration = AutomaticLeaveConfiguration()
 
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
@@ -291,7 +295,7 @@ class BotController:
         if self.bot_in_db.state == BotStates.LEAVING:
             print("take_action_based_on_bot_in_db - LEAVING")
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
-            self.adapter.leave()
+            self.adapter.leave(reason=BotAdapter.LEAVE_REASON.USER_REQUESTED)
 
     def get_participant(self, participant_id):
         return self.adapter.get_participant(participant_id)
@@ -521,6 +525,27 @@ class BotController:
                     )
 
             self.cleanup()
+            return
+
+        if message.get("message") == BotAdapter.Messages.BOT_LEFT_MEETING:
+            print(f"Received message that bot left meeting reason={message.get('leave_reason')}")
+            # If we left for cleanup, there is no need to create an event
+            if message.get("leave_reason") is BotAdapter.LEAVE_REASON.FOR_CLEANUP:
+                return
+            
+            event_sub_type_for_reason = {
+                BotAdapter.LEAVE_REASON.USER_REQUESTED: BotEventSubTypes.BOT_LEFT_MEETING_USER_REQUESTED,
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE,
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
+            }[message.get("leave_reason")]
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING, event_sub_type=event_sub_type_for_reason)
+            self.cleanup()
+            return
+
+        if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
+            print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED)
+            self.adapter.leave(reason=message.get("leave_reason"))
             return
 
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:

@@ -210,6 +210,9 @@ class BotEventSubTypes(models.IntegerChoices):
         9,
         "Bot could not join meeting - Request to join denied",
     )
+    BOT_LEFT_MEETING_USER_REQUESTED = 10, "Bot left meeting - User requested"
+    BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE = 11, "Bot left meeting - Auto leave silence"
+    BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING = 12, "Bot left meeting - Auto leave only participant in meeting"
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -224,6 +227,9 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR: "zoom_sdk_internal_error",
             cls.FATAL_ERROR_UI_ELEMENT_NOT_FOUND: "ui_element_not_found",
             cls.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED: "request_to_join_denied",
+            cls.BOT_LEFT_MEETING_USER_REQUESTED: "user_requested",
+            cls.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE: "auto_leave_silence",
+            cls.BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: "auto_leave_only_participant_in_meeting",
         }
         return mapping.get(value)
 
@@ -269,8 +275,11 @@ class BotEvent(models.Model):
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED)))
                     |
+                    # For BOT_LEFT_MEETING event type, must have one of the valid event subtypes or be null (for backwards compatibility, this will eventually be removed)
+                    (Q(event_type=BotEventTypes.BOT_LEFT_MEETING) & (Q(event_sub_type=BotEventSubTypes.BOT_LEFT_MEETING_USER_REQUESTED) | Q(event_sub_type=BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE) | Q(event_sub_type=BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING) | Q(event_sub_type__isnull=True)))
+                    |
                     # For all other events, event_sub_type must be null
-                    (~Q(event_type=BotEventTypes.FATAL_ERROR) & ~Q(event_type=BotEventTypes.COULD_NOT_JOIN) & Q(event_sub_type__isnull=True))
+                    (~Q(event_type=BotEventTypes.FATAL_ERROR) & ~Q(event_type=BotEventTypes.COULD_NOT_JOIN) & ~Q(event_type=BotEventTypes.BOT_LEFT_MEETING) & Q(event_sub_type__isnull=True))
                 ),
                 name="valid_event_type_event_sub_type_combinations",
             )
