@@ -1411,7 +1411,13 @@ class TestBotJoinMeeting(TransactionTestCase):
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
     @patch("deepgram.DeepgramClient")
-    def test_bot_handles_rtmp_connection_failure(
+
+    # We need run this test last because if the process isn't killed properly some weird behavior ensues
+    # where the thread is still running even after the test is over. It's due to the fact that multiple tests
+    # are run in a single process.
+    # So we put a 'z' in the test name to run it last.
+    # This is a temporary hack, but it's ok for now IMO. In production, the process would be killed
+    def test_bot_z_handles_rtmp_connection_failure(
         self,
         MockDeepgramClient,
         MockStreamingUploader,
