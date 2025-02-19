@@ -549,18 +549,14 @@ class BotController:
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.leave()
             return
-            
-        if message.get("message") == BotAdapter.Messages.BOT_LEFT_MEETING:
-            print("Received message that bot left meeting")
-            self.flush_utterances()
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
-            self.cleanup()
-            return
 
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             self.flush_utterances()
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
+            if self.bot_in_db.state == BotStates.LEAVING:
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
+            else:
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
             self.cleanup()
             return
 

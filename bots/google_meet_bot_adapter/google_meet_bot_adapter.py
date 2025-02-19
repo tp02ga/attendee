@@ -494,7 +494,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         except Exception as e:
             print(f"Error during leave: {e}")
         finally:
-            self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING})
+            self.send_message_callback({"message": self.Messages.MEETING_ENDED})
             self.left_meeting = True
 
     def cleanup(self):

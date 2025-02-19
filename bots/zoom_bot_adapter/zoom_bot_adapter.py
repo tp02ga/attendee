@@ -583,10 +583,7 @@ class ZoomBotAdapter(BotAdapter):
 
         if status == zoom.MEETING_STATUS_ENDED:
             # We get the MEETING_STATUS_ENDED regardless of whether we initiated the leave or not
-            if self.requested_leave:
-                self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING})
-            else:
-                self.send_message_callback({"message": self.Messages.MEETING_ENDED})
+            self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
         if status == zoom.MEETING_STATUS_FAILED:
             # Since the unable to join external meeting issue is so common, we'll handle it separately
