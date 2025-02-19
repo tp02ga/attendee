@@ -482,6 +482,14 @@ class BotController:
     def on_message_from_adapter(self, message):
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
+    def flush_utterances(self):
+        if self.individual_audio_input_manager:
+            print("Flushing utterances...")
+            self.individual_audio_input_manager.flush_utterances()
+        if self.closed_caption_manager:
+            print("Flushing captions...")
+            self.closed_caption_manager.flush_captions()
+
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
             print("Received message that request to join was denied")
@@ -528,6 +536,13 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
+            print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_metadata={"adapter_leave_reason": message.get("leave_reason")})
+            BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
+            self.adapter.leave(reason=message.get("leave_reason"))
+            return
+            
         if message.get("message") == BotAdapter.Messages.BOT_LEFT_MEETING:
             print(f"Received message that bot left meeting reason={message.get('leave_reason')}")
             # If we left for cleanup, there is no need to create an event
@@ -539,26 +554,14 @@ class BotController:
                 BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE,
                 BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
             }[message.get("leave_reason")]
+            self.flush_utterances()
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING, event_sub_type=event_sub_type_for_reason)
             self.cleanup()
             return
 
-        if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
-            print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_metadata={"adapter_leave_reason": message.get("leave_reason")})
-            BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
-            self.adapter.leave(reason=message.get("leave_reason"))
-            return
-
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
-            if self.individual_audio_input_manager:
-                print("Flushing utterances...")
-                self.individual_audio_input_manager.flush_utterances()
-            if self.closed_caption_manager:
-                print("Flushing captions...")
-                self.closed_caption_manager.flush_captions()
-
+            self.flush_utterances()
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
             self.cleanup()
             return

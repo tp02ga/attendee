@@ -1687,6 +1687,15 @@ class TestBotJoinMeeting(TransactionTestCase):
             # Wait for the video input manager to be set up
             time.sleep(2)
 
+            # Simulate audio frame received to trigger transcription
+            adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
+                MockAudioFrame(),
+                2,  # Simulated participant ID that's not the bot
+            )
+
+            # Give no time for the transcription to be processed
+            time.sleep(0.1)
+
             # Simulate user requesting bot to leave
             BotEventManager.create_event(self.bot, BotEventTypes.LEAVE_REQUESTED)
             controller.handle_redis_message({
@@ -1762,6 +1771,15 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)
+
+        # Verify that the recording has an utterance
+        self.recording.refresh_from_db()
+        utterances = self.recording.utterances.all()
+        self.assertEqual(utterances.count(), 1)
+        utterance = utterances.first()
+        self.assertEqual(utterance.transcription.get("transcript"), "This is a test transcript")
+        self.assertEqual(utterance.participant.uuid, "2")  # The simulated participant ID
+        self.assertEqual(utterance.participant.full_name, "Test User")
 
         # Cleanup
         controller.cleanup()
