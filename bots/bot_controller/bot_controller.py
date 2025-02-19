@@ -178,7 +178,7 @@ class BotController:
 
         if self.adapter:
             print("Telling adapter to leave meeting...")
-            self.adapter.leave(reason=BotAdapter.LEAVE_REASON.FOR_CLEANUP)
+            self.adapter.leave()
             print("Telling adapter to cleanup...")
             self.adapter.cleanup()
 
@@ -296,7 +296,7 @@ class BotController:
         if self.bot_in_db.state == BotStates.LEAVING:
             print("take_action_based_on_bot_in_db - LEAVING")
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
-            self.adapter.leave(reason=BotAdapter.LEAVE_REASON.USER_REQUESTED)
+            self.adapter.leave()
 
     def get_participant(self, participant_id):
         return self.adapter.get_participant(participant_id)
@@ -538,24 +538,22 @@ class BotController:
 
         if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
             print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_metadata={"adapter_leave_reason": message.get("leave_reason")})
+
+            event_sub_type_for_reason = {
+                BotAdapter.LEAVE_REASON.USER_REQUESTED: BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED,
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
+            }[message.get("leave_reason")]
+
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_sub_type=event_sub_type_for_reason)
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
-            self.adapter.leave(reason=message.get("leave_reason"))
+            self.adapter.leave()
             return
             
         if message.get("message") == BotAdapter.Messages.BOT_LEFT_MEETING:
-            print(f"Received message that bot left meeting reason={message.get('leave_reason')}")
-            # If we left for cleanup, there is no need to create an event
-            if message.get("leave_reason") is BotAdapter.LEAVE_REASON.FOR_CLEANUP:
-                return
-            
-            event_sub_type_for_reason = {
-                BotAdapter.LEAVE_REASON.USER_REQUESTED: BotEventSubTypes.BOT_LEFT_MEETING_USER_REQUESTED,
-                BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE,
-                BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
-            }[message.get("leave_reason")]
+            print("Received message that bot left meeting")
             self.flush_utterances()
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING, event_sub_type=event_sub_type_for_reason)
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
             self.cleanup()
             return
 

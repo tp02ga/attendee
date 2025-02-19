@@ -541,8 +541,8 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(leave_requested_event.old_state, BotStates.JOINED_RECORDING)
         self.assertEqual(leave_requested_event.new_state, BotStates.LEAVING)
         self.assertEqual(
-            leave_requested_event.metadata,
-            {"adapter_leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE},
+            leave_requested_event.event_sub_type,
+            BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
         )
 
         # Verify bot_left_meeting_event (Event 5)
@@ -550,10 +550,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
         self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
-        self.assertEqual(
-            bot_left_meeting_event.event_sub_type,
-            BotEventSubTypes.BOT_LEFT_MEETING_AUTO_LEAVE_SILENCE,
-        )
+        self.assertIsNone(bot_left_meeting_event.event_sub_type)
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)
@@ -1697,7 +1694,7 @@ class TestBotJoinMeeting(TransactionTestCase):
             time.sleep(0.1)
 
             # Simulate user requesting bot to leave
-            BotEventManager.create_event(self.bot, BotEventTypes.LEAVE_REQUESTED)
+            BotEventManager.create_event(bot=self.bot, event_type=BotEventTypes.LEAVE_REQUESTED, event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED)
             controller.handle_redis_message({
                 "type": "message",
                 "data": json.dumps({"command": "sync"}).encode("utf-8")
@@ -1758,16 +1755,16 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertEqual(leave_requested_event.old_state, BotStates.JOINED_RECORDING)
         self.assertEqual(leave_requested_event.new_state, BotStates.LEAVING)
         self.assertEqual(leave_requested_event.metadata, {})  # No metadata for user-requested leave
+        self.assertEqual(
+            leave_requested_event.event_sub_type,
+            BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED,
+        )
 
         # Verify bot_left_meeting_event (Event 5)
         bot_left_meeting_event = bot_events[4]
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
         self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
-        self.assertEqual(
-            bot_left_meeting_event.event_sub_type,
-            BotEventSubTypes.BOT_LEFT_MEETING_USER_REQUESTED,
-        )
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)

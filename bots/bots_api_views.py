@@ -18,6 +18,7 @@ from .models import (
     Bot,
     BotEventManager,
     BotEventTypes,
+    BotEventSubTypes,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
     BotStates,
@@ -484,7 +485,7 @@ class BotLeaveView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
 
-            BotEventManager.create_event(bot, BotEventTypes.LEAVE_REQUESTED)
+            BotEventManager.create_event(bot, BotEventTypes.LEAVE_REQUESTED, event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED)
 
             send_sync_command(bot)
 

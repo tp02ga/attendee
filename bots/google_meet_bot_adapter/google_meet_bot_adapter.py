@@ -470,7 +470,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         self.driver.execute_script("window.ws.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
 
-    def leave(self, reason: BotAdapter.LEAVE_REASON):
+    def leave(self):
         if self.left_meeting:
             return
         if self.was_removed_from_meeting:
@@ -494,7 +494,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         except Exception as e:
             print(f"Error during leave: {e}")
         finally:
-            self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING, "leave_reason": reason})
+            self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING})
             self.left_meeting = True
 
     def cleanup(self):

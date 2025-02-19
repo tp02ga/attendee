@@ -127,11 +127,11 @@ class ZoomBotAdapter(BotAdapter):
         self.video_frame_size = (1920, 1080)
 
         self.automatic_leave_configuration = automatic_leave_configuration
-        self.leave_reason = None
 
         self.only_one_participant_in_meeting_at = None
         self.last_audio_received_at = None
         self.cleaned_up = False
+        self.requested_leave = False
 
         if self.use_video:
             self.video_input_manager = VideoInputManager(
@@ -148,8 +148,6 @@ class ZoomBotAdapter(BotAdapter):
         self.active_speaker_id = None
         self.active_sharer_id = None
         self.active_sharer_source_id = None
-
-        self.requested_leave = False
 
         self._participant_cache = {}
 
@@ -518,7 +516,7 @@ class ZoomBotAdapter(BotAdapter):
         if rec_ctrl.StopRawRecording() != zoom.SDKERR_SUCCESS:
             raise Exception("Error with stop raw recording")
 
-    def leave(self, reason: BotAdapter.LEAVE_REASON):
+    def leave(self):
         if self.meeting_service is None:
             return
 
@@ -528,7 +526,6 @@ class ZoomBotAdapter(BotAdapter):
             return
 
         print("Requesting to leave meeting...")
-        self.leave_reason = reason
         leave_result = self.meeting_service.Leave(zoom.LEAVE_MEETING)
         print("Requested to leave meeting. result =", leave_result)
         self.requested_leave = True
@@ -587,7 +584,7 @@ class ZoomBotAdapter(BotAdapter):
         if status == zoom.MEETING_STATUS_ENDED:
             # We get the MEETING_STATUS_ENDED regardless of whether we initiated the leave or not
             if self.requested_leave:
-                self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING, "leave_reason": self.leave_reason})
+                self.send_message_callback({"message": self.Messages.BOT_LEFT_MEETING})
             else:
                 self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
