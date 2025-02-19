@@ -172,6 +172,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         self.websocket_thread = None
         self.last_websocket_message_processed_time = None
         self.last_media_message_processed_time = None
+        self.last_audio_message_processed_time = None
         self.first_buffer_timestamp_ms_offset = time.time() * 1000
 
         self.participants_info = {}
@@ -289,6 +290,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
                 elif message_type == 3:  # AUDIO
                     self.last_media_message_processed_time = time.time()
+                    self.last_audio_message_processed_time = time.time()
                     if audio_file is not None and len(message) > 12:
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder="little")
@@ -539,8 +541,8 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
-        if self.last_media_message_processed_time is not None:
-            if time.time() - self.last_media_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
+        if self.last_audio_message_processed_time is not None:
+            if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
                 print(f"Auto-leaving meeting because there was no media message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
