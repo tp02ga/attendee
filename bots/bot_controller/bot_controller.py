@@ -82,6 +82,7 @@ class BotController:
             add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            automatic_leave_configuration=self.automatic_leave_configuration,
         )
 
     def get_meeting_type(self):
@@ -557,10 +558,7 @@ class BotController:
                 print("Flushing captions...")
                 self.closed_caption_manager.flush_captions()
 
-            if self.bot_in_db.state == BotStates.LEAVING:
-                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
-            else:
-                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
             self.cleanup()
             return
 
