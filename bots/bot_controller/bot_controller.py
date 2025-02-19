@@ -540,7 +540,6 @@ class BotController:
             print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
 
             event_sub_type_for_reason = {
-                BotAdapter.LEAVE_REASON.USER_REQUESTED: BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED,
                 BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
                 BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
             }[message.get("leave_reason")]
