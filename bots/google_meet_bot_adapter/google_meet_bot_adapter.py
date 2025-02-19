@@ -18,12 +18,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
+from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.google_meet_bot_adapter.google_meet_ui_methods import (
     GoogleMeetUIMethods,
     UiRequestToJoinDeniedException,
     UiRetryableException,
 )
-from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 
 
 def half_ceil(x):

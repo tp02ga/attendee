@@ -1,4 +1,5 @@
 import re
+import time
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
@@ -7,7 +8,6 @@ import gi
 import jwt
 import numpy as np
 import zoom_meeting_sdk as zoom
-import time
 
 from bots.bot_adapter import BotAdapter
 
@@ -17,6 +17,7 @@ gi.require_version("GLib", "2.0")
 from gi.repository import GLib
 
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+
 
 def generate_jwt(client_id, client_secret):
     iat = datetime.utcnow()

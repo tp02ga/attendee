@@ -17,8 +17,8 @@ from .authentication import ApiKeyAuthentication
 from .models import (
     Bot,
     BotEventManager,
-    BotEventTypes,
     BotEventSubTypes,
+    BotEventTypes,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
     BotStates,

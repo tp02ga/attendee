@@ -9,7 +9,6 @@ from django.db import connection
 from django.test.testcases import TransactionTestCase
 
 from bots.bot_controller import BotController
-from bots.bot_adapter import BotAdapter
 from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 from bots.bot_controller.streaming_uploader import StreamingUploader
 from bots.bots_api_views import send_sync_command
