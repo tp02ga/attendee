@@ -661,7 +661,6 @@ class ZoomBotAdapter(BotAdapter):
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
-        print("last_audio_received_at =", self.last_audio_received_at)
         if self.last_audio_received_at is not None:
             if time.time() - self.last_audio_received_at > self.automatic_leave_configuration.silence_threshold_seconds:
                 print(f"Auto-leaving meeting because there was no audio message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")

@@ -545,7 +545,7 @@ class BotController:
 
         if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
             print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
-            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_metadata={"leave_reason": message.get("leave_reason")})
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_metadata={"adapter_leave_reason": message.get("leave_reason")})
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.leave(reason=message.get("leave_reason"))
             return
