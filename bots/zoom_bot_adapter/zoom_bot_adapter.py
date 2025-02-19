@@ -1,4 +1,5 @@
 import re
+import time
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
@@ -14,6 +15,8 @@ from .video_input_manager import VideoInputManager
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
+
+from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 
 
 def generate_jwt(client_id, client_secret):
@@ -74,6 +77,7 @@ class ZoomBotAdapter(BotAdapter):
         add_video_frame_callback,
         wants_any_video_frames_callback,
         add_mixed_audio_chunk_callback,
+        automatic_leave_configuration: AutomaticLeaveConfiguration,
     ):
         self.use_one_way_audio = use_one_way_audio
         self.use_mixed_audio = use_mixed_audio
@@ -123,6 +127,13 @@ class ZoomBotAdapter(BotAdapter):
         self.video_source_helper = None
         self.video_frame_size = (1920, 1080)
 
+        self.automatic_leave_configuration = automatic_leave_configuration
+
+        self.only_one_participant_in_meeting_at = None
+        self.last_audio_received_at = None
+        self.cleaned_up = False
+        self.requested_leave = False
+
         if self.use_video:
             self.video_input_manager = VideoInputManager(
                 new_frame_callback=self.add_video_frame_callback,
@@ -145,6 +156,15 @@ class ZoomBotAdapter(BotAdapter):
         print("on_user_join_callback called. joined_user_ids =", joined_user_ids)
         for joined_user_id in joined_user_ids:
             self.get_participant(joined_user_id)
+
+    def on_user_left_callback(self, left_user_ids, _):
+        print("on_user_left_callback called. left_user_ids =", left_user_ids)
+        all_participant_ids = self.participants_ctrl.GetParticipantsList()
+        if len(all_participant_ids) == 1:
+            if self.only_one_participant_in_meeting_at is None:
+                self.only_one_participant_in_meeting_at = time.time()
+        else:
+            self.only_one_participant_in_meeting_at = None
 
     def on_user_active_audio_change_callback(self, user_ids):
         if len(user_ids) == 0:
@@ -277,6 +297,7 @@ class ZoomBotAdapter(BotAdapter):
         print("CleanUPSDK() called")
         zoom.CleanUPSDK()
         print("CleanUPSDK() finished")
+        self.cleaned_up = True
 
     def init(self):
         init_param = zoom.InitParam()
@@ -337,7 +358,7 @@ class ZoomBotAdapter(BotAdapter):
 
         # Participants controller
         self.participants_ctrl = self.meeting_service.GetMeetingParticipantsController()
-        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback)
+        self.participants_ctrl_event = zoom.MeetingParticipantsCtrlEventCallbacks(onUserJoinCallback=self.on_user_join_callback, onUserLeftCallback=self.on_user_left_callback)
         self.participants_ctrl.SetEvent(self.participants_ctrl_event)
         self.my_participant_id = self.participants_ctrl.GetMySelfUser().GetUserID()
         participant_ids_list = self.participants_ctrl.GetParticipantsList()
@@ -450,7 +471,7 @@ class ZoomBotAdapter(BotAdapter):
             return
 
         current_time = datetime.utcnow()
-
+        self.last_audio_received_at = time.time()
         self.add_audio_chunk_callback(node_id, current_time, data.GetBuffer())
 
     def add_mixed_audio_chunk_convert_to_bytes(self, data):
@@ -505,9 +526,10 @@ class ZoomBotAdapter(BotAdapter):
             print("Aborting leave because meeting status is", status)
             return
 
-        print("Leaving meeting...")
+        print("Requesting to leave meeting...")
         leave_result = self.meeting_service.Leave(zoom.LEAVE_MEETING)
-        print("Left meeting. result =", leave_result)
+        print("Requested to leave meeting. result =", leave_result)
+        self.requested_leave = True
 
     def join_meeting(self):
         meeting_number = int(self.meeting_id)
@@ -561,6 +583,7 @@ class ZoomBotAdapter(BotAdapter):
             self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
 
         if status == zoom.MEETING_STATUS_ENDED:
+            # We get the MEETING_STATUS_ENDED regardless of whether we initiated the leave or not
             self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
         if status == zoom.MEETING_STATUS_FAILED:
@@ -622,5 +645,19 @@ class ZoomBotAdapter(BotAdapter):
         return 0
 
     def check_auto_leave_conditions(self):
-        # Nothing implemented for this yet
-        return
+        if self.requested_leave:
+            return
+        if self.cleaned_up:
+            return
+
+        if self.only_one_participant_in_meeting_at is not None:
+            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds:
+                print(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
+                self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
+                return
+
+        if self.last_audio_received_at is not None:
+            if time.time() - self.last_audio_received_at > self.automatic_leave_configuration.silence_threshold_seconds:
+                print(f"Auto-leaving meeting because there was no audio message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+                self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
+                return

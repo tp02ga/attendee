@@ -28,6 +28,7 @@ from bots.models import (
 )
 
 from .audio_output_manager import AudioOutputManager
+from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
@@ -54,6 +55,7 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
+            automatic_leave_configuration=self.automatic_leave_configuration,
         )
 
     def get_zoom_bot_adapter(self):
@@ -80,6 +82,7 @@ class BotController:
             add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            automatic_leave_configuration=self.automatic_leave_configuration,
         )
 
     def get_meeting_type(self):
@@ -188,6 +191,8 @@ class BotController:
         self.bot_in_db = Bot.objects.get(id=bot_id)
         self.cleanup_called = False
         self.run_called = False
+
+        self.automatic_leave_configuration = AutomaticLeaveConfiguration()
 
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
@@ -477,6 +482,14 @@ class BotController:
     def on_message_from_adapter(self, message):
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
+    def flush_utterances(self):
+        if self.individual_audio_input_manager:
+            print("Flushing utterances...")
+            self.individual_audio_input_manager.flush_utterances()
+        if self.closed_caption_manager:
+            print("Flushing captions...")
+            self.closed_caption_manager.flush_captions()
+
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
             print("Received message that request to join was denied")
@@ -523,15 +536,22 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
+            print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
+
+            event_sub_type_for_reason = {
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
+                BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING,
+            }[message.get("leave_reason")]
+
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.LEAVE_REQUESTED, event_sub_type=event_sub_type_for_reason)
+            BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
+            self.adapter.leave()
+            return
+
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
-            if self.individual_audio_input_manager:
-                print("Flushing utterances...")
-                self.individual_audio_input_manager.flush_utterances()
-            if self.closed_caption_manager:
-                print("Flushing captions...")
-                self.closed_caption_manager.flush_captions()
-
+            self.flush_utterances()
             if self.bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
             else:

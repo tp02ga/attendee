@@ -18,6 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
+from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.google_meet_bot_adapter.google_meet_ui_methods import (
     GoogleMeetUIMethods,
     UiRequestToJoinDeniedException,
@@ -145,6 +146,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         wants_any_video_frames_callback,
         add_mixed_audio_chunk_callback,
         upsert_caption_callback,
+        automatic_leave_configuration: AutomaticLeaveConfiguration,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -170,11 +172,14 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         self.websocket_thread = None
         self.last_websocket_message_processed_time = None
         self.last_media_message_processed_time = None
+        self.last_audio_message_processed_time = None
         self.first_buffer_timestamp_ms_offset = time.time() * 1000
 
         self.participants_info = {}
         self.only_one_participant_in_meeting_at = None
         self.video_frame_ticker = 0
+
+        self.automatic_leave_configuration = automatic_leave_configuration
 
     def get_participant(self, participant_id):
         if participant_id in self.participants_info:
@@ -285,6 +290,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
                 elif message_type == 3:  # AUDIO
                     self.last_media_message_processed_time = time.time()
+                    self.last_audio_message_processed_time = time.time()
                     if audio_file is not None and len(message) > 12:
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder="little")
@@ -523,22 +529,22 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
     def get_first_buffer_timestamp_ms_offset(self):
         return self.first_buffer_timestamp_ms_offset
 
-    def check_auto_leave_conditions(self):
+    def check_auto_leave_conditions(self) -> None:
         if self.left_meeting:
             return
         if self.cleaned_up:
             return
 
         if self.only_one_participant_in_meeting_at is not None:
-            if time.time() - self.only_one_participant_in_meeting_at > 30:
-                print("Auto-leaving meeting because there was only one participant in the meeting for 30 seconds")
-                self.leave()
+            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds:
+                print(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
+                self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
-        if self.last_media_message_processed_time is not None:
-            if time.time() - self.last_media_message_processed_time > 300:
-                print("Auto-leaving meeting because there was no media message for 300 seconds")
-                self.leave()
+        if self.last_audio_message_processed_time is not None:
+            if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
+                print(f"Auto-leaving meeting because there was no media message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+                self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
 
     def send_raw_audio(self, bytes, sample_rate):
