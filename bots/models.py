@@ -794,6 +794,9 @@ class MediaBlob(models.Model):
             random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
 
+        if len(self.blob) > 10485760:
+            raise ValueError("blob exceeds 10MB limit")
+
         # Calculate checksum if this is a new object
         if not self.checksum:
             self.checksum = hashlib.sha256(self.blob).hexdigest()
