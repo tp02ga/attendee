@@ -346,10 +346,11 @@ class OutputAudioView(APIView):
                 # Create or get existing MediaBlob
                 media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
             except Exception as e:
+                error_message_first_line = str(e).split('\n')[0]
                 logging.error(
-                    f"Error creating audio blob: {str(e).split('\n')[0]} (content_type={content_type}, bot_id={object_id})"
+                    f"Error creating audio blob: {error_message_first_line} (content_type={content_type}, bot_id={object_id})"
                 )
-                return Response({"error": f"Error creating the audio blob. Are you sure it's a valid {content_type} file?", "raw_error": str(e).split('\n')[0]}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": f"Error creating the audio blob. Are you sure it's a valid {content_type} file?", "raw_error": error_message_first_line}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -447,10 +448,11 @@ class OutputImageView(APIView):
                 # Create or get existing MediaBlob
                 media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
             except Exception as e:
+                error_message_first_line = str(e).split('\n')[0]
                 logging.error(
-                    f"Error creating image blob: {str(e).split('\n')[0]} (content_type={content_type}, bot_id={object_id})"
+                    f"Error creating image blob: {error_message_first_line} (content_type={content_type}, bot_id={object_id})"
                 )
-                return Response({"error": f"Error creating the image blob. Are you sure it's a valid {content_type} file?", "debug_message": str(e).split('\n')[0]}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": f"Error creating the image blob. Are you sure it's a valid {content_type} file?", "debug_message": error_message_first_line}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
