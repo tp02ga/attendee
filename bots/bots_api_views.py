@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 
 import redis
 from django.urls import reverse
@@ -38,6 +39,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .tasks import run_bot
+from django.core.exceptions import ValidationError
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -236,7 +238,7 @@ class SpeechView(APIView):
         # Check if bot is in a state that can play media
         if not BotEventManager.is_state_that_can_play_media(bot.state):
             return Response(
-                {"error": f"Bot is in state {BotStates(bot.state).label} and cannot play media"},
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -336,12 +338,19 @@ class OutputAudioView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             if not BotEventManager.is_state_that_can_play_media(bot.state):
                 return Response(
-                    {"error": "Bot is not in a state that can play media"},
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Create or get existing MediaBlob
-            media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
+            try:
+                # Create or get existing MediaBlob
+                media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
+            except Exception as e:
+                error_message_first_line = str(e).split('\n')[0]
+                logging.error(
+                    f"Error creating audio blob: {error_message_first_line} (content_type={content_type}, bot_id={object_id})"
+                )
+                return Response({"error": f"Error creating the audio blob. Are you sure it's a valid {content_type} file?", "raw_error": error_message_first_line}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -431,12 +440,19 @@ class OutputImageView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             if not BotEventManager.is_state_that_can_play_media(bot.state):
                 return Response(
-                    {"error": "Bot is not in a state that can play media"},
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Create or get existing MediaBlob
-            media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
+            try:
+                # Create or get existing MediaBlob
+                media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
+            except Exception as e:
+                error_message_first_line = str(e).split('\n')[0]
+                logging.error(
+                    f"Error creating image blob: {error_message_first_line} (content_type={content_type}, bot_id={object_id})"
+                )
+                return Response({"error": f"Error creating the image blob. Are you sure it's a valid {content_type} file?", "debug_message": error_message_first_line}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -467,6 +483,7 @@ class BotLeaveView(APIView):
                 description="Successfully requested to leave meeting",
                 examples=[LeavingBotExample],
             ),
+            400: OpenApiResponse(description="Bot is not in a valid state to leave the meeting"),
             404: OpenApiResponse(description="Bot not found"),
         },
         parameters=[
@@ -490,7 +507,9 @@ class BotLeaveView(APIView):
             send_sync_command(bot)
 
             return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
-
+        except ValidationError as e:
+            logging.error(f"Error leaving meeting: {str(e)} (bot_id={object_id})")
+            return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
