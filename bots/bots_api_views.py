@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 
 import redis
 from django.urls import reverse
@@ -345,6 +346,9 @@ class OutputAudioView(APIView):
                 # Create or get existing MediaBlob
                 media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
             except Exception as e:
+                logging.error(
+                    f"Error creating audio blob: {str(e).split('\n')[0]} (content_type={content_type}, bot_id={object_id})"
+                )
                 return Response({"error": f"Error creating the audio blob. Are you sure it's a valid {content_type} file?", "raw_error": str(e).split('\n')[0]}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
@@ -443,6 +447,9 @@ class OutputImageView(APIView):
                 # Create or get existing MediaBlob
                 media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
             except Exception as e:
+                logging.error(
+                    f"Error creating image blob: {str(e).split('\n')[0]} (content_type={content_type}, bot_id={object_id})"
+                )
                 return Response({"error": f"Error creating the image blob. Are you sure it's a valid {content_type} file?", "debug_message": str(e).split('\n')[0]}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
@@ -499,6 +506,7 @@ class BotLeaveView(APIView):
 
             return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
         except ValidationError as e:
+            logging.error(f"Error leaving meeting: {str(e)} (bot_id={object_id})")
             return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
