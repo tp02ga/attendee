@@ -237,7 +237,7 @@ class SpeechView(APIView):
         # Check if bot is in a state that can play media
         if not BotEventManager.is_state_that_can_play_media(bot.state):
             return Response(
-                {"error": f"Bot is in state {BotStates(bot.state).label} and cannot play media"},
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -337,12 +337,15 @@ class OutputAudioView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             if not BotEventManager.is_state_that_can_play_media(bot.state):
                 return Response(
-                    {"error": "Bot is not in a state that can play media"},
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Create or get existing MediaBlob
-            media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
+            try:
+                # Create or get existing MediaBlob
+                media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=audio_data, content_type=content_type)
+            except Exception as e:
+                return Response({"error": f"Error creating the audio blob. Are you sure it's a valid {content_type}? {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create BotMediaRequest
             BotMediaRequest.objects.create(
@@ -432,7 +435,7 @@ class OutputImageView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             if not BotEventManager.is_state_that_can_play_media(bot.state):
                 return Response(
-                    {"error": "Bot is not in a state that can play media"},
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
