@@ -1296,7 +1296,10 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Create bot controller
         controller = BotController(self.bot.id)
-
+        controller.automatic_leave_configuration = AutomaticLeaveConfiguration(
+            wait_for_host_to_start_meeting_timeout_seconds=1
+        )
+        
         # Run the bot in a separate thread since it has an event loop
         bot_thread = threading.Thread(target=controller.run)
         bot_thread.daemon = True
