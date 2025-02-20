@@ -420,11 +420,15 @@ class BotEventManager:
 
                     # Check if current state is valid for this transition
                     valid_from_states = transition["from"]
-                    if isinstance(valid_from_states, (list, tuple)):
-                        if old_state not in valid_from_states:
-                            raise ValidationError(f"Invalid state transition. Event {event_type} not allowed in state {old_state}. Valid states are: {valid_from_states}")
-                    elif old_state != valid_from_states:
-                        raise ValidationError(f"Invalid state transition. Event {event_type} not allowed in state {old_state}. Valid state is: {valid_from_states}")
+                    if not isinstance(valid_from_states, (list, tuple)):
+                        valid_from_states = [valid_from_states]
+
+                    if old_state not in valid_from_states:
+                        valid_states_labels = [BotStates.state_to_api_code(state) for state in valid_from_states]
+                        raise ValidationError(
+                            f"Event {BotEventTypes.type_to_api_code(event_type)} not allowed when bot is in state {BotStates.state_to_api_code(old_state)}. "
+                            f"It is only allowed in these states: {', '.join(valid_states_labels)}"
+                        )
 
                     # Update bot state based on 'to' definition
                     new_state = transition["to"]
@@ -435,7 +439,7 @@ class BotEventManager:
                     # There's a chance that some other thread in the same process will modify the bot state to be something other than new_state. This should never happen, but we
                     # should raise an exception if it does.
                     if bot.state != new_state:
-                        raise ValidationError(f"Bot state was modified by another thread to be {bot.state} instead of {new_state}.")
+                        raise ValidationError(f"Bot state was modified by another thread to be '{BotStates.state_to_api_code(bot.state)}' instead of '{BotStates.state_to_api_code(new_state)}'.")
 
                     # Create event record
                     event = BotEvent.objects.create(
@@ -451,7 +455,7 @@ class BotEventManager:
                     if new_state == BotStates.JOINED_RECORDING:
                         pending_recordings = bot.recordings.filter(state=RecordingStates.NOT_STARTED)
                         if pending_recordings.count() != 1:
-                            raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {pending_recordings.count()}")
+                            raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {pending_recordings.count()}")
                         pending_recording = pending_recordings.first()
                         RecordingManager.set_recording_in_progress(pending_recording)
 
@@ -460,7 +464,7 @@ class BotEventManager:
                         # If there is an in progress recording, set it to complete
                         in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
                         if in_progress_recordings.count() > 1:
-                            raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates(new_state).label}, but found {in_progress_recordings.count()}")
+                            raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {in_progress_recordings.count()}")
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 

@@ -38,6 +38,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .tasks import run_bot
+from django.core.exceptions import ValidationError
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -467,6 +468,7 @@ class BotLeaveView(APIView):
                 description="Successfully requested to leave meeting",
                 examples=[LeavingBotExample],
             ),
+            400: OpenApiResponse(description="Bot is not in a valid state to leave the meeting"),
             404: OpenApiResponse(description="Bot not found"),
         },
         parameters=[
@@ -490,7 +492,8 @@ class BotLeaveView(APIView):
             send_sync_command(bot)
 
             return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
-
+        except ValidationError as e:
+            return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
