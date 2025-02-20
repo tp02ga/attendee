@@ -152,6 +152,8 @@ class ZoomBotAdapter(BotAdapter):
 
         self._participant_cache = {}
 
+        self.meeting_status = None
+
     def on_user_join_callback(self, joined_user_ids, _):
         print("on_user_join_callback called. joined_user_ids =", joined_user_ids)
         for joined_user_id in joined_user_ids:
@@ -570,11 +572,24 @@ class ZoomBotAdapter(BotAdapter):
             }
         )
 
+    def leave_meeting_if_not_started_yet(self):
+        if self.meeting_status != zoom.MEETING_STATUS_WAITINGFORHOST:
+            return
+
+        print("Give up trying to join meeting because we've waited for the host to start it for over", self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds, "seconds")
+        self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
+
+    def wait_for_host_to_start_meeting_then_give_up(self):
+        wait_time = self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds
+        print("Waiting for host to start meeting. If host doesn't start meeting in", wait_time, "seconds, we'll give up")
+        GLib.timeout_add_seconds(wait_time, self.leave_meeting_if_not_started_yet)
+
     def meeting_status_changed(self, status, iResult):
         print("meeting_status_changed called. status =", status, "iResult=", iResult)
+        self.meeting_status = status
 
         if status == zoom.MEETING_STATUS_WAITINGFORHOST:
-            self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
+            self.wait_for_host_to_start_meeting_then_give_up()
 
         if status == zoom.MEETING_STATUS_IN_WAITING_ROOM:
             self.send_message_callback({"message": self.Messages.BOT_PUT_IN_WAITING_ROOM})
