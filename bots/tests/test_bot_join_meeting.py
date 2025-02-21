@@ -34,7 +34,7 @@ from bots.models import (
     TranscriptionTypes,
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
-
+import zoom_meeting_sdk as zoom
 
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
@@ -51,7 +51,7 @@ def create_mock_zoom_sdk():
 
     class MeetingFailCode:
         MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN = "100"
-        MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING = "101"
+        MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING = zoom.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING
 
     base_mock.MeetingFailCode = MeetingFailCode
 
@@ -111,25 +111,25 @@ def create_mock_zoom_sdk():
     base_mock.MeetingServiceEventCallbacks = MockMeetingServiceEventCallbacks
 
     # Set up constants
-    base_mock.SDKERR_SUCCESS = 0
-    base_mock.AUTHRET_SUCCESS = 1
-    base_mock.MEETING_STATUS_IDLE = 2
-    base_mock.MEETING_STATUS_CONNECTING = 3
-    base_mock.MEETING_STATUS_INMEETING = 4
-    base_mock.MEETING_STATUS_ENDED = 5
-    base_mock.LEAVE_MEETING = 6
-    base_mock.AUTHRET_JWTTOKENWRONG = 7
+    base_mock.SDKERR_SUCCESS = zoom.SDKError.SDKERR_SUCCESS
+    base_mock.AUTHRET_SUCCESS = zoom.AuthResult.AUTHRET_SUCCESS
+    base_mock.MEETING_STATUS_IDLE = zoom.MeetingStatus.MEETING_STATUS_IDLE
+    base_mock.MEETING_STATUS_CONNECTING = zoom.MeetingStatus.MEETING_STATUS_CONNECTING
+    base_mock.MEETING_STATUS_INMEETING = zoom.MeetingStatus.MEETING_STATUS_INMEETING
+    base_mock.MEETING_STATUS_ENDED = zoom.MeetingStatus.MEETING_STATUS_ENDED
+    base_mock.LEAVE_MEETING = zoom.LeaveMeetingCmd.LEAVE_MEETING
+    base_mock.AUTHRET_JWTTOKENWRONG = zoom.AuthResult.AUTHRET_JWTTOKENWRONG
 
     # Mock SDK_LANGUAGE_ID
     base_mock.SDK_LANGUAGE_ID = MagicMock()
-    base_mock.SDK_LANGUAGE_ID.LANGUAGE_English = 0
+    base_mock.SDK_LANGUAGE_ID.LANGUAGE_English = zoom.SDK_LANGUAGE_ID.LANGUAGE_English
 
     # Mock SDKAudioChannel
-    base_mock.ZoomSDKAudioChannel_Mono = 0
+    base_mock.ZoomSDKAudioChannel_Mono = zoom.ZoomSDKAudioChannel.ZoomSDKAudioChannel_Mono
 
     # Mock SDKUserType
     base_mock.SDKUserType = MagicMock()
-    base_mock.SDKUserType.SDK_UT_WITHOUT_LOGIN = 1
+    base_mock.SDKUserType.SDK_UT_WITHOUT_LOGIN = zoom.SDKUserType.SDK_UT_WITHOUT_LOGIN
 
     # Create mock services
     mock_meeting_service = MagicMock()
@@ -163,8 +163,8 @@ def create_mock_zoom_sdk():
 
     # Add SDKError class mock with SDKERR_SUCCESS
     base_mock.SDKError = MagicMock()
-    base_mock.SDKError.SDKERR_SUCCESS = 0  # Use the same value as SDKERR_SUCCESS
-    base_mock.SDKError.SDKERR_INTERNAL_ERROR = 1
+    base_mock.SDKError.SDKERR_SUCCESS = zoom.SDKError.SDKERR_SUCCESS
+    base_mock.SDKError.SDKERR_INTERNAL_ERROR = zoom.SDKError.SDKERR_INTERNAL_ERROR
 
     # Create a mock PerformanceData class
     class MockPerformanceData:
@@ -1250,7 +1250,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG)},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1434,7 +1434,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING)},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1525,7 +1525,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN)},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1752,7 +1752,7 @@ class TestBotJoinMeeting(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR)},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
