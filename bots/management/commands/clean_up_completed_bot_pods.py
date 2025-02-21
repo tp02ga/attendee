@@ -28,7 +28,7 @@ class Command(BaseCommand):
                 pod.metadata.name 
                 for pod in pods.items 
                 if (pod.metadata.name.startswith('bot-') and 
-                    pod.status.phase == 'Completed')
+                    pod.status.phase == 'Succeeded')
             ]
             
             # Delete each completed pod
