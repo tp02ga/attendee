@@ -125,7 +125,7 @@ def launch_bot(bot):
     if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
         from .bot_pod_creator import BotPodCreator
         bot_pod_creator = BotPodCreator()
-        bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=f"bot-pod-{bot.object_id}".replace("_", "-"))
+        bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=f"bot-pod-{bot.object_id}".lower().replace("_", "-"))
     else:
         # Default to launching bot via celery
         run_bot.delay(bot.id)
