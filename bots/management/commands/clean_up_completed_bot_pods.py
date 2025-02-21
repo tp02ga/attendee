@@ -27,7 +27,7 @@ class Command(BaseCommand):
             completed_pods: List[str] = [
                 pod.metadata.name 
                 for pod in pods.items 
-                if (pod.metadata.name.startswith('bot-') and 
+                if (pod.metadata.name.startswith('bot-pod-') and 
                     pod.status.phase == 'Succeeded')
             ]
             
