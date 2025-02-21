@@ -17,6 +17,7 @@ Including another URLconf
 
 from django.conf import settings
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -26,7 +27,11 @@ from drf_spectacular.views import (
 
 from accounts import views
 
+def health_check(request):
+    return HttpResponse(status=200)
+
 urlpatterns = [
+    path('health/', health_check, name='health-check'),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("accounts/", include("allauth.socialaccount.urls")),
