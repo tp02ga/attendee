@@ -119,6 +119,14 @@ def send_sync_command(bot, command="sync"):
     message = {"command": command}
     redis_client.publish(channel, json.dumps(message))
 
+def launch_bot(bot):
+    if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
+        from .bot_pod_creator import BotPodCreator
+        bot_pod_creator = BotPodCreator()
+        bot_pod_creator.create_bot_pod(bot.id)
+    else:
+        # Default to launching bot via celery
+        run_bot.delay(bot.id)
 
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
@@ -192,8 +200,7 @@ class BotCreateView(APIView):
         # Try to transition the state from READY to JOINING
         BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
 
-        # Launch the Celery task after successful creation
-        run_bot.delay(bot.id)
+        launch_bot(bot)
 
         return Response(BotSerializer(bot).data, status=status.HTTP_201_CREATED)
 
