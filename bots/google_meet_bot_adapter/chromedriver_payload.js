@@ -903,12 +903,29 @@ const handleAudioTrack = async (event) => {
                 // Copy the audio data
                 const numChannels = frame.numberOfChannels;
                 const numSamples = frame.numberOfFrames;
-                const audioData = new Float32Array(numChannels * numSamples);
+                const audioData = new Float32Array(numSamples);
                 
                 // Copy data from each channel
-                for (let channel = 0; channel < numChannels; channel++) {
-                    frame.copyTo(audioData.subarray(channel * numSamples, (channel + 1) * numSamples), 
-                              { planeIndex: channel });
+                // If multi-channel, average all channels together
+                if (numChannels > 1) {
+                    // Temporary buffer to hold each channel's data
+                    const channelData = new Float32Array(numSamples);
+                    
+                    // Sum all channels
+                    for (let channel = 0; channel < numChannels; channel++) {
+                        frame.copyTo(channelData, { planeIndex: channel });
+                        for (let i = 0; i < numSamples; i++) {
+                            audioData[i] += channelData[i];
+                        }
+                    }
+                    
+                    // Average by dividing by number of channels
+                    for (let i = 0; i < numSamples; i++) {
+                        audioData[i] /= numChannels;
+                    }
+                } else {
+                    // If already mono, just copy the data
+                    frame.copyTo(audioData, { planeIndex: 0 });
                 }
 
                 // console.log('frame', frame)
@@ -916,7 +933,8 @@ const handleAudioTrack = async (event) => {
 
                 // Check if audio format has changed
                 const currentFormat = {
-                    numberOfChannels: frame.numberOfChannels,
+                    numberOfChannels: 1,
+                    originalNumberOfChannels: frame.numberOfChannels,
                     numberOfFrames: frame.numberOfFrames,
                     sampleRate: frame.sampleRate,
                     format: frame.format,
