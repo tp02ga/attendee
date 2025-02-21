@@ -120,6 +120,8 @@ def send_sync_command(bot, command="sync"):
     redis_client.publish(channel, json.dumps(message))
 
 def launch_bot(bot):
+    # If this instance is running in Kubernetes, use the Kubernetes pod creator
+    # which spins up a new pod for the bot
     if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
         from .bot_pod_creator import BotPodCreator
         bot_pod_creator = BotPodCreator()
