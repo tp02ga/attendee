@@ -565,7 +565,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP,
-                event_metadata={"zoom_result_code": message.get("zoom_result_code")},
+                event_metadata={"zoom_result_code": str(message.get("zoom_result_code"))},
             )
             self.cleanup()
             return
@@ -576,7 +576,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED,
-                event_metadata={"zoom_result_code": message.get("zoom_result_code")},
+                event_metadata={"zoom_result_code": str(message.get("zoom_result_code"))},
             )
             self.cleanup()
             return
@@ -587,7 +587,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED,
-                event_metadata={"zoom_result_code": message.get("zoom_result_code")},
+                event_metadata={"zoom_result_code": str(message.get("zoom_result_code"))},
             )
             self.cleanup()
             return
@@ -598,7 +598,7 @@ class BotController:
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR,
-                event_metadata={"zoom_result_code": message.get("zoom_result_code")},
+                event_metadata={"zoom_result_code": str(message.get("zoom_result_code"))},
             )
             self.cleanup()
             return
