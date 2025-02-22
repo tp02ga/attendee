@@ -93,28 +93,36 @@ class GstreamerPipeline:
             #
             # --- AUDIO MIXER ---
             #
-            "audiomixer name=mixer ! "
-            "audioconvert name=audioconvert_1 ! "
-            "voaacenc name=voaacenc bitrate=128000 ! "
+            "adder name=mixer ! "
+            "queue name=mixer_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            "audioconvert ! "
+            "audioresample !"
+            "audiorate ! "
+            "voaacenc name=voaacenc ! "
+            "aacparse name=aacparse ! "
+            "queue name=mixer_q4 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             "muxer. "
 
             #
             # --- AUDIO PORTION #1 ---
             #
             "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
+            "queue name=audio_source_1_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             "mixer. "
 
             #
             # --- AUDIO PORTION #2 ---
             #
             "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
+            "queue name=audio_source_2_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             "mixer. "
 
             #
             # --- AUDIO PORTION #3 ---
             #
             "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
-            "mixer."
+            "queue name=audio_source_3_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            "mixer. "
         )
 
 
@@ -179,22 +187,9 @@ class GstreamerPipeline:
                 self.last_reported_drops[queue_name] = 0
                 element.connect("overrun", self.on_queue_overrun, queue_name)
 
-        # Add mixer monitoring
-        self.mixer = self.pipeline.get_by_name("mixer")
-        # Start mixer monitoring
-        GLib.timeout_add_seconds(5, self.monitor_mixer_stats)
-
         # Start statistics monitoring
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
 
-        # Add data flow monitoring
-        self.add_probe_to_element("audio_source_1", "src")
-        self.add_probe_to_element("mixer", "src")
-        self.add_probe_to_element("audioconvert", "src")
-        self.add_probe_to_element("audioresample", "src")
-        self.add_probe_to_element("mix_q", "src")
-        self.add_probe_to_element("voaacenc", "src")
-        self.add_probe_to_element("enc_q", "src")
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
