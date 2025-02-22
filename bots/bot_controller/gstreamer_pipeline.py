@@ -212,44 +212,6 @@ class GstreamerPipeline:
         self.queue_drops[queue_name] += 1
         return True
 
-    def monitor_mixer_stats(self):
-        """Monitor audiomixer statistics"""
-        if not self.recording_active:
-            return False
-
-        try:
-            mixer = self.pipeline.get_by_name("mixer")
-            if mixer:
-                # Get mixer pad information
-                iterator = mixer.iterate_sink_pads()
-                while True:
-                    result, pad = iterator.next()
-                    if result == Gst.IteratorResult.DONE:
-                        break
-                    if result != Gst.IteratorResult.OK:
-                        continue
-                    
-                    pad_name = pad.get_name()
-                    # Check if pad is linked and active
-                    if pad.is_linked():
-                        peer = pad.get_peer()
-                        peer_name = peer.get_parent().get_name() if peer else "None"
-                        print(f"Mixer pad {pad_name} linked to {peer_name}")
-                        
-                        # Get current mixer pad properties
-                        volume = pad.get_property("volume")
-                        mute = pad.get_property("mute")
-                        print(f"  Volume: {volume}, Mute: {mute}")
-
-                # Get mixer element state
-                state = mixer.get_state(0)
-                print(f"Mixer state: {state[1].value_name}")
-
-        except Exception as e:
-            print(f"Error monitoring mixer: {e}")
-
-        return True  # Continue monitoring
-
     def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None, audio_appsrc_idx = 0):
         audio_appsrc = self.audio_appsrcs[audio_appsrc_idx]
         
@@ -267,7 +229,6 @@ class GstreamerPipeline:
 
             # Calculate timestamp relative to same start time as video
             buffer.pts = current_time_ns - self.start_time_ns
-            buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
 
             ret = audio_appsrc.emit("push-buffer", buffer)
             if ret != Gst.FlowReturn.OK:
@@ -332,26 +293,3 @@ class GstreamerPipeline:
 
         self.pipeline.set_state(Gst.State.NULL)
         print("GStreamer pipeline shut down")
-
-    def add_probe_to_element(self, element_name, pad_name):
-        """Add a probe to monitor data flow through an element"""
-        try:
-            element = self.pipeline.get_by_name(element_name)
-            if element:
-                pad = element.get_static_pad(pad_name)
-                if pad:
-                    pad.add_probe(Gst.PadProbeType.BUFFER, self.probe_callback, element_name)
-                else:
-                    print(f"Could not find {pad_name} pad on {element_name}")
-            else:
-                print(f"Could not find element {element_name}")
-        except Exception as e:
-            print(f"Error adding probe to {element_name}: {e}")
-
-    def probe_callback(self, pad, info, element_name):
-        """Callback for pad probes to monitor data flow"""
-        buffer = info.get_buffer()
-        caps = pad.get_current_caps()
-        caps_str = caps.to_string() if caps else "unknown"
-        #print(f"Data flowing through {element_name}: size={buffer.get_size()} bytes, pts={buffer.pts}, caps={caps_str}")
-        return Gst.PadProbeReturn.OK
