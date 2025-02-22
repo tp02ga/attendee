@@ -58,7 +58,7 @@ class GstreamerPipeline:
 
         if self.num_audio_sources == 1:
             audio_source_string = (
-                "appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! "
+                "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "audioconvert ! "
                 "audiorate ! "

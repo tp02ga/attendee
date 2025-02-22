@@ -465,7 +465,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             sleep(1)
 
         # Trying making it smaller so GMeet sends smaller video frames
-        # self.driver.set_window_size(1920 / 2, 1080 / 2)
+        self.driver.set_window_size(1920 / 2, 1080 / 2)
 
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
