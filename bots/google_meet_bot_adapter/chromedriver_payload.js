@@ -957,9 +957,10 @@ const handleAudioTrack = async (event) => {
                 }
 
                 // If the audioData buffer is all zeros, then we don't want to send it
-                if (audioData.every(value => value === 0)) {
-                    return;
-                }
+                // Removing this since we implemented 3 audio sources in gstreamer pipeline
+                // if (audioData.every(value => value === 0)) {
+                //    return;
+                // }
 
                 // Send audio data through websocket
                 const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
