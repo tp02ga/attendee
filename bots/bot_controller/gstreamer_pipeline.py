@@ -108,8 +108,6 @@ class GstreamerPipeline:
             "muxer. "
         )
 
-        print(pipeline_str)
-
         self.pipeline = Gst.parse_launch(pipeline_str)
 
         # Get both appsrc elements
