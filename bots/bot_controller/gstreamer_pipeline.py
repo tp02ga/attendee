@@ -23,9 +23,7 @@ class GstreamerPipeline:
         self.appsrc = None
         self.recording_active = False
 
-        self.audio_appsrc_1 = None
-        self.audio_appsrc_2 = None
-        self.audio_appsrc_3 = None
+        self.audio_appsrcs = []
         self.audio_recording_active = False
 
         self.start_time_ns = None  # Will be set on first frame/audio sample
@@ -68,7 +66,7 @@ class GstreamerPipeline:
                 "voaacenc bitrate=128000 ! "
                 "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             )
-        else:
+        elif self.num_audio_sources == 3:
             audio_source_string = (
                 # --- AUDIO BRANCH 1 ---
                 "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
@@ -94,6 +92,8 @@ class GstreamerPipeline:
                 "voaacenc bitrate=128000 ! "
                 "queue name=mixer_q3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             )
+        else:
+            raise ValueError(f"Unsupported number of audio sources: {self.num_audio_sources}")
 
         pipeline_str = (
             "appsrc name=video_source do-timestamp=false stream-type=0 format=time ! "
@@ -125,17 +125,16 @@ class GstreamerPipeline:
         self.appsrc.set_property("block", True)  # This helps with synchronization
 
         audio_caps = Gst.Caps.from_string(self.audio_format)  # e.g. "audio/x-raw,rate=48000,channels=2,format=S16LE"
-        self.audio_appsrc_1 = self.pipeline.get_by_name("audio_source_1")
-        self.audio_appsrc_2 = self.pipeline.get_by_name("audio_source_2")
-        self.audio_appsrc_3 = self.pipeline.get_by_name("audio_source_3")
-
-        for audio_src in [self.audio_appsrc_1, self.audio_appsrc_2, self.audio_appsrc_3]:
-            audio_src.set_property("caps", audio_caps)
-            audio_src.set_property("format", Gst.Format.TIME)
-            audio_src.set_property("is-live", True)
-            audio_src.set_property("do-timestamp", False)
-            audio_src.set_property("stream-type", 0)  # GST_APP_STREAM_TYPE_STREAM
-            audio_src.set_property("block", True)
+        self.audio_appsrcs = []
+        for i in range(self.num_audio_sources):
+            audio_appsrc = self.pipeline.get_by_name(f"audio_source_{i+1}")
+            audio_appsrc.set_property("caps", audio_caps)
+            audio_appsrc.set_property("format", Gst.Format.TIME)
+            audio_appsrc.set_property("is-live", True)
+            audio_appsrc.set_property("do-timestamp", False)
+            audio_appsrc.set_property("stream-type", 0)  # GST_APP_STREAM_TYPE_STREAM
+            audio_appsrc.set_property("block", True)
+            self.audio_appsrcs.append(audio_appsrc)
 
         # Set up bus
         bus = self.pipeline.get_bus()
@@ -252,13 +251,8 @@ class GstreamerPipeline:
         return True  # Continue monitoring
 
     def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None, audio_appsrc_idx = 0):
-        if audio_appsrc_idx == 0:
-            audio_appsrc = self.audio_appsrc_1
-        elif audio_appsrc_idx == 1:
-            audio_appsrc = self.audio_appsrc_2
-        elif audio_appsrc_idx == 2:
-            audio_appsrc = self.audio_appsrc_3
-
+        audio_appsrc = self.audio_appsrcs[audio_appsrc_idx]
+        
         if not self.audio_recording_active or not audio_appsrc or not self.recording_active or not self.appsrc:
             return
 
@@ -275,12 +269,6 @@ class GstreamerPipeline:
             buffer.pts = current_time_ns - self.start_time_ns
             buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
 
-            # Set caps if not already set
-            #if not audio_appsrc.get_current_caps():
-             #   caps_str = f"audio/x-raw,format=F32LE,channels=1,rate=32000,layout=interleaved"
-              #  caps = Gst.Caps.from_string(caps_str)
-               # audio_appsrc.set_caps(caps)
-
             ret = audio_appsrc.emit("push-buffer", buffer)
             if ret != Gst.FlowReturn.OK:
                 print(f"Warning: Failed to push audio buffer to pipeline: {ret}")
@@ -288,7 +276,7 @@ class GstreamerPipeline:
             print(f"Error processing audio data: {e}")
 
     def wants_any_video_frames(self):
-        if not self.audio_recording_active or not self.audio_appsrc_1 or not self.recording_active or not self.appsrc:
+        if not self.audio_recording_active or not self.audio_appsrcs[0] or not self.recording_active or not self.appsrc:
             return False
 
         return True
@@ -330,12 +318,8 @@ class GstreamerPipeline:
 
         if self.appsrc:
             self.appsrc.emit("end-of-stream")
-        if self.audio_appsrc_1:
-            self.audio_appsrc_1.emit("end-of-stream")
-        if self.audio_appsrc_2:
-            self.audio_appsrc_2.emit("end-of-stream")
-        if self.audio_appsrc_3:
-            self.audio_appsrc_3.emit("end-of-stream")
+        for audio_appsrc in self.audio_appsrcs:
+            audio_appsrc.emit("end-of-stream")
 
         msg = bus.timed_pop_filtered(
             5 * 60 * Gst.SECOND,  # 5 minute timeout
