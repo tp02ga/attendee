@@ -12,11 +12,12 @@ class GstreamerPipeline:
     OUTPUT_FORMAT_FLV = "flv"
     OUTPUT_FORMAT_MP4 = "mp4"
 
-    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format):
+    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format, num_audio_sources):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
         self.output_format = output_format
+        self.num_audio_sources = num_audio_sources
 
         self.pipeline = None
         self.appsrc = None
@@ -57,16 +58,8 @@ class GstreamerPipeline:
         else:
             raise ValueError(f"Invalid output format: {self.output_format}")
 
-        if False:
-            pipeline_str = (
-                "appsrc name=video_source do-timestamp=false stream-type=0 format=time ! "
-                "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "  # q1 can contain 100mb of video before it drops
-                "videoconvert ! "
-                "videorate ! "
-                "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "  # q2 can contain 100mb of video before it drops
-                "x264enc tune=zerolatency speed-preset=ultrafast ! "
-                "queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
-                f"{muxer_string} ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false "
+        if self.num_audio_sources == 1:
+            audio_source_string = (
                 "appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "audioconvert ! "
@@ -74,57 +67,48 @@ class GstreamerPipeline:
                 "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "voaacenc bitrate=128000 ! "
                 "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "muxer. "
+            )
+        else:
+            audio_source_string = (
+                # --- AUDIO BRANCH 1 ---
+                "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
+                "queue name=q5_1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "mixer. "
+
+                # --- AUDIO BRANCH 2 ---
+                "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
+                "queue name=q5_2 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "mixer. "
+
+                # --- AUDIO BRANCH 3 ---
+                "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
+                "queue name=q5_3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "mixer. "
+
+                # --- AUDIO MIXER
+                "adder name=mixer ! "
+                "queue name=mixer_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "audioconvert ! "
+                "audiorate ! "
+                "queue name=mixer_q2 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "voaacenc bitrate=128000 ! "
+                "queue name=mixer_q3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             )
 
         pipeline_str = (
-            #
-            # --- VIDEO PORTION ---
-            #
             "appsrc name=video_source do-timestamp=false stream-type=0 format=time ! "
-            "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
+            "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "  # q1 can contain 100mb of video before it drops
             "videoconvert ! "
             "videorate ! "
-            "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "
+            "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "  # q2 can contain 100mb of video before it drops
             "x264enc tune=zerolatency speed-preset=ultrafast ! "
             "queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
             f"{muxer_string} ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false "
-
-            #
-            # --- AUDIO MIXER ---
-            #
-            "adder name=mixer ! "
-            "queue name=mixer_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "audioconvert ! "
-            "audioresample !"
-            "audiorate ! "
-            "voaacenc name=voaacenc ! "
-            "aacparse name=aacparse ! "
-            "queue name=mixer_q4 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            f"{audio_source_string} "
             "muxer. "
-
-            #
-            # --- AUDIO PORTION #1 ---
-            #
-            "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
-            "queue name=audio_source_1_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "mixer. "
-
-            #
-            # --- AUDIO PORTION #2 ---
-            #
-            "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
-            "queue name=audio_source_2_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "mixer. "
-
-            #
-            # --- AUDIO PORTION #3 ---
-            #
-            "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
-            "queue name=audio_source_3_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "mixer. "
         )
 
+        print(pipeline_str)
 
         self.pipeline = Gst.parse_launch(pipeline_str)
 
