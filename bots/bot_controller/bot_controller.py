@@ -100,6 +100,13 @@ class BotController:
         elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
             return GstreamerPipeline.AUDIO_FORMAT_FLOAT
 
+    def get_num_audio_sources(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == self.MEETING_TYPE_ZOOM:
+            return 1
+        elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
+            return 3
+
     def get_bot_adapter(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == self.MEETING_TYPE_ZOOM:
@@ -233,6 +240,7 @@ class BotController:
             video_frame_size=(1920, 1080),
             audio_format=self.get_audio_format(),
             output_format=gstreamer_output_format,
+            num_audio_sources=self.get_num_audio_sources(),
         )
         self.gstreamer_pipeline.setup()
 
