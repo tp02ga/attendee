@@ -22,7 +22,9 @@ class GstreamerPipeline:
         self.appsrc = None
         self.recording_active = False
 
-        self.audio_appsrc = None
+        self.audio_appsrc_1 = None
+        self.audio_appsrc_2 = None
+        self.audio_appsrc_3 = None
         self.audio_recording_active = False
 
         self.start_time_ns = None  # Will be set on first frame/audio sample
@@ -55,30 +57,71 @@ class GstreamerPipeline:
         else:
             raise ValueError(f"Invalid output format: {self.output_format}")
 
+        if False:
+            pipeline_str = (
+                "appsrc name=video_source do-timestamp=false stream-type=0 format=time ! "
+                "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "  # q1 can contain 100mb of video before it drops
+                "videoconvert ! "
+                "videorate ! "
+                "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "  # q2 can contain 100mb of video before it drops
+                "x264enc tune=zerolatency speed-preset=ultrafast ! "
+                "queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
+                f"{muxer_string} ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false "
+                "appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! "
+                "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "audioconvert ! "
+                "audiorate ! "
+                "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "voaacenc bitrate=128000 ! "
+                "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+                "muxer. "
+            )
+
         pipeline_str = (
+            #
+            # --- VIDEO PORTION ---
+            #
             "appsrc name=video_source do-timestamp=false stream-type=0 format=time ! "
-            "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "  # q1 can contain 100mb of video before it drops
+            "queue name=q1 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
             "videoconvert ! "
             "videorate ! "
-            "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "  # q2 can contain 100mb of video before it drops
+            "queue name=q2 max-size-buffers=5000 max-size-bytes=500000000 max-size-time=0 ! "
             "x264enc tune=zerolatency speed-preset=ultrafast ! "
             "queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
             f"{muxer_string} ! queue name=q4 ! appsink name=sink emit-signals=true sync=false drop=false "
-            "appsrc name=audio_source do-timestamp=false stream-type=0 format=time ! "
-            "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "audioconvert ! "
-            "audiorate ! "
-            "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            "voaacenc bitrate=128000 ! "
-            "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+
+            #
+            # --- AUDIO MIXER ---
+            #
+            "audiomixer name=mixer ! "
+            "audioconvert name=audioconvert_1 ! "
+            "voaacenc name=voaacenc bitrate=128000 ! "
             "muxer. "
+
+            #
+            # --- AUDIO PORTION #1 ---
+            #
+            "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
+            "mixer. "
+
+            #
+            # --- AUDIO PORTION #2 ---
+            #
+            "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
+            "mixer. "
+
+            #
+            # --- AUDIO PORTION #3 ---
+            #
+            "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
+            "mixer."
         )
+
 
         self.pipeline = Gst.parse_launch(pipeline_str)
 
         # Get both appsrc elements
         self.appsrc = self.pipeline.get_by_name("video_source")
-        self.audio_appsrc = self.pipeline.get_by_name("audio_source")
 
         # Configure video appsrc
         video_caps = Gst.Caps.from_string(f"video/x-raw,format=I420,width={self.video_frame_size[0]},height={self.video_frame_size[1]},framerate=30/1")
@@ -89,14 +132,18 @@ class GstreamerPipeline:
         self.appsrc.set_property("stream-type", 0)  # GST_APP_STREAM_TYPE_STREAM
         self.appsrc.set_property("block", True)  # This helps with synchronization
 
-        # Configure audio appsrc
-        audio_caps = Gst.Caps.from_string(self.audio_format)
-        self.audio_appsrc.set_property("caps", audio_caps)
-        self.audio_appsrc.set_property("format", Gst.Format.TIME)
-        self.audio_appsrc.set_property("is-live", True)
-        self.audio_appsrc.set_property("do-timestamp", False)
-        self.audio_appsrc.set_property("stream-type", 0)  # GST_APP_STREAM_TYPE_STREAM
-        self.audio_appsrc.set_property("block", True)  # This helps with synchronization
+        audio_caps = Gst.Caps.from_string(self.audio_format)  # e.g. "audio/x-raw,rate=48000,channels=2,format=S16LE"
+        self.audio_appsrc_1 = self.pipeline.get_by_name("audio_source_1")
+        self.audio_appsrc_2 = self.pipeline.get_by_name("audio_source_2")
+        self.audio_appsrc_3 = self.pipeline.get_by_name("audio_source_3")
+
+        for audio_src in [self.audio_appsrc_1, self.audio_appsrc_2, self.audio_appsrc_3]:
+            audio_src.set_property("caps", audio_caps)
+            audio_src.set_property("format", Gst.Format.TIME)
+            audio_src.set_property("is-live", True)
+            audio_src.set_property("do-timestamp", False)
+            audio_src.set_property("stream-type", 0)  # GST_APP_STREAM_TYPE_STREAM
+            audio_src.set_property("block", True)
 
         # Set up bus
         bus = self.pipeline.get_bus()
@@ -132,8 +179,22 @@ class GstreamerPipeline:
                 self.last_reported_drops[queue_name] = 0
                 element.connect("overrun", self.on_queue_overrun, queue_name)
 
+        # Add mixer monitoring
+        self.mixer = self.pipeline.get_by_name("mixer")
+        # Start mixer monitoring
+        GLib.timeout_add_seconds(5, self.monitor_mixer_stats)
+
         # Start statistics monitoring
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
+
+        # Add data flow monitoring
+        self.add_probe_to_element("audio_source_1", "src")
+        self.add_probe_to_element("mixer", "src")
+        self.add_probe_to_element("audioconvert", "src")
+        self.add_probe_to_element("audioresample", "src")
+        self.add_probe_to_element("mix_q", "src")
+        self.add_probe_to_element("voaacenc", "src")
+        self.add_probe_to_element("enc_q", "src")
 
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
@@ -173,8 +234,53 @@ class GstreamerPipeline:
         self.queue_drops[queue_name] += 1
         return True
 
-    def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None):
-        if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
+    def monitor_mixer_stats(self):
+        """Monitor audiomixer statistics"""
+        if not self.recording_active:
+            return False
+
+        try:
+            mixer = self.pipeline.get_by_name("mixer")
+            if mixer:
+                # Get mixer pad information
+                iterator = mixer.iterate_sink_pads()
+                while True:
+                    result, pad = iterator.next()
+                    if result == Gst.IteratorResult.DONE:
+                        break
+                    if result != Gst.IteratorResult.OK:
+                        continue
+                    
+                    pad_name = pad.get_name()
+                    # Check if pad is linked and active
+                    if pad.is_linked():
+                        peer = pad.get_peer()
+                        peer_name = peer.get_parent().get_name() if peer else "None"
+                        print(f"Mixer pad {pad_name} linked to {peer_name}")
+                        
+                        # Get current mixer pad properties
+                        volume = pad.get_property("volume")
+                        mute = pad.get_property("mute")
+                        print(f"  Volume: {volume}, Mute: {mute}")
+
+                # Get mixer element state
+                state = mixer.get_state(0)
+                print(f"Mixer state: {state[1].value_name}")
+
+        except Exception as e:
+            print(f"Error monitoring mixer: {e}")
+
+        return True  # Continue monitoring
+
+    def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None, audio_appsrc_idx = 0):
+        if audio_appsrc_idx == 0:
+            audio_appsrc = self.audio_appsrc_1
+        elif audio_appsrc_idx == 1:
+            audio_appsrc = self.audio_appsrc_2
+        elif audio_appsrc_idx == 2:
+            audio_appsrc = self.audio_appsrc_3
+
+        if not self.audio_recording_active or not audio_appsrc or not self.recording_active or not self.appsrc:
             return
 
         try:
@@ -188,15 +294,22 @@ class GstreamerPipeline:
 
             # Calculate timestamp relative to same start time as video
             buffer.pts = current_time_ns - self.start_time_ns
+            buffer.duration = 33 * 1000 * 1000  # 33ms in nanoseconds
 
-            ret = self.audio_appsrc.emit("push-buffer", buffer)
+            # Set caps if not already set
+            #if not audio_appsrc.get_current_caps():
+             #   caps_str = f"audio/x-raw,format=F32LE,channels=1,rate=32000,layout=interleaved"
+              #  caps = Gst.Caps.from_string(caps_str)
+               # audio_appsrc.set_caps(caps)
+
+            ret = audio_appsrc.emit("push-buffer", buffer)
             if ret != Gst.FlowReturn.OK:
                 print(f"Warning: Failed to push audio buffer to pipeline: {ret}")
         except Exception as e:
             print(f"Error processing audio data: {e}")
 
     def wants_any_video_frames(self):
-        if not self.audio_recording_active or not self.audio_appsrc or not self.recording_active or not self.appsrc:
+        if not self.audio_recording_active or not self.audio_appsrc_1 or not self.recording_active or not self.appsrc:
             return False
 
         return True
@@ -238,8 +351,12 @@ class GstreamerPipeline:
 
         if self.appsrc:
             self.appsrc.emit("end-of-stream")
-        if self.audio_appsrc:
-            self.audio_appsrc.emit("end-of-stream")
+        if self.audio_appsrc_1:
+            self.audio_appsrc_1.emit("end-of-stream")
+        if self.audio_appsrc_2:
+            self.audio_appsrc_2.emit("end-of-stream")
+        if self.audio_appsrc_3:
+            self.audio_appsrc_3.emit("end-of-stream")
 
         msg = bus.timed_pop_filtered(
             5 * 60 * Gst.SECOND,  # 5 minute timeout
@@ -252,3 +369,26 @@ class GstreamerPipeline:
 
         self.pipeline.set_state(Gst.State.NULL)
         print("GStreamer pipeline shut down")
+
+    def add_probe_to_element(self, element_name, pad_name):
+        """Add a probe to monitor data flow through an element"""
+        try:
+            element = self.pipeline.get_by_name(element_name)
+            if element:
+                pad = element.get_static_pad(pad_name)
+                if pad:
+                    pad.add_probe(Gst.PadProbeType.BUFFER, self.probe_callback, element_name)
+                else:
+                    print(f"Could not find {pad_name} pad on {element_name}")
+            else:
+                print(f"Could not find element {element_name}")
+        except Exception as e:
+            print(f"Error adding probe to {element_name}: {e}")
+
+    def probe_callback(self, pad, info, element_name):
+        """Callback for pad probes to monitor data flow"""
+        buffer = info.get_buffer()
+        caps = pad.get_current_caps()
+        caps_str = caps.to_string() if caps else "unknown"
+        #print(f"Data flowing through {element_name}: size={buffer.get_size()} bytes, pts={buffer.pts}, caps={caps_str}")
+        return Gst.PadProbeReturn.OK

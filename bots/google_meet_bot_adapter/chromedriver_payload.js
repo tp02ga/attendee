@@ -345,7 +345,7 @@ class WebSocketClient {
 
   
 
-  sendAudio(timestamp, audioData) {
+  sendAudio(timestamp, streamId, audioData) {
       if (this.ws.readyState !== WebSocket.OPEN) {
           console.error('WebSocket is not connected for audio send', this.ws.readyState);
           return;
@@ -358,7 +358,7 @@ class WebSocketClient {
 
       try {
           // Create final message: type (4 bytes) + timestamp (8 bytes) + audio data
-          const message = new Uint8Array(4 + 8 + audioData.buffer.byteLength);
+          const message = new Uint8Array(4 + 8 + 4 + audioData.buffer.byteLength);
           const dataView = new DataView(message.buffer);
           
           // Set message type (3 for AUDIO)
@@ -367,8 +367,11 @@ class WebSocketClient {
           // Set timestamp as BigInt64
           dataView.setBigInt64(4, BigInt(timestamp), true);
 
+          // Set streamId length and bytes
+          dataView.setInt32(12, streamId, true);
+
           // Copy audio data after type and timestamp
-          message.set(new Uint8Array(audioData.buffer), 12);
+          message.set(new Uint8Array(audioData.buffer), 16);
           
           // Send the binary message
           this.ws.send(message.buffer);
@@ -886,6 +889,8 @@ const handleAudioTrack = async (event) => {
     const readable = processor.readable;
     const writable = generator.writable;
 
+    const firstStreamId = event.streams[0]?.id;
+
     // Transform stream to intercept frames
     const transformStream = new TransformStream({
         async transform(frame, controller) {
@@ -952,13 +957,13 @@ const handleAudioTrack = async (event) => {
                 }
 
                 // If the audioData buffer is all zeros, then we don't want to send it
-                if (audioData.every(value => value === 0)) {
-                    return;
-                }
+               // if (audioData.every(value => value === 0)) {
+                 //   return;
+               // }
 
                 // Send audio data through websocket
                 const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
-                ws.sendAudio(currentTimeMicros, audioData);
+                ws.sendAudio(currentTimeMicros, firstStreamId, audioData);
 
                 // Pass through the original frame
                 controller.enqueue(frame);

@@ -294,11 +294,15 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                     if audio_file is not None and len(message) > 12:
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder="little")
+
+                        # Bytes 12-16 contain the stream ID
+                        stream_id = int.from_bytes(message[12:16], byteorder="little")
+
                         # Convert the float32 audio data to int16 for WAV file
-                        audio_data = np.frombuffer(message[12:], dtype=np.float32)
+                        audio_data = np.frombuffer(message[16:], dtype=np.float32)
 
                         if self.wants_any_video_frames_callback() and self.send_frames:
-                            self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000)
+                            self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000, stream_id % 3)
 
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:
@@ -461,7 +465,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
             sleep(1)
 
         # Trying making it smaller so GMeet sends smaller video frames
-        self.driver.set_window_size(1920 / 2, 1080 / 2)
+        # self.driver.set_window_size(1920 / 2, 1080 / 2)
 
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
