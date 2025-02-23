@@ -393,6 +393,10 @@ class BotController:
             else:
                 print(f"Unknown command: {command}")
 
+    def set_bot_heartbeat(self):
+        if self.bot_in_db.last_heartbeat_at is None or self.bot_in_db.last_heartbeat_at < timezone.now() - timedelta(seconds=60):
+            self.bot_in_db.set_heartbeat()
+
     def on_main_loop_timeout(self):
         try:
             if self.first_timeout_call:
@@ -400,6 +404,9 @@ class BotController:
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_bot_in_db()
                 self.first_timeout_call = False
+
+            # Set heartbeat
+            self.set_bot_heartbeat()
 
             # Process audio chunks
             self.individual_audio_input_manager.process_chunks()
