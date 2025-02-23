@@ -1,5 +1,4 @@
 import dj_database_url
-from .base import *
 
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
@@ -13,7 +12,7 @@ DATABASES = {
     ),
 }
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Disabling these because it's enforced at the ingress level on GKE
 # SECURE_SSL_REDIRECT = True
 # SECURE_HSTS_SECONDS = 60
@@ -31,29 +30,28 @@ CSRF_COOKIE_SECURE = True
 
 ADMINS = []
 
-SERVER_EMAIL = 'noreply@mail.attendee.dev'
+SERVER_EMAIL = "noreply@mail.attendee.dev"
 
-CSRF_TRUSTED_ORIGINS = ['https://*.attendee.dev']
+CSRF_TRUSTED_ORIGINS = ["https://*.attendee.dev"]
 
 # Log more stuff in staging
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
         },
     },
 }
-

@@ -1,5 +1,6 @@
+import os
+
 import dj_database_url
-from .base import *
 
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
@@ -41,4 +42,4 @@ if os.getenv("ERROR_REPORTS_RECEIVER_EMAIL_ADDRESS"):
 SERVER_EMAIL = "noreply@mail.attendee.dev"
 
 # Needed on GKE
-CSRF_TRUSTED_ORIGINS = ['https://*.attendee.dev']
+CSRF_TRUSTED_ORIGINS = ["https://*.attendee.dev"]
