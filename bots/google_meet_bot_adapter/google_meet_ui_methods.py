@@ -79,6 +79,15 @@ class GoogleMeetUIMethods:
             print("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
             raise UiRequestToJoinDeniedException("Someone in the call denied your request to join", step)
 
+    def look_for_asking_to_be_let_in_element_after_waiting_period_expired(self, step):
+        asking_to_be_let_in_element = self.find_element_by_selector(
+            By.XPATH,
+            '//*[contains(text(), "Asking to be let in")]',
+        )
+        if asking_to_be_let_in_element:
+            print("Bot was not let in after waiting period expired. Raising UiRequestToJoinDeniedException")
+            raise UiRequestToJoinDeniedException("Bot was not let in after waiting period expired", step)
+
     def fill_out_name_input(self):
         num_attempts_to_look_for_name_input = 30
         print("Waiting for the name input field...")
@@ -101,7 +110,7 @@ class GoogleMeetUIMethods:
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
-        num_attempts_to_look_for_captions_button = 120
+        num_attempts_to_look_for_captions_button = 300
         print("Waiting for captions button...")
         for attempt_to_look_for_captions_button_index in range(num_attempts_to_look_for_captions_button):
             try:
@@ -117,6 +126,8 @@ class GoogleMeetUIMethods:
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
+                    self.look_for_asking_to_be_let_in_element_after_waiting_period_expired("click_captions_button")
+
                     print("Could not find captions button. Timed out. Raising UiCouldNotLocateElementException")
                     raise UiCouldNotLocateElementException(
                         "Could not find captions button. Timed out.",
@@ -151,13 +162,13 @@ class GoogleMeetUIMethods:
 
         self.fill_out_name_input()
 
-        print("Waiting for the 'Ask to join' button...")
+        print("Waiting for the 'Ask to join' or 'Join now' button...")
         join_button = self.locate_element(
             step="join_button",
-            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
+            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join" or text()="Join now"]]')),
             wait_time_seconds=60,
         )
-        print("Clicking the 'Ask to join' button...")
+        print("Clicking the join button...")
         self.click_element(join_button, "join_button")
 
         self.click_captions_button()

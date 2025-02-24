@@ -48,7 +48,7 @@ class BotPodCreator:
         # Metadata labels matching the deployment
         labels = {"app.kubernetes.io/name": self.app_name, "app.kubernetes.io/instance": self.app_instance, "app.kubernetes.io/version": self.app_version, "app.kubernetes.io/managed-by": "cuber", "app": "bot-proc"}
 
-        pod = client.V1Pod(metadata=client.V1ObjectMeta(name=bot_name, namespace=self.namespace, labels=labels), spec=client.V1PodSpec(containers=[client.V1Container(name="bot-proc", image=self.image, image_pull_policy="Always", command=command, resources=client.V1ResourceRequirements(requests={"cpu": "4", "memory": "4Gi"}, limits={"memory": "4Gi"}), env_from=[client.V1EnvFromSource(config_map_ref=client.V1ConfigMapEnvSource(name="env")), client.V1EnvFromSource(secret_ref=client.V1SecretEnvSource(name="app-secrets"))], env=[])], restart_policy="Never", image_pull_secrets=[client.V1LocalObjectReference(name="regcred")], termination_grace_period_seconds=60))
+        pod = client.V1Pod(metadata=client.V1ObjectMeta(name=bot_name, namespace=self.namespace, labels=labels), spec=client.V1PodSpec(containers=[client.V1Container(name="bot-proc", image=self.image, image_pull_policy="Always", command=command, resources=client.V1ResourceRequirements(requests={"cpu": "2", "memory": "4Gi"}, limits={"memory": "4Gi"}), env_from=[client.V1EnvFromSource(config_map_ref=client.V1ConfigMapEnvSource(name="env")), client.V1EnvFromSource(secret_ref=client.V1SecretEnvSource(name="app-secrets"))], env=[])], restart_policy="Never", image_pull_secrets=[client.V1LocalObjectReference(name="regcred")], termination_grace_period_seconds=60))
 
         try:
             api_response = self.v1.create_namespaced_pod(namespace=self.namespace, body=pod)
