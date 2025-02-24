@@ -290,7 +290,6 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
                 elif message_type == 3:  # AUDIO
                     self.last_media_message_processed_time = time.time()
-                    self.last_audio_message_processed_time = time.time()
                     if audio_file is not None and len(message) > 12:
                         # Bytes 4-12 contain the timestamp
                         timestamp = int.from_bytes(message[4:12], byteorder="little")
@@ -298,8 +297,12 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                         # Bytes 12-16 contain the stream ID
                         stream_id = int.from_bytes(message[12:16], byteorder="little")
 
-                        # Convert the float32 audio data to int16 for WAV file
+                        # Convert the float32 audio data to numpy array
                         audio_data = np.frombuffer(message[16:], dtype=np.float32)
+
+                        # Only mark last_audio_message_processed_time if the audio data has at least one non-zero value
+                        if np.any(audio_data):
+                            self.last_audio_message_processed_time = time.time()
 
                         if self.wants_any_video_frames_callback() and self.send_frames:
                             self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000, stream_id % 3)
