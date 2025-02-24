@@ -382,6 +382,12 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
         options.add_argument("--disable-dev-shm-usage")
 
         if self.driver:
+            # Simulate closing browser window
+            try:
+                self.driver.close()
+            except Exception as e:
+                print(f"Error closing driver: {e}")
+
             try:
                 self.driver.quit()
             except Exception as e:
@@ -520,7 +526,17 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
         try:
             if self.driver:
-                self.driver.quit()
+                # Simulate closing browser window
+                try:
+                    self.driver.close()
+                except Exception as e:
+                    print(f"Error closing driver: {e}")
+
+                # Then quit the driver
+                try:
+                    self.driver.quit()
+                except Exception as e:
+                    print(f"Error quitting driver: {e}")
         except Exception as e:
             print(f"Error during cleanup: {e}")
 
