@@ -151,13 +151,13 @@ class GoogleMeetUIMethods:
 
         self.fill_out_name_input()
 
-        print("Waiting for the 'Ask to join' button...")
+        print("Waiting for the 'Ask to join' or 'Join now' button...")
         join_button = self.locate_element(
             step="join_button",
-            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join"]]')),
+            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join" or text()="Join now"]]')),
             wait_time_seconds=60,
         )
-        print("Clicking the 'Ask to join' button...")
+        print("Clicking the join button...")
         self.click_element(join_button, "join_button")
 
         self.click_captions_button()
