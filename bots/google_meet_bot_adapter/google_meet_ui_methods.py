@@ -79,7 +79,7 @@ class GoogleMeetUIMethods:
             print("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
             raise UiRequestToJoinDeniedException("Someone in the call denied your request to join", step)
 
-    def look_for_asking_to_be_let_in_element(self, step):
+    def look_for_asking_to_be_let_in_element_after_waiting_period_expired(self, step):
         asking_to_be_let_in_element = self.find_element_by_selector(
             By.XPATH,
             '//*[contains(text(), "Asking to be let in")]',
@@ -126,7 +126,7 @@ class GoogleMeetUIMethods:
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
-                    self.look_for_asking_to_be_let_in_element("click_captions_button")
+                    self.look_for_asking_to_be_let_in_element_after_waiting_period_expired("click_captions_button")
 
                     print("Could not find captions button. Timed out. Raising UiCouldNotLocateElementException")
                     raise UiCouldNotLocateElementException(
