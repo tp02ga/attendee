@@ -1,7 +1,10 @@
-from kubernetes import client, config
-from typing import Optional, Dict, List
-import uuid
 import os
+import uuid
+from typing import Dict, Optional
+
+from kubernetes import client, config
+
+# fmt: off
 
 class BotPodCreator:
     def __init__(self, namespace: str = "attendee"):
@@ -75,6 +78,7 @@ class BotPodCreator:
                             }
                         ),
                         env_from=[
+                            # environment variables for the bot
                             client.V1EnvFromSource(
                                 config_map_ref=client.V1ConfigMapEnvSource(
                                     name="env"
@@ -135,3 +139,5 @@ class BotPodCreator:
                 "deleted": False,
                 "error": str(e)
             }
+
+# fmt: on

@@ -57,7 +57,9 @@ class GstreamerPipeline:
             raise ValueError(f"Invalid output format: {self.output_format}")
 
         if self.num_audio_sources == 1:
+            # fmt: off
             audio_source_string = (
+                # --- AUDIO STRING FOR 1 AUDIO SOURCE ---
                 "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "audioconvert ! "
@@ -66,23 +68,21 @@ class GstreamerPipeline:
                 "voaacenc bitrate=128000 ! "
                 "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
             )
+            # fmt: on
         elif self.num_audio_sources == 3:
             audio_source_string = (
                 # --- AUDIO BRANCH 1 ---
                 "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5_1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "mixer. "
-
                 # --- AUDIO BRANCH 2 ---
                 "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5_2 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "mixer. "
-
                 # --- AUDIO BRANCH 3 ---
                 "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
                 "queue name=q5_3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "mixer. "
-
                 # --- AUDIO MIXER
                 "adder name=mixer ! "
                 "queue name=mixer_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
@@ -125,7 +125,7 @@ class GstreamerPipeline:
         audio_caps = Gst.Caps.from_string(self.audio_format)  # e.g. "audio/x-raw,rate=48000,channels=2,format=S16LE"
         self.audio_appsrcs = []
         for i in range(self.num_audio_sources):
-            audio_appsrc = self.pipeline.get_by_name(f"audio_source_{i+1}")
+            audio_appsrc = self.pipeline.get_by_name(f"audio_source_{i + 1}")
             audio_appsrc.set_property("caps", audio_caps)
             audio_appsrc.set_property("format", Gst.Format.TIME)
             audio_appsrc.set_property("is-live", True)
@@ -171,7 +171,6 @@ class GstreamerPipeline:
         # Start statistics monitoring
         GLib.timeout_add_seconds(15, self.monitor_pipeline_stats)
 
-
     def on_pipeline_message(self, bus, message):
         """Handle pipeline messages"""
         t = message.type
@@ -210,9 +209,9 @@ class GstreamerPipeline:
         self.queue_drops[queue_name] += 1
         return True
 
-    def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None, audio_appsrc_idx = 0):
+    def on_mixed_audio_raw_data_received_callback(self, data, timestamp=None, audio_appsrc_idx=0):
         audio_appsrc = self.audio_appsrcs[audio_appsrc_idx]
-        
+
         if not self.audio_recording_active or not audio_appsrc or not self.recording_active or not self.appsrc:
             return
 
