@@ -273,6 +273,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                     if isinstance(json_data, dict):
                         if json_data.get("type") == "AudioFormatUpdate":
                             audio_format = json_data["format"]
+                            print("audio format", audio_format)
 
                         elif json_data.get("type") == "CaptionUpdate":
                             self.upsert_caption_callback(json_data["caption"])
