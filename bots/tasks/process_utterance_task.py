@@ -52,6 +52,7 @@ def process_utterance(self, utterance_id):
 
         response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
         utterance.transcription = json.loads(response.results.channels[0].alternatives[0].to_json())
+        utterance.audio_blob = b'' # set the binary field to empty byte string
         utterance.save()
 
     # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
