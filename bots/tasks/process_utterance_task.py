@@ -37,7 +37,7 @@ def process_utterance(self, utterance_id):
             language=recording.bot.deepgram_language(),
             detect_language=recording.bot.deepgram_detect_language(),
             encoding="linear16",  # for 16-bit PCM
-            sample_rate=utterance.sample_rate
+            sample_rate=utterance.sample_rate,
         )
 
         deepgram_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
@@ -52,7 +52,7 @@ def process_utterance(self, utterance_id):
 
         response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
         utterance.transcription = json.loads(response.results.channels[0].alternatives[0].to_json())
-        utterance.audio_blob = b'' # set the binary field to empty byte string
+        utterance.audio_blob = b""  # set the binary field to empty byte string
         utterance.save()
 
     # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
