@@ -1,4 +1,3 @@
-import json
 import os
 import threading
 import time
@@ -15,7 +14,6 @@ from bots.models import (
     BotEventManager,
     BotEventTypes,
     BotStates,
-    Credentials,
     Organization,
     Project,
     Recording,
@@ -38,21 +36,6 @@ def create_mock_streaming_uploader():
     return mock_streaming_uploader
 
 
-class MockWebSocketServer:
-    def __init__(self):
-        self.is_running = False
-
-    def serve_forever(self):
-        self.is_running = True
-
-    def shutdown(self):
-        self.is_running = False
-
-
-def mock_serve_websocket(*args, **kwargs):
-    return MockWebSocketServer()
-
-
 def create_mock_google_meet_driver():
     mock_driver = MagicMock()
     mock_driver.set_window_size.return_value = None
@@ -62,34 +45,6 @@ def create_mock_google_meet_driver():
     ]
     mock_driver.save_screenshot.return_value = None
     return mock_driver
-
-
-def create_mock_deepgram():
-    mock_deepgram = MagicMock()
-    mock_response = MagicMock()
-    mock_results = MagicMock()
-    mock_channel = MagicMock()
-    mock_alternative = MagicMock()
-
-    mock_alternative.to_json.return_value = json.dumps(
-        {
-            "transcript": "This is a test transcript",
-            "confidence": 0.95,
-            "words": [
-                {"word": "This", "start": 0.0, "end": 0.2, "confidence": 0.98},
-                {"word": "is", "start": 0.2, "end": 0.4, "confidence": 0.97},
-                {"word": "a", "start": 0.4, "end": 0.5, "confidence": 0.99},
-                {"word": "test", "start": 0.5, "end": 0.8, "confidence": 0.96},
-                {"word": "transcript", "start": 0.8, "end": 1.2, "confidence": 0.94},
-            ],
-        }
-    )
-    mock_channel.alternatives = [mock_alternative]
-    mock_results.channels = [mock_channel]
-    mock_response.results = mock_results
-
-    mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
-    return mock_deepgram
 
 
 class TestGoogleMeetBot(TransactionTestCase):
@@ -104,10 +59,6 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Recreate organization and project for each test
         self.organization = Organization.objects.create(name="Test Org")
         self.project = Project.objects.create(name="Test Project", organization=self.organization)
-
-        # Recreate credentials
-        self.deepgram_credentials = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.DEEPGRAM)
-        self.deepgram_credentials.set_credentials({"api_key": "test_api_key"})
 
         # Create a bot for each test
         self.bot = Bot.objects.create(
@@ -135,20 +86,14 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     @patch("bots.google_meet_bot_adapter.google_meet_bot_adapter.Display")
-    @patch("bots.google_meet_bot_adapter.google_meet_bot_adapter.serve", mock_serve_websocket)
     @patch("bots.google_meet_bot_adapter.google_meet_bot_adapter.uc.Chrome")
     @patch("bots.bot_controller.bot_controller.StreamingUploader")
-    @patch("deepgram.DeepgramClient")
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
-        MockDeepgramClient,
         MockStreamingUploader,
         MockChromeDriver,
         MockDisplay,
     ):
-        # Set up Deepgram mock
-        MockDeepgramClient.return_value = create_mock_deepgram()
-
         # Configure the mock uploader
         mock_uploader = create_mock_streaming_uploader()
         MockStreamingUploader.return_value = mock_uploader
