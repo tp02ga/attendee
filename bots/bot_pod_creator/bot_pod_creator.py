@@ -1,7 +1,8 @@
-from kubernetes import client, config
-from typing import Optional, Dict, List
-import uuid
 import os
+import uuid
+from typing import Dict, Optional
+
+from kubernetes import client, config
 
 # fmt: off
 
