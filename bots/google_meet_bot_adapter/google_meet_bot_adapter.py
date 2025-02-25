@@ -216,7 +216,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                 )
             self.video_frame_ticker += 1
 
-            # Convert I420 format to BGR for OpenCV
+            # Scale frame to 1920x1080
             expected_video_data_length = width * height + 2 * half_ceil(width) * half_ceil(height)
             video_data = np.frombuffer(message[offset + 8 :], dtype=np.uint8)
 
