@@ -57,7 +57,10 @@ class GstreamerPipeline:
             raise ValueError(f"Invalid output format: {self.output_format}")
 
         if self.num_audio_sources == 1:
-            audio_source_string = "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! audioconvert ! audiorate ! queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! voaacenc bitrate=128000 ! queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            audio_source_string = (
+                # --- AUDIO STRING FOR 1 AUDIO SOURCE ---
+                "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! audioconvert ! audiorate ! queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! voaacenc bitrate=128000 ! queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            )
         elif self.num_audio_sources == 3:
             audio_source_string = (
                 # --- AUDIO BRANCH 1 ---
