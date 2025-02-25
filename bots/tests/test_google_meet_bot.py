@@ -99,7 +99,7 @@ def create_mock_deepgram():
     return mock_deepgram
 
 
-class TestGoogleMeetBotJoinMeeting(TransactionTestCase):
+class TestGoogleMeetBot(TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

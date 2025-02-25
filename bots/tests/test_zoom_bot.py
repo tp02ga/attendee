@@ -295,7 +295,7 @@ def create_mock_deepgram():
     mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
     return mock_deepgram
 
-class TestBotJoinMeeting(TransactionTestCase):
+class TestZoomBot(TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
