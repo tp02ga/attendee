@@ -174,7 +174,6 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            participants_data = {"type": "UsersUpdate", "newUsers": [{"deviceId": "user1", "fullName": "Test User", "humanized_status": "in_meeting"}], "removedUsers": [], "updatedUsers": []}
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
 
             # Simulate audio data arrival - fake a float32 array of 1000 samples
@@ -187,7 +186,6 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Add stream ID (0) as next 4 bytes
             mock_audio_message.extend((0).to_bytes(4, byteorder="little"))
             # Add mock audio data (1000 float32 samples)
-            mock_audio_data = np.ones(1000, dtype=np.float32) * 0.5  # 50% volume
             mock_audio_message.extend(MockF32AudioFrame().GetBuffer())
 
             controller.adapter.process_audio_frame(mock_audio_message)
