@@ -36,7 +36,8 @@ from bots.models import (
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 
-from .mock_data import MockVideoFrame, MockPCMAudioFrame
+from .mock_data import MockPCMAudioFrame, MockVideoFrame
+
 
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
@@ -294,6 +295,7 @@ def create_mock_deepgram():
     # Set up the mock client
     mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
     return mock_deepgram
+
 
 class TestZoomBot(TransactionTestCase):
     @classmethod

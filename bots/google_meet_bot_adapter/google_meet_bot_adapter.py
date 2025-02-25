@@ -4,7 +4,6 @@ import json
 import os
 import threading
 import time
-import wave
 from time import sleep
 
 import cv2

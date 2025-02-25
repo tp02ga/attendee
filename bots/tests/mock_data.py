@@ -56,6 +56,7 @@ class MockPCMAudioFrame:
     def GetBuffer(self):
         return self.buffer
 
+
 class MockF32AudioFrame:
     def __init__(self):
         # Create 10ms of a 440Hz sine wave at 48000Hz mono
@@ -71,7 +72,7 @@ class MockF32AudioFrame:
             # Generate value between -1.0 and 1.0
             value = 0.8 * math.sin(2 * math.pi * 440 * t)  # Using 0.8 amplitude to avoid clipping
             # Pack float to bytes (4 bytes per sample)
-            samples.extend(struct.pack('f', value))
+            samples.extend(struct.pack("f", value))
         self.buffer = bytes(samples)
 
     def GetBuffer(self):
