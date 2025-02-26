@@ -101,9 +101,9 @@ class BotStates(models.IntegerChoices):
         }
         return mapping.get(value)
 
-class RecordingFormats(models.IntegerChoices):
-    MP4 = 1, "mp4"
-    WEBM = 2, "webm"
+class RecordingFormats(models.TextChoices):
+    MP4 = "mp4"
+    WEBM = "webm"
 
 class Bot(models.Model):
     OBJECT_ID_PREFIX = "bot_"
