@@ -451,6 +451,7 @@ class BotController:
                 "transcription": {"transcript": message["text"]},
                 "timestamp_ms": message["timestamp_ms"],
                 "duration_ms": message["duration_ms"],
+                "sample_rate": None
             },
         )
 
