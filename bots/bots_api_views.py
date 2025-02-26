@@ -183,9 +183,11 @@ class BotCreateView(APIView):
         bot_name = serializer.validated_data["bot_name"]
         transcription_settings = serializer.validated_data["transcription_settings"]
         rtmp_settings = serializer.validated_data["rtmp_settings"]
+        recording_settings = serializer.validated_data["recording_settings"]
         settings = {
             "transcription_settings": transcription_settings,
             "rtmp_settings": rtmp_settings,
+            "recording_settings": recording_settings,
         }
         bot = Bot.objects.create(
             project=project,

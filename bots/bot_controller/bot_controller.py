@@ -22,6 +22,7 @@ from bots.models import (
     Credentials,
     Participant,
     Recording,
+    RecordingFormats,
     RecordingManager,
     RecordingStates,
     Utterance,
@@ -127,7 +128,7 @@ class BotController:
 
     def get_recording_filename(self):
         recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
-        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.webm"
+        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.{self.bot_in_db.recording_format()}"
 
     def on_rtmp_connection_failed(self):
         print("RTMP connection failed")
@@ -228,7 +229,11 @@ class BotController:
             get_participant_callback=self.get_participant,
         )
 
-        gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_WEBM
+        if self.bot_in_db.recording_format() == RecordingFormats.WEBM:
+            gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_WEBM
+        else:
+            gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_MP4
+
         self.rtmp_client = None
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             gstreamer_output_format = GstreamerPipeline.OUTPUT_FORMAT_FLV
