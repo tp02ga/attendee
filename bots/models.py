@@ -102,6 +102,11 @@ class BotStates(models.IntegerChoices):
         return mapping.get(value)
 
 
+class RecordingFormats(models.TextChoices):
+    MP4 = "mp4"
+    WEBM = "webm"
+
+
 class Bot(models.Model):
     OBJECT_ID_PREFIX = "bot_"
 
@@ -139,6 +144,12 @@ class Bot(models.Model):
             return None
 
         return f"{destination_url}/{stream_key}"
+
+    def recording_format(self):
+        recording_settings = self.settings.get("recording_settings", {})
+        if recording_settings is None:
+            recording_settings = {}
+        return recording_settings.get("format", RecordingFormats.WEBM)
 
     def last_bot_event(self):
         return self.bot_events.order_by("-created_at").first()

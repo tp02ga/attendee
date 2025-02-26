@@ -11,6 +11,7 @@ class GstreamerPipeline:
     AUDIO_FORMAT_FLOAT = "audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved"
     OUTPUT_FORMAT_FLV = "flv"
     OUTPUT_FORMAT_MP4 = "mp4"
+    OUTPUT_FORMAT_WEBM = "webm"
 
     def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format, num_audio_sources):
         self.on_new_sample_callback = on_new_sample_callback
@@ -53,6 +54,8 @@ class GstreamerPipeline:
             muxer_string = "mp4mux name=muxer"
         elif self.output_format == self.OUTPUT_FORMAT_FLV:
             muxer_string = "h264parse ! flvmux name=muxer streamable=true"
+        elif self.output_format == self.OUTPUT_FORMAT_WEBM:
+            muxer_string = "h264parse ! matroskamux name=muxer streamable=true"
         else:
             raise ValueError(f"Invalid output format: {self.output_format}")
 

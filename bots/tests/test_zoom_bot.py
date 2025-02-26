@@ -28,6 +28,7 @@ from bots.models import (
     Organization,
     Project,
     Recording,
+    RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
     RecordingTypes,
@@ -662,6 +663,13 @@ class TestZoomBot(TransactionTestCase):
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
+        self.bot.settings = {
+            "recording_settings": {
+                "format": RecordingFormats.MP4,
+            }
+        }
+        self.bot.save()
+
         # Set up Google TTS mock
         mock_tts_client = MagicMock()
         mock_tts_response = MagicMock()
@@ -959,6 +967,13 @@ class TestZoomBot(TransactionTestCase):
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
+        self.bot.settings = {
+            "recording_settings": {
+                "format": RecordingFormats.MP4,
+            }
+        }
+        self.bot.save()
+
         # Set up Deepgram mock
         MockDeepgramClient.return_value = create_mock_deepgram()
 
