@@ -4,7 +4,6 @@ import json
 import os
 import threading
 import time
-import wave
 from time import sleep
 
 import cv2
@@ -191,8 +190,70 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
 
         return None
 
+    def process_video_frame(self, message):
+        self.last_media_message_processed_time = time.time()
+        if len(message) > 24:  # Minimum length check
+            # Bytes 4-12 contain the timestamp
+            timestamp = int.from_bytes(message[4:12], byteorder="little")
+
+            # Get stream ID length and string
+            stream_id_length = int.from_bytes(message[12:16], byteorder="little")
+            message[16 : 16 + stream_id_length].decode("utf-8")
+
+            # Get width and height after stream ID
+            offset = 16 + stream_id_length
+            width = int.from_bytes(message[offset : offset + 4], byteorder="little")
+            height = int.from_bytes(message[offset + 4 : offset + 8], byteorder="little")
+
+            # Keep track of the video frame dimensions
+            if self.video_frame_ticker % 300 == 0:
+                print(
+                    "video dimensions",
+                    width,
+                    height,
+                    " message length",
+                    len(message) - offset - 8,
+                )
+            self.video_frame_ticker += 1
+
+            # Scale frame to 1920x1080
+            expected_video_data_length = width * height + 2 * half_ceil(width) * half_ceil(height)
+            video_data = np.frombuffer(message[offset + 8 :], dtype=np.uint8)
+
+            # Check if len(video_data) does not agree with width and height
+            if len(video_data) == expected_video_data_length:  # I420 format uses 1.5 bytes per pixel
+                scaled_i420_frame = scale_i420(video_data, (width, height), (1920, 1080))
+                if self.wants_any_video_frames_callback() and self.send_frames:
+                    self.add_video_frame_callback(scaled_i420_frame, timestamp * 1000)
+
+            else:
+                print(
+                    "video data length does not agree with width and height",
+                    len(video_data),
+                    width,
+                    height,
+                )
+
+    def process_audio_frame(self, message):
+        self.last_media_message_processed_time = time.time()
+        if len(message) > 12:
+            # Bytes 4-12 contain the timestamp
+            timestamp = int.from_bytes(message[4:12], byteorder="little")
+
+            # Bytes 12-16 contain the stream ID
+            stream_id = int.from_bytes(message[12:16], byteorder="little")
+
+            # Convert the float32 audio data to numpy array
+            audio_data = np.frombuffer(message[16:], dtype=np.float32)
+
+            # Only mark last_audio_message_processed_time if the audio data has at least one non-zero value
+            if np.any(audio_data):
+                self.last_audio_message_processed_time = time.time()
+
+            if self.wants_any_video_frames_callback() and self.send_frames:
+                self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000, stream_id % 3)
+
     def handle_websocket(self, websocket):
-        audio_file = None
         audio_format = None
         output_dir = "frames"  # Add output directory
 
@@ -212,11 +273,7 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                     if isinstance(json_data, dict):
                         if json_data.get("type") == "AudioFormatUpdate":
                             audio_format = json_data["format"]
-                            # Create a new WAV file
-                            audio_file = wave.open("recorded_audio.wav", "wb")
-                            audio_file.setnchannels(audio_format["numberOfChannels"])
-                            audio_file.setsampwidth(4)  # 4 bytes for float32
-                            audio_file.setframerate(audio_format["sampleRate"] / 2)
+                            print("audio format", audio_format)
 
                         elif json_data.get("type") == "CaptionUpdate":
                             self.upsert_caption_callback(json_data["caption"])
@@ -245,67 +302,9 @@ class GoogleMeetBotAdapter(BotAdapter, GoogleMeetUIMethods):
                                 self.only_one_participant_in_meeting_at = None
 
                 elif message_type == 2:  # VIDEO
-                    self.last_media_message_processed_time = time.time()
-                    if len(message) > 24:  # Minimum length check
-                        # Bytes 4-12 contain the timestamp
-                        timestamp = int.from_bytes(message[4:12], byteorder="little")
-
-                        # Get stream ID length and string
-                        stream_id_length = int.from_bytes(message[12:16], byteorder="little")
-                        message[16 : 16 + stream_id_length].decode("utf-8")
-
-                        # Get width and height after stream ID
-                        offset = 16 + stream_id_length
-                        width = int.from_bytes(message[offset : offset + 4], byteorder="little")
-                        height = int.from_bytes(message[offset + 4 : offset + 8], byteorder="little")
-
-                        # Keep track of the video frame dimensions
-                        if self.video_frame_ticker % 300 == 0:
-                            print(
-                                "video dimensions",
-                                width,
-                                height,
-                                " message length",
-                                len(message) - offset - 8,
-                            )
-                        self.video_frame_ticker += 1
-
-                        # Convert I420 format to BGR for OpenCV
-                        expected_video_data_length = width * height + 2 * half_ceil(width) * half_ceil(height)
-                        video_data = np.frombuffer(message[offset + 8 :], dtype=np.uint8)
-
-                        # Check if len(video_data) does not agree with width and height
-                        if len(video_data) == expected_video_data_length:  # I420 format uses 1.5 bytes per pixel
-                            scaled_i420_frame = scale_i420(video_data, (width, height), (1920, 1080))
-                            if self.wants_any_video_frames_callback() and self.send_frames:
-                                self.add_video_frame_callback(scaled_i420_frame, timestamp * 1000)
-
-                        else:
-                            print(
-                                "video data length does not agree with width and height",
-                                len(video_data),
-                                width,
-                                height,
-                            )
-
+                    self.process_video_frame(message)
                 elif message_type == 3:  # AUDIO
-                    self.last_media_message_processed_time = time.time()
-                    if audio_file is not None and len(message) > 12:
-                        # Bytes 4-12 contain the timestamp
-                        timestamp = int.from_bytes(message[4:12], byteorder="little")
-
-                        # Bytes 12-16 contain the stream ID
-                        stream_id = int.from_bytes(message[12:16], byteorder="little")
-
-                        # Convert the float32 audio data to numpy array
-                        audio_data = np.frombuffer(message[16:], dtype=np.float32)
-
-                        # Only mark last_audio_message_processed_time if the audio data has at least one non-zero value
-                        if np.any(audio_data):
-                            self.last_audio_message_processed_time = time.time()
-
-                        if self.wants_any_video_frames_callback() and self.send_frames:
-                            self.add_mixed_audio_chunk_callback(audio_data.tobytes(), timestamp * 1000, stream_id % 3)
+                    self.process_audio_frame(message)
 
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:

@@ -36,6 +36,8 @@ from bots.models import (
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 
+from .mock_data import MockPCMAudioFrame, MockVideoFrame
+
 
 def create_mock_streaming_uploader():
     mock_streaming_uploader = MagicMock(spec=StreamingUploader)
@@ -295,63 +297,7 @@ def create_mock_deepgram():
     return mock_deepgram
 
 
-class MockVideoFrame:
-    def __init__(self):
-        width = 640
-        height = 360
-
-        # Create separate Y, U, and V planes
-        self.y_buffer = b"\x00" * (width * height)  # Y plane (black)
-        self.u_buffer = b"\x80" * (width * height // 4)  # U plane (128 for black)
-        self.v_buffer = b"\x80" * (width * height // 4)  # V plane (128 for black)
-
-        self.size = len(self.y_buffer) + len(self.u_buffer) + len(self.v_buffer)
-        self.timestamp = int(time.time() * 1000)  # Current time in milliseconds
-
-    def GetBuffer(self):
-        return self.y_buffer + self.u_buffer + self.v_buffer
-
-    def GetYBuffer(self):
-        return self.y_buffer
-
-    def GetUBuffer(self):
-        return self.u_buffer
-
-    def GetVBuffer(self):
-        return self.v_buffer
-
-    def GetStreamWidth(self):
-        return 640
-
-    def GetStreamHeight(self):
-        return 360
-
-
-class MockAudioFrame:
-    def __init__(self):
-        # Create 10ms of a 440Hz sine wave at 32000Hz mono
-        # 32000 samples/sec * 0.01 sec = 320 samples
-        # Each sample is 2 bytes (unsigned 16-bit)
-        import math
-
-        samples = []
-        for i in range(320):  # 10ms worth of samples at 32kHz
-            # Generate sine wave with frequency 440Hz
-            t = i / 32000.0  # time in seconds
-            # Generate value between 0 and 65535 (unsigned 16-bit)
-            # Center at 32768, use amplitude of 16384 to avoid clipping
-            value = int(32768 + 16384 * math.sin(2 * math.pi * 440 * t))
-            # Ensure value stays within valid range
-            value = max(0, min(65535, value))
-            # Convert to two bytes (little-endian)
-            samples.extend([value & 0xFF, (value >> 8) & 0xFF])
-        self.buffer = bytes(samples)
-
-    def GetBuffer(self):
-        return self.buffer
-
-
-class TestBotJoinMeeting(TransactionTestCase):
+class TestZoomBot(TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -607,7 +553,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate receiving some initial audio
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
@@ -801,10 +747,10 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
-            adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
+            adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockPCMAudioFrame())
 
             # simulate audio mic initialized
             adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
@@ -1067,7 +1013,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
@@ -1616,10 +1562,10 @@ class TestBotJoinMeeting(TransactionTestCase):
 
                 # Simulate audio frame received
                 adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                    MockAudioFrame(),
+                    MockPCMAudioFrame(),
                     2,  # Simulated participant ID that's not the bot
                 )
-                adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
+                adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockPCMAudioFrame())
 
                 time.sleep(5.0)
 
@@ -1829,7 +1775,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received to trigger transcription
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
