@@ -12,6 +12,7 @@ from .models import (
     BotEventTypes,
     BotStates,
     Recording,
+    RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
 )
