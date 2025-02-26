@@ -69,7 +69,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
         "properties": {
             "format": {
                 "type": "string",
-                "description": "The format of the recording to save",
+                "description": "The settings for the bot's recording",
             },
         },
         "required": ["format"],
@@ -166,7 +166,7 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     recording_settings = RecordingSettingsJSONField(
-        help_text="The format of the recording to save, e.g. {'format': 'webm'} or {'format': 'mp4'}.",
+        help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}.",
         required=False,
         default={"format": RecordingFormats.WEBM},
     )
