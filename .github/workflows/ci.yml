@@ -11,7 +11,6 @@ jobs:
     name: Run test suite
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: lint
 
     # Add service containers
     services:
@@ -76,6 +75,7 @@ jobs:
   lint:
     name: Run linting
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
