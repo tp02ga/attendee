@@ -69,7 +69,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
         "properties": {
             "format": {
                 "type": "string",
-                "description": "The settings for the bot's recording",
+                "description": "The format of the recording to save. The supported formats are 'webm' and 'mp4'.",
             },
         },
         "required": ["format"],

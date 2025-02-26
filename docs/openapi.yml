@@ -177,6 +177,65 @@ paths:
                   summary: Leaving Bot
                   description: Example response when requesting a bot to leave
           description: Successfully requested to leave meeting
+        '400':
+          description: Bot is not in a valid state to leave the meeting
+        '404':
+          description: Bot not found
+  /api/v1/bots/{object_id}/speech:
+    post:
+      operationId: Output speech
+      description: Causes the bot to speak a message in the meeting.
+      summary: Output speech
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeechRequest'
+            examples:
+              ValidSpeechRequest:
+                value:
+                  text: Hello, this is a bot speaking text.
+                  text_to_speech_settings:
+                    google:
+                      voice_language_code: en-US
+                      voice_name: en-US-Casual-K
+                summary: Valid speech request
+                description: Example of a valid speech request
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Speech request created successfully
+        '400':
+          description: Invalid input
         '404':
           description: Bot not found
   /api/v1/bots/{object_id}/output_audio:
@@ -342,63 +401,6 @@ paths:
                     start_timestamp_ms: 1733114771000
                   summary: Recording Upload
           description: Short-lived S3 URL for the recording
-  /api/v1/bots/{object_id}/speech:
-    post:
-      operationId: Output speech
-      description: Causes the bot to speak a message in the meeting.
-      summary: Output speech
-      parameters:
-      - in: header
-        name: Authorization
-        schema:
-          type: string
-          default: Token YOUR_API_KEY_HERE
-        description: API key for authentication
-        required: true
-      - in: header
-        name: Content-Type
-        schema:
-          type: string
-          default: application/json
-        description: Should always be application/json
-        required: true
-      - in: path
-        name: object_id
-        schema:
-          type: string
-        description: Bot ID
-        required: true
-        examples:
-          BotIDExample:
-            value: bot_xxxxxxxxxxx
-            summary: Bot ID Example
-      tags:
-      - Bots
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SpeechRequest'
-            examples:
-              ValidSpeechRequest:
-                value:
-                  text: Hello, this is a bot speaking text.
-                  text_to_speech_settings:
-                    google:
-                      voice_language_code: en-US
-                      voice_name: en-US-Casual-K
-                summary: Valid speech request
-                description: Example of a valid speech request
-        required: true
-      security:
-      - {}
-      responses:
-        '200':
-          description: Speech request created successfully
-        '400':
-          description: Invalid input
-        '404':
-          description: Bot not found
   /api/v1/bots/{object_id}/transcript:
     get:
       operationId: Get Bot Transcript
@@ -533,6 +535,19 @@ components:
           - stream_key
           description: 'RTMP server to stream to, e.g. {''destination_url'': ''rtmp://global-live.mux.com:5222/app'',
             ''stream_key'': ''xxxx''}.'
+        recording_settings:
+          type: object
+          properties:
+            format:
+              type: string
+              description: The format of the recording to save. The supported formats
+                are 'webm' and 'mp4'.
+          required:
+          - format
+          default:
+            format: webm
+          description: 'The settings for the bot''s recording. Either {''format'':
+            ''webm''} or {''format'': ''mp4''}.'
       required:
       - bot_name
       - meeting_url
