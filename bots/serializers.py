@@ -62,6 +62,7 @@ class TranscriptionSettingsJSONField(serializers.JSONField):
 class RTMPSettingsJSONField(serializers.JSONField):
     pass
 
+
 @extend_schema_field(
     {
         "type": "object",
@@ -76,6 +77,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
 )
 class RecordingSettingsJSONField(serializers.JSONField):
     pass
+
 
 @extend_schema_serializer(
     examples=[
