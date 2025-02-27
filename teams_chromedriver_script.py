@@ -191,7 +191,6 @@ async def join_meet():
                 "audioCapture",
                 "displayCapture",
                 "videoCapture",
-                "videoCapturePanTiltZoom",
             ],
         },
     )

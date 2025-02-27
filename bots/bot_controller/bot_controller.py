@@ -44,11 +44,27 @@ from gi.repository import GLib
 class BotController:
     MEETING_TYPE_ZOOM = "zoom"
     MEETING_TYPE_GOOGLE_MEET = "google_meet"
+    MEETING_TYPE_TEAMS = "teams"
 
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
 
         return GoogleMeetBotAdapter(
+            display_name=self.bot_in_db.name,
+            send_message_callback=self.on_message_from_adapter,
+            meeting_url=self.bot_in_db.meeting_url,
+            add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
+            wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
+            add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            upsert_caption_callback=self.closed_caption_manager.upsert_caption,
+            automatic_leave_configuration=self.automatic_leave_configuration,
+        )
+
+
+    def get_teams_bot_adapter(self):
+        from bots.teams_bot_adapter import TeamsBotAdapter
+
+        return TeamsBotAdapter(
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
             meeting_url=self.bot_in_db.meeting_url,
@@ -91,14 +107,18 @@ class BotController:
             return self.MEETING_TYPE_ZOOM
         elif "meet.google.com" in self.bot_in_db.meeting_url:
             return self.MEETING_TYPE_GOOGLE_MEET
+        elif "teams.microsoft.com" in self.bot_in_db.meeting_url or "teams.live.com" in self.bot_in_db.meeting_url:
+            return self.MEETING_TYPE_TEAMS
         else:
-            raise Exception(f"Unknown meeting type: {self.bot_in_db.meeting_type}")
+            raise Exception(f"Could not determine meeting type for meeting url {self.bot_in_db.meeting_url}")
 
     def get_audio_format(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == self.MEETING_TYPE_ZOOM:
             return GstreamerPipeline.AUDIO_FORMAT_PCM
         elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
+            return GstreamerPipeline.AUDIO_FORMAT_FLOAT
+        elif meeting_type == self.MEETING_TYPE_TEAMS:
             return GstreamerPipeline.AUDIO_FORMAT_FLOAT
 
     def get_num_audio_sources(self):
@@ -107,6 +127,8 @@ class BotController:
             return 1
         elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
             return 3
+        elif meeting_type == self.MEETING_TYPE_TEAMS:
+            return 1
 
     def get_bot_adapter(self):
         meeting_type = self.get_meeting_type()
@@ -114,6 +136,8 @@ class BotController:
             return self.get_zoom_bot_adapter()
         elif meeting_type == self.MEETING_TYPE_GOOGLE_MEET:
             return self.get_google_meet_bot_adapter()
+        elif meeting_type == self.MEETING_TYPE_TEAMS:
+            return self.get_teams_bot_adapter()
 
     def get_first_buffer_timestamp_ms(self):
         if self.gstreamer_pipeline.start_time_ns is None:
