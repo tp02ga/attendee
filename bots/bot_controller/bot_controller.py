@@ -445,14 +445,7 @@ class BotController:
         utterance, _ = Utterance.objects.update_or_create(
             recording=recording_in_progress,
             source_uuid=source_uuid,
-            defaults={
-                "source": Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM,
-                "participant": participant,
-                "transcription": {"transcript": message["text"]},
-                "timestamp_ms": message["timestamp_ms"],
-                "duration_ms": message["duration_ms"],
-                "sample_rate": None
-            },
+            defaults={"source": Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM, "participant": participant, "transcription": {"transcript": message["text"]}, "timestamp_ms": message["timestamp_ms"], "duration_ms": message["duration_ms"], "sample_rate": None},
         )
 
         RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
