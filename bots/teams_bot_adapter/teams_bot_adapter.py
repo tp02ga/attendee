@@ -480,7 +480,7 @@ class TeamsBotAdapter(BotAdapter, TeamsUIMethods):
         self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
         self.send_frames = True
-        #self.driver.execute_script("window.ws?.enableMediaSending();")
+        self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
 
     def leave(self):
@@ -491,7 +491,7 @@ class TeamsBotAdapter(BotAdapter, TeamsUIMethods):
 
         try:
             print("disable media sending")
-            #self.driver.execute_script("window.ws?.disableMediaSending();")
+            self.driver.execute_script("window.ws?.disableMediaSending();")
 
             print("Waiting for the leave button")
             leave_button = WebDriverWait(self.driver, 6).until(
