@@ -682,6 +682,150 @@ const handleMainChannelEvent = (event) => {
     }
 }
 
+const handleVideoTrack = async (event) => {  
+    try {
+      // Create processor to get raw frames
+      const processor = new MediaStreamTrackProcessor({ track: event.track });
+      const generator = new MediaStreamTrackGenerator({ kind: 'video' });
+      
+      // Add track ended listener
+      event.track.addEventListener('ended', () => {
+          console.log('Video track ended:', event.track.id);
+          videoTrackManager.deleteVideoTrack(event.track);
+      });
+      
+      // Get readable stream of video frames
+      const readable = processor.readable;
+      const writable = generator.writable;
+  
+      const firstStreamId = event.streams[0]?.id;
+  
+      // Check if of the users who are in the meeting and screensharers
+      // if any of them have an associated device output with the first stream ID of this video track
+      /*
+      const isScreenShare = userManager
+          .getCurrentUsersInMeetingWhoAreScreenSharing()
+          .some(user => firstStreamId && userManager.getDeviceOutput(user.deviceId, DEVICE_OUTPUT_TYPE.VIDEO).streamId === firstStreamId);
+      if (firstStreamId) {
+          videoTrackManager.upsertVideoTrack(event.track, firstStreamId, isScreenShare);
+      }
+          */
+  
+      // Add frame rate control variables
+      const targetFPS = 24;
+      const frameInterval = 1000 / targetFPS; // milliseconds between frames
+      let lastFrameTime = 0;
+  
+      const transformStream = new TransformStream({
+          async transform(frame, controller) {
+              if (!frame) {
+                  return;
+              }
+  
+              try {
+                  // Check if controller is still active
+                  if (controller.desiredSize === null) {
+                      frame.close();
+                      return;
+                  }
+  
+                  const currentTime = performance.now();
+  
+                  // Add SSRC logging
+                  if (event.track.getSettings) {
+                      console.log('Track settings:', event.track.getSettings());
+                  }
+                  console.log('Track ID:', event.track.id);
+                  if (event.streams && event.streams[0]) {
+                      console.log('Stream ID:', event.streams[0].id);
+                      event.streams[0].getTracks().forEach(track => {
+                          if (track.getStats) {
+                              track.getStats().then(stats => {
+                                  stats.forEach(report => {
+                                      if (report.type === 'outbound-rtp' || report.type === 'inbound-rtp') {
+                                          console.log('RTP Stats (including SSRC):', report);
+                                      }
+                                  });
+                              });
+                          }
+                      });
+                  }
+  
+                  if (Math.random() < 0.01) {
+                      realConsole?.log('frame', frame);
+                      realConsole?.log('handleVideoTrack', event);
+                  }
+                  
+  
+                  if (firstStreamId) {
+                      // Check if enough time has passed since the last frame
+                      if (currentTime - lastFrameTime >= frameInterval) {
+                          // Copy the frame to get access to raw data
+                          const rawFrame = new VideoFrame(frame, {
+                              format: 'I420'
+                          });
+  
+                          // Get the raw data from the frame
+                          const data = new Uint8Array(rawFrame.allocationSize());
+                          rawFrame.copyTo(data);
+  
+                          /*
+                          const currentFormat = {
+                              width: frame.displayWidth,
+                              height: frame.displayHeight,
+                              dataSize: data.length,
+                              format: rawFrame.format,
+                              duration: frame.duration,
+                              colorSpace: frame.colorSpace,
+                              codedWidth: frame.codedWidth,
+                              codedHeight: frame.codedHeight
+                          };
+                          */
+                          // Get current time in microseconds (multiply milliseconds by 1000)
+                          const currentTimeMicros = BigInt(Math.floor(currentTime * 1000));
+                          ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
+  
+                          rawFrame.close();
+                          lastFrameTime = currentTime;
+                      }
+                  }
+                  
+                  // Always enqueue the frame for the video element
+                  controller.enqueue(frame);
+              } catch (error) {
+                  console.error('Error processing frame:', error);
+                  frame.close();
+              }
+          },
+          flush() {
+              console.log('Transform stream flush called');
+          }
+      });
+  
+      // Create an abort controller for cleanup
+      const abortController = new AbortController();
+  
+      try {
+          // Connect the streams
+          await readable
+              .pipeThrough(transformStream)
+              .pipeTo(writable, {
+                  signal: abortController.signal
+              })
+              .catch(error => {
+                  if (error.name !== 'AbortError') {
+                      console.error('Pipeline error:', error);
+                  }
+              });
+      } catch (error) {
+          console.error('Stream pipeline error:', error);
+          abortController.abort();
+      }
+  
+    } catch (error) {
+        console.error('Error setting up video interceptor:', error);
+    }
+  };
 
 const handleAudioTrack = async (event) => {
     let lastAudioFormat = null;  // Track last seen format
@@ -822,8 +966,13 @@ new RTCInterceptor({
                 }
             }
             if (event.track.kind === 'video') {
-                console.log('video track', event);
-                //handleVideoTrack(event);
+                realConsole?.log('got video track');
+                realConsole?.log(event);
+                try {
+                    handleVideoTrack(event);
+                } catch (e) {
+                    realConsole?.log('Error handling video track:', e);
+                }
             }
         });
 
