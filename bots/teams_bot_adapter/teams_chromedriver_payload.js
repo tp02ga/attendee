@@ -72,12 +72,13 @@ class UserManager {
       const allUsers = [...this.currentUsersMap.values(), convertedUser];
       console.log('allUsers', allUsers);
       const uniqueUsers = Array.from(
-        new Map(allUsers.map(user => [user.deviceId, convertedUser])).values()
+        new Map(allUsers.map(singleUser => [singleUser.deviceId, singleUser])).values()
       );
       this.newUsersListSynced(uniqueUsers);
     }
 
     newUsersListSynced(newUsersList) {
+        console.log('newUsersListSynced called w', newUsersList);
         // Get the current user IDs before updating
         const previousUserIds = new Set(this.currentUsersMap.keys());
         const newUserIds = new Set(newUsersList.map(user => user.deviceId));
@@ -105,6 +106,10 @@ class UserManager {
         const removedUsers = Array.from(previousUserIds)
             .filter(id => !newUserIds.has(id))
             .map(id => this.currentUsersMap.get(id));
+
+        if (removedUsers.length > 0) {
+            console.log('removedUsers', removedUsers);
+        }
 
         // Clear current users map and update with new list
         this.currentUsersMap.clear();
