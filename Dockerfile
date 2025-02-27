@@ -53,7 +53,7 @@ RUN wget -q http://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stab
 RUN apt-get install -y ./google-chrome-stable_133.0.6943.98-1_amd64.deb
 
 # Install ALSA
-RUN apt-get install -y libasound2 libasound2-plugins alsa alsa-utils alsa-oss
+RUN apt-get update && apt-get install -y libasound2 libasound2-plugins alsa alsa-utils alsa-oss
 
 # Install Pulseaudio
 RUN apt-get install -y  pulseaudio pulseaudio-utils ffmpeg
