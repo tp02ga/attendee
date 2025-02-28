@@ -31,11 +31,11 @@ from bots.models import (
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
+from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
-from .file_uploader import FileUploader
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -223,7 +223,7 @@ class BotController:
     def get_gstreamer_output_format(self):
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             return GstreamerPipeline.OUTPUT_FORMAT_FLV
-        
+
         if self.bot_in_db.recording_format() == RecordingFormats.WEBM:
             return GstreamerPipeline.OUTPUT_FORMAT_WEBM
         else:
@@ -233,7 +233,7 @@ class BotController:
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             return None
         else:
-            return os.path.join('/tmp', self.get_recording_filename())
+            return os.path.join("/tmp", self.get_recording_filename())
 
     def run(self):
         if self.run_called:
@@ -275,12 +275,11 @@ class BotController:
         )
         self.gstreamer_pipeline.setup()
 
- 
         self.file_uploader = FileUploader(
-            os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"), 
+            os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
             self.get_recording_filename(),
         )
-        
+
         self.adapter = self.get_bot_adapter()
 
         self.audio_output_manager = AudioOutputManager(
@@ -598,7 +597,7 @@ class BotController:
             else:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
             self.cleanup()
-            
+
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:

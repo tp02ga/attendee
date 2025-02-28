@@ -5,6 +5,7 @@ import time
 
 from gi.repository import GLib, Gst
 
+
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"
     AUDIO_FORMAT_FLOAT = "audio/x-raw,format=F32LE,channels=1,rate=48000,layout=interleaved"
@@ -15,7 +16,17 @@ class GstreamerPipeline:
     SINK_TYPE_APPSINK = "appsink"
     SINK_TYPE_FILE = "filesink"
 
-    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format, num_audio_sources, sink_type, file_location=None,):
+    def __init__(
+        self,
+        *,
+        on_new_sample_callback,
+        video_frame_size,
+        audio_format,
+        output_format,
+        num_audio_sources,
+        sink_type,
+        file_location=None,
+    ):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
