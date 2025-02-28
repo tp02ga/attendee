@@ -72,11 +72,11 @@ class BotPodCreator:
                             requests={
                                 "cpu": "2",
                                 "memory": "4Gi",
-                                "ephemeral-storage": "15Gi"
+                                "ephemeral-storage": "10Gi"
                             },
                             limits={
                                 "memory": "4Gi",
-                                "ephemeral-storage": "15Gi"
+                                "ephemeral-storage": "10Gi"
                             }
                         ),
                         env_from=[
@@ -121,7 +121,6 @@ class BotPodCreator:
             }
             
         except client.ApiException as e:
-            print(str(e))
             return {
                 "name": bot_name,
                 "status": "Error",
