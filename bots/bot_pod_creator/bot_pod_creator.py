@@ -72,11 +72,11 @@ class BotPodCreator:
                             requests={
                                 "cpu": "2",
                                 "memory": "4Gi",
-                                "ephemeral-storage": "2Gi"
+                                "ephemeral-storage": "15Gi"
                             },
                             limits={
                                 "memory": "4Gi",
-                                "ephemeral-storage": "10Gi"
+                                "ephemeral-storage": "15Gi"
                             }
                         ),
                         env_from=[
