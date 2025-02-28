@@ -188,14 +188,18 @@ class BotController:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
-        if self.file_uploader:
-            print("Telling file uploader to cleanup...")
-            self.file_uploader.upload_file(self.get_gstreamer_file_location())
-            self.file_uploader.wait_for_upload()
+        if not (self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video):
+            print("Telling file uploader to upload recording file...")
+            file_uploader = FileUploader(
+                os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
+                self.get_recording_filename(),
+            )
+            file_uploader.upload_file(self.get_gstreamer_file_location())
+            file_uploader.wait_for_upload()
             print("File uploader finished uploading file")
-            self.file_uploader.delete_file(self.get_gstreamer_file_location())
+            file_uploader.delete_file(self.get_gstreamer_file_location())
             print("File uploader deleted file from local filesystem")
-            self.recording_file_saved(self.file_uploader.key)
+            self.recording_file_saved(file_uploader.key)
 
         if self.bot_in_db.state == BotStates.POST_PROCESSING:
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.POST_PROCESSING_COMPLETED)
@@ -274,11 +278,6 @@ class BotController:
             file_location=self.get_gstreamer_file_location(),
         )
         self.gstreamer_pipeline.setup()
-
-        self.file_uploader = FileUploader(
-            os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
-            self.get_recording_filename(),
-        )
 
         self.adapter = self.get_bot_adapter()
 
