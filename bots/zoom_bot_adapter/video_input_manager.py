@@ -154,7 +154,6 @@ class VideoInputStream:
         logger.info(f"In VideoInputStream.init self.renderer = {self.renderer}")
         logger.info(f"In VideoInputStream.init set_resolution_result for user {self.user_id} and share source id {self.share_source_id} is {set_resolution_result}")
         logger.info(f"In VideoInputStream.init subscribe_result for user {self.user_id} and share source id {self.share_source_id} is {subscribe_result}")
-        
 
     def on_raw_data_status_changed_callback(self, status):
         self.raw_data_status = status
