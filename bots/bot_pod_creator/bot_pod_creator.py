@@ -121,6 +121,7 @@ class BotPodCreator:
             }
             
         except client.ApiException as e:
+            print(str(e))
             return {
                 "name": bot_name,
                 "status": "Error",
