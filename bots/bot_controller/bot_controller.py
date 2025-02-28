@@ -36,6 +36,7 @@ from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .streaming_uploader import StreamingUploader
+from .file_uploader import FileUploader
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -193,6 +194,15 @@ class BotController:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
+        if self.file_uploader:
+            print("Telling file uploader to cleanup...")
+            self.file_uploader.upload_file(self.gstreamer_pipeline.get_file_location())
+            self.file_uploader.wait_for_upload()
+            print("File uploader finished uploading file")
+            self.file_uploader.delete_file(self.gstreamer_pipeline.get_file_location())
+            print("File uploader deleted file from local filesystem")
+            self.recording_file_saved(self.file_uploader.key)
+
         normal_quitting_process_worked = True
 
     def __init__(self, bot_id):
@@ -246,15 +256,22 @@ class BotController:
             audio_format=self.get_audio_format(),
             output_format=gstreamer_output_format,
             num_audio_sources=self.get_num_audio_sources(),
+            sink_type=GstreamerPipeline.SINK_TYPE_FILE,
         )
         self.gstreamer_pipeline.setup()
 
-        self.streaming_uploader = StreamingUploader(
-            os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
+        if False:
+            self.streaming_uploader = StreamingUploader(
+                os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
+                self.get_recording_filename(),
+            )
+            self.streaming_uploader.start_upload()
+            self.file_uploader = None
+        else:
+            self.streaming_uploader = None
+            self.file_uploader = FileUploader(os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"), 
             self.get_recording_filename(),
-        )
-        self.streaming_uploader.start_upload()
-
+            )
         self.adapter = self.get_bot_adapter()
 
         self.audio_output_manager = AudioOutputManager(
@@ -567,11 +584,12 @@ class BotController:
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             self.flush_utterances()
+            self.cleanup()
             if self.bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
             else:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
-            self.cleanup()
+            
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:
