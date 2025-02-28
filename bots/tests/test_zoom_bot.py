@@ -447,7 +447,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -471,7 +471,13 @@ class TestZoomBot(TransactionTestCase):
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -595,7 +601,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 6)  # We expect 6 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -632,8 +638,14 @@ class TestZoomBot(TransactionTestCase):
         bot_left_meeting_event = bot_events[4]
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
-        self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(bot_left_meeting_event.event_sub_type)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)
@@ -842,7 +854,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -873,15 +885,21 @@ class TestZoomBot(TransactionTestCase):
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
-        print("bot_events = ", bot_events)
+
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(meeting_ended_event.event_sub_type)
         self.assertEqual(meeting_ended_event.metadata, {})
         self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -1078,7 +1096,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -1109,15 +1127,21 @@ class TestZoomBot(TransactionTestCase):
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
-        print("bot_events = ", bot_events)
+
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(meeting_ended_event.event_sub_type)
         self.assertEqual(meeting_ended_event.metadata, {})
         self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -1827,7 +1851,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 6)  # We expect 6 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -1865,7 +1889,13 @@ class TestZoomBot(TransactionTestCase):
         bot_left_meeting_event = bot_events[4]
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
-        self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)

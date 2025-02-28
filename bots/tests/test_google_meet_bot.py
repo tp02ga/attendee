@@ -170,7 +170,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -197,7 +197,13 @@ class TestGoogleMeetBot(TransactionTestCase):
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify that the recording was finished
         self.recording.refresh_from_db()
