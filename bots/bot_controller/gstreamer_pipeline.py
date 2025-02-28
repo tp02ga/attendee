@@ -2,10 +2,8 @@ import gi
 
 gi.require_version("Gst", "1.0")
 import time
-import uuid
 
 from gi.repository import GLib, Gst
-
 
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"
@@ -17,13 +15,14 @@ class GstreamerPipeline:
     SINK_TYPE_APPSINK = "appsink"
     SINK_TYPE_FILE = "filesink"
 
-    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format, num_audio_sources, sink_type):
+    def __init__(self, *, on_new_sample_callback, video_frame_size, audio_format, output_format, num_audio_sources, sink_type, file_location=None,):
         self.on_new_sample_callback = on_new_sample_callback
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
         self.output_format = output_format
         self.num_audio_sources = num_audio_sources
         self.sink_type = sink_type
+        self.file_location = file_location
 
         self.pipeline = None
         self.appsrc = None
@@ -50,11 +49,6 @@ class GstreamerPipeline:
             return Gst.FlowReturn.OK
         return Gst.FlowReturn.ERROR
 
-    def get_file_location(self):
-        if not hasattr(self, "file_location"):
-            raise ValueError("File location not set")
-        return self.file_location
-
     def setup(self):
         """Initialize GStreamer pipeline for combined MP4 recording with audio and video"""
         self.start_time_ns = None
@@ -72,8 +66,6 @@ class GstreamerPipeline:
         if self.sink_type == self.SINK_TYPE_APPSINK:
             sink_string = "appsink name=sink emit-signals=true sync=false drop=false "
         elif self.sink_type == self.SINK_TYPE_FILE:
-            file_uuid = str(uuid.uuid4())
-            self.file_location = f"/tmp/{file_uuid}.{self.output_format}"
             sink_string = f"filesink location={self.file_location} name=sink sync=false "
         else:
             raise ValueError(f"Invalid sink type: {self.sink_type}")

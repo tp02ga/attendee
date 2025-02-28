@@ -12,7 +12,7 @@ from django.test.testcases import TransactionTestCase
 from bots.bot_controller import BotController
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.bot_controller.pipeline_configuration import PipelineConfiguration
-from bots.bot_controller.streaming_uploader import StreamingUploader
+from bots.bot_controller.file_uploader import FileUploader
 from bots.bots_api_views import send_sync_command
 from bots.models import (
     Bot,
@@ -40,13 +40,13 @@ from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 from .mock_data import MockPCMAudioFrame, MockVideoFrame
 
 
-def create_mock_streaming_uploader():
-    mock_streaming_uploader = MagicMock(spec=StreamingUploader)
-    mock_streaming_uploader.upload_part.return_value = None
-    mock_streaming_uploader.complete_upload.return_value = None
-    mock_streaming_uploader.start_upload.return_value = None
-    mock_streaming_uploader.key = "test-recording-key"  # Simple string attribute
-    return mock_streaming_uploader
+def create_mock_file_uploader():
+    mock_file_uploader = MagicMock(spec=FileUploader)
+    mock_file_uploader.upload_file.return_value = None
+    mock_file_uploader.wait_for_upload.return_value = None
+    mock_file_uploader.delete_file.return_value = None
+    mock_file_uploader.key = "test-recording-key"  # Simple string attribute
+    return mock_file_uploader
 
 
 def create_mock_zoom_sdk():
@@ -357,12 +357,12 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_can_wait_for_host_then_join_meeting(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -371,8 +371,8 @@ class TestZoomBot(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -498,14 +498,14 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     @patch("time.time")
     def test_bot_auto_leaves_meeting_after_silence_threshold(
         self,
         mock_time,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -514,8 +514,8 @@ class TestZoomBot(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -663,14 +663,14 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     @patch("google.cloud.texttospeech.TextToSpeechClient")
     def test_bot_can_join_meeting_and_record_audio_and_video(
         self,
         MockTextToSpeechClient,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -717,13 +717,13 @@ class TestZoomBot(TransactionTestCase):
         uploaded_data = bytearray()
 
         # Configure the mock uploader to capture uploaded data
-        mock_uploader = create_mock_streaming_uploader()
+        mock_uploader = create_mock_file_uploader()
 
-        def capture_upload_part(data):
-            uploaded_data.extend(data)
+        def capture_upload_part(file_path):
+            uploaded_data.extend(open(file_path, "rb").read())
 
-        mock_uploader.upload_part.side_effect = capture_upload_part
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader.upload_file.side_effect = capture_upload_part
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -842,9 +842,11 @@ class TestZoomBot(TransactionTestCase):
         mp4_signature_found = b"ftyp" in uploaded_data[:1000]
         self.assertTrue(mp4_signature_found, "MP4 file signature not found in uploaded data")
 
-        # Additional verification for StreamingUploader
-        mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        # Additional verification for FileUploader
+        mock_uploader.upload_file.assert_called_once()
+        self.assertGreater(mock_uploader.upload_file.call_count, 0, "upload_file was never called")
+        mock_uploader.wait_for_upload.assert_called_once()
+        mock_uploader.delete_file.assert_called_once()
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -975,12 +977,12 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_can_join_meeting_and_record_audio_when_in_voice_agent_configuration(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -999,13 +1001,13 @@ class TestZoomBot(TransactionTestCase):
         uploaded_data = bytearray()
 
         # Configure the mock uploader to capture uploaded data
-        mock_uploader = create_mock_streaming_uploader()
+        mock_uploader = create_mock_file_uploader()
 
-        def capture_upload_part(data):
-            uploaded_data.extend(data)
+        def capture_upload_part(file_path):
+            uploaded_data.extend(open(file_path, "rb").read())
 
-        mock_uploader.upload_part.side_effect = capture_upload_part
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader.upload_file.side_effect = capture_upload_part
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1082,11 +1084,13 @@ class TestZoomBot(TransactionTestCase):
         bot_thread.join(timeout=10)
 
         # Verify that we received no data
-        self.assertEqual(len(uploaded_data), 977, "Uploaded data length is not correct")
+        self.assertEqual(len(uploaded_data), 993, "Uploaded data length is not correct")
 
-        # Additional verification for StreamingUploader
-        mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        # Additional verification for FileUploader
+        mock_uploader.upload_file.assert_called_once()
+        self.assertGreater(mock_uploader.upload_file.call_count, 0, "upload_file was never called")
+        mock_uploader.wait_for_upload.assert_called_once()
+        mock_uploader.delete_file.assert_called_once()
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -1172,17 +1176,17 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_failed_zoom_auth(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1244,9 +1248,9 @@ class TestZoomBot(TransactionTestCase):
         mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
         controller.adapter.meeting_service.Join.assert_not_called()
 
-        # Additional verification for StreamingUploader
+        # Additional verification for FileUploader
         # Probably should not be called, but it currently is
-        # controller.streaming_uploader.start_upload.assert_not_called()
+        # controller.file_uploader.upload_file.assert_not_called()
 
         # Cleanup
         # no need to cleanup since we already hit error
@@ -1263,17 +1267,17 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_waiting_for_host(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1349,17 +1353,17 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_unable_to_join_external_meeting(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1440,17 +1444,17 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_meeting_failed_blocked_by_admin(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1531,7 +1535,7 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
 
     # We need run this test last because if the process isn't killed properly some weird behavior ensues
@@ -1542,7 +1546,7 @@ class TestZoomBot(TransactionTestCase):
     def test_bot_z_handles_rtmp_connection_failure(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -1551,8 +1555,8 @@ class TestZoomBot(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1678,17 +1682,17 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_zoom_sdk_internal_error(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1758,12 +1762,12 @@ class TestZoomBot(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_leaves_meeting_when_requested(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -1772,8 +1776,8 @@ class TestZoomBot(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
