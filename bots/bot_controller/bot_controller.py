@@ -203,6 +203,9 @@ class BotController:
             print("File uploader deleted file from local filesystem")
             self.recording_file_saved(self.file_uploader.key)
 
+        if self.bot_in_db.state == BotStates.POST_PROCESSING:
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.POST_PROCESSING_COMPLETED)
+
         normal_quitting_process_worked = True
 
     def __init__(self, bot_id):
@@ -584,11 +587,11 @@ class BotController:
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
             print("Received message that meeting ended")
             self.flush_utterances()
-            self.cleanup()
             if self.bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
             else:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.MEETING_ENDED)
+            self.cleanup()
             
             return
 
