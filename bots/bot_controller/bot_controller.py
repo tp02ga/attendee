@@ -188,7 +188,7 @@ class BotController:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
-        if not (self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video):
+        if self.get_gstreamer_file_location():
             print("Telling file uploader to upload recording file...")
             file_uploader = FileUploader(
                 os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
