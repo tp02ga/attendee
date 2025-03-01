@@ -71,10 +71,12 @@ class BotPodCreator:
                         resources=client.V1ResourceRequirements(
                             requests={
                                 "cpu": "2",
-                                "memory": "4Gi"
+                                "memory": "4Gi",
+                                "ephemeral-storage": "10Gi"
                             },
                             limits={
-                                "memory": "4Gi"
+                                "memory": "4Gi",
+                                "ephemeral-storage": "10Gi"
                             }
                         ),
                         env_from=[
