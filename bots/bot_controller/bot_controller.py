@@ -258,6 +258,7 @@ class BotController:
             return GstreamerPipeline.OUTPUT_FORMAT_MP4
 
     def get_gstreamer_file_location(self):
+        return None
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
             return None
         else:

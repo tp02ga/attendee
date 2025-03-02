@@ -450,7 +450,7 @@ class TeamsBotAdapter(BotAdapter, TeamsUIMethods):
         print(f"Trying to join microsoft teams meeting at {self.meeting_url}")
 
         num_retries = 0
-        max_retries = 2
+        max_retries = 0
         while num_retries <= max_retries:
             try:
                 self.init_driver()
