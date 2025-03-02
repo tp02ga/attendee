@@ -5,6 +5,7 @@ class VideoTrackManager {
         this.ws = ws;
         this.trackToSendCache = null;
         this.streamIdToSSRCMapping = [];
+        this.streamIdToSourceIdMapping = {};
     }
 
     upsertStreamIdToSSRCMapping(newMappings) {
@@ -19,6 +20,31 @@ class VideoTrackManager {
             new Set(combinedMappings.map(JSON.stringify)),
             JSON.parse
         );
+    }
+
+    upsertSourceIdToStreamIdMapping(sourceId, streamId) {
+        this.streamIdToSourceIdMapping[streamId] = sourceId;
+    }
+
+    SSRCToParticipantId(ssrc) {
+        realConsole?.log('ssrc', ssrc);
+        realConsole?.log('streamIdToSSRCMapping', this.streamIdToSSRCMapping);
+
+        const streamId = this.streamIdToSSRCMapping.find(mapping => mapping.ssrc === ssrc)?.streamId;
+        if (!streamId)
+            return null;
+
+        realConsole?.log('streamId', streamId);
+        realConsole?.log('streamIdToSourceIdMapping', this.streamIdToSourceIdMapping);
+
+        const sourceId = this.streamIdToSourceIdMapping[streamId];
+        if (!sourceId)
+            return null;
+
+        realConsole?.log('sourceId', sourceId);
+        realConsole?.log('this.videoTracks', this.videoTracks);
+
+        return this.videoTracks.get(sourceId)?.originalTrack.participant;
     }
 
     deleteVideoTrack(videoTrack) {
@@ -39,7 +65,7 @@ class VideoTrackManager {
  
         console.log('upsertVideoTrack for', videoTrack.id, '=', trackInfo);
         
-        this.videoTracks.set(videoTrack.id, trackInfo);
+        this.videoTracks.set(streamId.toString(), trackInfo);
         this.trackToSendCache = null;
     }
 
@@ -797,15 +823,14 @@ function handleRosterUpdate(eventDataObject) {
 const originalWebSocket = window.WebSocket;
 // Example usage:
 const wsInterceptor = new WebSocketInterceptor({
+    /*
     onSend: ({ url, data }) => {
         if (url.startsWith('ws://localhost:8097'))
             return;
         
-            realConsole?.log('weboscket onSend', url, data);
-        
-
-        
+        //realConsole?.log('websocket onSend', url, data);        
     },
+    */
     onMessage: ({ url, data }) => {
         realConsole?.log('onMessage', url, data);
         if (data.startsWith("3:::")) {
@@ -852,7 +877,7 @@ const handleMainChannelEvent = (event) => {
     const decodedData = new Uint8Array(event.data);
 
     const jsonRawString = new TextDecoder().decode(decodedData);
-    realConsole?.log('handleMainChannelEvent jsonRawString', jsonRawString);
+    //realConsole?.log('handleMainChannelEvent jsonRawString', jsonRawString);
     
     // Find the start of the JSON data (looking for '[' or '{' character)
     let jsonStart = 0;
@@ -867,9 +892,56 @@ const handleMainChannelEvent = (event) => {
     const jsonString = new TextDecoder().decode(decodedData.slice(jsonStart));
     try {
         const parsedData = JSON.parse(jsonString);
-        realConsole?.log('handleMainChannelEvent parsedData', parsedData);
+        //realConsole?.log('handleMainChannelEvent parsedData', parsedData);
         // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
         // it corresponds to active speaker
+    } catch (e) {
+        realConsole?.error('Failed to parse main channel data:', e);
+    }
+}
+
+const processSourceRequest = (item) => {
+    const sourceId = item?.controlVideoStreaming?.controlInfo?.sourceId;
+    const streamMsid = item?.controlVideoStreaming?.controlInfo?.streamMsid;
+
+    if (!sourceId || !streamMsid) {
+        return;
+    }
+
+    realConsole?.log('processSourceRequest', sourceId, streamMsid);
+
+    videoTrackManager.upsertSourceIdToStreamIdMapping(sourceId.toString(), streamMsid.toString());
+}
+
+const handleMainChannelSend = (data) => {
+    const decodedData = new Uint8Array(data);
+
+    const jsonRawString = new TextDecoder().decode(decodedData);
+    
+    // Find the start of the JSON data (looking for '[' or '{' character)
+    let jsonStart = 0;
+    for (let i = 0; i < decodedData.length; i++) {
+        if (decodedData[i] === 91 || decodedData[i] === 123) { // ASCII code for '[' or '{'
+            jsonStart = i;
+            break;
+        }
+    }
+    
+    // Extract and parse the JSON portion
+    const jsonString = new TextDecoder().decode(decodedData.slice(jsonStart));
+    try {
+        const parsedData = JSON.parse(jsonString);
+        realConsole?.log('handleMainChannelSend parsedData', parsedData);  
+        // if it is an array
+        if (Array.isArray(parsedData)) {
+            for (const item of parsedData) {
+                // This is a source request. It means the teams client is asking for the server to start serving a source from one of the streams
+                // that the server provides to the client
+                if (item.type === 'sr') {
+                    processSourceRequest(item);
+                }
+            }
+        }
     } catch (e) {
         realConsole?.error('Failed to parse main channel data:', e);
     }
@@ -947,7 +1019,7 @@ const handleVideoTrack = async (event) => {
                   }
   
                   if (Math.random() < 0.1) {
-                    realConsole?.log('videoframe from stream id', firstStreamId);
+                    realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', videoTrackManager.SSRCToParticipantId(firstStreamId));
                       //realConsole?.log('frame', frame);
                       //realConsole?.log('handleVideoTrack, randomsample', event);
                   }
@@ -1232,11 +1304,17 @@ new RTCInterceptor({
       }
     },
     onDataChannelSend: ({channel, data, peerConnection}) => {
+        if (channel.label === 'main-channel') {
+            handleMainChannelSend(data);
+        }
+        
+        
+        /*
         realConsole?.log('DataChannel send intercepted:', {
             channelLabel: channel.label,
             data: data,
             readyState: channel.readyState
-        });
+        });*/
 
         // It looks like it sends a payload like this:
         /*
@@ -1249,30 +1327,5 @@ new RTCInterceptor({
 
 
         */
-
-        const decodedData = new Uint8Array(data);
-
-        const jsonRawString = new TextDecoder().decode(decodedData);
-        realConsole?.log('handleMainChannelEvent Send jsonRawString', jsonRawString);
-        
-        // Find the start of the JSON data (looking for '[' or '{' character)
-        let jsonStart = 0;
-        for (let i = 0; i < decodedData.length; i++) {
-            if (decodedData[i] === 91 || decodedData[i] === 123) { // ASCII code for '[' or '{'
-                jsonStart = i;
-                break;
-            }
-        }
-        
-        // Extract and parse the JSON portion
-        const jsonString = new TextDecoder().decode(decodedData.slice(jsonStart));
-        try {
-            const parsedData = JSON.parse(jsonString);
-            realConsole?.log('handleMainChannelEvent Send parsedData', parsedData);
-            // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
-            // it corresponds to active speaker
-        } catch (e) {
-            realConsole?.error('Failed to parse main channel data:', e);
-        }
     }
 });
