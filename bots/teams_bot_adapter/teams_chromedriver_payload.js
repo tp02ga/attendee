@@ -89,6 +89,7 @@ class RTCInterceptor {
         // Store callbacks
         const onPeerConnectionCreate = callbacks.onPeerConnectionCreate || (() => {});
         const onDataChannelCreate = callbacks.onDataChannelCreate || (() => {});
+        const onDataChannelSend = callbacks.onDataChannelSend || (() => {});
         
         // Override the RTCPeerConnection constructor
         window.RTCPeerConnection = function(...args) {
@@ -105,6 +106,22 @@ class RTCInterceptor {
             const originalCreateDataChannel = peerConnection.createDataChannel.bind(peerConnection);
             peerConnection.createDataChannel = (label, options) => {
                 const dataChannel = originalCreateDataChannel(label, options);
+                
+                // Intercept send method
+                const originalSend = dataChannel.send;
+                dataChannel.send = function(data) {
+                    try {
+                        onDataChannelSend({
+                            channel: dataChannel,
+                            data: data,
+                            peerConnection: peerConnection
+                        });
+                    } catch (error) {
+                        realConsole?.error('Error in data channel send interceptor:', error);
+                    }
+                    return originalSend.apply(this, arguments);
+                };
+                
                 onDataChannelCreate(dataChannel, peerConnection);
                 return dataChannel;
             };
@@ -113,7 +130,7 @@ class RTCInterceptor {
             const originalCreateOffer = peerConnection.createOffer.bind(peerConnection);
             peerConnection.createOffer = async function(options) {
                 const offer = await originalCreateOffer(options);
-                console.log('from peerConnection.createOffer:', offer.sdp);
+                realConsole?.log('from peerConnection.createOffer:', offer.sdp);
                 /*
                 console.log('Created Offer SDP:', {
                     type: offer.type,
@@ -121,7 +138,7 @@ class RTCInterceptor {
                     parsedSDP: parseSDP(offer.sdp)
                 });
                 */
-                console.log('from peerConnection.createOffer: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(offer.sdp));
+                realConsole?.log('from peerConnection.createOffer: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(offer.sdp));
                 return offer;
             };
 
@@ -129,7 +146,7 @@ class RTCInterceptor {
             const originalCreateAnswer = peerConnection.createAnswer.bind(peerConnection);
             peerConnection.createAnswer = async function(options) {
                 const answer = await originalCreateAnswer(options);
-                console.log('from peerConnection.createAnswer:', answer.sdp);
+                realConsole?.log('from peerConnection.createAnswer:', answer.sdp);
                 /*
                 console.log('Created Answer SDP:', {
                     type: answer.type,
@@ -137,7 +154,7 @@ class RTCInterceptor {
                     parsedSDP: parseSDP(answer.sdp)
                 });
                 */
-                console.log('from peerConnection.createAnswer: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(answer.sdp));
+                realConsole?.log('from peerConnection.createAnswer: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(answer.sdp));
                 return answer;
             };
        
@@ -160,7 +177,7 @@ The tracks have a streamId that looks like this mainVideo-39016. The SDP has tha
             // Override setLocalDescription with detailed logging
             const originalSetLocalDescription = peerConnection.setLocalDescription;
             peerConnection.setLocalDescription = async function(description) {
-                console.log('from peerConnection.setLocalDescription:', description.sdp);
+                realConsole?.log('from peerConnection.setLocalDescription:', description.sdp);
                 /*
                 console.log('Setting Local SDP:', {
                     type: description.type,
@@ -168,14 +185,14 @@ The tracks have a streamId that looks like this mainVideo-39016. The SDP has tha
                     parsedSDP: parseSDP(description.sdp)
                 });
                 */
-                console.log('from peerConnection.setLocalDescription: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(description.sdp));
+                realConsole?.log('from peerConnection.setLocalDescription: extractStreamIdToSSRCMappingFromSDP = ', extractStreamIdToSSRCMappingFromSDP(description.sdp));
                 return originalSetLocalDescription.apply(this, arguments);
             };
 
             // Override setRemoteDescription with detailed logging
             const originalSetRemoteDescription = peerConnection.setRemoteDescription;
             peerConnection.setRemoteDescription = async function(description) {
-                console.log('from peerConnection.setRemoteDescription:', description.sdp);
+                realConsole?.log('from peerConnection.setRemoteDescription:', description.sdp);
                 /*
                 console.log('Setting Remote SDP:', {
                     type: description.type,
@@ -183,7 +200,7 @@ The tracks have a streamId that looks like this mainVideo-39016. The SDP has tha
                 });
                 */
                 const mapping = extractStreamIdToSSRCMappingFromSDP(description.sdp);
-                console.log('from peerConnection.setRemoteDescription: extractStreamIdToSSRCMappingFromSDP = ', mapping);
+                realConsole?.log('from peerConnection.setRemoteDescription: extractStreamIdToSSRCMappingFromSDP = ', mapping);
                 videoTrackManager.upsertStreamIdToSSRCMapping(mapping);
                 return originalSetRemoteDescription.apply(this, arguments);
             };
@@ -780,6 +797,15 @@ function handleRosterUpdate(eventDataObject) {
 const originalWebSocket = window.WebSocket;
 // Example usage:
 const wsInterceptor = new WebSocketInterceptor({
+    onSend: ({ url, data }) => {
+        if (url.startsWith('ws://localhost:8097'))
+            return;
+        
+            realConsole?.log('weboscket onSend', url, data);
+        
+
+        
+    },
     onMessage: ({ url, data }) => {
         realConsole?.log('onMessage', url, data);
         if (data.startsWith("3:::")) {
@@ -822,8 +848,11 @@ if (!realConsole) {
 }
 
 const handleMainChannelEvent = (event) => {
-    realConsole?.log('handleMainChannelEvent', event);
+    //realConsole?.log('handleMainChannelEvent', event);
     const decodedData = new Uint8Array(event.data);
+
+    const jsonRawString = new TextDecoder().decode(decodedData);
+    realConsole?.log('handleMainChannelEvent jsonRawString', jsonRawString);
     
     // Find the start of the JSON data (looking for '[' or '{' character)
     let jsonStart = 0;
@@ -838,7 +867,7 @@ const handleMainChannelEvent = (event) => {
     const jsonString = new TextDecoder().decode(decodedData.slice(jsonStart));
     try {
         const parsedData = JSON.parse(jsonString);
-        //console.log('parsedData', parsedData);
+        realConsole?.log('handleMainChannelEvent parsedData', parsedData);
         // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
         // it corresponds to active speaker
     } catch (e) {
@@ -950,7 +979,7 @@ const handleVideoTrack = async (event) => {
                           */
                           // Get current time in microseconds (multiply milliseconds by 1000)
                           const currentTimeMicros = BigInt(Math.floor(currentTime * 1000));
-                          ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
+                          //ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
   
                           rawFrame.close();
                           lastFrameTime = currentTime;
@@ -1063,7 +1092,7 @@ const handleAudioTrack = async (event) => {
   
                   // Send audio data through websocket
                   const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
-                  ws.sendAudio(currentTimeMicros, 0, audioData);
+                  //ws.sendAudio(currentTimeMicros, 0, audioData);
   
                   // Pass through the original frame
                   controller.enqueue(frame);
@@ -1143,6 +1172,21 @@ new RTCInterceptor({
             }
         });
 
+        peerConnection.addEventListener('connectionstatechange', (event) => {
+            realConsole?.log('connectionstatechange', event);
+        });
+        
+
+
+        // This is called when the browser detects that the SDP has changed
+        peerConnection.addEventListener('negotiationneeded', (event) => {
+            realConsole?.log('negotiationneeded', event);
+        });
+
+        peerConnection.addEventListener('onnegotiationneeded', (event) => {
+            realConsole?.log('onnegotiationneeded', event);
+        });
+
         // Log the signaling state changes
         peerConnection.addEventListener('signalingstatechange', () => {
             console.log('Signaling State:', peerConnection.signalingState);
@@ -1186,5 +1230,37 @@ new RTCInterceptor({
             handleMainChannelEvent(mainChannelEvent);
         });
       }
+    },
+    onDataChannelSend: ({channel, data, peerConnection}) => {
+        realConsole?.log('DataChannel send intercepted:', {
+            channelLabel: channel.label,
+            data: data,
+            readyState: channel.readyState
+        });
+
+        const decodedData = new Uint8Array(data);
+
+        const jsonRawString = new TextDecoder().decode(decodedData);
+        realConsole?.log('handleMainChannelEvent Send jsonRawString', jsonRawString);
+        
+        // Find the start of the JSON data (looking for '[' or '{' character)
+        let jsonStart = 0;
+        for (let i = 0; i < decodedData.length; i++) {
+            if (decodedData[i] === 91 || decodedData[i] === 123) { // ASCII code for '[' or '{'
+                jsonStart = i;
+                break;
+            }
+        }
+        
+        // Extract and parse the JSON portion
+        const jsonString = new TextDecoder().decode(decodedData.slice(jsonStart));
+        try {
+            const parsedData = JSON.parse(jsonString);
+            realConsole?.log('handleMainChannelEvent Send parsedData', parsedData);
+            // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
+            // it corresponds to active speaker
+        } catch (e) {
+            realConsole?.error('Failed to parse main channel data:', e);
+        }
     }
 });
