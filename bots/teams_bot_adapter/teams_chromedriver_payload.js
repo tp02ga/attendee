@@ -1,9 +1,23 @@
+class DominantSpeakerManager {
+    constructor() {
+        this.dominantSpeakerStreamId = null;
+    }
+
+    setDominantSpeakerStreamId(dominantSpeakerStreamId) {
+        this.dominantSpeakerStreamId = dominantSpeakerStreamId.toString();
+    }
+
+    getDominantSpeaker() {
+        return virtualStreamToPhysicalStreamMappingManager.virtualStreamIdToParticipant(this.dominantSpeakerStreamId);
+    }
+}
+
 // Virtual to Physical Stream Mapping Manager
 // Microsoft Teams has virtual streams which are referenced by a sourceId
 // An instance of the teams client has a finite number of phyisical streams which are referenced by a streamId
 // This class manages the mapping between virtual and physical streams
 class VirtualStreamToPhysicalStreamMappingManager {
-    constructor(ws) {
+    constructor() {
         this.virtualStreams = new Map();
         this.physicalStreamsByClientStreamId = new Map();
         this.physicalStreamsByServerStreamId = new Map();
@@ -27,6 +41,11 @@ class VirtualStreamToPhysicalStreamMappingManager {
     upsertPhysicalClientStreamIdToVirtualStreamIdMapping(physicalClientStreamId, virtualStreamId) {
         this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamId] = virtualStreamId;
         console.log('physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+    }
+
+    virtualStreamIdToParticipant(virtualStreamId) {
+        realConsole?.log('dominant virtualStreams', this.virtualStreams, 'virtualStreamId', virtualStreamId);
+        return this.virtualStreams.get(virtualStreamId)?.participant;
     }
 
     physicalServerStreamIdToParticipant(physicalServerStreamId) {
@@ -743,13 +762,10 @@ function upsertVirtualStreamsFromParticipant(participant) {
     }
     
     for (const mediaStream of mediaStreams) {
-        const isVideo = mediaStream.type === 'video';
         const isScreenShare = mediaStream.type === 'applicationsharing-video';
-        if (isVideo || isScreenShare) {
-            virtualStreamToPhysicalStreamMappingManager.upsertVirtualStream(
-                {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare}
-            );
-        }
+        virtualStreamToPhysicalStreamMappingManager.upsertVirtualStream(
+            {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare}
+        );
     }
 }
 
@@ -807,6 +823,7 @@ window.userManager = userManager;
 
 //const videoTrackManager = new VideoTrackManager(ws);
 const virtualStreamToPhysicalStreamMappingManager = new VirtualStreamToPhysicalStreamMappingManager();
+const dominantSpeakerManager = new DominantSpeakerManager();
 
 if (!realConsole) {
     if (document.readyState === 'complete') {
@@ -820,6 +837,13 @@ if (!realConsole) {
         document.body.appendChild(iframe);
         realConsole = iframe.contentWindow.console;
     }
+}
+
+const processDominantSpeakerHistoryMessage = (item) => {
+    realConsole?.log('processDominantSpeakerHistoryMessage', item);
+    const newDominantSpeakerAudioVirtualStreamId = item.history[0];
+    dominantSpeakerManager.setDominantSpeakerStreamId(newDominantSpeakerAudioVirtualStreamId);
+    realConsole?.log('newDominantSpeakerParticipant', dominantSpeakerManager.getDominantSpeaker());
 }
 
 const handleMainChannelEvent = (event) => {
@@ -845,6 +869,14 @@ const handleMainChannelEvent = (event) => {
         //realConsole?.log('handleMainChannelEvent parsedData', parsedData);
         // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
         // it corresponds to active speaker
+        if (Array.isArray(parsedData)) {
+            for (const item of parsedData) {
+                // This is a dominant speaker history message
+                if (item.type === 'dsh') {
+                    processDominantSpeakerHistoryMessage(item);
+                }
+            }
+        }
     } catch (e) {
         realConsole?.error('Failed to parse main channel data:', e);
     }
@@ -966,11 +998,11 @@ const handleVideoTrack = async (event) => {
                       });
                   }
   
-                  if (Math.random() < 0.025) {
+                  if (Math.random() < 0.00025) {
                     const participant = virtualStreamToPhysicalStreamMappingManager.physicalServerStreamIdToParticipant(firstStreamId);
-                    realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', participant);
-                      //realConsole?.log('frame', frame);
-                      //realConsole?.log('handleVideoTrack, randomsample', event);
+                    //realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', participant);
+                    //realConsole?.log('frame', frame);
+                    //realConsole?.log('handleVideoTrack, randomsample', event);
                   }
                   
   
