@@ -1,107 +1,54 @@
-// Video track manager
-class VideoTrackManager {
+// Virtual to Physical Stream Mapping Manager
+// Microsoft Teams has virtual streams which are referenced by a sourceId
+// An instance of the teams client has a finite number of phyisical streams which are referenced by a streamId
+// This class manages the mapping between virtual and physical streams
+class VirtualStreamToPhysicalStreamMappingManager {
     constructor(ws) {
-        this.videoTracks = new Map();
-        this.ws = ws;
-        this.trackToSendCache = null;
-        this.streamIdToSSRCMapping = [];
-        this.streamIdToSourceIdMapping = {};
+        this.virtualStreams = new Map();
+        this.physicalStreamsByClientStreamId = new Map();
+        this.physicalStreamsByServerStreamId = new Map();
+        this.physicalClientStreamIdToVirtualStreamIdMapping = {}
     }
 
-    upsertStreamIdToSSRCMapping(newMappings) {
-        // First combine the arrays
-        const combinedMappings = [
-            ...this.streamIdToSSRCMapping,
-            ...newMappings
-        ];
-
-        // Then uniqify by converting to strings and back
-        this.streamIdToSSRCMapping = Array.from(
-            new Set(combinedMappings.map(JSON.stringify)),
-            JSON.parse
-        );
+    upsertPhysicalStreams(physicalStreams) {
+        for (const physicalStream of physicalStreams) {
+            this.physicalStreamsByClientStreamId.set(physicalStream.clientStreamId, physicalStream);
+            this.physicalStreamsByServerStreamId.set(physicalStream.serverStreamId, physicalStream);
+        }
+        realConsole?.log('physicalStreamsByClientStreamId', this.physicalStreamsByClientStreamId);
+        realConsole?.log('physicalStreamsByServerStreamId', this.physicalStreamsByServerStreamId);
     }
 
-    upsertSourceIdToStreamIdMapping(sourceId, streamId) {
-        this.streamIdToSourceIdMapping[streamId] = sourceId;
+    upsertVirtualStream(virtualStream) {
+        realConsole?.log('upsertVirtualStream', virtualStream);
+        this.virtualStreams.set(virtualStream.sourceId.toString(), virtualStream);
+    }   
+
+    upsertPhysicalClientStreamIdToVirtualStreamIdMapping(physicalClientStreamId, virtualStreamId) {
+        this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamId] = virtualStreamId;
+        console.log('physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
     }
 
-    SSRCToParticipantId(ssrc) {
-        realConsole?.log('ssrc', ssrc);
-        realConsole?.log('streamIdToSSRCMapping', this.streamIdToSSRCMapping);
+    physicalServerStreamIdToParticipant(physicalServerStreamId) {
+        realConsole?.log('physicalServerStreamId', physicalServerStreamId);
+        realConsole?.log('physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
 
-        const streamId = this.streamIdToSSRCMapping.find(mapping => mapping.ssrc === ssrc)?.streamId;
-        if (!streamId)
+        const physicalClientStreamId = this.physicalStreamsByServerStreamId.get(physicalServerStreamId)?.clientStreamId;
+        realConsole?.log('physicalClientStreamId', physicalClientStreamId);
+        if (!physicalClientStreamId)
             return null;
 
-        realConsole?.log('streamId', streamId);
-        realConsole?.log('streamIdToSourceIdMapping', this.streamIdToSourceIdMapping);
-
-        const sourceId = this.streamIdToSourceIdMapping[streamId];
-        if (!sourceId)
+        const virtualStreamId = this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamId];
+        if (!virtualStreamId)
             return null;
 
-        realConsole?.log('sourceId', sourceId);
-        realConsole?.log('this.videoTracks', this.videoTracks);
+        realConsole?.log('virtualStreamId', virtualStreamId);
 
-        return this.videoTracks.get(sourceId)?.originalTrack.participant;
-    }
+        const participant = this.virtualStreams.get(virtualStreamId)?.participant;
+        if (!participant)
+            return null;
 
-    deleteVideoTrack(videoTrack) {
-        this.videoTracks.delete(videoTrack.id);
-        this.trackToSendCache = null;
-    }
-
-    upsertVideoTrack(videoTrack, streamId, isScreenShare) {
-        const existingVideoTrack = this.videoTracks.get(videoTrack.id);
-
-        // Create new object with track info and firstSeenAt timestamp
-        const trackInfo = {
-            originalTrack: videoTrack,
-            isScreenShare: isScreenShare,
-            firstSeenAt: existingVideoTrack ? existingVideoTrack.firstSeenAt : Date.now(),
-            streamId: streamId
-        };
- 
-        console.log('upsertVideoTrack for', videoTrack.id, '=', trackInfo);
-        
-        this.videoTracks.set(streamId.toString(), trackInfo);
-        this.trackToSendCache = null;
-    }
-
-    getStreamIdToSendCached() {
-        return this.getTrackToSendCached()?.streamId;
-    }
-
-    getTrackToSendCached() {
-        if (this.trackToSendCache) {
-            return this.trackToSendCache;
-        }
-
-        this.trackToSendCache = this.getTrackToSend();
-        return this.trackToSendCache;
-    }
-
-    getTrackToSend() {
-        const screenShareTracks = Array.from(this.videoTracks.values()).filter(track => track.isScreenShare);
-        const mostRecentlyCreatedScreenShareTrack = screenShareTracks.reduce((max, track) => {
-            return track.firstSeenAt > max.firstSeenAt ? track : max;
-        }, screenShareTracks[0]);
-
-        if (mostRecentlyCreatedScreenShareTrack) {
-            return mostRecentlyCreatedScreenShareTrack;
-        }
-
-        const nonScreenShareTracks = Array.from(this.videoTracks.values()).filter(track => !track.isScreenShare);
-        const mostRecentlyCreatedNonScreenShareTrack = nonScreenShareTracks.reduce((max, track) => {
-            return track.firstSeenAt > max.firstSeenAt ? track : max;
-        }, nonScreenShareTracks[0]);
-
-        if (mostRecentlyCreatedNonScreenShareTrack) {
-            return mostRecentlyCreatedNonScreenShareTrack;
-        }
-
-        return null;
+        return participant;
     }
 }
 
@@ -227,7 +174,7 @@ The tracks have a streamId that looks like this mainVideo-39016. The SDP has tha
                 */
                 const mapping = extractStreamIdToSSRCMappingFromSDP(description.sdp);
                 realConsole?.log('from peerConnection.setRemoteDescription: extractStreamIdToSSRCMappingFromSDP = ', mapping);
-                videoTrackManager.upsertStreamIdToSSRCMapping(mapping);
+                virtualStreamToPhysicalStreamMappingManager.upsertPhysicalStreams(mapping);
                 return originalSetRemoteDescription.apply(this, arguments);
             };
 
@@ -264,7 +211,7 @@ The tracks have a streamId that looks like this mainVideo-39016. The SDP has tha
 
                     for(const ssrc of sdpMediaEntrySSRCNumbers)
                         if (ssrc && streamId)
-                            mapping.push({streamId, ssrc});
+                            mapping.push({clientStreamId: streamId, serverStreamId: ssrc});
                 }
 
                 return mapping;
@@ -780,7 +727,7 @@ function decodeWebSocketBody(encodedData) {
     return JSON.parse(pako.inflate(byteArray, { to: "string" }));
 }
 
-function upsertVideoTracksFromParticipant(participant) {
+function upsertVirtualStreamsFromParticipant(participant) {
     const mediaStreams = [];
     
     // Check if participant has endpoints
@@ -799,7 +746,9 @@ function upsertVideoTracksFromParticipant(participant) {
         const isVideo = mediaStream.type === 'video';
         const isScreenShare = mediaStream.type === 'applicationsharing-video';
         if (isVideo || isScreenShare) {
-            videoTrackManager.upsertVideoTrack({...mediaStream, participant: participant.details?.displayName}, mediaStream.sourceId, isScreenShare);
+            virtualStreamToPhysicalStreamMappingManager.upsertVirtualStream(
+                {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare}
+            );
         }
     }
 }
@@ -812,7 +761,7 @@ function handleRosterUpdate(eventDataObject) {
 
         for (const participant of participants) {
             window.userManager.singleUserSynced(participant);
-            upsertVideoTracksFromParticipant(participant);
+            upsertVirtualStreamsFromParticipant(participant);
         }
     } catch (error) {
         realConsole?.error('Error handling roster update:');
@@ -856,7 +805,8 @@ window.ws = ws;
 const userManager = new UserManager(ws);
 window.userManager = userManager;
 
-const videoTrackManager = new VideoTrackManager(ws);
+//const videoTrackManager = new VideoTrackManager(ws);
+const virtualStreamToPhysicalStreamMappingManager = new VirtualStreamToPhysicalStreamMappingManager();
 
 if (!realConsole) {
     if (document.readyState === 'complete') {
@@ -908,9 +858,7 @@ const processSourceRequest = (item) => {
         return;
     }
 
-    realConsole?.log('processSourceRequest', sourceId, streamMsid);
-
-    videoTrackManager.upsertSourceIdToStreamIdMapping(sourceId.toString(), streamMsid.toString());
+    virtualStreamToPhysicalStreamMappingManager.upsertPhysicalClientStreamIdToVirtualStreamIdMapping(streamMsid.toString(), sourceId.toString());
 }
 
 const handleMainChannelSend = (data) => {
@@ -956,7 +904,7 @@ const handleVideoTrack = async (event) => {
       // Add track ended listener
       event.track.addEventListener('ended', () => {
           console.log('Video track ended:', event.track.id);
-          videoTrackManager.deleteVideoTrack(event.track);
+          //videoTrackManager.deleteVideoTrack(event.track);
       });
       
       // Get readable stream of video frames
@@ -1018,8 +966,9 @@ const handleVideoTrack = async (event) => {
                       });
                   }
   
-                  if (Math.random() < 0.1) {
-                    realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', videoTrackManager.SSRCToParticipantId(firstStreamId));
+                  if (Math.random() < 0.025) {
+                    const participant = virtualStreamToPhysicalStreamMappingManager.physicalServerStreamIdToParticipant(firstStreamId);
+                    realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', participant);
                       //realConsole?.log('frame', frame);
                       //realConsole?.log('handleVideoTrack, randomsample', event);
                   }
@@ -1061,12 +1010,12 @@ const handleVideoTrack = async (event) => {
                   // Always enqueue the frame for the video element
                   controller.enqueue(frame);
               } catch (error) {
-                  console.error('Error processing frame:', error);
+                  realConsole?.error('Error processing frame:', error);
                   frame.close();
               }
           },
           flush() {
-              console.log('Transform stream flush called');
+              realConsole?.log('Transform stream flush called');
           }
       });
   
@@ -1082,16 +1031,16 @@ const handleVideoTrack = async (event) => {
               })
               .catch(error => {
                   if (error.name !== 'AbortError') {
-                      console.error('Pipeline error:', error);
+                      realConsole?.error('Pipeline error:', error);
                   }
               });
       } catch (error) {
-          console.error('Stream pipeline error:', error);
+          realConsole?.error('Stream pipeline error:', error);
           abortController.abort();
       }
   
     } catch (error) {
-        console.error('Error setting up video interceptor:', error);
+        realConsole?.error('Error setting up video interceptor:', error);
     }
   };
 
