@@ -1238,6 +1238,18 @@ new RTCInterceptor({
             readyState: channel.readyState
         });
 
+        // It looks like it sends a payload like this:
+        /*
+            [{"type":"sr","controlVideoStreaming":{"sequenceNumber":11,"controlInfo":{"sourceId":1267,"streamMsid":1694,"fmtParams":[{"max-fs":920,"max-mbps":33750,"max-fps":3000,"profile-level-id":"64001f"}]}}}]
+
+            The streamMsid corresponds to the streamId in the streamIdToSSRCMapping object. We can use it to get the actual stream's id by putting it through the mapping and getting the ssrc.
+            The sourceId corresponds to sourceId of the participant that you get from the roster update event.
+            Annoyingly complicated, but it seems to work.
+
+
+
+        */
+
         const decodedData = new Uint8Array(data);
 
         const jsonRawString = new TextDecoder().decode(decodedData);
