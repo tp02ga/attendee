@@ -130,6 +130,25 @@ class TeamsUIMethods:
         print("Clicking the closed captions button...")
         self.click_element(closed_captions_button, "closed_captions_button")
 
+    def select_speaker_view(self):
+        print("Waiting for the view button...")
+        view_button = self.locate_element(
+            step="view_button",
+            condition=EC.presence_of_element_located((By.ID, 'view-mode-button')),
+            wait_time_seconds=60
+        )
+        print("Clicking the view button...")
+        self.click_element(view_button, "view_button")
+
+        print("Waiting for the speaker view button...")
+        speaker_view_button = self.locate_element(
+            step="speaker_view_button",
+            condition=EC.presence_of_element_located((By.ID, 'custom-view-button-SpeakerViewButton')),
+            wait_time_seconds=10
+        )
+        print("Clicking the speaker view button...")
+        self.click_element(speaker_view_button, "speaker_view_button")
+        
     # Returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):
         self.driver.get(self.meeting_url)
@@ -168,3 +187,6 @@ class TeamsUIMethods:
 
         # Wait for meeting to load and enable captions
         self.click_captions_button()
+
+        # Select speaker view
+        self.select_speaker_view()
