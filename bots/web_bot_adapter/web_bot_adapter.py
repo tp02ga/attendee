@@ -11,14 +11,13 @@ import numpy as np
 import requests
 import undetected_chromedriver as uc
 from pyvirtualdisplay import Display
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
+
 
 def half_ceil(x):
     return (x + 1) // 2
@@ -127,6 +126,7 @@ def scale_i420(frame, frame_size, new_size):
     # 8) Flatten back to I420 layout and return bytes
 
     return np.concatenate([final_y.flatten(), final_u.flatten(), final_v.flatten()]).astype(np.uint8).tobytes()
+
 
 class WebBotAdapter(BotAdapter):
     def __init__(
@@ -397,10 +397,7 @@ class WebBotAdapter(BotAdapter):
         initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
 
         # Define the CDN libraries needed
-        CDN_LIBRARIES = [
-            "https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js",
-            "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"
-        ]
+        CDN_LIBRARIES = ["https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js", "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"]
 
         # Download all library code
         libraries_code = ""
@@ -414,7 +411,7 @@ class WebBotAdapter(BotAdapter):
         # Get directory of current file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         # Read your payload using path relative to current file
-        with open(os.path.join(current_dir, '..', self.get_chromedriver_payload_file_name()), "r") as file:
+        with open(os.path.join(current_dir, "..", self.get_chromedriver_payload_file_name()), "r") as file:
             payload_code = file.read()
 
         # Combine them ensuring libraries load first
