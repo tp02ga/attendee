@@ -955,6 +955,10 @@ const processDominantSpeakerHistoryMessage = (item) => {
     realConsole?.log('newDominantSpeakerParticipant', dominantSpeakerManager.getDominantSpeaker());
 }
 
+const processClosedCaptionData = (item) => {
+    realConsole?.log('processClosedCaptionData', item);
+}
+
 const handleMainChannelEvent = (event) => {
     //realConsole?.log('handleMainChannelEvent', event);
     const decodedData = new Uint8Array(event.data);
@@ -983,6 +987,14 @@ const handleMainChannelEvent = (event) => {
                 // This is a dominant speaker history message
                 if (item.type === 'dsh') {
                     processDominantSpeakerHistoryMessage(item);
+                }
+            }
+        }
+        else
+        {
+            if (parsedData.recognitionResults) {
+                for(const item of parsedData.recognitionResults) {
+                    processClosedCaptionData(item);
                 }
             }
         }
