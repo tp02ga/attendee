@@ -957,6 +957,23 @@ const processDominantSpeakerHistoryMessage = (item) => {
 
 const processClosedCaptionData = (item) => {
     realConsole?.log('processClosedCaptionData', item);
+    if (!window.ws) {
+        return;
+    }
+
+    const captionId = item.id.split("/")[0] + ":" + item.timestampAudioSent.toString();
+
+    const itemConverted = {
+        deviceId: item.userId,
+        captionId: captionId,
+        text: item.text,
+        audioTimestamp: item.timestampAudioSent
+    };
+
+    window.ws.sendJson({
+        type: 'CaptionUpdate',
+        caption: itemConverted
+    });
 }
 
 const handleMainChannelEvent = (event) => {
