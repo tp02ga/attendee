@@ -60,7 +60,6 @@ class BotController:
             automatic_leave_configuration=self.automatic_leave_configuration,
         )
 
-
     def get_teams_bot_adapter(self):
         from bots.teams_bot_adapter import TeamsBotAdapter
 
