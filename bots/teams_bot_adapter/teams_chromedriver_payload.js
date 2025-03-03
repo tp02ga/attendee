@@ -21,7 +21,9 @@ class VirtualStreamToPhysicalStreamMappingManager {
         this.virtualStreams = new Map();
         this.physicalStreamsByClientStreamId = new Map();
         this.physicalStreamsByServerStreamId = new Map();
+
         this.physicalClientStreamIdToVirtualStreamIdMapping = {}
+        this.virtualStreamIdToPhysicalClientStreamIdMapping = {}
     }
 
     getVirtualVideoStreamIdToSend() {
@@ -31,23 +33,27 @@ class VirtualStreamToPhysicalStreamMappingManager {
 
         // Otherwise return the first virtual stream id that has an associated physical stream
         //realConsole?.log('Object.values(this.virtualStreams)', Object.values(this.virtualStreams));
-        const physicalClientStreamIds = Array.from(Object.keys(this.physicalClientStreamIdToVirtualStreamIdMapping));
         //realConsole?.log("STARTFILTER");
-        const virtualSteamsThatHavePhysicalStreams = Array.from(this.virtualStreams.values()).filter(virtualStream => {
-            const hasCorrespondingPhysicalStream = Array.from(Object.values(this.physicalClientStreamIdToVirtualStreamIdMapping)).includes(virtualStream.sourceId.toString());
+        const virtualSteamsThatHavePhysicalStreams = []
+        for (const virtualStream of this.virtualStreams.values()) {
+            const hasCorrespondingPhysicalStream = this.virtualStreamIdToPhysicalClientStreamIdMapping[virtualStream.sourceId];
+            const isNotVirtualStreamForBot = !this.physicalClientStreamIdToVirtualStreamIdMapping[virtualStream.sourceId];
 
             //realConsole?.log('zzzphysicalClientStreamIds', physicalClientStreamIds);
             //realConsole?.log('zzzvirtualStream.sourceId.toString()', virtualStream.sourceId.toString());
             //realConsole?.log('zzzthis.physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
             //realConsole?.log('zzzvirtualStream', virtualStream);
-            const cond1 = (virtualStream.type === 'video' || virtualStream.type === 'applicationsharing-video');
-            const cond2 = !physicalClientStreamIds.includes(virtualStream.sourceId.toString());
-            const cond3 = hasCorrespondingPhysicalStream;
+            //const cond1 = (virtualStream.type === 'video' || virtualStream.type === 'applicationsharing-video');
+            //const cond2 = !physicalClientStreamIds.includes(virtualStream.sourceId.toString());
+            //const cond3 = hasCorrespondingPhysicalStream;
             //realConsole?.log('zzzcond1', cond1, 'cond2', cond2, 'cond3', cond3);
 
 
-            return (virtualStream.type === 'video' || virtualStream.type === 'applicationsharing-video') && !physicalClientStreamIds.includes(virtualStream.sourceId.toString()) && hasCorrespondingPhysicalStream;
-        });
+            if ((virtualStream.isScreenShare || virtualStream.isWebcam) && isNotVirtualStreamForBot && hasCorrespondingPhysicalStream)
+            {
+                virtualSteamsThatHavePhysicalStreams.push(virtualStream);
+            }
+        };
         //realConsole?.log("ENDFILTER");
         //realConsole?.log('zzzvirtualSteamsThatHavePhysicalStreams', virtualSteamsThatHavePhysicalStreams);
         //realConsole?.log('this.physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
@@ -84,8 +90,7 @@ class VirtualStreamToPhysicalStreamMappingManager {
         //realConsole?.log('Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping)', Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping));
 
         // Find the physical client stream ID that maps to this virtual stream ID
-        const physicalClientStreamId = Array.from(Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping))
-            .find(([clientId, virtualId]) => virtualId.toString() === virtualVideoStreamIdToSend.toString())?.[0];
+        const physicalClientStreamId = this.virtualStreamIdToPhysicalClientStreamIdMapping[virtualVideoStreamIdToSend];
             
         //realConsole?.log('physicalClientStreamId', physicalClientStreamId);
         //realConsole?.log('this.physicalStreamsByClientStreamId', this.physicalStreamsByClientStreamId);
@@ -110,7 +115,7 @@ class VirtualStreamToPhysicalStreamMappingManager {
 
     upsertVirtualStream(virtualStream) {
         realConsole?.log('upsertVirtualStream', virtualStream, 'this.virtualStreams', this.virtualStreams);
-        this.virtualStreams.set(virtualStream.sourceId.toString(), virtualStream);
+        this.virtualStreams.set(virtualStream.sourceId.toString(), {...virtualStream, sourceId: virtualStream.sourceId.toString()});
     }
     
     removeVirtualStreamsForParticipant(participantId) {
@@ -122,11 +127,25 @@ class VirtualStreamToPhysicalStreamMappingManager {
 
     upsertPhysicalClientStreamIdToVirtualStreamIdMapping(physicalClientStreamId, virtualStreamId) {
         const physicalClientStreamIdString = physicalClientStreamId.toString();
-        if (virtualStreamId === '-1')
+        const virtualStreamIdString = virtualStreamId.toString();
+        if (virtualStreamIdString === '-1')
+        {
+            // Find and delete from the inverse mapping first
+            const virtualStreamIdToDelete = this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString];
+            if (virtualStreamIdToDelete) {
+                delete this.virtualStreamIdToPhysicalClientStreamIdMapping[virtualStreamIdToDelete];
+            }
+            else {
+                realConsole?.error('Entry for virtual stream id ', virtualStreamIdToDelete, ' not found in', this.virtualStreamIdToPhysicalClientStreamIdMapping);
+            }
+            // Then delete from the main mapping
             delete this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString];
-        else
-            this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString] = virtualStreamId;
-        realConsole?.log('physicalClientStreamId', physicalClientStreamId, 'virtualStreamId', virtualStreamId, 'physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+        }
+        else {
+            this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString] = virtualStreamIdString;
+            this.virtualStreamIdToPhysicalClientStreamIdMapping[virtualStreamIdString] = physicalClientStreamIdString;
+        }
+        realConsole?.log('physicalClientStreamId', physicalClientStreamIdString, 'virtualStreamId', virtualStreamIdString, 'physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping, 'virtualStreamIdToPhysicalClientStreamIdMapping', this.virtualStreamIdToPhysicalClientStreamIdMapping);
     }
 
     virtualStreamIdToParticipant(virtualStreamId) {
