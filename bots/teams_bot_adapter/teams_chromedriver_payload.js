@@ -24,6 +24,81 @@ class VirtualStreamToPhysicalStreamMappingManager {
         this.physicalClientStreamIdToVirtualStreamIdMapping = {}
     }
 
+    getVirtualVideoStreamIdToSend() {
+        // If there is an active screenshare stream return that stream's virtual id
+
+        // If there is an active dominant speaker video stream return that stream id
+
+        // Otherwise return the first virtual stream id that has an associated physical stream
+        //realConsole?.log('Object.values(this.virtualStreams)', Object.values(this.virtualStreams));
+        const physicalClientStreamIds = Array.from(Object.keys(this.physicalClientStreamIdToVirtualStreamIdMapping));
+        //realConsole?.log("STARTFILTER");
+        const virtualSteamsThatHavePhysicalStreams = Array.from(this.virtualStreams.values()).filter(virtualStream => {
+            const hasCorrespondingPhysicalStream = Array.from(Object.values(this.physicalClientStreamIdToVirtualStreamIdMapping)).includes(virtualStream.sourceId.toString());
+
+            //realConsole?.log('zzzphysicalClientStreamIds', physicalClientStreamIds);
+            //realConsole?.log('zzzvirtualStream.sourceId.toString()', virtualStream.sourceId.toString());
+            //realConsole?.log('zzzthis.physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+            //realConsole?.log('zzzvirtualStream', virtualStream);
+            const cond1 = (virtualStream.type === 'video' || virtualStream.type === 'applicationsharing-video');
+            const cond2 = !physicalClientStreamIds.includes(virtualStream.sourceId.toString());
+            const cond3 = hasCorrespondingPhysicalStream;
+            //realConsole?.log('zzzcond1', cond1, 'cond2', cond2, 'cond3', cond3);
+
+
+            return (virtualStream.type === 'video' || virtualStream.type === 'applicationsharing-video') && !physicalClientStreamIds.includes(virtualStream.sourceId.toString()) && hasCorrespondingPhysicalStream;
+        });
+        //realConsole?.log("ENDFILTER");
+        //realConsole?.log('zzzvirtualSteamsThatHavePhysicalStreams', virtualSteamsThatHavePhysicalStreams);
+        //realConsole?.log('this.physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+        if (virtualSteamsThatHavePhysicalStreams.length == 0)
+            return null;
+
+        const firstActiveScreenShareStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.isScreenShare);
+        //realConsole?.log('zzzfirstActiveScreenShareStream', firstActiveScreenShareStream);
+        if (firstActiveScreenShareStream)
+            return firstActiveScreenShareStream.sourceId;
+
+        const dominantSpeaker = dominantSpeakerManager.getDominantSpeaker();
+        //realConsole?.log('zzzdominantSpeaker', dominantSpeaker);
+        if (dominantSpeaker)
+        {
+            const dominantSpeakerVideoStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.participant.id === dominantSpeaker.id && virtualStream.isVideo && virtualStream.isActive);
+            if (dominantSpeakerVideoStream)
+                return dominantSpeakerVideoStream.sourceId;
+        }
+
+        return virtualSteamsThatHavePhysicalStreams[0]?.sourceId;
+    }
+
+    getVideoStreamIdToSend() {
+        
+        const virtualVideoStreamIdToSend = this.getVirtualVideoStreamIdToSend();
+        if (!virtualVideoStreamIdToSend)
+        {
+            return this.physicalStreamsByServerStreamId.keys().find(physicalServerStreamId => physicalServerStreamId.includes('Video'));
+        }
+        //realConsole?.log('virtualVideoStreamIdToSend', virtualVideoStreamIdToSend);
+        //realConsole?.log('this.physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+
+        //realConsole?.log('Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping)', Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping));
+
+        // Find the physical client stream ID that maps to this virtual stream ID
+        const physicalClientStreamId = Array.from(Object.entries(this.physicalClientStreamIdToVirtualStreamIdMapping))
+            .find(([clientId, virtualId]) => virtualId.toString() === virtualVideoStreamIdToSend.toString())?.[0];
+            
+        //realConsole?.log('physicalClientStreamId', physicalClientStreamId);
+        //realConsole?.log('this.physicalStreamsByClientStreamId', this.physicalStreamsByClientStreamId);
+
+        const physicalStream = this.physicalStreamsByClientStreamId.get(physicalClientStreamId);
+        if (!physicalStream)
+            return null;
+
+        //realConsole?.log('physicalStream', physicalStream);
+            
+        return physicalStream.serverStreamId;
+    }
+
     upsertPhysicalStreams(physicalStreams) {
         for (const physicalStream of physicalStreams) {
             this.physicalStreamsByClientStreamId.set(physicalStream.clientStreamId, physicalStream);
@@ -34,17 +109,20 @@ class VirtualStreamToPhysicalStreamMappingManager {
     }
 
     upsertVirtualStream(virtualStream) {
-        realConsole?.log('upsertVirtualStream', virtualStream);
+        realConsole?.log('upsertVirtualStream', virtualStream, 'this.virtualStreams', this.virtualStreams);
         this.virtualStreams.set(virtualStream.sourceId.toString(), virtualStream);
     }   
 
     upsertPhysicalClientStreamIdToVirtualStreamIdMapping(physicalClientStreamId, virtualStreamId) {
-        this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamId] = virtualStreamId;
-        console.log('physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
+        const physicalClientStreamIdString = physicalClientStreamId.toString();
+        if (virtualStreamId === '-1')
+            this.physicalClientStreamIdToVirtualStreamIdMapping.delete(physicalClientStreamIdString);
+        else
+            this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString] = virtualStreamId;
+        realConsole?.log('physicalClientStreamId', physicalClientStreamId, 'virtualStreamId', virtualStreamId, 'physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
     }
 
     virtualStreamIdToParticipant(virtualStreamId) {
-        realConsole?.log('dominant virtualStreams', this.virtualStreams, 'virtualStreamId', virtualStreamId);
         return this.virtualStreams.get(virtualStreamId)?.participant;
     }
 
@@ -60,8 +138,6 @@ class VirtualStreamToPhysicalStreamMappingManager {
         const virtualStreamId = this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamId];
         if (!virtualStreamId)
             return null;
-
-        realConsole?.log('virtualStreamId', virtualStreamId);
 
         const participant = this.virtualStreams.get(virtualStreamId)?.participant;
         if (!participant)
@@ -763,8 +839,9 @@ function upsertVirtualStreamsFromParticipant(participant) {
     
     for (const mediaStream of mediaStreams) {
         const isScreenShare = mediaStream.type === 'applicationsharing-video';
+        const isActive = mediaStream.direction === 'sendrecv' || mediaStream.direction === 'sendonly';
         virtualStreamToPhysicalStreamMappingManager.upsertVirtualStream(
-            {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare}
+            {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare, isActive: isActive}
         );
     }
 }
@@ -978,11 +1055,14 @@ const handleVideoTrack = async (event) => {
   
                   const currentTime = performance.now();
   
-                  // Add SSRC logging
+                  // Add SSRC logging 
+                  // 
+                  /*
                   if (event.track.getSettings) {
                       //console.log('Track settings:', event.track.getSettings());
                   }
                   //console.log('Track ID:', event.track.id);
+                 
                   if (event.streams && event.streams[0]) {
                       //console.log('Stream ID:', event.streams[0].id);
                       event.streams[0].getTracks().forEach(track => {
@@ -996,17 +1076,18 @@ const handleVideoTrack = async (event) => {
                               });
                           }
                       });
-                  }
+                  }*/
   
+                  /*
                   if (Math.random() < 0.00025) {
-                    const participant = virtualStreamToPhysicalStreamMappingManager.physicalServerStreamIdToParticipant(firstStreamId);
+                    //const participant = virtualStreamToPhysicalStreamMappingManager.physicalServerStreamIdToParticipant(firstStreamId);
                     //realConsole?.log('videoframe from stream id', firstStreamId, ' corresponding to participant', participant);
                     //realConsole?.log('frame', frame);
                     //realConsole?.log('handleVideoTrack, randomsample', event);
                   }
-                  
-  
-                  if (firstStreamId) {
+                    */
+                   
+                  if (firstStreamId && firstStreamId === virtualStreamToPhysicalStreamMappingManager.getVideoStreamIdToSend()) {
                       // Check if enough time has passed since the last frame
                       if (currentTime - lastFrameTime >= frameInterval) {
                           // Copy the frame to get access to raw data
@@ -1032,7 +1113,7 @@ const handleVideoTrack = async (event) => {
                           */
                           // Get current time in microseconds (multiply milliseconds by 1000)
                           const currentTimeMicros = BigInt(Math.floor(currentTime * 1000));
-                          //ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
+                          ws.sendVideo(currentTimeMicros, firstStreamId, frame.displayWidth, frame.displayHeight, data);
   
                           rawFrame.close();
                           lastFrameTime = currentTime;
@@ -1145,7 +1226,7 @@ const handleAudioTrack = async (event) => {
   
                   // Send audio data through websocket
                   const currentTimeMicros = BigInt(Math.floor(performance.now() * 1000));
-                  //ws.sendAudio(currentTimeMicros, 0, audioData);
+                  ws.sendAudio(currentTimeMicros, 0, audioData);
   
                   // Pass through the original frame
                   controller.enqueue(frame);
