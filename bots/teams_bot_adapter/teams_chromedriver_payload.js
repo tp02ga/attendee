@@ -63,7 +63,7 @@ class VirtualStreamToPhysicalStreamMappingManager {
         //realConsole?.log('zzzdominantSpeaker', dominantSpeaker);
         if (dominantSpeaker)
         {
-            const dominantSpeakerVideoStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.participant.id === dominantSpeaker.id && virtualStream.isVideo && virtualStream.isActive);
+            const dominantSpeakerVideoStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.participant.id === dominantSpeaker.id && virtualStream.isWebcam && virtualStream.isActive);
             if (dominantSpeakerVideoStream)
                 return dominantSpeakerVideoStream.sourceId;
         }
@@ -111,12 +111,19 @@ class VirtualStreamToPhysicalStreamMappingManager {
     upsertVirtualStream(virtualStream) {
         realConsole?.log('upsertVirtualStream', virtualStream, 'this.virtualStreams', this.virtualStreams);
         this.virtualStreams.set(virtualStream.sourceId.toString(), virtualStream);
-    }   
+    }
+    
+    removeVirtualStreamsForParticipant(participantId) {
+        const virtualStreamsToRemove = Array.from(this.virtualStreams.values()).filter(virtualStream => virtualStream.participant.id === participantId);
+        for (const virtualStream of virtualStreamsToRemove) {
+            this.virtualStreams.delete(virtualStream.sourceId.toString());
+        }
+    }
 
     upsertPhysicalClientStreamIdToVirtualStreamIdMapping(physicalClientStreamId, virtualStreamId) {
         const physicalClientStreamIdString = physicalClientStreamId.toString();
         if (virtualStreamId === '-1')
-            this.physicalClientStreamIdToVirtualStreamIdMapping.delete(physicalClientStreamIdString);
+            delete this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString];
         else
             this.physicalClientStreamIdToVirtualStreamIdMapping[physicalClientStreamIdString] = virtualStreamId;
         realConsole?.log('physicalClientStreamId', physicalClientStreamId, 'virtualStreamId', virtualStreamId, 'physicalClientStreamIdToVirtualStreamIdMapping', this.physicalClientStreamIdToVirtualStreamIdMapping);
@@ -822,7 +829,12 @@ function decodeWebSocketBody(encodedData) {
     return JSON.parse(pako.inflate(byteArray, { to: "string" }));
 }
 
-function upsertVirtualStreamsFromParticipant(participant) {
+function syncVirtualStreamsFromParticipant(participant) {
+    if (participant.state === 'inactive') {
+        virtualStreamToPhysicalStreamMappingManager.removeVirtualStreamsForParticipant(participant.details?.id);
+        return;
+    }
+
     const mediaStreams = [];
     
     // Check if participant has endpoints
@@ -839,9 +851,10 @@ function upsertVirtualStreamsFromParticipant(participant) {
     
     for (const mediaStream of mediaStreams) {
         const isScreenShare = mediaStream.type === 'applicationsharing-video';
+        const isWebcam = mediaStream.type === 'video';
         const isActive = mediaStream.direction === 'sendrecv' || mediaStream.direction === 'sendonly';
         virtualStreamToPhysicalStreamMappingManager.upsertVirtualStream(
-            {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare, isActive: isActive}
+            {...mediaStream, participant: {displayName: participant.details?.displayName, id: participant.details?.id}, isScreenShare, isWebcam, isActive}
         );
     }
 }
@@ -854,7 +867,7 @@ function handleRosterUpdate(eventDataObject) {
 
         for (const participant of participants) {
             window.userManager.singleUserSynced(participant);
-            upsertVirtualStreamsFromParticipant(participant);
+            syncVirtualStreamsFromParticipant(participant);
         }
     } catch (error) {
         realConsole?.error('Error handling roster update:');
