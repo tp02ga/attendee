@@ -54,7 +54,7 @@ class VirtualStreamToPhysicalStreamMappingManager {
         if (virtualSteamsThatHavePhysicalStreams.length == 0)
             return null;
 
-        const firstActiveScreenShareStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.isScreenShare);
+        const firstActiveScreenShareStream = virtualSteamsThatHavePhysicalStreams.find(virtualStream => virtualStream.isScreenShare && virtualStream.isActive);
         //realConsole?.log('zzzfirstActiveScreenShareStream', firstActiveScreenShareStream);
         if (firstActiveScreenShareStream)
             return firstActiveScreenShareStream.sourceId;
@@ -1086,7 +1086,9 @@ const handleVideoTrack = async (event) => {
                     //realConsole?.log('handleVideoTrack, randomsample', event);
                   }
                     */
-                   
+                 // if (Math.random() < 0.02)
+                   //realConsole?.log('firstStreamId', firstStreamId, 'streamIdToSend', virtualStreamToPhysicalStreamMappingManager.getVideoStreamIdToSend());
+                  
                   if (firstStreamId && firstStreamId === virtualStreamToPhysicalStreamMappingManager.getVideoStreamIdToSend()) {
                       // Check if enough time has passed since the last frame
                       if (currentTime - lastFrameTime >= frameInterval) {
