@@ -498,10 +498,11 @@ class TeamsBotAdapter(BotAdapter, TeamsUIMethods):
                 EC.presence_of_element_located(
                     (
                         By.CSS_SELECTOR,
-                        'button[jsname="CQylAd"][aria-label="Leave call"]',
+                        '[data-inp="hangup-button"]',
                     )
                 )
             )
+
             print("Clicking the leave button")
             leave_button.click()
         except Exception as e:
