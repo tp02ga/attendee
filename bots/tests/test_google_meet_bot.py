@@ -85,8 +85,8 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_ALWAYS_EAGER = True
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
-    @patch("bots.google_meet_bot_adapter.google_meet_bot_adapter.Display")
-    @patch("bots.google_meet_bot_adapter.google_meet_bot_adapter.uc.Chrome")
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.uc.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
@@ -222,7 +222,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         mock_driver.set_window_size.assert_called_with(1920 / 2, 1080 / 2)
 
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
-        mock_driver.execute_script.assert_has_calls([call("window.ws.enableMediaSending();"), call("return performance.timeOrigin;")])
+        mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
 
         # Verify first_buffer_timestamp_ms_offset was set correctly
         self.assertEqual(controller.adapter.get_first_buffer_timestamp_ms_offset(), 12345)
