@@ -18,6 +18,7 @@ from .models import (
 )
 from .utils import meeting_type_from_url
 
+
 @extend_schema_field(
     {
         "type": "object",

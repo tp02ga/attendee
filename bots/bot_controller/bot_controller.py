@@ -27,6 +27,7 @@ from bots.models import (
     RecordingStates,
     Utterance,
 )
+from bots.utils import meeting_type_from_url
 
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
@@ -36,7 +37,6 @@ from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
-from bots.utils import meeting_type_from_url
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
