@@ -20,6 +20,7 @@ from bots.models import (
     BotMediaRequestStates,
     BotStates,
     Credentials,
+    MeetingTypes,
     Participant,
     Recording,
     RecordingFormats,
