@@ -683,7 +683,15 @@ class WebSocketClient {
         }
     }
   
+    sendClosedCaptionUpdate(item) {
+        if (!this.mediaSendingEnabled)
+            return;
     
+        this.sendJson({
+            type: 'CaptionUpdate',
+            caption: item
+        });
+    }
   
     sendAudio(timestamp, streamId, audioData) {
         if (this.ws.readyState !== originalWebSocket.OPEN) {
@@ -970,10 +978,7 @@ const processClosedCaptionData = (item) => {
         audioTimestamp: item.timestampAudioSent
     };
 
-    window.ws.sendJson({
-        type: 'CaptionUpdate',
-        caption: itemConverted
-    });
+    window.ws.sendClosedCaptionUpdate(itemConverted);
 }
 
 const handleMainChannelEvent = (event) => {
