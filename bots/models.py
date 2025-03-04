@@ -75,6 +75,10 @@ class ApiKey(models.Model):
     def __str__(self):
         return f"{self.name} ({self.project.name})"
 
+class MeetingTypes(models.TextChoices):
+    ZOOM = "zoom"
+    GOOGLE_MEET = "google_meet"
+    TEAMS = "teams"
 
 class BotStates(models.IntegerChoices):
     READY = 1, "Ready"

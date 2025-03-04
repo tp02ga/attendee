@@ -16,7 +16,7 @@ from .models import (
     RecordingStates,
     RecordingTranscriptionStates,
 )
-
+from .utils import meeting_type_from_url
 
 @extend_schema_field(
     {
@@ -122,6 +122,13 @@ class CreateBotSerializer(serializers.Serializer):
         "required": ["deepgram"],
         "additionalProperties": False,
     }
+
+    def validate_meeting_url(self, value):
+        meeting_type = meeting_type_from_url(value)
+        if meeting_type is None:
+            raise serializers.ValidationError({"meeting_url": "Invalid meeting URL"})
+
+        return value
 
     def validate_transcription_settings(self, value):
         if value is None:
