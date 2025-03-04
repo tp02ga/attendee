@@ -3,33 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-
-class UiException(Exception):
-    def __init__(self, message, step, inner_exception):
-        self.step = step
-        self.inner_exception = inner_exception
-        super().__init__(message)
-
-
-# When this exception is raised, the bot will stop running and log that it was denied access to the meeting
-class UiRequestToJoinDeniedException(UiException):
-    def __init__(self, message, step=None, inner_exception=None):
-        super().__init__(message, step, inner_exception)
-
-
-class UiRetryableException(UiException):
-    def __init__(self, message, step=None, inner_exception=None):
-        super().__init__(message, step, inner_exception)
-
-
-class UiCouldNotLocateElementException(UiRetryableException):
-    def __init__(self, message, step=None, inner_exception=None):
-        super().__init__(message, step, inner_exception)
-
-
-class UiCouldNotClickElementException(UiRetryableException):
-    def __init__(self, message, step=None, inner_exception=None):
-        super().__init__(message, step, inner_exception)
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableException
 
 
 class UiGoogleBlockingUsException(UiRetryableException):
@@ -209,3 +183,16 @@ class GoogleMeetUIMethods:
         )
         print("Clicking the close button")
         self.click_element(close_button, "close_button")
+
+    def click_leave_button(self):
+        print("Waiting for the leave button")
+        leave_button = WebDriverWait(self.driver, 6).until(
+            EC.presence_of_element_located(
+                (
+                    By.CSS_SELECTOR,
+                    'button[jsname="CQylAd"][aria-label="Leave call"]',
+                )
+            )
+        )
+        print("Clicking the leave button")
+        leave_button.click()
