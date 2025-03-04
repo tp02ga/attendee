@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from pydub import AudioSegment
 
-from .models import RecordingStates
+from .models import MeetingTypes, RecordingStates
 
 
 def pcm_to_mp3(
@@ -257,6 +257,20 @@ def generate_utterance_json_for_bot_detail_view(recording):
         utterances_data.append(utterance_data)
 
     return utterances_data
+
+
+def meeting_type_from_url(url):
+    if not url:
+        return None
+
+    if "zoom.us" in url:
+        return MeetingTypes.ZOOM
+    elif "meet.google.com" in url:
+        return MeetingTypes.GOOGLE_MEET
+    elif "teams.microsoft.com" in url or "teams.live.com" in url:
+        return MeetingTypes.TEAMS
+    else:
+        return None
 
 
 def generate_recordings_json_for_bot_detail_view(bot):

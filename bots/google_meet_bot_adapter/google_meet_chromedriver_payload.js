@@ -73,10 +73,7 @@ class CaptionManager {
 
     singleCaptionSynced(caption) {
         this.captions.set(caption.captionId, caption);
-        this.ws.sendJson({
-            type: 'CaptionUpdate',
-            caption: caption
-        });
+        this.ws.sendClosedCaptionUpdate(caption);
     }
 }
 
@@ -343,7 +340,15 @@ class WebSocketClient {
       }
   }
 
-  
+  sendClosedCaptionUpdate(item) {
+    if (!this.mediaSendingEnabled)
+        return;
+
+    this.sendJson({
+        type: 'CaptionUpdate',
+        caption: item
+    });
+  }
 
   sendAudio(timestamp, streamId, audioData) {
       if (this.ws.readyState !== WebSocket.OPEN) {
