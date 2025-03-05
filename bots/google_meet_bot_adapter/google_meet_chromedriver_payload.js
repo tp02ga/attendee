@@ -92,6 +92,15 @@ class UserManager {
         this.ws = ws;
     }
 
+    deviceForStreamIsActive(streamId) {
+        for(const deviceOutput of this.deviceOutputMap.values()) {
+            if (deviceOutput.streamId === streamId) {
+                return !deviceOutput.disabled;
+            }
+        }
+
+        return false;
+    }
 
     getDeviceOutput(deviceId, outputType) {
         return this.deviceOutputMap.get(`${deviceId}-${outputType}`);
@@ -248,30 +257,49 @@ class WebSocketClient {
 
       this.mediaSendingEnabled = false;
       this.lastVideoFrameTime = performance.now();
-      this.blackFrameInterval = null;
+      this.fillerFrameInterval = null;
+
+      this.lastVideoFrame = this.getBlackFrame();
+      this.blackVideoFrame = this.getBlackFrame();
   }
 
-  startBlackFrameTimer() {
-    if (this.blackFrameInterval) return; // Don't start if already running
+  getBlackFrame() {
+    // Create black frame data (I420 format)
+    const width = 1920, height = 1080;
+    const yPlaneSize = width * height;
+    const uvPlaneSize = (width * height) / 4;
+
+    const frameData = new Uint8Array(yPlaneSize + 2 * uvPlaneSize);
+    // Y plane (black = 0)
+    frameData.fill(0, 0, yPlaneSize);
+    // U and V planes (black = 128)
+    frameData.fill(128, yPlaneSize);
+
+    return {width, height, frameData};
+  }
+
+  currentVideoStreamIsActive() {
+    const result = window.userManager?.deviceForStreamIsActive(window.videoTrackManager?.getStreamIdToSendCached());
+
+    // This avoids a situation where we transition from no video stream to video stream and we send a filler frame from the
+    // last time we had a video stream and it's not the same as the current video stream.
+    if (!result)
+        this.lastVideoFrame = this.blackVideoFrame;
+
+    return result;
+  }
+
+  startFillerFrameTimer() {
+    if (this.fillerFrameInterval) return; // Don't start if already running
     
-    this.blackFrameInterval = setInterval(() => {
+    this.fillerFrameInterval = setInterval(() => {
         try {
             const currentTime = performance.now();
-            if (currentTime - this.lastVideoFrameTime >= 500 && this.mediaSendingEnabled) {
-                // Create black frame data (I420 format)
-                const width = 1920, height = 1080;
-                const yPlaneSize = width * height;
-                const uvPlaneSize = (width * height) / 4;
-                
-                const frameData = new Uint8Array(yPlaneSize + 2 * uvPlaneSize);
-                // Y plane (black = 0)
-                frameData.fill(0, 0, yPlaneSize);
-                // U and V planes (black = 128)
-                frameData.fill(128, yPlaneSize);
-                
+            if (currentTime - this.lastVideoFrameTime >= 500 && this.mediaSendingEnabled) {                
                 // Fix: Math.floor() the milliseconds before converting to BigInt
                 const currentTimeMicros = BigInt(Math.floor(currentTime) * 1000);
-                this.sendVideo(currentTimeMicros, '0', width, height, frameData);
+                const frameToUse = this.currentVideoStreamIsActive() ? this.lastVideoFrame : this.blackVideoFrame;
+                this.sendVideo(currentTimeMicros, '0', frameToUse.width, frameToUse.height, frameToUse.frameData);
             }
         } catch (error) {
             console.error('Error in black frame timer:', error);
@@ -279,21 +307,21 @@ class WebSocketClient {
     }, 250);
   }
 
-    stopBlackFrameTimer() {
-        if (this.blackFrameInterval) {
-            clearInterval(this.blackFrameInterval);
-            this.blackFrameInterval = null;
+    stopFillerFrameTimer() {
+        if (this.fillerFrameInterval) {
+            clearInterval(this.fillerFrameInterval);
+            this.fillerFrameInterval = null;
         }
     }
 
   enableMediaSending() {
     this.mediaSendingEnabled = true;
-    this.startBlackFrameTimer();
+    this.startFillerFrameTimer();
   }
 
   disableMediaSending() {
     this.mediaSendingEnabled = false;
-    this.stopBlackFrameTimer();
+    this.stopFillerFrameTimer();
   }
 
   handleMessage(data) {
@@ -396,7 +424,8 @@ class WebSocketClient {
       }
       
       this.lastVideoFrameTime = performance.now();
-
+      this.lastVideoFrame = {width, height, frameData: videoData};
+      
       try {
           // Convert streamId to UTF-8 bytes
           const streamIdBytes = new TextEncoder().encode(streamId);
@@ -682,6 +711,8 @@ window.ws = ws;
 const userManager = new UserManager(ws);
 const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
+window.videoTrackManager = videoTrackManager;
+window.userManager = userManager;
 
 // Create decoders for all message types
 const messageDecoders = {};
