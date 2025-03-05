@@ -92,26 +92,14 @@ class UserManager {
         this.ws = ws;
     }
 
-    setVideoTrackManager(videoTrackManager) {
-        this.videoTrackManager = videoTrackManager;
-    }
-
-    deviceForCurrentStreamIsActive() {
-        const currentStreamId = this.videoTrackManager?.getStreamIdToSendCached();
-        if (!currentStreamId)
-            return false;
-
+    deviceForStreamIsActive(streamId) {
         for(const deviceOutput of this.deviceOutputMap.values()) {
-            if (deviceOutput.streamId === currentStreamId) {
+            if (deviceOutput.streamId === streamId) {
                 return !deviceOutput.disabled;
             }
         }
 
         return false;
-    }
-
-    setNoVideoStream() {
-        this.ws.setNoVideoStream(!this.deviceForCurrentStreamIsActive());
     }
 
     getDeviceOutput(deviceId, outputType) {
@@ -138,8 +126,6 @@ class UserManager {
             type: 'DeviceOutputsUpdate',
             deviceOutputs: Array.from(this.deviceOutputMap.values())
         });
-
-        this.setNoVideoStream();
     }
 
     getUserByDeviceId(deviceId) {
@@ -235,8 +221,6 @@ class UserManager {
                 updatedUsers: updatedUsers
             });
         }
-
-        this.setNoVideoStream();
     }
 }
 
@@ -277,15 +261,6 @@ class WebSocketClient {
 
       this.lastVideoFrame = this.getBlackFrame();
       this.blackVideoFrame = this.getBlackFrame();
-      this.noVideoStream = false;
-  }
-
-  setNoVideoStream(value) {
-    if (value === this.noVideoStream)
-        return;
-
-    this.lastVideoFrame = this.getBlackFrame();
-    this.noVideoStream = value;
   }
 
   getBlackFrame() {
@@ -303,6 +278,17 @@ class WebSocketClient {
     return {width, height, frameData};
   }
 
+  currentVideoStreamIsActive() {
+    const result = window.userManager?.deviceForStreamIsActive(window.videoTrackManager?.getStreamIdToSendCached());
+
+    // This avoids a situation where we transition from no video stream to video stream and we send a filler frame from the
+    // last time we had a video stream and it's not the same as the current video stream.
+    if (!result)
+        this.lastVideoFrame = this.blackVideoFrame;
+
+    return result;
+  }
+
   startFillerFrameTimer() {
     if (this.fillerFrameInterval) return; // Don't start if already running
     
@@ -312,7 +298,7 @@ class WebSocketClient {
             if (currentTime - this.lastVideoFrameTime >= 500 && this.mediaSendingEnabled) {                
                 // Fix: Math.floor() the milliseconds before converting to BigInt
                 const currentTimeMicros = BigInt(Math.floor(currentTime) * 1000);
-                const frameToUse = this.noVideoStream ? this.blackVideoFrame : this.lastVideoFrame;
+                const frameToUse = this.currentVideoStreamIsActive() ? this.lastVideoFrame : this.blackVideoFrame;
                 this.sendVideo(currentTimeMicros, '0', frameToUse.width, frameToUse.height, frameToUse.frameData);
             }
         } catch (error) {
@@ -725,7 +711,8 @@ window.ws = ws;
 const userManager = new UserManager(ws);
 const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
-userManager.setVideoTrackManager(videoTrackManager);
+window.videoTrackManager = videoTrackManager;
+window.userManager = userManager;
 
 // Create decoders for all message types
 const messageDecoders = {};
