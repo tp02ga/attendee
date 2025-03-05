@@ -98,7 +98,6 @@ class UserManager {
             if (deviceOutput.outputType === DEVICE_OUTPUT_TYPE.VIDEO && !deviceOutput.disabled) {
                 const user = this.getUserByDeviceId(deviceOutput.deviceId);
                 if (user && user.status === this.MEETING_STATUS.IN_MEETING) {
-                    console.log('activeVideoOutputExists', deviceOutput);
                     return true;
                 }
             }
@@ -129,8 +128,6 @@ class UserManager {
 
             this.deviceOutputMap.set(key, deviceOutput);
         }
-
-        console.log('deviceOutputMap', this.deviceOutputMap);
 
         // Notify websocket clients about the device output update
         this.ws.sendJson({
@@ -282,7 +279,7 @@ class WebSocketClient {
   setNoVideoStream(value) {
     if (value === this.noVideoStream)
         return;
-    
+
     this.lastVideoFrame = this.getBlackFrame();
     this.noVideoStream = value;
   }
@@ -438,6 +435,7 @@ class WebSocketClient {
       
       this.lastVideoFrameTime = performance.now();
       this.lastVideoFrame = {width, height, frameData: videoData};
+      
       try {
           // Convert streamId to UTF-8 bytes
           const streamIdBytes = new TextEncoder().encode(streamId);
