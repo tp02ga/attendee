@@ -480,7 +480,7 @@ class UserManager {
             fullName: user.details.displayName,
             profile: '',
             status: user.state,
-            humanized_status: user.state || "unknown",
+            humanized_status: user.state === "active" ? "in_meeting" : "not_in_meeting",
         }
     }
 
@@ -890,7 +890,8 @@ function handleRosterUpdate(eventDataObject) {
     try {
         const decodedBody = decodeWebSocketBody(eventDataObject.body);
         realConsole?.log('handleRosterUpdate decodedBody', decodedBody);
-        const participants = Object.values(decodedBody.participants);
+        // Teams includes a user with no display name. Not sure what this user is but we don't want to sync that user.
+        const participants = Object.values(decodedBody.participants).filter(participant => participant.details?.displayName);
 
         for (const participant of participants) {
             window.userManager.singleUserSynced(participant);
