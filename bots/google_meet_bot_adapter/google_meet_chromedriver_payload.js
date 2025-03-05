@@ -92,6 +92,10 @@ class UserManager {
         this.ws = ws;
     }
 
+    setVideoTrackManager(videoTrackManager) {
+        this.videoTrackManager = videoTrackManager;
+    }
+
     deviceForCurrentStreamIsActive() {
         const currentStreamId = this.videoTrackManager?.getStreamIdToSendCached();
         if (!currentStreamId)
@@ -721,6 +725,7 @@ window.ws = ws;
 const userManager = new UserManager(ws);
 const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
+userManager.setVideoTrackManager(videoTrackManager);
 
 // Create decoders for all message types
 const messageDecoders = {};
