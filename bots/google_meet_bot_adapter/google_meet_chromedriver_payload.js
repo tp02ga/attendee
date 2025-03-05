@@ -92,22 +92,22 @@ class UserManager {
         this.ws = ws;
     }
 
-    activeVideoOutputExists() {
-        // If we have a video device output where disabled = 0 and their deviceId corresponds to a user who is still in the meeting, then we are good.
+    deviceForCurrentStreamIsActive() {
+        const currentStreamId = this.videoTrackManager?.getStreamIdToSendCached();
+        if (!currentStreamId)
+            return false;
+
         for(const deviceOutput of this.deviceOutputMap.values()) {
-            if (deviceOutput.outputType === DEVICE_OUTPUT_TYPE.VIDEO && !deviceOutput.disabled) {
-                const user = this.getUserByDeviceId(deviceOutput.deviceId);
-                if (user && user.status === this.MEETING_STATUS.IN_MEETING) {
-                    return true;
-                }
+            if (deviceOutput.streamId === currentStreamId) {
+                return !deviceOutput.disabled;
             }
         }
 
         return false;
     }
 
-    setNoVideoStreamIfNoActiveVideoOutput() {
-        this.ws.setNoVideoStream(!this.activeVideoOutputExists());
+    setNoVideoStream() {
+        this.ws.setNoVideoStream(!this.deviceForCurrentStreamIsActive());
     }
 
     getDeviceOutput(deviceId, outputType) {
@@ -135,7 +135,7 @@ class UserManager {
             deviceOutputs: Array.from(this.deviceOutputMap.values())
         });
 
-        this.setNoVideoStreamIfNoActiveVideoOutput();
+        this.setNoVideoStream();
     }
 
     getUserByDeviceId(deviceId) {
@@ -232,7 +232,7 @@ class UserManager {
             });
         }
 
-        this.setNoVideoStreamIfNoActiveVideoOutput();
+        this.setNoVideoStream();
     }
 }
 
