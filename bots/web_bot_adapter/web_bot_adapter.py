@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import os
 import threading
 import time
@@ -17,8 +18,9 @@ from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
-import logging
+
 logger = logging.getLogger(__name__)
+
 
 def half_ceil(x):
     return (x + 1) // 2

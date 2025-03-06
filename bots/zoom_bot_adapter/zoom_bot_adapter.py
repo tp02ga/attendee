@@ -14,11 +14,11 @@ from bots.bot_adapter import BotAdapter
 from .video_input_manager import VideoInputManager
 
 gi.require_version("GLib", "2.0")
+import logging
+
 from gi.repository import GLib
 
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -195,11 +195,7 @@ class ZoomBotAdapter(BotAdapter):
         if not self.video_input_manager:
             return
 
-        logger.info(
-            f"set_video_input_manager_based_on_state self.active_speaker_id = {self.active_speaker_id}, "
-            f"self.active_sharer_id = {self.active_sharer_id}, "
-            f"self.active_sharer_source_id = {self.active_sharer_source_id}"
-        )
+        logger.info(f"set_video_input_manager_based_on_state self.active_speaker_id = {self.active_speaker_id}, self.active_sharer_id = {self.active_sharer_id}, self.active_sharer_source_id = {self.active_sharer_source_id}")
         if self.active_sharer_id:
             self.video_input_manager.set_mode(
                 mode=VideoInputManager.Mode.ACTIVE_SHARER,
@@ -254,9 +250,7 @@ class ZoomBotAdapter(BotAdapter):
             logger.info(f"numCalls = {performance_data.numCalls}")
             logger.info(f"maxProcessingTimeMicroseconds = {performance_data.maxProcessingTimeMicroseconds}")
             logger.info(f"minProcessingTimeMicroseconds = {performance_data.minProcessingTimeMicroseconds}")
-            logger.info(
-                f"meanProcessingTimeMicroseconds = {float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls}"
-            )
+            logger.info(f"meanProcessingTimeMicroseconds = {float(performance_data.totalProcessingTimeMicroseconds) / performance_data.numCalls}")
 
             # Print processing time distribution
             bin_size = (performance_data.processingTimeBinMax - performance_data.processingTimeBinMin) / len(performance_data.processingTimeBinCounts)
@@ -321,9 +315,7 @@ class ZoomBotAdapter(BotAdapter):
     def on_sharing_status_callback(self, sharing_info):
         user_id = sharing_info.userid
         sharing_status = sharing_info.status
-        logger.info(
-            f"on_sharing_status_callback called. sharing_status = {sharing_status}, user_id = {user_id}"
-        )
+        logger.info(f"on_sharing_status_callback called. sharing_status = {sharing_status}, user_id = {user_id}")
 
         if sharing_status == zoom.Sharing_Other_Share_Begin or sharing_status == zoom.Sharing_View_Other_Sharing:
             new_active_sharer_id = user_id

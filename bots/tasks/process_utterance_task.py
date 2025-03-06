@@ -1,6 +1,7 @@
+import logging
+
 from celery import shared_task
 from django.db import DatabaseError
-import logging
 
 logger = logging.getLogger(__name__)
 

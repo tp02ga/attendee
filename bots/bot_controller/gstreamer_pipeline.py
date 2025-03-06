@@ -1,12 +1,13 @@
 import gi
 
 gi.require_version("Gst", "1.0")
-import time
 import logging
+import time
 
 from gi.repository import GLib, Gst
 
 logger = logging.getLogger(__name__)
+
 
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"

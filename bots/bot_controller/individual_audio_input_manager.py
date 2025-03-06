@@ -1,6 +1,6 @@
+import logging
 import queue
 from datetime import datetime, timedelta
-import logging
 
 import numpy as np
 import webrtcvad
