@@ -1,5 +1,9 @@
+import logging
+
 from celery import shared_task
 from django.db import DatabaseError
+
+logger = logging.getLogger(__name__)
 
 from bots.models import Credentials, RecordingManager, Utterance
 
@@ -21,7 +25,7 @@ def process_utterance(self, utterance_id):
     )
 
     utterance = Utterance.objects.get(id=utterance_id)
-    print(f"Processing utterance {utterance_id}")
+    logger.info(f"Processing utterance {utterance_id}")
 
     recording = utterance.recording
     RecordingManager.set_recording_transcription_in_progress(recording)

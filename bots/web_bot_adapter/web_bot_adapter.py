@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import os
 import threading
 import time
@@ -17,6 +18,8 @@ from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
+
+logger = logging.getLogger(__name__)
 
 
 def half_ceil(x):
@@ -201,13 +204,7 @@ class WebBotAdapter(BotAdapter):
 
             # Keep track of the video frame dimensions
             if self.video_frame_ticker % 300 == 0:
-                print(
-                    "video dimensions",
-                    width,
-                    height,
-                    " message length",
-                    len(message) - offset - 8,
-                )
+                logger.info(f"video dimensions {width} {height} message length {len(message) - offset - 8}")
             self.video_frame_ticker += 1
 
             # Scale frame to 1920x1080
@@ -221,12 +218,7 @@ class WebBotAdapter(BotAdapter):
                     self.add_video_frame_callback(scaled_i420_frame, timestamp * 1000)
 
             else:
-                print(
-                    "video data length does not agree with width and height",
-                    len(video_data),
-                    width,
-                    height,
-                )
+                logger.info(f"video data length does not agree with width and height {len(video_data)} {width} {height}")
 
     def process_audio_frame(self, message):
         self.last_media_message_processed_time = time.time()
@@ -261,13 +253,13 @@ class WebBotAdapter(BotAdapter):
 
                 if message_type == 1:  # JSON
                     json_data = json.loads(message[4:].decode("utf-8"))
-                    print("Received JSON message:", json_data)
+                    logger.info("Received JSON message: %s", json_data)
 
                     # Handle audio format information
                     if isinstance(json_data, dict):
                         if json_data.get("type") == "AudioFormatUpdate":
                             audio_format = json_data["format"]
-                            print("audio format", audio_format)
+                            logger.info(f"audio format {audio_format}")
 
                         elif json_data.get("type") == "CaptionUpdate":
                             self.upsert_caption_callback(json_data["caption"])
@@ -302,7 +294,7 @@ class WebBotAdapter(BotAdapter):
 
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:
-            print(f"Websocket error: {e}")
+            logger.info(f"Websocket error: {e}")
 
     def run_websocket_server(self):
         loop = asyncio.new_event_loop()
@@ -320,13 +312,13 @@ class WebBotAdapter(BotAdapter):
                     compression=None,
                     max_size=None,
                 )
-                print(f"Websocket server started on ws://localhost:{port}")
+                logger.info(f"Websocket server started on ws://localhost:{port}")
                 self.websocket_port = port
                 self.websocket_server.serve_forever()
                 break
             except OSError as e:
                 if e.errno == 98:  # Address already in use
-                    print(f"Port {port} is already in use, trying next port...")
+                    logger.info(f"Port {port} is already in use, trying next port...")
                     port += 1
                     if attempt == max_retries - 1:
                         raise Exception(f"Could not find available port after {max_retries} attempts")
@@ -343,7 +335,7 @@ class WebBotAdapter(BotAdapter):
         try:
             self.driver.save_screenshot(screenshot_path)
         except Exception as e:
-            print(f"Error saving screenshot: {e}")
+            logger.info(f"Error saving screenshot: {e}")
             screenshot_path = None
 
         self.send_message_callback(
@@ -379,12 +371,12 @@ class WebBotAdapter(BotAdapter):
             try:
                 self.driver.close()
             except Exception as e:
-                print(f"Error closing driver: {e}")
+                logger.info(f"Error closing driver: {e}")
 
             try:
                 self.driver.quit()
             except Exception as e:
-                print(f"Error closing existing driver: {e}")
+                logger.info(f"Error closing existing driver: {e}")
             self.driver = None
 
         self.driver = uc.Chrome(
@@ -438,7 +430,7 @@ class WebBotAdapter(BotAdapter):
         if not self.websocket_port:
             raise Exception("WebSocket server failed to start")
 
-        print(f"Trying to join meeting at {self.meeting_url}")
+        logger.info(f"Trying to join meeting at {self.meeting_url}")
 
         num_retries = 0
         max_retries = 2
@@ -446,7 +438,7 @@ class WebBotAdapter(BotAdapter):
             try:
                 self.init_driver()
                 self.attempt_to_join_meeting()
-                print("Successfully joined meeting")
+                logger.info("Successfully joined meeting")
                 break
 
             except UiRequestToJoinDeniedException:
@@ -455,11 +447,11 @@ class WebBotAdapter(BotAdapter):
 
             except UiRetryableException as e:
                 if num_retries >= max_retries:
-                    print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
                     self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
                     return
 
-                print(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
+                logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
 
             num_retries += 1
             sleep(1)
@@ -481,28 +473,28 @@ class WebBotAdapter(BotAdapter):
             return
 
         try:
-            print("disable media sending")
+            logger.info("disable media sending")
             self.driver.execute_script("window.ws?.disableMediaSending();")
 
             self.click_leave_button()
         except Exception as e:
-            print(f"Error during leave: {e}")
+            logger.info(f"Error during leave: {e}")
         finally:
             self.send_message_callback({"message": self.Messages.MEETING_ENDED})
             self.left_meeting = True
 
     def cleanup(self):
         try:
-            print("disable media sending")
+            logger.info("disable media sending")
             self.driver.execute_script("window.ws?.disableMediaSending();")
         except Exception as e:
-            print(f"Error during media sending disable: {e}")
+            logger.info(f"Error during media sending disable: {e}")
 
         # Wait for websocket buffers to be processed
         if self.last_websocket_message_processed_time:
             time_when_shutdown_initiated = time.time()
             while time.time() - self.last_websocket_message_processed_time < 2 and time.time() - time_when_shutdown_initiated < 30:
-                print(f"Waiting until it's 2 seconds since last websockets message was processed or 30 seconds have passed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds and {time.time() - time_when_shutdown_initiated} seconds have passed")
+                logger.info(f"Waiting until it's 2 seconds since last websockets message was processed or 30 seconds have passed. Currently it is {time.time() - self.last_websocket_message_processed_time} seconds and {time.time() - time_when_shutdown_initiated} seconds have passed")
                 sleep(0.5)
 
         try:
@@ -511,22 +503,22 @@ class WebBotAdapter(BotAdapter):
                 try:
                     self.driver.close()
                 except Exception as e:
-                    print(f"Error closing driver: {e}")
+                    logger.info(f"Error closing driver: {e}")
 
                 # Then quit the driver
                 try:
                     self.driver.quit()
                 except Exception as e:
-                    print(f"Error quitting driver: {e}")
+                    logger.info(f"Error quitting driver: {e}")
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            logger.info(f"Error during cleanup: {e}")
 
         # Properly shutdown the websocket server
         if self.websocket_server:
             try:
                 self.websocket_server.shutdown()
             except Exception as e:
-                print(f"Error shutting down websocket server: {e}")
+                logger.info(f"Error shutting down websocket server: {e}")
 
         self.cleaned_up = True
 
@@ -541,15 +533,15 @@ class WebBotAdapter(BotAdapter):
 
         if self.only_one_participant_in_meeting_at is not None:
             if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds:
-                print(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
+                logger.info(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
         if self.last_audio_message_processed_time is not None:
             if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
-                print(f"Auto-leaving meeting because there was no media message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+                logger.info(f"Auto-leaving meeting because there was no media message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
 
     def send_raw_audio(self, bytes, sample_rate):
-        print("send_raw_audio not supported in google meet bots")
+        logger.info("send_raw_audio not supported in google meet bots")
