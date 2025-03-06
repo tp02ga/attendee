@@ -172,6 +172,9 @@ class Bot(models.Model):
     def __str__(self):
         return f"{self.object_id} - {self.project.name} in {self.meeting_url}"
 
+    def k8s_pod_name(self):
+        return f"bot-pod-{self.id}-{self.object_id}".lower().replace("_", "-")
+
 
 class BotEventTypes(models.IntegerChoices):
     BOT_PUT_IN_WAITING_ROOM = 1, "Bot Put in Waiting Room"
