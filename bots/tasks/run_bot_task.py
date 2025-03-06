@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, soft_time_limit=3600)
 def run_bot(self, bot_id):
-    logger.info("Running bot", bot_id)
+    logger.info(f"Running bot {bot_id}")
     bot_controller = BotController(bot_id)
     bot_controller.run()
 
