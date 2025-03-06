@@ -206,7 +206,7 @@ class VideoInputStream:
             return
 
         if self.last_debug_frame_time is None or time.time() - self.last_debug_frame_time > 1:
-            logger.info(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
+            logger.debug(f"In VideoInputStream.on_raw_video_frame_received_callback for user {self.user_id} received frame")
             self.last_debug_frame_time = time.time()
 
         scaled_i420_frame = scale_i420(data, self.video_input_manager.video_frame_size)
