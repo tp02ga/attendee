@@ -2,9 +2,11 @@ import gi
 
 gi.require_version("Gst", "1.0")
 import time
+import logging
 
 from gi.repository import GLib, Gst
 
+logger = logging.getLogger(__name__)
 
 class GstreamerPipeline:
     AUDIO_FORMAT_PCM = "audio/x-raw,format=S16LE,channels=1,rate=32000,layout=interleaved"
@@ -205,11 +207,9 @@ class GstreamerPipeline:
 
             src = message.src
             src_name = src.name if src else "unknown"
-
-            print(f"GStreamer Error: {err}, Debug: {debug}, src_name: {src_name}")
-
+            logger.info(f"GStreamer Error: {err}, Debug: {debug}, src_name: {src_name}")
         elif t == Gst.MessageType.EOS:
-            print("GStreamer pipeline reached end of stream")
+            logger.info("GStreamer pipeline reached end of stream")
 
     def monitor_pipeline_stats(self):
         """Periodically print pipeline statistics"""
@@ -217,16 +217,15 @@ class GstreamerPipeline:
             return False
 
         try:
-            # Print dropped buffer counts since last check
-            print("\nDropped Buffers Since Last Check:")
+            logger.info("\nDropped Buffers Since Last Check:")
             for queue_name in self.queue_drops:
                 drops = self.queue_drops[queue_name] - self.last_reported_drops[queue_name]
                 if drops > 0:
-                    print(f"  {queue_name}: {drops} buffers dropped")
+                    logger.info(f"  {queue_name}: {drops} buffers dropped")
                 self.last_reported_drops[queue_name] = self.queue_drops[queue_name]
 
         except Exception as e:
-            print(f"Error getting pipeline stats: {e}")
+            logger.info(f"Error getting pipeline stats: {e}")
 
         return True  # Continue timer
 
@@ -255,9 +254,9 @@ class GstreamerPipeline:
 
             ret = audio_appsrc.emit("push-buffer", buffer)
             if ret != Gst.FlowReturn.OK:
-                print(f"Warning: Failed to push audio buffer to pipeline: {ret}")
+                logger.info(f"Warning: Failed to push audio buffer to pipeline: {ret}")
         except Exception as e:
-            print(f"Error processing audio data: {e}")
+            logger.info(f"Error processing audio data: {e}")
 
     def wants_any_video_frames(self):
         if not self.audio_recording_active or not self.audio_appsrcs[0] or not self.recording_active or not self.appsrc:
@@ -284,13 +283,13 @@ class GstreamerPipeline:
             # Push buffer to pipeline
             ret = self.appsrc.emit("push-buffer", buffer)
             if ret != Gst.FlowReturn.OK:
-                print(f"Warning: Failed to push buffer to pipeline: {ret}")
+                logger.info(f"Warning: Failed to push buffer to pipeline: {ret}")
 
         except Exception as e:
-            print(f"Error processing video frame: {e}")
+            logger.info(f"Error processing video frame: {e}")
 
     def cleanup(self):
-        print("Shutting down GStreamer pipeline...")
+        logger.info("Shutting down GStreamer pipeline...")
 
         self.recording_active = False
         self.audio_recording_active = False
@@ -312,7 +311,7 @@ class GstreamerPipeline:
 
         if msg and msg.type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()
-            print(f"Error during pipeline shutdown: {err}, {debug}")
+            logger.info(f"Error during pipeline shutdown: {err}, {debug}")
 
         self.pipeline.set_state(Gst.State.NULL)
-        print("GStreamer pipeline shut down")
+        logger.info("GStreamer pipeline shut down")

@@ -260,7 +260,7 @@ class VideoInputManager:
         if mode != VideoInputManager.Mode.ACTIVE_SPEAKER and mode != VideoInputManager.Mode.ACTIVE_SHARER:
             raise Exception("Unsupported mode " + str(mode))
 
-        print(f"In VideoInputManager.set_mode mode = {mode} active_speaker_id = {active_speaker_id} active_sharer_id = {active_sharer_id} active_sharer_source_id = {active_sharer_source_id}")
+        logger.info(f"In VideoInputManager.set_mode mode = {mode} active_speaker_id = {active_speaker_id} active_sharer_id = {active_sharer_id} active_sharer_source_id = {active_sharer_source_id}")
 
         self.mode = mode
 

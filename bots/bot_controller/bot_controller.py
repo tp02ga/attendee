@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import signal
 import traceback
@@ -41,6 +42,8 @@ from .rtmp_client import RTMPClient
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
+
+logger = logging.getLogger(__name__)
 
 
 class BotController:
@@ -148,7 +151,7 @@ class BotController:
         return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.{self.bot_in_db.recording_format()}"
 
     def on_rtmp_connection_failed(self):
-        print("RTMP connection failed")
+        logger.info("RTMP connection failed")
         BotEventManager.create_event(
             bot=self.bot_in_db,
             event_type=BotEventTypes.FATAL_ERROR,
@@ -168,7 +171,7 @@ class BotController:
 
     def cleanup(self):
         if self.cleanup_called:
-            print("Cleanup already called, exiting")
+            logger.info("Cleanup already called, exiting")
             return
         self.cleanup_called = True
 
@@ -180,42 +183,42 @@ class BotController:
 
             time.sleep(20)
             if normal_quitting_process_worked:
-                print("Normal quitting process worked, not force terminating worker")
+                logger.info("Normal quitting process worked, not force terminating worker")
                 return
-            print("Terminating worker with hard timeout...")
+            logger.info("Terminating worker with hard timeout...")
             os.kill(os.getpid(), signal.SIGKILL)  # Force terminate the worker process
 
         termination_thread = threading.Thread(target=terminate_worker, daemon=True)
         termination_thread.start()
 
         if self.gstreamer_pipeline:
-            print("Telling gstreamer pipeline to cleanup...")
+            logger.info("Telling gstreamer pipeline to cleanup...")
             self.gstreamer_pipeline.cleanup()
 
         if self.rtmp_client:
-            print("Telling rtmp client to cleanup...")
+            logger.info("Telling rtmp client to cleanup...")
             self.rtmp_client.stop()
 
         if self.adapter:
-            print("Telling adapter to leave meeting...")
+            logger.info("Telling adapter to leave meeting...")
             self.adapter.leave()
-            print("Telling adapter to cleanup...")
+            logger.info("Telling adapter to cleanup...")
             self.adapter.cleanup()
 
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
         if self.get_gstreamer_file_location():
-            print("Telling file uploader to upload recording file...")
+            logger.info("Telling file uploader to upload recording file...")
             file_uploader = FileUploader(
                 os.environ.get("AWS_RECORDING_STORAGE_BUCKET_NAME"),
                 self.get_recording_filename(),
             )
             file_uploader.upload_file(self.get_gstreamer_file_location())
             file_uploader.wait_for_upload()
-            print("File uploader finished uploading file")
+            logger.info("File uploader finished uploading file")
             file_uploader.delete_file(self.get_gstreamer_file_location())
-            print("File uploader deleted file from local filesystem")
+            logger.info("File uploader deleted file from local filesystem")
             self.recording_file_saved(file_uploader.key)
 
         if self.bot_in_db.state == BotStates.POST_PROCESSING:
@@ -317,7 +320,7 @@ class BotController:
                         # Schedule Redis message handling in the main GLib loop
                         GLib.idle_add(lambda: self.handle_redis_message(message))
                 except Exception as e:
-                    print(f"Error in Redis listener: {e}")
+                    logger.info(f"Error in Redis listener: {e}")
                     break
 
         redis_thread = threading.Thread(target=redis_listener, daemon=True)
@@ -335,7 +338,7 @@ class BotController:
         try:
             self.main_loop.run()
         except Exception as e:
-            print(f"Error in bot {self.bot_in_db.id}: {str(e)}")
+            logger.info(f"Error in bot {self.bot_in_db.id}: {str(e)}")
             self.cleanup()
         finally:
             # Clean up Redis subscription
@@ -344,11 +347,11 @@ class BotController:
 
     def take_action_based_on_bot_in_db(self):
         if self.bot_in_db.state == BotStates.JOINING:
-            print("take_action_based_on_bot_in_db - JOINING")
+            logger.info("take_action_based_on_bot_in_db - JOINING")
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.init()
         if self.bot_in_db.state == BotStates.LEAVING:
-            print("take_action_based_on_bot_in_db - LEAVING")
+            logger.info("take_action_based_on_bot_in_db - LEAVING")
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.leave()
 
@@ -356,7 +359,7 @@ class BotController:
         return self.adapter.get_participant(participant_id)
 
     def currently_playing_audio_media_request_finished(self, audio_media_request):
-        print("currently_playing_audio_media_request_finished called")
+        logger.info("currently_playing_audio_media_request_finished called")
         BotMediaRequestManager.set_media_request_finished(audio_media_request)
         self.take_action_based_on_audio_media_requests_in_db()
 
@@ -367,14 +370,14 @@ class BotController:
             return
         currently_playing_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.PLAYING, media_type=media_type).first()
         if currently_playing_media_request:
-            print(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
+            logger.info(f"Currently playing media request {currently_playing_media_request.id} so cannot play another media request")
             return
 
         try:
             BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
             self.audio_output_manager.start_playing_audio_media_request(oldest_enqueued_media_request)
         except Exception as e:
-            print(f"Error sending raw audio: {e}")
+            logger.info(f"Error sending raw audio: {e}")
             BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
 
     def take_action_based_on_image_media_requests_in_db(self):
@@ -397,7 +400,7 @@ class BotController:
             self.adapter.send_raw_image(png_to_yuv420_frame(most_recent_request.media_blob.blob))
             BotMediaRequestManager.set_media_request_finished(most_recent_request)
         except Exception as e:
-            print(f"Error sending raw image: {e}")
+            logger.info(f"Error sending raw image: {e}")
             BotMediaRequestManager.set_media_request_failed_to_play(most_recent_request)
 
         # Mark all other enqueued requests as DROPPED
@@ -409,7 +412,7 @@ class BotController:
         self.take_action_based_on_image_media_requests_in_db()
 
     def handle_glib_shutdown(self):
-        print("handle_glib_shutdown called")
+        logger.info("handle_glib_shutdown called")
 
         try:
             BotEventManager.create_event(
@@ -418,7 +421,7 @@ class BotController:
                 event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED,
             )
         except Exception as e:
-            print(f"Error creating FATAL_ERROR event: {e}")
+            logger.info(f"Error creating FATAL_ERROR event: {e}")
 
         self.cleanup()
         return False
@@ -429,20 +432,20 @@ class BotController:
             command = data.get("command")
 
             if command == "sync":
-                print(f"Syncing bot {self.bot_in_db.object_id}")
+                logger.info(f"Syncing bot {self.bot_in_db.object_id}")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_bot_in_db()
             elif command == "sync_media_requests":
-                print(f"Syncing media requests for bot {self.bot_in_db.object_id}")
+                logger.info(f"Syncing media requests for bot {self.bot_in_db.object_id}")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_media_requests_in_db()
             else:
-                print(f"Unknown command: {command}")
+                logger.info(f"Unknown command: {command}")
 
     def on_main_loop_timeout(self):
         try:
             if self.first_timeout_call:
-                print("First timeout call - taking initial action")
+                logger.info("First timeout call - taking initial action")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_bot_in_db()
                 self.first_timeout_call = False
@@ -461,9 +464,9 @@ class BotController:
             return True
 
         except Exception as e:
-            print(f"Error in timeout callback: {e}")
-            print("Traceback:")
-            traceback.print_exc()
+            logger.info(f"Error in timeout callback: {e}")
+            logger.info("Traceback:")
+            logger.info(traceback.format_exc())
             self.cleanup()
             return False
 
@@ -506,7 +509,7 @@ class BotController:
     def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
 
-        print("Received message that new utterance was detected")
+        logger.info("Received message that new utterance was detected")
 
         # Create participant record if it doesn't exist
         participant, _ = Participant.objects.get_or_create(
@@ -540,15 +543,15 @@ class BotController:
 
     def flush_utterances(self):
         if self.individual_audio_input_manager:
-            print("Flushing utterances...")
+            logger.info("Flushing utterances...")
             self.individual_audio_input_manager.flush_utterances()
         if self.closed_caption_manager:
-            print("Flushing captions...")
+            logger.info("Flushing captions...")
             self.closed_caption_manager.flush_captions()
 
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
-            print("Received message that request to join was denied")
+            logger.info("Received message that request to join was denied")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -558,7 +561,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
-            print(f"Received message that UI element not found at {message.get('current_time')}")
+            logger.info(f"Received message that UI element not found at {message.get('current_time')}")
 
             screenshot_available = message.get("screenshot_path") is not None
 
@@ -593,7 +596,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING:
-            print(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
+            logger.info(f"Received message that adapter requested bot leave meeting reason={message.get('leave_reason')}")
 
             event_sub_type_for_reason = {
                 BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE: BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
@@ -606,7 +609,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.MEETING_ENDED:
-            print("Received message that meeting ended")
+            logger.info("Received message that meeting ended")
             self.flush_utterances()
             if self.bot_in_db.state == BotStates.LEAVING:
                 BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_MEETING)
@@ -617,7 +620,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING:
-            print(f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}")
+            logger.info(f"Received message that meeting status failed unable to join external meeting with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -628,7 +631,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_MEETING_STATUS_FAILED:
-            print(f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}")
+            logger.info(f"Received message that meeting status failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -639,7 +642,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_AUTHORIZATION_FAILED:
-            print(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
+            logger.info(f"Received message that authorization failed with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -650,7 +653,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.ZOOM_SDK_INTERNAL_ERROR:
-            print(f"Received message that SDK internal error with zoom_result_code={message.get('zoom_result_code')}")
+            logger.info(f"Received message that SDK internal error with zoom_result_code={message.get('zoom_result_code')}")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -661,7 +664,7 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
-            print("Received message to Leave meeting because received waiting for host status")
+            logger.info("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.COULD_NOT_JOIN,
@@ -671,17 +674,17 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_PUT_IN_WAITING_ROOM:
-            print("Received message to put bot in waiting room")
+            logger.info("Received message to put bot in waiting room")
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_PUT_IN_WAITING_ROOM)
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_JOINED_MEETING:
-            print("Received message that bot joined meeting")
+            logger.info("Received message that bot joined meeting")
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
-            print("Received message that bot recording permission granted")
+            logger.info("Received message that bot recording permission granted")
             BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
