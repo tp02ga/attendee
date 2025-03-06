@@ -1,9 +1,11 @@
-from django.core.management.base import BaseCommand
 import logging
+
+from django.core.management.base import BaseCommand
 
 from bots.tasks import run_bot  # Import your task
 
 logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     help = "Runs the celery task synchronously on a given bot that is already created"

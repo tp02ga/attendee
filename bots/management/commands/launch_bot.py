@@ -17,6 +17,7 @@ from bots.tasks import run_bot  # Import your task
 
 logger = logging.getLogger(__name__)
 
+
 class Command(BaseCommand):
     help = "Runs the celery task directly for debugging"
 

@@ -7,6 +7,7 @@ import boto3
 
 logger = logging.getLogger(__name__)
 
+
 class StreamingUploader:
     def __init__(self, bucket, key, chunk_size=5242880):  # 5MB chunks
         self.s3_client = boto3.client("s3")
