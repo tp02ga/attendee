@@ -5,11 +5,12 @@ from celery import shared_task
 from celery.signals import worker_shutting_down
 
 from bots.bot_controller import BotController
-
+import logging
+logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, soft_time_limit=3600)
 def run_bot(self, bot_id):
-    print("Running bot", bot_id)
+    logger.info("Running bot", bot_id)
     bot_controller = BotController(bot_id)
     bot_controller.run()
 
@@ -30,5 +31,5 @@ def shutting_down_handler(sig, how, exitcode, **kwargs):
     # Just adding this code so we can see how to shut down all the tasks
     # when the main process is terminated.
     # It's likely overkill.
-    print("Celery worker shutting down, sending SIGTERM to all child processes")
+    logger.info("Celery worker shutting down, sending SIGTERM to all child processes")
     kill_child_processes()
