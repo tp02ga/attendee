@@ -146,7 +146,6 @@ class Bot(models.Model):
                 current_timestamp = int(timezone.now().timestamp())
                 if self.first_heartbeat_timestamp is None:
                     self.first_heartbeat_timestamp = current_timestamp
-                previous_last_heartbeat_timestamp = self.last_heartbeat_timestamp
                 self.last_heartbeat_timestamp = current_timestamp
                 self.save()
                 return
