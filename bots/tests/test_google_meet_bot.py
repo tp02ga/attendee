@@ -246,10 +246,15 @@ class TestGoogleMeetBot(TransactionTestCase):
         connection.close()
 
     @patch("kubernetes.client.CoreV1Api")
-    def test_terminate_bots_with_heartbeat_timeout(self, MockCoreV1Api):
+    @patch("kubernetes.config.load_incluster_config")
+    @patch("kubernetes.config.load_kube_config")
+    def test_terminate_bots_with_heartbeat_timeout(self, mock_load_kube_config, mock_load_incluster_config, MockCoreV1Api):
         # Set up mock Kubernetes API
         mock_k8s_api = MagicMock()
         MockCoreV1Api.return_value = mock_k8s_api
+        
+        # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
+        mock_load_incluster_config.side_effect = Exception("Mock ConfigException")
         
         # Create a bot with a stale heartbeat (more than 10 minutes old)
         current_time = int(timezone.now().timestamp())
