@@ -62,7 +62,7 @@ class Command(BaseCommand):
             # Find non-terminal bots where:
             # - last heartbeat is over 10 minutes ago
             heartbeat_timeout_q_filter = models.Q(last_heartbeat_timestamp__isnull=False) & models.Q(last_heartbeat_timestamp__lt=ten_minutes_ago_timestamp)
-            problem_bots = Bot.objects.filter(~Bot.get_terminal_states_q_filter() & heartbeat_timeout_q_filter)
+            problem_bots = Bot.objects.filter(~BotEventManager.get_terminal_states_q_filter() & heartbeat_timeout_q_filter)
 
             logger.info(f"Found {problem_bots.count()} bots with heartbeat timeout")
 
