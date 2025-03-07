@@ -2,18 +2,19 @@ import os
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
-from django.utils import timezone
-import kubernetes
 
+import kubernetes
 import numpy as np
 from django.db import connection
 from django.test.testcases import TransactionTestCase
+from django.utils import timezone
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller import BotController
 from bots.models import (
     Bot,
     BotEventManager,
+    BotEventSubTypes,
     BotEventTypes,
     BotStates,
     Organization,
@@ -24,7 +25,6 @@ from bots.models import (
     TranscriptionProviders,
     TranscriptionTypes,
     Utterance,
-    BotEventSubTypes,
 )
 
 from .mock_data import MockF32AudioFrame
@@ -253,77 +253,69 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Set up mock Kubernetes API
         mock_k8s_api = MagicMock()
         MockCoreV1Api.return_value = mock_k8s_api
-        
+
         # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
         mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
-        
+
         # Create a bot with a stale heartbeat (more than 10 minutes old)
         current_time = int(timezone.now().timestamp())
         eleven_minutes_ago = current_time - 660  # 11 minutes ago
-        
+
         # Set the bot's heartbeat timestamps
         self.bot.first_heartbeat_timestamp = eleven_minutes_ago
         self.bot.last_heartbeat_timestamp = eleven_minutes_ago
         self.bot.state = BotStates.JOINED_RECORDING  # Set to a non-terminal state
         self.bot.save()
-        
+
         # Set bot launch method to kubernetes
         with patch.dict(os.environ, {"LAUNCH_BOT_METHOD": "kubernetes"}):
             # Import and run the command
             from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+
             command = Command()
             command.handle()
-        
+
         # Refresh the bot state from the database
         self.bot.refresh_from_db()
-        
+
         # Verify the bot was moved to FATAL_ERROR state
         self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
-        
+
         # Verify that a FATAL_ERROR event was created with the correct sub type
-        fatal_error_event = self.bot.bot_events.filter(
-            event_type=BotEventTypes.FATAL_ERROR,
-            event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT
-        ).first()
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT).first()
         self.assertIsNotNone(fatal_error_event)
         self.assertEqual(fatal_error_event.old_state, BotStates.JOINED_RECORDING)
         self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
-        
+
         # Verify Kubernetes pod deletion was attempted with the correct pod name
         pod_name = self.bot.k8s_pod_name()
-        mock_k8s_api.delete_namespaced_pod.assert_called_once_with(
-            name=pod_name,
-            namespace="attendee",
-            grace_period_seconds=0
-        )
+        mock_k8s_api.delete_namespaced_pod.assert_called_once_with(name=pod_name, namespace="attendee", grace_period_seconds=0)
 
     def test_bots_with_recent_heartbeat_not_terminated(self):
         # Create a bot with a recent heartbeat (9 minutes old)
         current_time = int(timezone.now().timestamp())
         nine_minutes_ago = current_time - 540  # 9 minutes ago
-        
+
         # Set the bot's heartbeat timestamps
         self.bot.first_heartbeat_timestamp = nine_minutes_ago
         self.bot.last_heartbeat_timestamp = nine_minutes_ago
         self.bot.state = BotStates.JOINED_RECORDING  # Set to a non-terminal state
         self.bot.save()
-        
+
         # Import and run the command
         from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+
         command = Command()
         command.handle()
-        
+
         # Refresh the bot state from the database
         self.bot.refresh_from_db()
-        
+
         # Verify the bot was NOT moved to FATAL_ERROR state
         self.assertEqual(self.bot.state, BotStates.JOINED_RECORDING)
-        
+
         # Verify that no FATAL_ERROR event was created with heartbeat timeout subtype
-        fatal_error_event = self.bot.bot_events.filter(
-            event_type=BotEventTypes.FATAL_ERROR,
-            event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT
-        ).first()
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT).first()
         self.assertIsNone(fatal_error_event)
 
 
