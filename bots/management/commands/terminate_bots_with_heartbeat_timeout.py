@@ -26,12 +26,16 @@ class Command(BaseCommand):
         logger.info("initialized kubernetes client")
 
     def terminate_bot(self, bot):
-        BotEventManager.create_event(
-            bot=bot,
-            event_type=BotEventTypes.FATAL_ERROR,
-            event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT,
-        )
+        try:
+            BotEventManager.create_event(
+                bot=bot,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT,
+            )
+        except Exception as e:
+            logger.error(f"Failed to create fatal error heartbeat timeout event for bot {bot.id}: {str(e)}")
 
+        # There isn't really a safe way to terminate the bot if it's running as a celery task
         if not os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
             return
         
@@ -58,8 +62,7 @@ class Command(BaseCommand):
             # Find non-terminal bots where:
             # - last heartbeat is over 10 minutes ago
             problem_bots = Bot.objects.filter(
-                ~models.Q(state=BotStates.ENDED) & 
-                ~models.Q(state=BotStates.FATAL_ERROR) &
+                ~Bot.get_terminal_states_q_filter() & 
                 (
                     (models.Q(last_heartbeat_timestamp__isnull=False) & 
                      models.Q(last_heartbeat_timestamp__lt=ten_minutes_ago_timestamp))
@@ -72,7 +75,7 @@ class Command(BaseCommand):
             for bot in problem_bots:
                 try:
                     logger.info(f"Terminating bot {bot.object_id} due to heartbeat timeout")
-                    terminate_bot(bot)
+                    self.terminate_bot(bot)
 
                 except Exception as e:
                     logger.error(f"Failed to terminate bot {bot.object_id}: {str(e)}")

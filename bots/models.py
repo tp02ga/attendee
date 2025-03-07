@@ -352,8 +352,9 @@ class BotEvent(models.Model):
 
 
 class BotEventManager:
+    TERMINAL_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED]
+    
     # Define valid state transitions for each event type
-
     VALID_TRANSITIONS = {
         BotEventTypes.JOIN_REQUESTED: {
             "from": BotStates.READY,
@@ -444,7 +445,15 @@ class BotEventManager:
 
     @classmethod
     def is_terminal_state(cls, state: int):
-        return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
+        return state in cls.TERMINAL_STATES
+
+    @classmethod
+    def get_terminal_states_q_filter(cls):
+        """Returns a Q object to filter for terminal states"""
+        q_filter = models.Q()
+        for state in cls.TERMINAL_STATES:
+            q_filter |= models.Q(state=state)
+        return q_filter
 
     @classmethod
     def create_event(
