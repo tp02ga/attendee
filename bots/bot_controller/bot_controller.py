@@ -8,6 +8,7 @@ import traceback
 import gi
 import redis
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from bots.bot_adapter import BotAdapter
 from bots.models import (
@@ -39,8 +40,7 @@ from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
-from django.utils import timezone
-from datetime import timedelta
+
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
 

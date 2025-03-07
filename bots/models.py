@@ -161,7 +161,7 @@ class Bot(models.Model):
 
         previous_heartbeat_duration = previous_last_heartbeat_timestamp - self.first_heartbeat_timestamp
         new_heartbeat_duration = self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
-        heartbeat_credit_charge_interval = 1800 # 1800 seconds = 30 minutes
+        heartbeat_credit_charge_interval = 1800  # 1800 seconds = 30 minutes
         previous_heartbeat_credit_charge_interval = previous_heartbeat_duration // heartbeat_credit_charge_interval
         new_heartbeat_credit_charge_interval = new_heartbeat_duration // heartbeat_credit_charge_interval
 
@@ -169,9 +169,6 @@ class Bot(models.Model):
             # We've gone from one credit charge interval to another
             # Let's create a charge for the closed interval
             pass
-
-        
-
 
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
@@ -353,7 +350,7 @@ class BotEvent(models.Model):
 
 class BotEventManager:
     TERMINAL_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED]
-    
+
     # Define valid state transitions for each event type
     VALID_TRANSITIONS = {
         BotEventTypes.JOIN_REQUESTED: {
@@ -544,7 +541,7 @@ class BotEventManager:
                             RecordingManager.set_recording_complete(recording)
 
                         # At this point, we'll want to create a final charge for the current heartbeat
-                        
+
                     return event
 
             except RecordModifiedError:

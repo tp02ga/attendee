@@ -1,12 +1,12 @@
 import logging
 import os
-from typing import List
 
 from django.core.management.base import BaseCommand
-from kubernetes import client, config
 from django.db import models
 from django.utils import timezone
-from bots.models import Bot, BotStates, BotEventManager, BotEventTypes, BotEventSubTypes
+from kubernetes import client, config
+
+from bots.models import Bot, BotEventManager, BotEventSubTypes, BotEventTypes
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,13 @@ class Command(BaseCommand):
         # There isn't really a safe way to terminate the bot if it's running as a celery task
         if not os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
             return
-        
+
         # Try to delete the pod if it exists
         try:
             pod_name = bot.k8s_pod_name()
             self.v1.delete_namespaced_pod(
-                name=pod_name, 
-                namespace=self.namespace, 
+                name=pod_name,
+                namespace=self.namespace,
                 grace_period_seconds=0,
             )
             logger.info(f"Deleted pod: {pod_name}")
@@ -61,16 +61,11 @@ class Command(BaseCommand):
 
             # Find non-terminal bots where:
             # - last heartbeat is over 10 minutes ago
-            problem_bots = Bot.objects.filter(
-                ~Bot.get_terminal_states_q_filter() & 
-                (
-                    (models.Q(last_heartbeat_timestamp__isnull=False) & 
-                     models.Q(last_heartbeat_timestamp__lt=ten_minutes_ago_timestamp))
-                )
-            )
-            
+            heartbeat_timeout_q_filter = models.Q(last_heartbeat_timestamp__isnull=False) & models.Q(last_heartbeat_timestamp__lt=ten_minutes_ago_timestamp)
+            problem_bots = Bot.objects.filter(~Bot.get_terminal_states_q_filter() & heartbeat_timeout_q_filter)
+
             logger.info(f"Found {problem_bots.count()} bots with heartbeat timeout")
-            
+
             # Create fatal error events for each bot
             for bot in problem_bots:
                 try:
@@ -79,7 +74,7 @@ class Command(BaseCommand):
 
                 except Exception as e:
                     logger.error(f"Failed to terminate bot {bot.object_id}: {str(e)}")
-                    
+
             logger.info("Finished terminating bots with heartbeat timeout")
 
         except client.ApiException as e:
