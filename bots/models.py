@@ -139,11 +139,11 @@ class Bot(models.Model):
 
     def set_heartbeat(self):
         retry_count = 0
-        max_retries = 3
+        max_retries = 10
         while retry_count < max_retries:
             try:
                 self.refresh_from_db()
-                current_timestamp = timezone.now().timestamp()
+                current_timestamp = int(timezone.now().timestamp())
                 if self.first_heartbeat_timestamp is None:
                     self.first_heartbeat_timestamp = current_timestamp
                 previous_last_heartbeat_timestamp = self.last_heartbeat_timestamp
@@ -156,8 +156,11 @@ class Bot(models.Model):
                     raise
                 continue
 
-        previous_heartbeat_duration = previous_last_heartbeat_timestamp - self.first_heartbeat_at
-        new_heartbeat_duration = self.last_heartbeat_timestamp - self.first_heartbeat_at
+        if previous_last_heartbeat_timestamp is None:
+            return
+
+        previous_heartbeat_duration = previous_last_heartbeat_timestamp - self.first_heartbeat_timestamp
+        new_heartbeat_duration = self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
         heartbeat_credit_charge_interval = 1800 # 1800 seconds = 30 minutes
         previous_heartbeat_credit_charge_interval = previous_heartbeat_duration // heartbeat_credit_charge_interval
         new_heartbeat_credit_charge_interval = new_heartbeat_duration // heartbeat_credit_charge_interval
@@ -166,6 +169,8 @@ class Bot(models.Model):
             # We've gone from one credit charge interval to another
             # Let's create a charge for the closed interval
             pass
+
+        
 
 
     def deepgram_language(self):
@@ -529,9 +534,7 @@ class BotEventManager:
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
-                        # Create a charge for the interval that we're on
-                        # if we create a charge and it creates a negative credit balance, then we will tell the bot to sync via redis.
-                        # When the bot syncs it will pick up on this and shut down
+                        # At this point, we'll want to create a final charge for the current heartbeat
                         
                     return event
 

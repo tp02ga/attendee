@@ -39,7 +39,8 @@ from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
-
+from django.utils import timezone
+from datetime import timedelta
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
 
@@ -443,7 +444,7 @@ class BotController:
                 logger.info(f"Unknown command: {command}")
 
     def set_bot_heartbeat(self):
-        if self.bot_in_db.last_heartbeat_at is None or self.bot_in_db.last_heartbeat_at < timezone.now() - timedelta(seconds=60):
+        if self.bot_in_db.last_heartbeat_timestamp is None or self.bot_in_db.last_heartbeat_timestamp <= int(timezone.now().timestamp()) - 60:
             self.bot_in_db.set_heartbeat()
 
     def on_main_loop_timeout(self):
