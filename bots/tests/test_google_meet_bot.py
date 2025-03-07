@@ -291,6 +291,35 @@ class TestGoogleMeetBot(TransactionTestCase):
             grace_period_seconds=0
         )
 
+    def test_bots_with_recent_heartbeat_not_terminated(self):
+        # Create a bot with a recent heartbeat (9 minutes old)
+        current_time = int(timezone.now().timestamp())
+        nine_minutes_ago = current_time - 540  # 9 minutes ago
+        
+        # Set the bot's heartbeat timestamps
+        self.bot.first_heartbeat_timestamp = nine_minutes_ago
+        self.bot.last_heartbeat_timestamp = nine_minutes_ago
+        self.bot.state = BotStates.JOINED_RECORDING  # Set to a non-terminal state
+        self.bot.save()
+        
+        # Import and run the command
+        from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+        command = Command()
+        command.handle()
+        
+        # Refresh the bot state from the database
+        self.bot.refresh_from_db()
+        
+        # Verify the bot was NOT moved to FATAL_ERROR state
+        self.assertEqual(self.bot.state, BotStates.JOINED_RECORDING)
+        
+        # Verify that no FATAL_ERROR event was created with heartbeat timeout subtype
+        fatal_error_event = self.bot.bot_events.filter(
+            event_type=BotEventTypes.FATAL_ERROR,
+            event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT
+        ).first()
+        self.assertIsNone(fatal_error_event)
+
 
 # Simulate video data arrival
 # Create a mock video message in the format expected by process_video_frame
