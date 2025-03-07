@@ -165,6 +165,10 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 

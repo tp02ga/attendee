@@ -442,6 +442,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 
@@ -595,6 +599,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
@@ -851,6 +859,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 
@@ -1095,6 +1107,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 
@@ -1214,6 +1230,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Check that the bot joined successfully
         bot_events = self.bot.bot_events.all()
         self.assertEqual(len(bot_events), 2)
@@ -1308,6 +1328,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Check the bot events
         bot_events = self.bot.bot_events.all()
         self.assertEqual(len(bot_events), 2)
@@ -1395,6 +1419,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
         # Check the bot events
         bot_events = self.bot.bot_events.all()
@@ -1486,6 +1514,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
         # Check the bot events
         bot_events = self.bot.bot_events.all()
@@ -1625,6 +1657,10 @@ class TestZoomBot(TransactionTestCase):
         # Refresh the bot from the database
         self.bot.refresh_from_db()
 
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
         # Assert that the bot is in the FATAL_ERROR state
         self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
 
@@ -1713,6 +1749,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
         # Check the bot events
         bot_events = self.bot.bot_events.all()
@@ -1849,6 +1889,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
