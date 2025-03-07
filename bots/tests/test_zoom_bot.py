@@ -5,13 +5,14 @@ import threading
 import time
 from unittest.mock import MagicMock, call, patch
 
+import zoom_meeting_sdk as zoom
 from django.db import connection
 from django.test.testcases import TransactionTestCase
 
 from bots.bot_controller import BotController
-from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
-from bots.bot_controller.streaming_uploader import StreamingUploader
+from bots.bot_controller.file_uploader import FileUploader
+from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 from bots.bots_api_views import send_sync_command
 from bots.models import (
     Bot,
@@ -27,6 +28,7 @@ from bots.models import (
     Organization,
     Project,
     Recording,
+    RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
     RecordingTypes,
@@ -34,15 +36,17 @@ from bots.models import (
     TranscriptionTypes,
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
-import zoom_meeting_sdk as zoom
 
-def create_mock_streaming_uploader():
-    mock_streaming_uploader = MagicMock(spec=StreamingUploader)
-    mock_streaming_uploader.upload_part.return_value = None
-    mock_streaming_uploader.complete_upload.return_value = None
-    mock_streaming_uploader.start_upload.return_value = None
-    mock_streaming_uploader.key = "test-recording-key"  # Simple string attribute
-    return mock_streaming_uploader
+from .mock_data import MockPCMAudioFrame, MockVideoFrame
+
+
+def create_mock_file_uploader():
+    mock_file_uploader = MagicMock(spec=FileUploader)
+    mock_file_uploader.upload_file.return_value = None
+    mock_file_uploader.wait_for_upload.return_value = None
+    mock_file_uploader.delete_file.return_value = None
+    mock_file_uploader.key = "test-recording-key"  # Simple string attribute
+    return mock_file_uploader
 
 
 def create_mock_zoom_sdk():
@@ -294,63 +298,7 @@ def create_mock_deepgram():
     return mock_deepgram
 
 
-class MockVideoFrame:
-    def __init__(self):
-        width = 640
-        height = 360
-
-        # Create separate Y, U, and V planes
-        self.y_buffer = b"\x00" * (width * height)  # Y plane (black)
-        self.u_buffer = b"\x80" * (width * height // 4)  # U plane (128 for black)
-        self.v_buffer = b"\x80" * (width * height // 4)  # V plane (128 for black)
-
-        self.size = len(self.y_buffer) + len(self.u_buffer) + len(self.v_buffer)
-        self.timestamp = int(time.time() * 1000)  # Current time in milliseconds
-
-    def GetBuffer(self):
-        return self.y_buffer + self.u_buffer + self.v_buffer
-
-    def GetYBuffer(self):
-        return self.y_buffer
-
-    def GetUBuffer(self):
-        return self.u_buffer
-
-    def GetVBuffer(self):
-        return self.v_buffer
-
-    def GetStreamWidth(self):
-        return 640
-
-    def GetStreamHeight(self):
-        return 360
-
-
-class MockAudioFrame:
-    def __init__(self):
-        # Create 10ms of a 440Hz sine wave at 32000Hz mono
-        # 32000 samples/sec * 0.01 sec = 320 samples
-        # Each sample is 2 bytes (unsigned 16-bit)
-        import math
-
-        samples = []
-        for i in range(320):  # 10ms worth of samples at 32kHz
-            # Generate sine wave with frequency 440Hz
-            t = i / 32000.0  # time in seconds
-            # Generate value between 0 and 65535 (unsigned 16-bit)
-            # Center at 32768, use amplitude of 16384 to avoid clipping
-            value = int(32768 + 16384 * math.sin(2 * math.pi * 440 * t))
-            # Ensure value stays within valid range
-            value = max(0, min(65535, value))
-            # Convert to two bytes (little-endian)
-            samples.extend([value & 0xFF, (value >> 8) & 0xFF])
-        self.buffer = bytes(samples)
-
-    def GetBuffer(self):
-        return self.buffer
-
-
-class TestBotJoinMeeting(TransactionTestCase):
+class TestZoomBot(TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -409,12 +357,12 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_can_wait_for_host_then_join_meeting(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -423,17 +371,15 @@ class TestBotJoinMeeting(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
 
         # Create bot controller with a very short wait time
         controller = BotController(self.bot.id)
-        controller.automatic_leave_configuration = AutomaticLeaveConfiguration(
-            wait_for_host_to_start_meeting_timeout_seconds=2
-        )
+        controller.automatic_leave_configuration = AutomaticLeaveConfiguration(wait_for_host_to_start_meeting_timeout_seconds=2)
 
         # Run the bot in a separate thread since it has an event loop
         bot_thread = threading.Thread(target=controller.run)
@@ -501,7 +447,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -525,7 +471,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -546,14 +498,14 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     @patch("time.time")
     def test_bot_auto_leaves_meeting_after_silence_threshold(
         self,
         mock_time,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -562,8 +514,8 @@ class TestBotJoinMeeting(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -608,7 +560,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate receiving some initial audio
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
@@ -649,7 +601,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 6)  # We expect 6 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -686,8 +638,14 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_left_meeting_event = bot_events[4]
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
-        self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(bot_left_meeting_event.event_sub_type)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)
@@ -705,18 +663,25 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     @patch("google.cloud.texttospeech.TextToSpeechClient")
     def test_bot_can_join_meeting_and_record_audio_and_video(
         self,
         MockTextToSpeechClient,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
+        self.bot.settings = {
+            "recording_settings": {
+                "format": RecordingFormats.MP4,
+            }
+        }
+        self.bot.save()
+
         # Set up Google TTS mock
         mock_tts_client = MagicMock()
         mock_tts_response = MagicMock()
@@ -752,13 +717,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         uploaded_data = bytearray()
 
         # Configure the mock uploader to capture uploaded data
-        mock_uploader = create_mock_streaming_uploader()
+        mock_uploader = create_mock_file_uploader()
 
-        def capture_upload_part(data):
-            uploaded_data.extend(data)
+        def capture_upload_part(file_path):
+            uploaded_data.extend(open(file_path, "rb").read())
 
-        mock_uploader.upload_part.side_effect = capture_upload_part
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader.upload_file.side_effect = capture_upload_part
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -802,10 +767,10 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
-            adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
+            adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockPCMAudioFrame())
 
             # simulate audio mic initialized
             adapter.virtual_audio_mic_event_passthrough.onMicInitializeCallback(MagicMock())
@@ -877,9 +842,11 @@ class TestBotJoinMeeting(TransactionTestCase):
         mp4_signature_found = b"ftyp" in uploaded_data[:1000]
         self.assertTrue(mp4_signature_found, "MP4 file signature not found in uploaded data")
 
-        # Additional verification for StreamingUploader
-        mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        # Additional verification for FileUploader
+        mock_uploader.upload_file.assert_called_once()
+        self.assertGreater(mock_uploader.upload_file.call_count, 0, "upload_file was never called")
+        mock_uploader.wait_for_upload.assert_called_once()
+        mock_uploader.delete_file.assert_called_once()
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -889,7 +856,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -920,15 +887,21 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
-        print("bot_events = ", bot_events)
+
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(meeting_ended_event.event_sub_type)
         self.assertEqual(meeting_ended_event.metadata, {})
         self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -1004,16 +977,23 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_can_join_meeting_and_record_audio_when_in_voice_agent_configuration(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
+        self.bot.settings = {
+            "recording_settings": {
+                "format": RecordingFormats.MP4,
+            }
+        }
+        self.bot.save()
+
         # Set up Deepgram mock
         MockDeepgramClient.return_value = create_mock_deepgram()
 
@@ -1021,13 +1001,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         uploaded_data = bytearray()
 
         # Configure the mock uploader to capture uploaded data
-        mock_uploader = create_mock_streaming_uploader()
+        mock_uploader = create_mock_file_uploader()
 
-        def capture_upload_part(data):
-            uploaded_data.extend(data)
+        def capture_upload_part(file_path):
+            uploaded_data.extend(open(file_path, "rb").read())
 
-        mock_uploader.upload_part.side_effect = capture_upload_part
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader.upload_file.side_effect = capture_upload_part
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1068,7 +1048,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
@@ -1104,11 +1084,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_thread.join(timeout=10)
 
         # Verify that we received no data
-        self.assertEqual(len(uploaded_data), 977, "Uploaded data length is not correct")
+        self.assertEqual(len(uploaded_data), 993, "Uploaded data length is not correct")
 
-        # Additional verification for StreamingUploader
-        mock_uploader.start_upload.assert_called_once()
-        self.assertGreater(mock_uploader.upload_part.call_count, 0, "upload_part was never called")
+        # Additional verification for FileUploader
+        mock_uploader.upload_file.assert_called_once()
+        self.assertGreater(mock_uploader.upload_file.call_count, 0, "upload_file was never called")
+        mock_uploader.wait_for_upload.assert_called_once()
+        mock_uploader.delete_file.assert_called_once()
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -1118,7 +1100,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify all bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 4)  # We expect 4 events in total
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -1149,15 +1131,21 @@ class TestBotJoinMeeting(TransactionTestCase):
         self.assertIsNone(recording_permission_granted_event.event_sub_type)
         self.assertEqual(recording_permission_granted_event.metadata, {})
         self.assertIsNone(recording_permission_granted_event.requested_bot_action_taken_at)
-        print("bot_events = ", bot_events)
+
         # Verify meeting_ended_event (Event 4)
         meeting_ended_event = bot_events[3]
         self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
         self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.ENDED)
+        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
         self.assertIsNone(meeting_ended_event.event_sub_type)
         self.assertEqual(meeting_ended_event.metadata, {})
         self.assertIsNone(meeting_ended_event.requested_bot_action_taken_at)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify expected SDK calls
         mock_zoom_sdk_adapter.InitSDK.assert_called_once()
@@ -1188,17 +1176,17 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_failed_zoom_auth(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1260,9 +1248,9 @@ class TestBotJoinMeeting(TransactionTestCase):
         mock_zoom_sdk_adapter.CreateAuthService.assert_called_once()
         controller.adapter.meeting_service.Join.assert_not_called()
 
-        # Additional verification for StreamingUploader
+        # Additional verification for FileUploader
         # Probably should not be called, but it currently is
-        # controller.streaming_uploader.start_upload.assert_not_called()
+        # controller.file_uploader.upload_file.assert_not_called()
 
         # Cleanup
         # no need to cleanup since we already hit error
@@ -1279,27 +1267,25 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_waiting_for_host(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
 
         # Create bot controller
         controller = BotController(self.bot.id)
-        controller.automatic_leave_configuration = AutomaticLeaveConfiguration(
-            wait_for_host_to_start_meeting_timeout_seconds=1
-        )
-        
+        controller.automatic_leave_configuration = AutomaticLeaveConfiguration(wait_for_host_to_start_meeting_timeout_seconds=1)
+
         # Run the bot in a separate thread since it has an event loop
         bot_thread = threading.Thread(target=controller.run)
         bot_thread.daemon = True
@@ -1367,17 +1353,17 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_unable_to_join_external_meeting(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1458,17 +1444,17 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_meeting_failed_blocked_by_admin(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1549,7 +1535,7 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
 
     # We need run this test last because if the process isn't killed properly some weird behavior ensues
@@ -1560,7 +1546,7 @@ class TestBotJoinMeeting(TransactionTestCase):
     def test_bot_z_handles_rtmp_connection_failure(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -1569,8 +1555,8 @@ class TestBotJoinMeeting(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1619,10 +1605,10 @@ class TestBotJoinMeeting(TransactionTestCase):
 
                 # Simulate audio frame received
                 adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                    MockAudioFrame(),
+                    MockPCMAudioFrame(),
                     2,  # Simulated participant ID that's not the bot
                 )
-                adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockAudioFrame())
+                adapter.audio_source.onMixedAudioRawDataReceivedCallback(MockPCMAudioFrame())
 
                 time.sleep(5.0)
 
@@ -1696,17 +1682,17 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_bot_can_handle_zoom_sdk_internal_error(
         self,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
     ):
         # Configure the mock class to return our mock instance
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1776,12 +1762,12 @@ class TestBotJoinMeeting(TransactionTestCase):
     )
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
     @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
-    @patch("bots.bot_controller.bot_controller.StreamingUploader")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     def test_bot_leaves_meeting_when_requested(
         self,
         MockDeepgramClient,
-        MockStreamingUploader,
+        MockFileUploader,
         mock_jwt,
         mock_zoom_sdk_adapter,
         mock_zoom_sdk_video,
@@ -1790,8 +1776,8 @@ class TestBotJoinMeeting(TransactionTestCase):
         MockDeepgramClient.return_value = create_mock_deepgram()
 
         # Configure the mock uploader
-        mock_uploader = create_mock_streaming_uploader()
-        MockStreamingUploader.return_value = mock_uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
 
         # Mock the JWT token generation
         mock_jwt.encode.return_value = "fake_jwt_token"
@@ -1832,7 +1818,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate audio frame received to trigger transcription
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
-                MockAudioFrame(),
+                MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
             )
 
@@ -1841,10 +1827,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
             # Simulate user requesting bot to leave
             BotEventManager.create_event(bot=self.bot, event_type=BotEventTypes.LEAVE_REQUESTED, event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED)
-            controller.handle_redis_message({
-                "type": "message",
-                "data": json.dumps({"command": "sync"}).encode("utf-8")
-            })
+            controller.handle_redis_message({"type": "message", "data": json.dumps({"command": "sync"}).encode("utf-8")})
 
             # Update GetMeetingStatus to return ended status when meeting ends
             adapter.meeting_service.GetMeetingStatus.return_value = mock_zoom_sdk_adapter.MEETING_STATUS_ENDED
@@ -1872,7 +1855,7 @@ class TestBotJoinMeeting(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 6)  # We expect 6 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -1910,7 +1893,13 @@ class TestBotJoinMeeting(TransactionTestCase):
         bot_left_meeting_event = bot_events[4]
         self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
         self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
-        self.assertEqual(bot_left_meeting_event.new_state, BotStates.ENDED)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify that the adapter's leave method was called with the correct reason
         controller.adapter.meeting_service.Leave.assert_called_once_with(mock_zoom_sdk_adapter.LEAVE_MEETING)

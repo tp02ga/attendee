@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.core.management.base import BaseCommand
 
@@ -14,6 +15,8 @@ from bots.models import (
 )
 from bots.tasks import run_bot  # Import your task
 
+logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     help = "Runs the celery task directly for debugging"
@@ -26,7 +29,7 @@ class Command(BaseCommand):
         parser.add_argument("--projectid", type=str, help="Project ID")
 
     def handle(self, *args, **options):
-        self.stdout.write("Running task...")
+        logger.info("Running task...")
 
         project = Project.objects.get(object_id=options["projectid"])
 
@@ -54,4 +57,4 @@ class Command(BaseCommand):
         # Call your task directly
         result = run_bot.run(bot.id)
 
-        self.stdout.write(self.style.SUCCESS(f"Task completed with result: {result}"))
+        logger.info(f"Task completed with result: {result}")

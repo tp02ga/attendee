@@ -76,15 +76,22 @@ class ApiKey(models.Model):
         return f"{self.name} ({self.project.name})"
 
 
+class MeetingTypes(models.TextChoices):
+    ZOOM = "zoom"
+    GOOGLE_MEET = "google_meet"
+    TEAMS = "teams"
+
+
 class BotStates(models.IntegerChoices):
     READY = 1, "Ready"
     JOINING = 2, "Joining"
     JOINED_NOT_RECORDING = 3, "Joined - Not Recording"
     JOINED_RECORDING = 4, "Joined - Recording"
     LEAVING = 5, "Leaving"
-    ENDED = 6, "Ended"
+    POST_PROCESSING = 6, "Post Processing"
     FATAL_ERROR = 7, "Fatal Error"
     WAITING_ROOM = 8, "Waiting Room"
+    ENDED = 9, "Ended"
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -95,11 +102,17 @@ class BotStates(models.IntegerChoices):
             cls.JOINED_NOT_RECORDING: "joined_not_recording",
             cls.JOINED_RECORDING: "joined_recording",
             cls.LEAVING: "leaving",
-            cls.ENDED: "ended",
+            cls.POST_PROCESSING: "post_processing",
             cls.FATAL_ERROR: "fatal_error",
             cls.WAITING_ROOM: "waiting_room",
+            cls.ENDED: "ended",
         }
         return mapping.get(value)
+
+
+class RecordingFormats(models.TextChoices):
+    MP4 = "mp4"
+    WEBM = "webm"
 
 
 class Bot(models.Model):
@@ -174,6 +187,12 @@ class Bot(models.Model):
 
         return f"{destination_url}/{stream_key}"
 
+    def recording_format(self):
+        recording_settings = self.settings.get("recording_settings", {})
+        if recording_settings is None:
+            recording_settings = {}
+        return recording_settings.get("format", RecordingFormats.WEBM)
+
     def last_bot_event(self):
         return self.bot_events.order_by("-created_at").first()
 
@@ -187,6 +206,9 @@ class Bot(models.Model):
     def __str__(self):
         return f"{self.object_id} - {self.project.name} in {self.meeting_url}"
 
+    def k8s_pod_name(self):
+        return f"bot-pod-{self.id}-{self.object_id}".lower().replace("_", "-")
+
 
 class BotEventTypes(models.IntegerChoices):
     BOT_PUT_IN_WAITING_ROOM = 1, "Bot Put in Waiting Room"
@@ -198,6 +220,7 @@ class BotEventTypes(models.IntegerChoices):
     FATAL_ERROR = 7, "Bot Encountered Fatal error"
     LEAVE_REQUESTED = 8, "Bot requested to leave meeting"
     COULD_NOT_JOIN = 9, "Bot could not join meeting"
+    POST_PROCESSING_COMPLETED = 10, "Post Processing Completed"
 
     @classmethod
     def type_to_api_code(cls, value):
@@ -212,6 +235,7 @@ class BotEventTypes(models.IntegerChoices):
             cls.FATAL_ERROR: "fatal_error",
             cls.LEAVE_REQUESTED: "leave_requested",
             cls.COULD_NOT_JOIN: "could_not_join_meeting",
+            cls.POST_PROCESSING_COMPLETED: "post_processing_completed",
         }
         return mapping.get(value)
 
@@ -364,7 +388,7 @@ class BotEventManager:
                 BotStates.JOINING,
                 BotStates.LEAVING,
             ],
-            "to": BotStates.ENDED,
+            "to": BotStates.POST_PROCESSING,
         },
         BotEventTypes.LEAVE_REQUESTED: {
             "from": [
@@ -377,6 +401,10 @@ class BotEventManager:
         },
         BotEventTypes.BOT_LEFT_MEETING: {
             "from": BotStates.LEAVING,
+            "to": BotStates.POST_PROCESSING,
+        },
+        BotEventTypes.POST_PROCESSING_COMPLETED: {
+            "from": BotStates.POST_PROCESSING,
             "to": BotStates.ENDED,
         },
     }
@@ -461,10 +489,7 @@ class BotEventManager:
 
                     if old_state not in valid_from_states:
                         valid_states_labels = [BotStates.state_to_api_code(state) for state in valid_from_states]
-                        raise ValidationError(
-                            f"Event {BotEventTypes.type_to_api_code(event_type)} not allowed when bot is in state {BotStates.state_to_api_code(old_state)}. "
-                            f"It is only allowed in these states: {', '.join(valid_states_labels)}"
-                        )
+                        raise ValidationError(f"Event {BotEventTypes.type_to_api_code(event_type)} not allowed when bot is in state {BotStates.state_to_api_code(old_state)}. It is only allowed in these states: {', '.join(valid_states_labels)}")
 
                     # Update bot state based on 'to' definition
                     new_state = transition["to"]
@@ -756,6 +781,7 @@ class Utterance(models.Model):
     duration_ms = models.IntegerField()
     transcription = models.JSONField(null=True, default=None)
     source_uuid = models.CharField(max_length=255, null=True, unique=True)
+    sample_rate = models.IntegerField(null=True, default=None)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

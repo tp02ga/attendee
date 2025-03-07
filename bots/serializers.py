@@ -12,9 +12,11 @@ from .models import (
     BotEventTypes,
     BotStates,
     Recording,
+    RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
 )
+from .utils import meeting_type_from_url
 
 
 @extend_schema_field(
@@ -62,6 +64,22 @@ class RTMPSettingsJSONField(serializers.JSONField):
     pass
 
 
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "format": {
+                "type": "string",
+                "description": "The format of the recording to save. The supported formats are 'webm' and 'mp4'.",
+            },
+        },
+        "required": ["format"],
+    }
+)
+class RecordingSettingsJSONField(serializers.JSONField):
+    pass
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -106,6 +124,13 @@ class CreateBotSerializer(serializers.Serializer):
         "additionalProperties": False,
     }
 
+    def validate_meeting_url(self, value):
+        meeting_type = meeting_type_from_url(value)
+        if meeting_type is None:
+            raise serializers.ValidationError({"meeting_url": "Invalid meeting URL"})
+
+        return value
+
     def validate_transcription_settings(self, value):
         if value is None:
             return value
@@ -145,6 +170,36 @@ class CreateBotSerializer(serializers.Serializer):
         destination_url = value.get("destination_url", "")
         if not (destination_url.lower().startswith("rtmp://") or destination_url.lower().startswith("rtmps://")):
             raise serializers.ValidationError({"destination_url": "URL must start with rtmp:// or rtmps://"})
+
+        return value
+
+    recording_settings = RecordingSettingsJSONField(
+        help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}.",
+        required=False,
+        default={"format": RecordingFormats.WEBM},
+    )
+
+    RECORDING_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string"},
+        },
+        "required": ["format"],
+    }
+
+    def validate_recording_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.RECORDING_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # Validate format
+        format = value.get("format", "")
+        if format not in [RecordingFormats.MP4, RecordingFormats.WEBM]:
+            raise serializers.ValidationError({"format": "Format must be mp4 or webm"})
 
         return value
 
