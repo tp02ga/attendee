@@ -16,14 +16,7 @@ class Command(BaseCommand):
 
     def __init__(self):
         super().__init__()
-        # Initialize kubernetes client
-        try:
-            config.load_incluster_config()
-        except config.ConfigException:
-            config.load_kube_config()
-        self.v1 = client.CoreV1Api()
         self.namespace = "attendee"
-        logger.info("initialized kubernetes client")
 
     def terminate_bot(self, bot):
         try:
@@ -39,10 +32,18 @@ class Command(BaseCommand):
         if not os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
             return
 
+        # Initialize kubernetes client
+        try:
+            config.load_incluster_config()
+        except config.ConfigException:
+            config.load_kube_config()
+        v1 = client.CoreV1Api()
+        logger.info("initialized kubernetes client")
+
         # Try to delete the pod if it exists
         try:
             pod_name = bot.k8s_pod_name()
-            self.v1.delete_namespaced_pod(
+            v1.delete_namespaced_pod(
                 name=pod_name,
                 namespace=self.namespace,
                 grace_period_seconds=0,

@@ -3,6 +3,7 @@ import threading
 import time
 from unittest.mock import MagicMock, call, patch
 from django.utils import timezone
+import kubernetes
 
 import numpy as np
 from django.db import connection
@@ -254,7 +255,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         MockCoreV1Api.return_value = mock_k8s_api
         
         # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
-        mock_load_incluster_config.side_effect = Exception("Mock ConfigException")
+        mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
         
         # Create a bot with a stale heartbeat (more than 10 minutes old)
         current_time = int(timezone.now().timestamp())
