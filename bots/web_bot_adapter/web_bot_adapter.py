@@ -430,6 +430,10 @@ class WebBotAdapter(BotAdapter):
         if not self.websocket_port:
             raise Exception("WebSocket server failed to start")
 
+        repeatedly_attempt_to_join_meeting_thread = threading.Thread(target=self.repeatedly_attempt_to_join_meeting, daemon=True)
+        repeatedly_attempt_to_join_meeting_thread.start()
+
+    def repeatedly_attempt_to_join_meeting(self):
         logger.info(f"Trying to join meeting at {self.meeting_url}")
 
         num_retries = 0
