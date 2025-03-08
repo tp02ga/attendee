@@ -134,6 +134,27 @@ class Bot(models.Model):
 
     settings = models.JSONField(null=False, default=dict)
 
+    first_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
+    last_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
+
+    def set_heartbeat(self):
+        retry_count = 0
+        max_retries = 10
+        while retry_count < max_retries:
+            try:
+                self.refresh_from_db()
+                current_timestamp = int(timezone.now().timestamp())
+                if self.first_heartbeat_timestamp is None:
+                    self.first_heartbeat_timestamp = current_timestamp
+                self.last_heartbeat_timestamp = current_timestamp
+                self.save()
+                return
+            except RecordModifiedError:
+                retry_count += 1
+                if retry_count >= max_retries:
+                    raise
+                continue
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
@@ -237,6 +258,7 @@ class BotEventSubTypes(models.IntegerChoices):
     LEAVE_REQUESTED_USER_REQUESTED = 10, "Leave requested - User requested"
     LEAVE_REQUESTED_AUTO_LEAVE_SILENCE = 11, "Leave requested - Auto leave silence"
     LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING = 12, "Leave requested - Auto leave only participant in meeting"
+    FATAL_ERROR_HEARTBEAT_TIMEOUT = 13, "Fatal error - Heartbeat timeout"
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -254,6 +276,7 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.LEAVE_REQUESTED_USER_REQUESTED: "user_requested",
             cls.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE: "auto_leave_silence",
             cls.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: "auto_leave_only_participant_in_meeting",
+            cls.FATAL_ERROR_HEARTBEAT_TIMEOUT: "heartbeat_timeout",
         }
         return mapping.get(value)
 
@@ -294,7 +317,7 @@ class BotEvent(models.Model):
             models.CheckConstraint(
                 check=(
                     # For FATAL_ERROR event type, must have one of the valid event subtypes
-                    (Q(event_type=BotEventTypes.FATAL_ERROR) & (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND)))
+                    (Q(event_type=BotEventTypes.FATAL_ERROR) & (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT)))
                     |
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
                     (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED)))
@@ -311,8 +334,9 @@ class BotEvent(models.Model):
 
 
 class BotEventManager:
-    # Define valid state transitions for each event type
+    TERMINAL_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED]
 
+    # Define valid state transitions for each event type
     VALID_TRANSITIONS = {
         BotEventTypes.JOIN_REQUESTED: {
             "from": BotStates.READY,
@@ -403,7 +427,15 @@ class BotEventManager:
 
     @classmethod
     def is_terminal_state(cls, state: int):
-        return state == BotStates.ENDED or state == BotStates.FATAL_ERROR
+        return state in cls.TERMINAL_STATES
+
+    @classmethod
+    def get_terminal_states_q_filter(cls):
+        """Returns a Q object to filter for terminal states"""
+        q_filter = models.Q()
+        for state in cls.TERMINAL_STATES:
+            q_filter |= models.Q(state=state)
+        return q_filter
 
     @classmethod
     def create_event(
@@ -492,6 +524,8 @@ class BotEventManager:
                             raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {in_progress_recordings.count()}")
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
+
+                        # At this point, we'll want to create a final charge for the current heartbeat
 
                     return event
 

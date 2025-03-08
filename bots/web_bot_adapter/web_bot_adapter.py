@@ -430,6 +430,10 @@ class WebBotAdapter(BotAdapter):
         if not self.websocket_port:
             raise Exception("WebSocket server failed to start")
 
+        repeatedly_attempt_to_join_meeting_thread = threading.Thread(target=self.repeatedly_attempt_to_join_meeting, daemon=True)
+        repeatedly_attempt_to_join_meeting_thread.start()
+
+    def repeatedly_attempt_to_join_meeting(self):
         logger.info(f"Trying to join meeting at {self.meeting_url}")
 
         num_retries = 0
@@ -449,6 +453,10 @@ class WebBotAdapter(BotAdapter):
                 if num_retries >= max_retries:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
                     self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
+                    return
+
+                if self.left_meeting or self.cleaned_up:
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the bot has left the meeting or cleaned up, so returning")
                     return
 
                 logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
