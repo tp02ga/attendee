@@ -455,6 +455,11 @@ class WebBotAdapter(BotAdapter):
                     self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
                     return
 
+
+                if self.left_meeting or self.cleaned_up:
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the bot has left the meeting or cleaned up, so returning")
+                    return
+
                 logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
 
             num_retries += 1
