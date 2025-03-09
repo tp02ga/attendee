@@ -88,19 +88,7 @@ class CreditTransactionManager:
                         child_transactions__isnull=True
                     ).first()
                     
-                    if leaf_transaction is None:
-                        # Create first transaction if none exists
-                        credit_transaction = CreditTransaction.objects.create(
-                            organization=organization,
-                            centicredits_before=organization.centicredits,
-                            centicredits_after=new_balance,
-                            centicredits_delta=centicredits_delta,
-                            parent_transaction=None,
-                            bot=bot,
-                        )
-                    else:
-                        # Create child transaction linked to the leaf transaction
-                        credit_transaction = CreditTransaction.objects.create(
+                    credit_transaction = CreditTransaction.objects.create(
                             organization=organization,
                             centicredits_before=organization.centicredits,
                             centicredits_after=new_balance,
@@ -108,7 +96,7 @@ class CreditTransactionManager:
                             parent_transaction=leaf_transaction,
                             bot=bot,
                         )
-                    
+                        
                     # Update organization's credit balance
                     organization.centicredits = new_balance
                     organization.save()
