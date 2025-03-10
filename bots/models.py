@@ -160,8 +160,8 @@ class Bot(models.Model):
             return 0
         if self.last_heartbeat_timestamp < self.first_heartbeat_timestamp:
             return 0
-        # We're adding 60 seconds because the heartbeat is only set every 60 seconds    
-        seconds_active = 60 + self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
+        # We're adding 30 seconds because the heartbeat is only set every 60 seconds, so we don't know the exact time the bot was active
+        seconds_active = 30 + self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
         hours_active = seconds_active / 3600
         # The rate is 1 credit per hour
         centicredits_active = hours_active * 100
