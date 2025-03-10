@@ -281,7 +281,8 @@ class WebBotAdapter(BotAdapter):
                                         self.was_removed_from_meeting = True
                                         self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
-                            if len([x for x in self.participants_info.values() if x["active"]]) == 1:
+                            all_participants_in_meeting = [x for x in self.participants_info.values() if x["active"]]
+                            if len(all_participants_in_meeting) == 1 and all_participants_in_meeting[0]["fullName"] == self.display_name:
                                 if self.only_one_participant_in_meeting_at is None:
                                     self.only_one_participant_in_meeting_at = time.time()
                             else:
