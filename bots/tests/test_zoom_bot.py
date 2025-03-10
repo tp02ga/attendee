@@ -24,6 +24,7 @@ from bots.models import (
     BotMediaRequestStates,
     BotStates,
     Credentials,
+    CreditTransaction,
     MediaBlob,
     Organization,
     Project,
@@ -34,7 +35,6 @@ from bots.models import (
     RecordingTypes,
     TranscriptionProviders,
     TranscriptionTypes,
-    CreditTransaction,
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame
 

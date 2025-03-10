@@ -2,8 +2,6 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.core.exceptions import ValidationError
-from django.db import transaction
 
 
 class Organization(models.Model):
@@ -15,6 +13,7 @@ class Organization(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class User(AbstractUser):
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, null=False, related_name="users")
