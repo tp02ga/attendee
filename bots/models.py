@@ -160,8 +160,11 @@ class Bot(models.Model):
             return 0
         if self.last_heartbeat_timestamp < self.first_heartbeat_timestamp:
             return 0
-        # We're adding 30 seconds because the heartbeat is only set every 60 seconds, so we don't know the exact time the bot was active
-        seconds_active = 30 + self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
+        seconds_active = self.last_heartbeat_timestamp - self.first_heartbeat_timestamp
+        # If first and last heartbeat are the same, we don't know the exact time the bot was active
+        # and that will make a difference to the charge. So we'll assume it ran for 30 seconds
+        if self.last_heartbeat_timestamp == self.first_heartbeat_timestamp:
+            seconds_active = 30
         hours_active = seconds_active / 3600
         # The rate is 1 credit per hour
         centicredits_active = hours_active * 100
@@ -269,10 +272,6 @@ class CreditTransactionManager:
                     
                     # Calculate new credit balance
                     new_balance = organization.centicredits + centicredits_delta
-                    
-                    # Don't allow negative balances
-                    if new_balance < 0:
-                        raise ValidationError("Insufficient credits for this transaction")
                     
                     # Find the leaf transaction (one with no child transactions)
                     leaf_transaction = CreditTransaction.objects.filter(
