@@ -41,6 +41,12 @@ class GoogleMeetUIMethods:
             logger.info(f"Error occurred when clicking element {step}, will retry")
             raise UiCouldNotClickElementException("Error occurred when clicking element", step, e)
 
+    # If the meeting you're about to join is being recorded, gmeet makes you click an additional button after you're admitted to the meeting
+    def click_this_meeting_is_being_recorded_join_now_button(self, step):
+        this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
+        if this_meeting_is_being_recorded_join_now_button:
+            this_meeting_is_being_recorded_join_now_button.click()
+
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
         if cannot_join_element:
@@ -88,7 +94,7 @@ class GoogleMeetUIMethods:
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
-        num_attempts_to_look_for_captions_button = 900
+        num_attempts_to_look_for_captions_button = 600
         logger.info("Waiting for captions button...")
         for attempt_to_look_for_captions_button_index in range(num_attempts_to_look_for_captions_button):
             try:
@@ -101,6 +107,7 @@ class GoogleMeetUIMethods:
             except TimeoutException as e:
                 self.look_for_blocked_element("click_captions_button")
                 self.look_for_denied_your_request_element("click_captions_button")
+                self.click_this_meeting_is_being_recorded_join_now_button("click_captions_button")
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
