@@ -208,13 +208,13 @@ class TestTransactionIntegrity(TransactionTestCase):
         # This is simulating multiple processes trying to update credits at the same time
 
         # Create an initial transaction
-        transaction1 = CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-50, description="Initial transaction")
+        CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-50, description="Initial transaction")
 
         # Create two more transactions "concurrently"
         # (the manager handles retries internally if there are conflicts)
-        transaction2 = CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-25, description="Concurrent transaction 1")
+        CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-25, description="Concurrent transaction 1")
 
-        transaction3 = CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-25, description="Concurrent transaction 2")
+        CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-25, description="Concurrent transaction 2")
 
         # Verify the transactions form a valid chain and balance is correct
         self.organization.refresh_from_db()
