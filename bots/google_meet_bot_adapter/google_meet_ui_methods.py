@@ -88,7 +88,7 @@ class GoogleMeetUIMethods:
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
-        num_attempts_to_look_for_captions_button = 900
+        num_attempts_to_look_for_captions_button = 600
         logger.info("Waiting for captions button...")
         for attempt_to_look_for_captions_button_index in range(num_attempts_to_look_for_captions_button):
             try:
