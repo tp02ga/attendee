@@ -17,6 +17,7 @@ from bots.models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    CreditTransaction,
     Organization,
     Project,
     Recording,
@@ -57,6 +58,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Set required environment variables
         os.environ["AWS_RECORDING_STORAGE_BUCKET_NAME"] = "test-bucket"
+        os.environ["CHARGE_CREDITS_FOR_BOTS"] = "false"
 
     def setUp(self):
         # Recreate organization and project for each test
