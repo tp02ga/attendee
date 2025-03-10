@@ -234,6 +234,10 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify first_buffer_timestamp_ms_offset was set correctly
         self.assertEqual(controller.adapter.get_first_buffer_timestamp_ms_offset(), 12345)
 
+        # Verify that no charge was created (since the env var is not set in this test suite)
+        credit_transaction = CreditTransaction.objects.filter(bot=self.bot).first()
+        self.assertIsNone(credit_transaction, "A credit transaction was created for the bot")
+
         # Verify file uploader was used
         mock_uploader.upload_file.assert_called_once()
         self.assertGreater(mock_uploader.upload_file.call_count, 0)
