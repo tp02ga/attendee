@@ -8,15 +8,6 @@
           "type": "page"
         }
       ]
-    },
-    {
-      "name": "Bots",
-      "sidebar": [
-        {
-          "path": "docs/bots.md",
-          "type": "page"
-        }
-      ]
     }
   ],
   "references": [
