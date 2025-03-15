@@ -3,8 +3,8 @@ import json
 import math
 import os
 import random
-import string
 import secrets
+import string
 
 from concurrency.exceptions import RecordModifiedError
 from concurrency.fields import IntegerVersionField
@@ -19,6 +19,7 @@ from django.utils.crypto import get_random_string
 
 from accounts.models import Organization
 from bots.webhook_utils import trigger_webhook
+
 # Create your models here.
 
 
@@ -632,8 +633,8 @@ class BotEventManager:
                             "event_sub_type": BotEventSubTypes.sub_type_to_api_code(event_sub_type),
                             "old_state": BotStates.state_to_api_code(old_state),
                             "new_state": BotStates.state_to_api_code(bot.state),
-                            "created_at": event.created_at.isoformat()
-                        }
+                            "created_at": event.created_at.isoformat(),
+                        },
                     )
 
                     # If we moved to the recording state
@@ -1177,6 +1178,7 @@ class BotDebugScreenshot(models.Model):
     def __str__(self):
         return f"Debug Screenshot {self.object_id} for event {self.bot_event}"
 
+
 class WebhookSecret(models.Model):
     _secret = models.BinaryField(
         null=True,
@@ -1185,11 +1187,11 @@ class WebhookSecret(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_secrets")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         # TODO for later: Remove this line to support secret rotation
         constraints = [
-            models.UniqueConstraint(fields=["project"], name="unique_webhook_secret_per_project")
+            models.UniqueConstraint(fields=["project"], name="unique_webhook_secret_per_project"),
         ]
 
     def get_secret(self):
@@ -1200,9 +1202,9 @@ class WebhookSecret(models.Model):
             f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
             decrypted_data = f.decrypt(bytes(self._secret))
             return decrypted_data
-        except (InvalidToken, ValueError) as e:
+        except (InvalidToken, ValueError):
             return None
-    
+
     def save(self, *args, **kwargs):
         # Only generate a secret if this is a new object (not yet saved to DB)
         if not self.pk and not self._secret:
@@ -1210,6 +1212,7 @@ class WebhookSecret(models.Model):
             f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
             self._secret = f.encrypt(secret)
         super().save(*args, **kwargs)
+
 
 class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
@@ -1221,6 +1224,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
             cls.BOT_STATE_CHANGE: "bot.state_change",
         }
         return mapping.get(value)
+
 
 class WebhookSubscription(models.Model):
     def default_events():
@@ -1235,10 +1239,12 @@ class WebhookSubscription(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
 class WebhookDeliveryAttemptStatus(models.IntegerChoices):
     PENDING = 1, "Pending"
     SUCCESS = 2, "Success"
     FAILURE = 3, "Failure"
+
 
 class WebhookDeliveryAttempt(models.Model):
     webhook_subscription = models.ForeignKey(WebhookSubscription, on_delete=models.CASCADE, related_name="webhookdelivery_attempts")
