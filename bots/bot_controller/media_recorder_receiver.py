@@ -21,9 +21,17 @@ class MediaRecorderReceiver:
         with open(self.file_location, mode) as f:
             f.write(chunk)
 
+    def get_seekable_path(self, path):
+        """
+        Transform a file path to include '.seekable' before the extension.
+        Example: /tmp/file.webm -> /tmp/file.seekable.webm
+        """
+        base, ext = os.path.splitext(path)
+        return f"{base}.seekable{ext}"
+
     def make_file_seekable(self):
         input_path = self.file_location
-        output_path = self.file_location.with_suffix(".seekable.mp4")
+        output_path = self.get_seekable_path(self.file_location)
         """Use ffmpeg to move the moov atom to the beginning of the file."""
         logger.info(f"Making file seekable: {input_path} -> {output_path}")
         # log how many bytes are in the file

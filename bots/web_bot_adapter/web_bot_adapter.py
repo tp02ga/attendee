@@ -172,7 +172,8 @@ class WebBotAdapter(BotAdapter):
         self.last_media_message_processed_time = None
         self.last_audio_message_processed_time = None
         self.first_buffer_timestamp_ms_offset = time.time() * 1000
-
+        self.media_sending_enable_timestamp_ms = None
+        
         self.participants_info = {}
         self.only_one_participant_in_meeting_at = None
         self.video_frame_ticker = 0
@@ -482,6 +483,7 @@ class WebBotAdapter(BotAdapter):
         self.send_frames = True
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
+        self.media_sending_enable_timestamp_ms = time.time() * 1000
 
     def leave(self):
         if self.left_meeting:

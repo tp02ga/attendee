@@ -39,6 +39,7 @@ from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
+from .media_recorder_receiver import MediaRecorderReceiver
 from .rtmp_client import RTMPClient
 
 gi.require_version("GLib", "2.0")
