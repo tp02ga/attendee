@@ -260,6 +260,20 @@ class BotController:
         else:
             return os.path.join("/tmp", self.get_recording_filename())
 
+    def should_create_gstreamer_pipeline(self):
+        # For google meet, we're doing a media recorder based recording technique that does the video processing in the browser
+        # so we don't need to create a gstreamer pipeline here
+        meeting_type = self.get_meeting_type()
+        if meeting_type == MeetingTypes.ZOOM:
+            return True
+        elif meeting_type == MeetingTypes.GOOGLE_MEET:
+            return False
+        elif meeting_type == MeetingTypes.TEAMS:
+            return True
+
+    def should_create_media_recorder_receiver(self):
+        return not self.should_create_gstreamer_pipeline()
+
     def run(self):
         if self.run_called:
             raise Exception("Run already called, exiting")
@@ -289,16 +303,22 @@ class BotController:
             self.rtmp_client = RTMPClient(rtmp_url=self.bot_in_db.rtmp_destination_url())
             self.rtmp_client.start()
 
-        self.gstreamer_pipeline = GstreamerPipeline(
-            on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline,
-            video_frame_size=(1920, 1080),
-            audio_format=self.get_audio_format(),
-            output_format=self.get_gstreamer_output_format(),
-            num_audio_sources=self.get_num_audio_sources(),
-            sink_type=self.get_gstreamer_sink_type(),
-            file_location=self.get_gstreamer_file_location(),
-        )
-        self.gstreamer_pipeline.setup()
+        self.gstreamer_pipeline = None
+        if self.should_create_gstreamer_pipeline():
+            self.gstreamer_pipeline = GstreamerPipeline(
+                on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline,
+                video_frame_size=(1920, 1080),
+                audio_format=self.get_audio_format(),
+                output_format=self.get_gstreamer_output_format(),
+                num_audio_sources=self.get_num_audio_sources(),
+                sink_type=self.get_gstreamer_sink_type(),
+                file_location=self.get_gstreamer_file_location(),
+            )
+            self.gstreamer_pipeline.setup()
+
+        self.media_recorder_receiver = None
+        if self.should_create_media_recorder_receiver():
+            self.media_recorder_receiver = MediaRecorderReceiver()
 
         self.adapter = self.get_bot_adapter()
 
