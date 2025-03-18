@@ -87,6 +87,4 @@ Bots support these specific configurations:
 # Best Practices
 1. Always check bot state before requesting operations
 2. Monitor transcription and recording states separately
-3. Wait for complete status before accessing recordings
-4. Handle platform-specific errors appropriately
-5. Verify meeting URL format for the intended platform
+3. Wait for the bots to have and "ended" status before accessing recordings
