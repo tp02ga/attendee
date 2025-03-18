@@ -299,7 +299,6 @@ class WebBotAdapter(BotAdapter):
                                 self.only_one_participant_in_meeting_at = None
 
                         elif json_data.get("type") == "SilenceStatus":
-                            logger.info(f"silence status {json_data.get('isSilent')}")
                             if json_data.get("isSilent") == False:
                                 self.last_audio_message_processed_time = time.time()
 
