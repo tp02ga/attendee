@@ -20,7 +20,7 @@ Bots go through these lifecycle states:
 6. Post Processing: Bot is processing recordings
 7. Fatal Error: Bot encountered an unrecoverable error
 8. Waiting Room: Bot is in meeting's waiting room
-9. Ended: Bot has completed all tasks and recordings are available
+9. Ended: Bot has completed all tasks and recordings are available for download
 
 # Recording States
 - not_started: Recording hasn't begun
