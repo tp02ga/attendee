@@ -397,7 +397,7 @@ class WebBotAdapter(BotAdapter):
         self.driver = uc.Chrome(
             use_subprocess=True,
             options=options,
-            version_main=133,
+            version_main=134,
         )
         logger.info(f"web driver server initialized at port {self.driver.service.port}")
 
