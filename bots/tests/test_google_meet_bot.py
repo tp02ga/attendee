@@ -1,8 +1,8 @@
+import base64
 import os
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
-import base64
 
 import kubernetes
 import numpy as np
@@ -27,8 +27,6 @@ from bots.models import (
     TranscriptionTypes,
     Utterance,
 )
-
-from .mock_data import MockF32AudioFrame
 
 
 def create_mock_file_uploader():
