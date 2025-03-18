@@ -7,12 +7,16 @@ build:  ## Build the application
 	docker compose -f dev.docker-compose.yaml build
 
 .PHONY: up
-up: ## Start the application
-	docker compose -f dev.docker-compose.yaml up
+up: ## Start the application as a background process
+	docker compose -f dev.docker-compose.yaml up -d
 
 .PHONY: down
 down: ## Stop the application
 	docker compose -f dev.docker-compose.yaml down
+
+.PHONY: logs
+logs: ## View the logs
+	docker compose -f dev.docker-compose.yaml logs -f
 
 .PHONY: migrate
 migrate: ## Run migrations
