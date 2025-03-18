@@ -6,7 +6,6 @@ class FullCaptureManager {
         this.canvasStream = null;
         this.finalStream = null;
         this.mediaRecorder = null;
-        this.recordedChunks = [];
         this.audioContext = null;
         this.observer = null;
         this.audioTracks = [];
@@ -226,8 +225,6 @@ class FullCaptureManager {
         // Options for better quality
         const options = { mimeType: 'video/mp4' };
         this.mediaRecorder = new MediaRecorder(this.finalStream, options);
-
-        this.recordedChunks = [];
 
         this.mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {

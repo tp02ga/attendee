@@ -369,8 +369,6 @@ class WebBotAdapter(BotAdapter):
         )
 
     def init_driver(self):
-        log_path = "chromedriver.log"
-
         options = uc.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
@@ -397,11 +395,11 @@ class WebBotAdapter(BotAdapter):
             self.driver = None
 
         self.driver = uc.Chrome(
-            service_log_path=log_path,
             use_subprocess=True,
             options=options,
             version_main=133,
         )
+        logger.info(f"web driver server initialized at port {self.driver.service.port}")
 
         initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
 
