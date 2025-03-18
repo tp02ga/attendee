@@ -298,6 +298,11 @@ class WebBotAdapter(BotAdapter):
                             else:
                                 self.only_one_participant_in_meeting_at = None
 
+                        elif json_data.get("type") == "SilenceStatus":
+                            logger.info(f"silence status {json_data.get('isSilent')}")
+                            if json_data.get("isSilent") == False:
+                                self.last_audio_message_processed_time = time.time()
+
                 elif message_type == 2:  # VIDEO
                     self.process_video_frame(message)
                 elif message_type == 3:  # AUDIO
@@ -558,7 +563,7 @@ class WebBotAdapter(BotAdapter):
 
         if self.last_audio_message_processed_time is not None:
             if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
-                logger.info(f"Auto-leaving meeting because there was no media message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+                logger.info(f"Auto-leaving meeting because there was no audio for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
 

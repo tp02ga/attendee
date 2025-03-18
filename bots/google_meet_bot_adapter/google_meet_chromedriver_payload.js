@@ -10,6 +10,9 @@ class FullCaptureManager {
         this.audioContext = null;
         this.observer = null;
         this.audioTracks = [];
+
+        this.silenceThreshold = 0.0;
+        this.silenceCheckInterval = null;
     }
 
     addAudioTrack(audioTrack) {
@@ -158,7 +161,19 @@ class FullCaptureManager {
         const destination = this.audioContext.createMediaStreamDestination();
 
         // Connect all sources to the destination
-        this.audioSources.forEach(source => source.connect(destination));
+        this.audioSources.forEach(source => {
+            source.connect(destination);
+        });
+
+        // Create analyzer and connect it to the destination
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 256;
+        const bufferLength = this.analyser.frequencyBinCount;
+        this.audioDataArray = new Uint8Array(bufferLength);
+
+        // Create a source from the destination's stream and connect it to the analyzer
+        const mixedSource = this.audioContext.createMediaStreamSource(destination.stream);
+        mixedSource.connect(this.analyser);
 
         this.mixedAudioTrack = destination.stream.getAudioTracks()[0];
 
@@ -169,6 +184,42 @@ class FullCaptureManager {
 
         // Initialize MediaRecorder with the final stream
         this.startRecording();
+
+        this.startSilenceDetection();
+    }
+
+    startSilenceDetection() {
+        // Clear any existing interval
+        if (this.silenceCheckInterval) {
+            clearInterval(this.silenceCheckInterval);
+        }
+                
+        // Check for audio activity every second
+        this.silenceCheckInterval = setInterval(() => {
+            this.checkAudioActivity();
+        }, 1000);
+    }
+
+    checkAudioActivity() {
+        // Get audio data
+        this.analyser.getByteTimeDomainData(this.audioDataArray);
+        
+        // Calculate deviation from the center value (128)
+        let sumDeviation = 0;
+        for (let i = 0; i < this.audioDataArray.length; i++) {
+            // Calculate how much each sample deviates from the center (128)
+            sumDeviation += Math.abs(this.audioDataArray[i] - 128);
+        }
+        
+        const averageDeviation = sumDeviation / this.audioDataArray.length;
+        
+        // If average deviation is above threshold, we have audio activity
+        if (averageDeviation > this.silenceThreshold) {
+            window.ws.sendJson({
+                type: 'SilenceStatus',
+                isSilent: false
+            });
+        }
     }
 
     startRecording() {
@@ -203,6 +254,12 @@ class FullCaptureManager {
 
     stop() {
         this.stopRecording();
+
+        // Clear silence detection interval
+        if (this.silenceCheckInterval) {
+            clearInterval(this.silenceCheckInterval);
+            this.silenceCheckInterval = null;
+        }
 
         // Cancel animation frame if it exists
         if (this.animationFrameId) {
