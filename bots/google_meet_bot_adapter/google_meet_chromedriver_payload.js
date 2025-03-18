@@ -566,8 +566,10 @@ class WebSocketClient {
     //this.startFillerFrameTimer();
   }
 
-  disableMediaSending() {
+  async disableMediaSending() {
     window.fullCaptureManager.stop();
+    // Give the media recorder a bit of time to send the final data
+    await new Promise(resolve => setTimeout(resolve, 2000));
     this.mediaSendingEnabled = false;
 
     // No longer need this because we're not using MediaStreamTrackProcessor's
