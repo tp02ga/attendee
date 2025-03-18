@@ -141,6 +141,7 @@ class WebBotAdapter(BotAdapter):
         add_video_frame_callback,
         wants_any_video_frames_callback,
         add_mixed_audio_chunk_callback,
+        add_encoded_mp4_chunk_callback,
         upsert_caption_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
     ):
@@ -149,6 +150,7 @@ class WebBotAdapter(BotAdapter):
         self.add_mixed_audio_chunk_callback = add_mixed_audio_chunk_callback
         self.add_video_frame_callback = add_video_frame_callback
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
+        self.add_encoded_mp4_chunk_callback = add_encoded_mp4_chunk_callback
         self.upsert_caption_callback = upsert_caption_callback
 
         self.meeting_url = meeting_url
@@ -176,6 +178,13 @@ class WebBotAdapter(BotAdapter):
         self.video_frame_ticker = 0
 
         self.automatic_leave_configuration = automatic_leave_configuration
+
+    def process_encoded_mp4_chunk(self, message):
+        self.last_media_message_processed_time = time.time()
+        if len(message) > 4:
+            encoded_mp4_data = message[4:]
+            logger.info(f"encoded mp4 data length {len(encoded_mp4_data)}")
+            self.add_encoded_mp4_chunk_callback(encoded_mp4_data)
 
     def get_participant(self, participant_id):
         if participant_id in self.participants_info:
@@ -292,6 +301,8 @@ class WebBotAdapter(BotAdapter):
                     self.process_video_frame(message)
                 elif message_type == 3:  # AUDIO
                     self.process_audio_frame(message)
+                elif message_type == 4:  # ENCODED_MP4_CHUNK
+                    self.process_encoded_mp4_chunk(message)
 
                 self.last_websocket_message_processed_time = time.time()
         except Exception as e:
