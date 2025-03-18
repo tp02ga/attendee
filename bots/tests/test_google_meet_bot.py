@@ -2,6 +2,7 @@ import os
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
+import base64
 
 import kubernetes
 import numpy as np
@@ -124,24 +125,17 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Add participants - simulate websocket message processing
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
 
-            # Simulate audio data arrival - fake a float32 array of 1000 samples
-            # Create a mock audio message in the format expected by process_audio_frame
-            mock_audio_message = bytearray()
-            # Add message type (3 for AUDIO) as first 4 bytes
-            mock_audio_message.extend((3).to_bytes(4, byteorder="little"))
-            # Add timestamp (12345) as next 8 bytes
-            mock_audio_message.extend((12345).to_bytes(8, byteorder="little"))
-            # Add stream ID (0) as next 4 bytes
-            mock_audio_message.extend((0).to_bytes(4, byteorder="little"))
-            # Add mock audio data (1000 float32 samples)
-            mock_audio_message.extend(MockF32AudioFrame().GetBuffer())
+            # Simulate encoded MP4 chunk arrival
+            # Create a mock MP4 message in the format expected by process_encoded_mp4_chunk
+            mock_mp4_message = bytearray()
+            # Add message type (4 for ENCODED_MP4_CHUNK) as first 4 bytes
+            mock_mp4_message.extend((4).to_bytes(4, byteorder="little"))
+            # Add sample MP4 data (just a small dummy chunk for testing)
+            tiny_mp4_base64 = "GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA="
+            mock_mp4_data = base64.b64decode(tiny_mp4_base64)
+            mock_mp4_message.extend(mock_mp4_data)
 
-            controller.adapter.process_audio_frame(mock_audio_message)
-
-            # Simulate video data arrival
-            # Create a mock video message in the format expected by process_video_frame
-            mock_video_frame = create_mock_video_frame()
-            controller.adapter.process_video_frame(mock_video_frame)
+            controller.adapter.process_encoded_mp4_chunk(mock_mp4_message)
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption"}
