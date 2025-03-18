@@ -299,7 +299,7 @@ class WebBotAdapter(BotAdapter):
                                 self.only_one_participant_in_meeting_at = None
 
                         elif json_data.get("type") == "SilenceStatus":
-                            if json_data.get("isSilent") == False:
+                            if not json_data.get("isSilent"):
                                 self.last_audio_message_processed_time = time.time()
 
                 elif message_type == 2:  # VIDEO
