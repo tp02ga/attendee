@@ -215,7 +215,7 @@ def scale_i420(frame, frame_size, new_size):
 def png_to_yuv420_frame(png_bytes: bytes) -> tuple:
     """
     Convert PNG image bytes to YUV420 (I420) format without resizing,
-    and return the dimensions of the resulting image. The conversion does not work unless the 
+    and return the dimensions of the resulting image. The conversion does not work unless the
     image dimensions are even, so the image is cropped slightly to make the dimensions even.
 
     Args:
@@ -230,7 +230,7 @@ def png_to_yuv420_frame(png_bytes: bytes) -> tuple:
 
     # Get original dimensions
     height, width = bgr_frame.shape[:2]
-    
+
     # If dimensions are 1, add padding to make them 2
     if height == 1:
         bgr_frame = cv2.copyMakeBorder(bgr_frame, 0, 1, 0, 0, cv2.BORDER_REPLICATE)
