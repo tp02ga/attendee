@@ -963,12 +963,13 @@ class TestZoomBot(TransactionTestCase):
             any_order=True,
         )
 
+        yuv_image, yuv_image_width, yuv_image_height = png_to_yuv420_frame(self.test_png_bytes)
         controller.adapter.video_sender.sendVideoFrame.assert_has_calls(
             [
                 call(
-                    png_to_yuv420_frame(self.test_png_bytes),
+                    scale_i420(yuv_image, (yuv_image_width, yuv_image_height), (640, 480)),
                     640,
-                    360,
+                    480,
                     0,
                     mock_zoom_sdk_adapter.FrameDataFormat_I420_FULL,
                 )
