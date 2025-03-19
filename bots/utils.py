@@ -102,9 +102,11 @@ def calculate_audio_duration_ms(audio_data: bytes, content_type: str) -> int:
     duration_ms = len(audio)
     return duration_ms
 
+
 def half_ceil(x):
-     return (x + 1) // 2
- 
+    return (x + 1) // 2
+
+
 def scale_i420(frame, frame_size, new_size):
     """
     Scales an I420 (YUV 4:2:0) frame from 'frame_size' to 'new_size',
@@ -224,13 +226,13 @@ def png_to_yuv420_frame(png_bytes: bytes) -> tuple:
     # Convert PNG bytes to numpy array
     png_array = np.frombuffer(png_bytes, np.uint8)
     bgr_frame = cv2.imdecode(png_array, cv2.IMREAD_COLOR)
-    
+
     # Get original dimensions
     height, width = bgr_frame.shape[:2]
-    
+
     # Convert BGR to YUV420 (I420)
     yuv_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2YUV_I420)
-    
+
     # Return frame data and dimensions
     return yuv_frame.tobytes(), width, height
 

@@ -11,6 +11,7 @@ import zoom_meeting_sdk as zoom
 
 from bots.bot_adapter import BotAdapter
 from bots.utils import png_to_yuv420_frame, scale_i420
+
 from .video_input_manager import VideoInputManager
 
 gi.require_version("GLib", "2.0")
@@ -421,7 +422,7 @@ class ZoomBotAdapter(BotAdapter):
         yuv420_image_bytes_scaled = scale_i420(yuv420_image_bytes, (original_width, original_height), (self.suggested_video_cap.width, self.suggested_video_cap.height))
 
         self.current_image_to_send = yuv420_image_bytes_scaled
-        
+
         # Add a timeout to send the image every 500ms if one isn't already active
         if self.send_image_timeout_id is None:
             self.send_image_timeout_id = GLib.timeout_add(500, self.send_current_image_to_zoom)

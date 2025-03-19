@@ -7,20 +7,20 @@ import threading
 import time
 from time import sleep
 
-import cv2
 import numpy as np
 import requests
 import undetected_chromedriver as uc
 from pyvirtualdisplay import Display
 from websockets.sync.server import serve
-from bots.utils import half_ceil, scale_i420
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.utils import half_ceil, scale_i420
 
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
 
 logger = logging.getLogger(__name__)
+
 
 class WebBotAdapter(BotAdapter):
     def __init__(
