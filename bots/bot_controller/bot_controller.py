@@ -415,8 +415,6 @@ class BotController:
             BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
 
     def take_action_based_on_image_media_requests_in_db(self):
-        from bots.utils import png_to_yuv420_frame
-
         media_type = BotMediaRequestMediaTypes.IMAGE
 
         # Get all enqueued image media requests for this bot, ordered by creation time
@@ -431,7 +429,7 @@ class BotController:
         # Mark the most recent request as FINISHED
         try:
             BotMediaRequestManager.set_media_request_playing(most_recent_request)
-            self.adapter.send_raw_image(png_to_yuv420_frame(most_recent_request.media_blob.blob))
+            self.adapter.send_raw_image(most_recent_request.media_blob.blob)
             BotMediaRequestManager.set_media_request_finished(most_recent_request)
         except Exception as e:
             logger.info(f"Error sending raw image: {e}")
