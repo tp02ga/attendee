@@ -405,7 +405,7 @@ class ZoomBotAdapter(BotAdapter):
         self.on_virtual_camera_start_send_callback_called = True
 
     def on_virtual_camera_initialize_callback(self, video_sender, support_cap_list, suggest_cap):
-        logger.info(f"on_virtual_camera_initialize_callback called with suggest_cap = {suggest_cap.width}x{suggest_cap.height}x{suggest_cap.frame}")
+        logger.info(f"on_virtual_camera_initialize_callback called with support_cap_list = {list(map(lambda x: f'{x.width}x{x.height}x{x.frame}', support_cap_list))} suggest_cap = {suggest_cap.width}x{suggest_cap.height}x{suggest_cap.frame}")
         self.video_sender = video_sender
         self.suggested_video_cap = suggest_cap
 
