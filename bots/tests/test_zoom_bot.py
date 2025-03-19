@@ -35,7 +35,7 @@ from bots.models import (
     TranscriptionProviders,
     TranscriptionTypes,
 )
-from bots.utils import mp3_to_pcm, png_to_yuv420_frame
+from bots.utils import mp3_to_pcm, png_to_yuv420_frame, scale_i420
 
 from .mock_data import MockPCMAudioFrame, MockVideoFrame
 
@@ -339,7 +339,7 @@ class TestZoomBot(TransactionTestCase):
         BotEventManager.create_event(self.bot, BotEventTypes.JOIN_REQUESTED)
 
         self.test_mp3_bytes = base64.b64decode("SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU2LjQxAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFN//MUZAMAAAGkAAAAAAAAA0gAAAAARTMu//MUZAYAAAGkAAAAAAAAA0gAAAAAOTku//MUZAkAAAGkAAAAAAAAA0gAAAAANVVV")
-        self.test_png_bytes = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+        self.test_png_bytes = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8/5+hngEIGGEMADlqBP1mY/qhAAAAAElFTkSuQmCC")
 
         self.audio_blob = MediaBlob.get_or_create_from_blob(project=self.bot.project, blob=self.test_mp3_bytes, content_type="audio/mp3")
 
@@ -787,7 +787,11 @@ class TestZoomBot(TransactionTestCase):
             adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
 
             # simulate video source initialized
-            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
+            mock_suggest_cap = MagicMock()
+            mock_suggest_cap.width = 640
+            mock_suggest_cap.height = 480
+            mock_suggest_cap.frame = 30
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, mock_suggest_cap)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
@@ -1072,7 +1076,11 @@ class TestZoomBot(TransactionTestCase):
             adapter.virtual_audio_mic_event_passthrough.onMicStartSendCallback()
 
             # simulate video source initialized
-            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, None)
+            mock_suggest_cap = MagicMock()
+            mock_suggest_cap.width = 640
+            mock_suggest_cap.height = 480
+            mock_suggest_cap.frame = 30
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, mock_suggest_cap)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
