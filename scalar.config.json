@@ -13,7 +13,7 @@
   "references": [
     {
       "name": "API Reference",
-      "path": "docs/openapi.yaml"
+      "path": "docs/openapi.yml"
     }
   ],
   "publishOnMerge": true
