@@ -791,7 +791,7 @@ class TestZoomBot(TransactionTestCase):
             mock_suggest_cap.width = 640
             mock_suggest_cap.height = 480
             mock_suggest_cap.frame = 30
-            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, mock_suggest_cap)
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), [], mock_suggest_cap)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
@@ -1080,7 +1080,7 @@ class TestZoomBot(TransactionTestCase):
             mock_suggest_cap.width = 640
             mock_suggest_cap.height = 480
             mock_suggest_cap.frame = 30
-            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), None, mock_suggest_cap)
+            adapter.virtual_camera_video_source.onInitializeCallback(MagicMock(), [], mock_suggest_cap)
 
             # simulate video source started
             adapter.virtual_camera_video_source.onStartSendCallback()
