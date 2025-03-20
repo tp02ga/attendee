@@ -36,19 +36,30 @@ class FullCaptureManager {
             const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
             const user = window.userManager.getUserByStreamId(ssrc);
             const containerElement = video.closest('.LBDzPb');
+            const bounding_rect = video.getBoundingClientRect();
+            const container_bounding_rect = containerElement.getBoundingClientRect();
+            const clip_rect = {
+                top: container_bounding_rect.top - bounding_rect.top,
+                left: container_bounding_rect.left - bounding_rect.left,
+                right: container_bounding_rect.right - bounding_rect.top,
+                bottom: container_bounding_rect.bottom - bounding_rect.left,
+                width: container_bounding_rect.width,
+                height: container_bounding_rect.height,
+            }
             return {
                 element: video,
-                bounding_rect: video.getBoundingClientRect(),
-                container_bounding_rect: containerElement.getBoundingClientRect(),
+                bounding_rect: bounding_rect,
+                container_bounding_rect: container_bounding_rect,
+                clip_rect: clip_rect,
                 ssrc: ssrc,
                 user: user,
-                is_screen_share: user?.parentDeviceId !== null,
+                is_screen_share: Boolean(user?.parentDeviceId),
                 is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
             };
         }).filter(video => video.user && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
 
-        console.log('videoElementsWithInfo', videoElementsWithInfo);
-        console.log('activeSpeakerElementsWithInfo', activeSpeakerElementsWithInfo);
+        //console.log('videoElementsWithInfo', videoElementsWithInfo);
+        //console.log('activeSpeakerElementsWithInfo', activeSpeakerElementsWithInfo);
 
         const finalVideoElements = [];
 
@@ -91,6 +102,17 @@ class FullCaptureManager {
 
         }
 
+        if (window.initialData.recordingView === 'gallery_view') {
+            const allNonScreenShareVideos = videoElementsWithInfo.filter(video => !video.is_screen_share);
+            allNonScreenShareVideos.forEach(video => {
+                finalVideoElements.push({
+                    element: video.element,
+                    src_rect: video.clip_rect,
+                    final_bounding_rect: video.container_bounding_rect,
+                });
+            });
+        }
+
         return finalVideoElements;
     }
 
@@ -116,7 +138,7 @@ class FullCaptureManager {
 
         // Find all video elements within the main element
         let videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
-        console.log(`Found ${videoElements.length} video elements in main`);
+        //console.log(`Found ${videoElements.length} video elements in main`);
 
         // Set up the canvas context for drawing
         const ctx = canvas.getContext('2d');
@@ -125,7 +147,7 @@ class FullCaptureManager {
         this.observer = new MutationObserver((mutations) => {
             // Update the list of video elements when DOM changes
             videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
-            console.log(`Updated: ${videoElements.length} video elements in main`);
+           // console.log(`Updated: ${videoElements.length} video elements in main`);
         });
 
         // Start observing the main element for changes
@@ -151,13 +173,13 @@ class FullCaptureManager {
             let activeVideos = [];
 
             // Find active videos and determine the bounding box
-            videoElements.forEach(({ element, final_bounding_rect }) => {
+            videoElements.forEach(({ element, final_bounding_rect, src_rect }) => {
                 if (!element.paused && element.videoWidth > 0 && element.videoHeight > 0) {
                     minX = Math.min(minX, final_bounding_rect.left);
                     minY = Math.min(minY, final_bounding_rect.top);
                     maxX = Math.max(maxX, final_bounding_rect.right);
                     maxY = Math.max(maxY, final_bounding_rect.bottom);
-                    activeVideos.push({ element, rect: final_bounding_rect });
+                    activeVideos.push({ element, rect: final_bounding_rect, srcRect: src_rect });
                 }
             });
 
@@ -193,7 +215,7 @@ class FullCaptureManager {
                 }
 
                 // Draw each video at its position relative to our bounding box, scaled to fit
-                activeVideos.forEach(({ element, rect }) => {
+                activeVideos.forEach(({ element, rect, srcRect }) => {
                     // Calculate relative position within the bounding box
                     const relativeX = (rect.left - minX) / boundingWidth;
                     const relativeY = (rect.top - minY) / boundingHeight;
@@ -201,13 +223,26 @@ class FullCaptureManager {
                     const relativeHeight = rect.height / boundingHeight;
 
                     // Apply scaling and position on canvas
-                    ctx.drawImage(
-                        element,
-                        offsetX + relativeX * scaledWidth,
-                        offsetY + relativeY * scaledHeight,
-                        relativeWidth * scaledWidth,
-                        relativeHeight * scaledHeight
-                    );
+                    if (srcRect)
+                        ctx.drawImage(
+                            element,
+                            srcRect.left,
+                            srcRect.top,
+                            srcRect.width,
+                            srcRect.height,
+                            offsetX + relativeX * scaledWidth,
+                            offsetY + relativeY * scaledHeight,
+                            relativeWidth * scaledWidth,
+                            relativeHeight * scaledHeight
+                        );
+                    else
+                        ctx.drawImage(
+                            element,
+                            offsetX + relativeX * scaledWidth,
+                            offsetY + relativeY * scaledHeight,
+                            relativeWidth * scaledWidth,
+                            relativeHeight * scaledHeight
+                        );
                 });
             }
 
@@ -1563,5 +1598,3 @@ new RTCInterceptor({
         }
     }
 });
-
-

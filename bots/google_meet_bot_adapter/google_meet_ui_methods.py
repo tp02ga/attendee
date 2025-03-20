@@ -133,7 +133,7 @@ class GoogleMeetUIMethods:
         if self.recording_view == RecordingViews.SPEAKER_VIEW:
             return 'sidebar'
         elif self.recording_view == RecordingViews.GALLERY_VIEW:
-            return 'gallery'
+            return 'tiled'
         else:
             return 'sidebar'
 
@@ -207,6 +207,16 @@ class GoogleMeetUIMethods:
             )
             logger.info("Clicking the 'Sidebar' label element")
             self.click_element(sidebar_label, "sidebar_label")
+
+        if layout_to_select == 'tiled':
+            logger.info("Waiting for the 'Tiled' label element")
+            tiled_label = self.locate_element(
+                step="tiled_label",
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Tiled"]]')),
+                wait_time_seconds=6,
+            )
+            logger.info("Clicking the 'Tiled' label element")
+            self.click_element(tiled_label, "tiled_label")
 
         logger.info("Waiting for the close button")
         close_button = self.locate_element(
