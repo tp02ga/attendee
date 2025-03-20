@@ -86,6 +86,7 @@ class FullCaptureManager {
                             width: activeSpeakerVideo.bounding_rect.width,
                             height: activeSpeakerVideo.bounding_rect.height
                         },
+                        label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
                     });
                 }
             }
@@ -96,6 +97,7 @@ class FullCaptureManager {
                     finalVideoElements.push({
                         element: mainParticipantVideo.element,
                         final_bounding_rect: mainParticipantVideo.bounding_rect,
+                        label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
                     });
                 }
             }
@@ -109,6 +111,7 @@ class FullCaptureManager {
                     element: video.element,
                     src_rect: video.clip_rect,
                     final_bounding_rect: video.container_bounding_rect,
+                    label: video.user?.fullName || video.user?.displayName,
                 });
             });
         }
@@ -173,13 +176,13 @@ class FullCaptureManager {
             let activeVideos = [];
 
             // Find active videos and determine the bounding box
-            videoElements.forEach(({ element, final_bounding_rect, src_rect }) => {
+            videoElements.forEach(({ element, final_bounding_rect, src_rect, label }) => {
                 if (!element.paused && element.videoWidth > 0 && element.videoHeight > 0) {
                     minX = Math.min(minX, final_bounding_rect.left);
                     minY = Math.min(minY, final_bounding_rect.top);
                     maxX = Math.max(maxX, final_bounding_rect.right);
                     maxY = Math.max(maxY, final_bounding_rect.bottom);
-                    activeVideos.push({ element, rect: final_bounding_rect, srcRect: src_rect });
+                    activeVideos.push({ element, rect: final_bounding_rect, srcRect: src_rect, label: label });
                 }
             });
 
@@ -215,7 +218,7 @@ class FullCaptureManager {
                 }
 
                 // Draw each video at its position relative to our bounding box, scaled to fit
-                activeVideos.forEach(({ element, rect, srcRect }) => {
+                activeVideos.forEach(({ element, rect, srcRect, label }) => {
                     // Calculate relative position within the bounding box
                     const relativeX = (rect.left - minX) / boundingWidth;
                     const relativeY = (rect.top - minY) / boundingHeight;
@@ -243,6 +246,12 @@ class FullCaptureManager {
                             relativeWidth * scaledWidth,
                             relativeHeight * scaledHeight
                         );
+
+                    if (label) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 16px Arial';
+                        ctx.fillText(label, offsetX + relativeX * scaledWidth + 16, offsetY + relativeY * scaledHeight + relativeHeight * scaledHeight - 16);
+                    }
                 });
             }
 
