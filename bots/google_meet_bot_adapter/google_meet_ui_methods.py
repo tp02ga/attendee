@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from bots.models import RecordingViews
 from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableException
 
 logger = logging.getLogger(__name__)
@@ -128,8 +129,18 @@ class GoogleMeetUIMethods:
                     e,
                 )
 
+    def get_layout_to_select(self):
+        if self.recording_view == RecordingViews.SPEAKER_VIEW:
+            return 'sidebar'
+        elif self.recording_view == RecordingViews.GALLERY_VIEW:
+            return 'gallery'
+        else:
+            return 'sidebar'
+
     # returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):
+        layout_to_select = self.get_layout_to_select()
+
         self.driver.get(self.meeting_url)
 
         self.driver.execute_cdp_cmd(
@@ -177,14 +188,25 @@ class GoogleMeetUIMethods:
         logger.info("Clicking the 'Change layout' list item...")
         self.click_element(change_layout_list_item, "change_layout_list_item")
 
-        logger.info("Waiting for the 'Spotlight' label element")
-        spotlight_label = self.locate_element(
-            step="spotlight_label",
-            condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
-            wait_time_seconds=6,
-        )
-        logger.info("Clicking the 'Spotlight' label element")
-        self.click_element(spotlight_label, "spotlight_label")
+        if layout_to_select == 'spotlight':
+            logger.info("Waiting for the 'Spotlight' label element")
+            spotlight_label = self.locate_element(
+                step="spotlight_label",
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Spotlight"]]')),
+                wait_time_seconds=6,
+            )
+            logger.info("Clicking the 'Spotlight' label element")
+            self.click_element(spotlight_label, "spotlight_label")
+
+        if layout_to_select == 'sidebar':
+            logger.info("Waiting for the 'Sidebar' label element")
+            sidebar_label = self.locate_element(
+                step="sidebar_label",
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Sidebar"]]')),
+                wait_time_seconds=6,
+            )
+            logger.info("Clicking the 'Sidebar' label element")
+            self.click_element(sidebar_label, "sidebar_label")
 
         logger.info("Waiting for the close button")
         close_button = self.locate_element(

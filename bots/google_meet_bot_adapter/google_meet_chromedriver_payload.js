@@ -18,6 +18,82 @@ class FullCaptureManager {
         this.audioTracks.push(audioTrack);
     }
 
+    getVideoElementsForLayout(videoElements, activeSpeakerElements) {
+        const activeSpeakerElementsWithInfo = Array.from(activeSpeakerElements).map(element => {
+            const participantElement = element.closest('[data-participant-id]');
+            const participantId = participantElement ? participantElement.getAttribute('data-participant-id') : null;
+            
+            return {
+                element: element,
+                bounding_rect: element.getBoundingClientRect(),
+                participant_id: participantId
+            };
+        }).filter(element => element.bounding_rect.width > 0 && element.bounding_rect.height > 0 && element.participant_id);
+
+        const videoElementsWithInfo = Array.from(videoElements).map(video => {
+            // Get the parent element to extract SSRC
+            const parentElement = video.parentElement;
+            const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
+            const user = window.userManager.getUserByStreamId(ssrc);
+            const containerElement = video.closest('.LBDzPb');
+            return {
+                element: video,
+                bounding_rect: video.getBoundingClientRect(),
+                container_bounding_rect: containerElement.getBoundingClientRect(),
+                ssrc: ssrc,
+                user: user,
+                is_screen_share: user?.parentDeviceId !== null,
+                is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
+            };
+        }).filter(video => video.user && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
+
+        console.log('videoElementsWithInfo', videoElementsWithInfo);
+        console.log('activeSpeakerElementsWithInfo', activeSpeakerElementsWithInfo);
+
+        const finalVideoElements = [];
+
+        if (window.initialData.recordingView === 'speaker_view') {
+            const screenShareVideo = videoElementsWithInfo.find(video => video.is_screen_share);
+            if (screenShareVideo) {
+                finalVideoElements.push({
+                    element: screenShareVideo.element,
+                    final_bounding_rect: screenShareVideo.bounding_rect,
+                });
+                const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
+                if (activeSpeakerVideo) {                    
+                    // Calculate position in upper right corner of screen share
+                    const x = screenShareVideo.bounding_rect.right - activeSpeakerVideo.bounding_rect.width;
+                    const y = screenShareVideo.bounding_rect.top;
+                    
+                    finalVideoElements.push({
+                        element: activeSpeakerVideo.element,
+                        final_bounding_rect: {
+                            left: x,
+                            top: y,
+                            right: x + activeSpeakerVideo.bounding_rect.width,
+                            bottom: y + activeSpeakerVideo.bounding_rect.height,
+                            width: activeSpeakerVideo.bounding_rect.width,
+                            height: activeSpeakerVideo.bounding_rect.height
+                        },
+                    });
+                }
+            }
+            else
+            {
+                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo[0];
+                if (mainParticipantVideo) {
+                    finalVideoElements.push({
+                        element: mainParticipantVideo.element,
+                        final_bounding_rect: mainParticipantVideo.bounding_rect,
+                    });
+                }
+            }
+
+        }
+
+        return finalVideoElements;
+    }
+
     async start() {
         // Find the main element
         const mainElement = document.querySelector('main');
@@ -39,7 +115,7 @@ class FullCaptureManager {
         document.body.appendChild(canvas);
 
         // Find all video elements within the main element
-        let videoElements = mainElement.querySelectorAll('video');
+        let videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
         console.log(`Found ${videoElements.length} video elements in main`);
 
         // Set up the canvas context for drawing
@@ -48,7 +124,7 @@ class FullCaptureManager {
         // Create a MutationObserver to watch for changes to the DOM
         this.observer = new MutationObserver((mutations) => {
             // Update the list of video elements when DOM changes
-            videoElements = mainElement.querySelectorAll('video');
+            videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
             console.log(`Updated: ${videoElements.length} video elements in main`);
         });
 
@@ -56,12 +132,13 @@ class FullCaptureManager {
         this.observer.observe(mainElement, { 
             childList: true,      // Watch for added/removed nodes
             subtree: true,        // Watch all descendants
-            attributes: false,    // Don't need to watch attributes
+            attributes: true,    // Don't need to watch attributes
             characterData: false  // Don't need to watch text content
         });
 
         // Create a drawing function that runs at 30fps
-        const drawVideosToCanvas = () => {            
+        const drawVideosToCanvas = () => {  
+            try {          
             // Clear the canvas with black background
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -74,14 +151,13 @@ class FullCaptureManager {
             let activeVideos = [];
 
             // Find active videos and determine the bounding box
-            videoElements.forEach(video => {
-                if (!video.paused && video.videoWidth > 0 && video.videoHeight > 0) {
-                    const videoRect = video.getBoundingClientRect();
-                    minX = Math.min(minX, videoRect.left);
-                    minY = Math.min(minY, videoRect.top);
-                    maxX = Math.max(maxX, videoRect.right);
-                    maxY = Math.max(maxY, videoRect.bottom);
-                    activeVideos.push({ video, rect: videoRect });
+            videoElements.forEach(({ element, final_bounding_rect }) => {
+                if (!element.paused && element.videoWidth > 0 && element.videoHeight > 0) {
+                    minX = Math.min(minX, final_bounding_rect.left);
+                    minY = Math.min(minY, final_bounding_rect.top);
+                    maxX = Math.max(maxX, final_bounding_rect.right);
+                    maxY = Math.max(maxY, final_bounding_rect.bottom);
+                    activeVideos.push({ element, rect: final_bounding_rect });
                 }
             });
 
@@ -117,7 +193,7 @@ class FullCaptureManager {
                 }
 
                 // Draw each video at its position relative to our bounding box, scaled to fit
-                activeVideos.forEach(({ video, rect }) => {
+                activeVideos.forEach(({ element, rect }) => {
                     // Calculate relative position within the bounding box
                     const relativeX = (rect.left - minX) / boundingWidth;
                     const relativeY = (rect.top - minY) / boundingHeight;
@@ -126,7 +202,7 @@ class FullCaptureManager {
 
                     // Apply scaling and position on canvas
                     ctx.drawImage(
-                        video,
+                        element,
                         offsetX + relativeX * scaledWidth,
                         offsetY + relativeY * scaledHeight,
                         relativeWidth * scaledWidth,
@@ -137,6 +213,9 @@ class FullCaptureManager {
 
             // Schedule the next frame
             this.animationFrameId = requestAnimationFrame(drawVideosToCanvas);
+        }catch (e) {
+            console.error('Error drawing videos to canvas', e);
+        }
         };
 
         // Start the drawing loop
@@ -416,6 +495,17 @@ class UserManager {
             type: 'DeviceOutputsUpdate',
             deviceOutputs: Array.from(this.deviceOutputMap.values())
         });
+    }
+
+    getUserByStreamId(streamId) {
+        // Look through device output map and find the corresponding device id. Then look up the user by device id.
+        for (const deviceOutput of this.deviceOutputMap.values()) {
+            if (deviceOutput.streamId === streamId) {
+                return this.allUsersMap.get(deviceOutput.deviceId);
+            }
+        }
+
+        return null;
     }
 
     getUserByDeviceId(deviceId) {
