@@ -22,3 +22,7 @@ logs: ## View the logs
 migrate: ## Run migrations
 	docker compose -f dev.docker-compose.yaml exec attendee-app-local python manage.py migrate
 
+.PHONY: lint
+lint: ## Run the ruff linter.
+	ruff check --fix
+	ruff format
