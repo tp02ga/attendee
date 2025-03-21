@@ -1,7 +1,8 @@
 {
   "subdomain": "attendee",
+  "customDomain": "attendee.apidocumentation.com",
   "guides": [{
-      "name": "Basics",
+      "name": "Attendee",
       "sidebar": [
         {
           "path": "docs/basics.md",
