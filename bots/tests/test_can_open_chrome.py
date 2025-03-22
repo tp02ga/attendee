@@ -3,7 +3,6 @@ import os
 from django.test.testcases import TransactionTestCase
 from pyvirtualdisplay import Display
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 
 
 class TestChromeDriver(TransactionTestCase):
@@ -15,7 +14,7 @@ class TestChromeDriver(TransactionTestCase):
 
         try:
             # Set up Chrome options
-            options = Options()
+            options = webdriver.ChromeOptions()
             options.add_argument("--use-fake-ui-for-media-stream")
             options.add_argument("--start-maximized")
             options.add_argument("--no-sandbox")

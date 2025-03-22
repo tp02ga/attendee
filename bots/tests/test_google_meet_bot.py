@@ -40,7 +40,6 @@ def create_mock_file_uploader():
 
 def create_mock_google_meet_driver():
     mock_driver = MagicMock()
-    mock_driver.set_window_size.return_value = None
     mock_driver.execute_script.side_effect = [
         None,  # First call (window.ws.enableMediaSending())
         12345,  # Second call (performance.timeOrigin)

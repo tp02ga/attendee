@@ -11,7 +11,6 @@ import numpy as np
 import requests
 from pyvirtualdisplay import Display
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
@@ -261,7 +260,7 @@ class WebBotAdapter(BotAdapter):
         )
 
     def init_driver(self):
-        options = Options()
+        options = webdriver.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
         options.add_argument("--start-maximized")
