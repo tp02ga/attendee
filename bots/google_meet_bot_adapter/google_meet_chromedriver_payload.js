@@ -18,7 +18,176 @@ class FullCaptureManager {
         this.audioTracks.push(audioTrack);
     }
 
-    getVideoElementsForLayout(videoElements, activeSpeakerElements) {
+    getActiveSpeakerElementsWithInfo(mainElement) {
+        const activeSpeakerElements = mainElement.querySelectorAll('div.tC2Wod.kssMZb');
+
+        return Array.from(activeSpeakerElements).map(element => {
+            const participantElement = element.closest('[data-participant-id]');
+            const participantId = participantElement ? participantElement.getAttribute('data-participant-id') : null;
+            
+            return {
+                element: element,
+                bounding_rect: element.getBoundingClientRect(),
+                participant_id: participantId
+            };
+        }).filter(element => element.bounding_rect.width > 0 && element.bounding_rect.height > 0 && element.participant_id);
+    }
+
+    getVideoElementsWithInfo(mainElement, activeSpeakerElementsWithInfo) {
+        const videoElements = mainElement.querySelectorAll('video');
+        return Array.from(videoElements).map(video => {
+            // Get the parent element to extract SSRC
+            const parentElement = video.parentElement;
+            const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
+            const user = window.userManager.getUserByStreamId(ssrc);
+            const containerElement = video.closest('.LBDzPb');
+            const bounding_rect = video.getBoundingClientRect();
+            const container_bounding_rect = containerElement.getBoundingClientRect();
+            const clip_rect = {
+                top: container_bounding_rect.top - bounding_rect.top,
+                left: container_bounding_rect.left - bounding_rect.left,
+                right: container_bounding_rect.right - bounding_rect.top,
+                bottom: container_bounding_rect.bottom - bounding_rect.left,
+                width: container_bounding_rect.width,
+                height: container_bounding_rect.height,
+            }
+            return {
+                element: video,
+                bounding_rect: bounding_rect,
+                container_bounding_rect: container_bounding_rect,
+                clip_rect: clip_rect,
+                ssrc: ssrc,
+                user: user,
+                is_screen_share: Boolean(user?.parentDeviceId),
+                is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
+            };
+        }).filter(video => video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
+    }
+
+    computeFrameLayout(mainElement) {
+        const activeSpeakerElementsWithInfo = this.getActiveSpeakerElementsWithInfo(mainElement);
+        const videoElementsWithInfo = this.getVideoElementsWithInfo(mainElement, activeSpeakerElementsWithInfo);
+
+        const layoutElements = [];
+
+        if (window.initialData.recordingView === 'speaker_view') {
+            const screenShareVideo = videoElementsWithInfo.find(video => video.is_screen_share);
+            if (screenShareVideo) {
+                layoutElements.push({
+                    element: screenShareVideo.element,
+                    dst_rect: screenShareVideo.bounding_rect,
+                });
+                const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
+                if (activeSpeakerVideo) {                    
+                    // Calculate position in upper right corner of screen share
+                    const x = screenShareVideo.bounding_rect.right - activeSpeakerVideo.bounding_rect.width;
+                    const y = screenShareVideo.bounding_rect.top;
+                    
+                    layoutElements.push({
+                        element: activeSpeakerVideo.element,
+                        dst_rect: {
+                            left: x,
+                            top: y,
+                            width: activeSpeakerVideo.bounding_rect.width,
+                            height: activeSpeakerVideo.bounding_rect.height
+                        },
+                        label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
+                    });
+                }
+            }
+            else
+            {
+                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo[0];
+                if (mainParticipantVideo) {
+                    layoutElements.push({
+                        element: mainParticipantVideo.element,
+                        dst_rect: mainParticipantVideo.bounding_rect,
+                        label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
+                    });
+                }
+            }
+
+            return this.scaleLayoutToCanvasWithLetterBoxing(layoutElements);
+        }
+
+        return layoutElements;
+    }
+
+    scaleLayoutToCanvasWithLetterBoxing(layoutElements) {
+        if (layoutElements.length === 0) {
+            return layoutElements;
+        }
+
+        const canvasWidth = 1920;
+        const canvasHeight = 1080;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = 0;
+        let maxY = 0;
+
+        // Find active videos and determine the bounding box
+        layoutElements.forEach(({ element, dst_rect }) => {
+            if (element.videoWidth > 0 && element.videoHeight > 0) {
+                minX = Math.min(minX, dst_rect.left);
+                minY = Math.min(minY, dst_rect.top);
+                maxX = Math.max(maxX, dst_rect.right);
+                maxY = Math.max(maxY, dst_rect.bottom);
+            }
+        });
+
+        const boundingWidth = maxX - minX;
+        const boundingHeight = maxY - minY;
+
+        // Calculate aspect ratios
+        const inputAspect = boundingWidth / boundingHeight;
+        const outputAspect = canvasWidth / canvasHeight;
+        let scaledWidth, scaledHeight, offsetX, offsetY;
+
+        if (Math.abs(inputAspect - outputAspect) < 1e-2) {
+            // Same aspect ratio, use full canvas
+            scaledWidth = canvasWidth;
+            scaledHeight = canvasHeight;
+            offsetX = 0;
+            offsetY = 0;
+        } else if (inputAspect > outputAspect) {
+            // Input is wider, fit to width with letterboxing
+            scaledWidth = canvasWidth;
+            scaledHeight = canvasWidth / inputAspect;
+            offsetX = 0;
+            offsetY = (canvasHeight - scaledHeight) / 2;
+        } else {
+            // Input is taller, fit to height with pillarboxing
+            scaledHeight = canvasHeight;
+            scaledWidth = canvasHeight * inputAspect;
+            offsetX = (canvasWidth - scaledWidth) / 2;
+            offsetY = 0;
+        }
+
+        return layoutElements.map(layoutElement => {
+            const dst_rect = layoutElement.dst_rect;
+            const relativeX = (dst_rect.left - minX) / boundingWidth;
+            const relativeY = (dst_rect.top - minY) / boundingHeight;
+            const relativeWidth = dst_rect.width / boundingWidth;
+            const relativeHeight = dst_rect.height / boundingHeight;
+
+            const dst_rect_transformed = {
+                left: offsetX + relativeX * scaledWidth,
+                top: offsetY + relativeY * scaledHeight,
+                width: relativeWidth * scaledWidth,
+                height: relativeHeight * scaledHeight,
+            }
+
+            return {
+                ...layoutElement,
+                dst_rect: dst_rect_transformed,
+            };
+        });
+    }
+
+    getVideoElementsForLayout(mainElement) {
+        const videoElements = mainElement.querySelectorAll('video');
+        const activeSpeakerElements = mainElement.querySelectorAll('div.tC2Wod.kssMZb');
+
         const activeSpeakerElementsWithInfo = Array.from(activeSpeakerElements).map(element => {
             const participantElement = element.closest('[data-participant-id]');
             const participantId = participantElement ? participantElement.getAttribute('data-participant-id') : null;
@@ -139,21 +308,21 @@ class FullCaptureManager {
         canvas.height = 1080;  // Default height, will be updated
         document.body.appendChild(canvas);
 
-        // Find all video elements within the main element
-        let videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
-        //console.log(`Found ${videoElements.length} video elements in main`);
-
         // Set up the canvas context for drawing
         const ctx = canvas.getContext('2d');
 
+        // Using the contents of the main element, compute the layout of the frame we want to render
+        let frameLayout = this.computeFrameLayout(mainElement);
+
         // Create a MutationObserver to watch for changes to the DOM
         this.observer = new MutationObserver((mutations) => {
-            // Update the list of video elements when DOM changes
-            videoElements = this.getVideoElementsForLayout(mainElement.querySelectorAll('video'), mainElement.querySelectorAll('div.tC2Wod.kssMZb'));
-           // console.log(`Updated: ${videoElements.length} video elements in main`);
+            // Update the frame layout when DOM changes
+            frameLayout = this.computeFrameLayout(mainElement);
         });
 
-        // Start observing the main element for changes
+        // Start observing the main element for changes which will trigger a recomputation of the frame layout
+        // TODO: This observer fires whenever someone speaks. We should try to see if we can filter those out so it fires less often
+        // because the computeFrameLayout is a relatively expensive operation
         this.observer.observe(mainElement, { 
             childList: true,      // Watch for added/removed nodes
             subtree: true,        // Watch all descendants
@@ -162,108 +331,39 @@ class FullCaptureManager {
         });
 
         // Create a drawing function that runs at 30fps
-        const drawVideosToCanvas = () => {  
+        const drawFrameLayoutToCanvas = () => {  
             try {          
             // Clear the canvas with black background
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Calculate the bounding box that encompasses all videos
-            let minX = Infinity;
-            let minY = Infinity;
-            let maxX = 0;
-            let maxY = 0;
-            let activeVideos = [];
 
-            // Find active videos and determine the bounding box
-            videoElements.forEach(({ element, final_bounding_rect, src_rect, label }) => {
-                if (!element.paused && element.videoWidth > 0 && element.videoHeight > 0) {
-                    minX = Math.min(minX, final_bounding_rect.left);
-                    minY = Math.min(minY, final_bounding_rect.top);
-                    maxX = Math.max(maxX, final_bounding_rect.right);
-                    maxY = Math.max(maxY, final_bounding_rect.bottom);
-                    activeVideos.push({ element, rect: final_bounding_rect, srcRect: src_rect, label: label });
+            frameLayout.forEach(({ element, dst_rect, src_rect, label }) => {
+
+                ctx.drawImage(
+                    element,
+                    dst_rect.left,
+                    dst_rect.top,
+                    dst_rect.width,
+                    dst_rect.height
+                );
+
+                if (label) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
                 }
             });
 
-            // If we have active videos, draw them maintaining aspect ratio
-            if (activeVideos.length > 0) {
-                const boundingWidth = maxX - minX;
-                const boundingHeight = maxY - minY;
-
-                // Calculate aspect ratios
-                const inputAspect = boundingWidth / boundingHeight;
-                const outputAspect = canvas.width / canvas.height; // 16:9 for 1920x1080
-
-                let scaledWidth, scaledHeight, offsetX, offsetY;
-
-                if (Math.abs(inputAspect - outputAspect) < 1e-2) {
-                    // Same aspect ratio, use full canvas
-                    scaledWidth = canvas.width;
-                    scaledHeight = canvas.height;
-                    offsetX = 0;
-                    offsetY = 0;
-                } else if (inputAspect > outputAspect) {
-                    // Input is wider, fit to width with letterboxing
-                    scaledWidth = canvas.width;
-                    scaledHeight = canvas.width / inputAspect;
-                    offsetX = 0;
-                    offsetY = (canvas.height - scaledHeight) / 2;
-                } else {
-                    // Input is taller, fit to height with pillarboxing
-                    scaledHeight = canvas.height;
-                    scaledWidth = canvas.height * inputAspect;
-                    offsetX = (canvas.width - scaledWidth) / 2;
-                    offsetY = 0;
-                }
-
-                // Draw each video at its position relative to our bounding box, scaled to fit
-                activeVideos.forEach(({ element, rect, srcRect, label }) => {
-                    // Calculate relative position within the bounding box
-                    const relativeX = (rect.left - minX) / boundingWidth;
-                    const relativeY = (rect.top - minY) / boundingHeight;
-                    const relativeWidth = rect.width / boundingWidth;
-                    const relativeHeight = rect.height / boundingHeight;
-
-                    // Apply scaling and position on canvas
-                    if (srcRect)
-                        ctx.drawImage(
-                            element,
-                            srcRect.left,
-                            srcRect.top,
-                            srcRect.width,
-                            srcRect.height,
-                            offsetX + relativeX * scaledWidth,
-                            offsetY + relativeY * scaledHeight,
-                            relativeWidth * scaledWidth,
-                            relativeHeight * scaledHeight
-                        );
-                    else
-                        ctx.drawImage(
-                            element,
-                            offsetX + relativeX * scaledWidth,
-                            offsetY + relativeY * scaledHeight,
-                            relativeWidth * scaledWidth,
-                            relativeHeight * scaledHeight
-                        );
-
-                    if (label) {
-                        ctx.fillStyle = 'white';
-                        ctx.font = 'bold 16px Arial';
-                        ctx.fillText(label, offsetX + relativeX * scaledWidth + 16, offsetY + relativeY * scaledHeight + relativeHeight * scaledHeight - 16);
-                    }
-                });
-            }
-
             // Schedule the next frame
-            this.animationFrameId = requestAnimationFrame(drawVideosToCanvas);
+            this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
         }catch (e) {
-            console.error('Error drawing videos to canvas', e);
+            console.error('Error drawing frame layout to canvas', e);
         }
         };
 
         // Start the drawing loop
-        drawVideosToCanvas();
+        drawFrameLayoutToCanvas();
 
         // Capture the canvas stream (30fps is typical for video conferencing)
         const canvasStream = canvas.captureStream(30);
