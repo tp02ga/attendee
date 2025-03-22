@@ -88,7 +88,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
-    @patch("bots.web_bot_adapter.web_bot_adapter.uc.Chrome")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
