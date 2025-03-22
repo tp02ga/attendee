@@ -40,7 +40,6 @@ def create_mock_file_uploader():
 
 def create_mock_google_meet_driver():
     mock_driver = MagicMock()
-    mock_driver.set_window_size.return_value = None
     mock_driver.execute_script.side_effect = [
         None,  # First call (window.ws.enableMediaSending())
         12345,  # Second call (performance.timeOrigin)
@@ -88,7 +87,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
-    @patch("bots.web_bot_adapter.web_bot_adapter.uc.Chrome")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
