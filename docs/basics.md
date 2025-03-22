@@ -1,15 +1,16 @@
-# What is a bot?
+# Basics of Bots
 
+## What is a bot?
 In the Attendee platform, a bot is an automated participant that can join virtual meetings across different platforms (Zoom, Google Meet, Microsoft Teams) to perform various tasks such as recording and transcription.
 
-# Bot Capabilities
+## Bot Capabilities
 
 1. Meeting Participation: Bots can join meetings as virtual participants
 2. Recording: Bots can record audio and video from meetings
 3. Transcription: Bots can transcribe meeting conversations in real-time or after the meeting ends
 4. RTMP Streaming: Bots can stream meeting content to RTMP destinations
 
-# Bot States
+## Bot States
 Bots go through these lifecycle states:
 
 1. Ready: Initial state when bot is created
@@ -22,31 +23,31 @@ Bots go through these lifecycle states:
 8. Waiting Room: Bot is in meeting's waiting room
 9. Ended: Bot has completed all tasks and recordings are available for download
 
-# Recording States
+## Recording States
 - not_started: Recording hasn't begun
 - in_progress: Currently recording
 - complete: Recording finished and processed
 - failed: Recording failed
 
-# Transcription States
+## Transcription States
 - not_started: Transcription hasn't begun
 - in_progress: Currently transcribing
 - complete: Transcription finished
 - failed: Transcription failed
 
-# Recording Formats
+## Recording Formats
 Bots support two recording formats:
 1. WEBM (default)
 2. MP4
 
-# Transcription Features
+## Transcription Features
 1. Non-realtime and realtime transcription (via Deepgram)
 2. Multiple language support
 3. Automatic language detection
 4. Speaker identification with UUID tracking
 5. Precise timestamps for each utterance
 
-# Configuration Options
+## Configuration Options
 Bots can be configured with:
 
 1. Transcription Settings
@@ -62,13 +63,13 @@ Bots can be configured with:
    - Destination URL (must start with rtmp:// or rtmps://)
    - Stream key
 
-# Platform Support
+## Platform Support
 Currently supported platforms:
 1. Zoom
 2. Google Meet
 3. Microsoft Teams
 
-# Valid Pipeline Configurations
+## Valid Pipeline Configurations
 Bots support these specific configurations:
 
 1. Basic meeting bot:
@@ -84,7 +85,7 @@ Bots support these specific configurations:
 3. Voice agent:
    - Transcribe audio only
 
-# Best Practices
+## Best Practices
 1. Always check bot state before requesting operations
 2. Monitor transcription and recording states separately
 3. Wait for the bots to have and "ended" status before accessing recordings

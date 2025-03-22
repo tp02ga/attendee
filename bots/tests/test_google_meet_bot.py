@@ -18,6 +18,7 @@ from bots.models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    CreditTransaction,
     Organization,
     Project,
     Recording,
@@ -40,7 +41,6 @@ def create_mock_file_uploader():
 
 def create_mock_google_meet_driver():
     mock_driver = MagicMock()
-    mock_driver.set_window_size.return_value = None
     mock_driver.execute_script.side_effect = [
         None,  # First call (window.ws.enableMediaSending())
         12345,  # Second call (performance.timeOrigin)
@@ -56,6 +56,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Set required environment variables
         os.environ["AWS_RECORDING_STORAGE_BUCKET_NAME"] = "test-bucket"
+        os.environ["CHARGE_CREDITS_FOR_BOTS"] = "false"
 
     def setUp(self):
         # Recreate organization and project for each test
@@ -88,7 +89,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
-    @patch("bots.web_bot_adapter.web_bot_adapter.uc.Chrome")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
@@ -222,6 +223,10 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Verify first_buffer_timestamp_ms_offset was set correctly
         self.assertEqual(controller.adapter.get_first_buffer_timestamp_ms_offset(), 12345)
+
+        # Verify that no charge was created (since the env var is not set in this test suite)
+        credit_transaction = CreditTransaction.objects.filter(bot=self.bot).first()
+        self.assertIsNone(credit_transaction, "A credit transaction was created for the bot")
 
         # Verify file uploader was used
         mock_uploader.upload_file.assert_called_once()

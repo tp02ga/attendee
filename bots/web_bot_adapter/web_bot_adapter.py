@@ -9,8 +9,8 @@ from time import sleep
 
 import numpy as np
 import requests
-import undetected_chromedriver as uc
 from pyvirtualdisplay import Display
+from selenium import webdriver
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
@@ -262,10 +262,10 @@ class WebBotAdapter(BotAdapter):
         )
 
     def init_driver(self):
-        options = uc.ChromeOptions()
+        options = webdriver.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
-        options.add_argument("--window-size=1920x1080")
+        options.add_argument("--start-maximized")
         options.add_argument("--no-sandbox")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
@@ -273,6 +273,7 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-application-cache")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
 
         if self.driver:
             # Simulate closing browser window
@@ -287,11 +288,7 @@ class WebBotAdapter(BotAdapter):
                 logger.info(f"Error closing existing driver: {e}")
             self.driver = None
 
-        self.driver = uc.Chrome(
-            use_subprocess=True,
-            options=options,
-            version_main=134,
-        )
+        self.driver = webdriver.Chrome(options=options)
         logger.info(f"web driver server initialized at port {self.driver.service.port}")
 
         initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}, recordingView: '{self.recording_view}'}}"
