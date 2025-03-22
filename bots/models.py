@@ -249,7 +249,6 @@ class CreditTransactionManager:
             CreditTransaction instance
 
         Raises:
-            ValidationError: If the transaction would result in negative credits
             RuntimeError: If max retries exceeded
         """
         max_retries = 10
