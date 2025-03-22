@@ -9,10 +9,9 @@ from time import sleep
 
 import numpy as np
 import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
 from pyvirtualdisplay import Display
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
@@ -265,7 +264,7 @@ class WebBotAdapter(BotAdapter):
         options = Options()
 
         options.add_argument("--use-fake-ui-for-media-stream")
-        options.add_argument('--start-maximized')
+        options.add_argument("--start-maximized")
         options.add_argument("--no-sandbox")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
@@ -273,7 +272,7 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-application-cache")
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument("--disable-blink-features=AutomationControlled")
 
         if self.driver:
             # Simulate closing browser window
