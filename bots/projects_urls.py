@@ -45,6 +45,16 @@ urlpatterns = [
         projects_views.CreateCredentialsView.as_view(),
         name="create-credentials",
     ),
+    path(
+        "<str:object_id>/webhooks/",
+        projects_views.ProjectWebhooksView.as_view(),
+        name="project-webhooks",
+    ),
+    path(
+        "<str:object_id>/webhooks/create/",
+        projects_views.CreateWebhookSubscriptionView.as_view(),
+        name="create-webhook-subscription",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",

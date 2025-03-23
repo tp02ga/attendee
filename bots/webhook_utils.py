@@ -14,7 +14,7 @@ def trigger_webhook(webhook_event_type, bot, payload):
     """
     from bots.models import WebhookDeliveryAttempt, WebhookSubscription
 
-    subscriptions = WebhookSubscription.objects.filter(events__contains=[webhook_event_type], is_active=True)
+    subscriptions = WebhookSubscription.objects.filter(project=bot.project, events__contains=[webhook_event_type], is_active=True)
 
     delivery_attempts = []
     for subscription in subscriptions:

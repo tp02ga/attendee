@@ -12,6 +12,8 @@ from .models import (
     Project,
     RecordingStates,
     Utterance,
+    WebhookSecret,
+    WebhookSubscription,
 )
 from .utils import generate_recordings_json_for_bot_detail_view
 
@@ -218,3 +220,39 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         )
 
         return render(request, "projects/project_bot_detail.html", context)
+
+
+class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        context = self.get_project_context(object_id, project)
+        context["webhooks"] = WebhookSubscription.objects.filter(project=project).order_by("-created_at")
+        return render(request, "projects/project_webhooks.html", context)
+
+class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def post(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        url = request.POST.get("url")
+        events = request.POST.get("events")
+
+        # Check if the URL is already subscribed
+        if WebhookSubscription.objects.filter(url=url).exists():
+            return HttpResponse("URL already subscribed", status=400)
+
+        # Get the project's secret for the webhook subscription. If new project, create a new one
+        webhook_secret, created = WebhookSecret.objects.get_or_create(project=project)
+
+        # Create the webhook subscription
+        webhook_subscription = WebhookSubscription.objects.create(
+            project=project,
+            url=url,
+            events=events,
+            secret=webhook_secret,
+        )
+
+        # Render the success modal content
+        return render(
+            request,
+            "projects/partials/webhook_subscription_created_modal.html",
+            {"secret": webhook_secret.get_secret(), "name": name},
+        )

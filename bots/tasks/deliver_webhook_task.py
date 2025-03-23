@@ -43,7 +43,8 @@ def deliver_webhook(self, delivery_id):
     }
 
     # Sign the payload
-    signature = sign_payload(webhook_data, subscription.secret.get_secret())
+    active_secret = subscription.secrets.filter(is_active=True).order_by('-created_at').first()
+    signature = sign_payload(webhook_data, active_secret.get_secret())
 
     # Increment attempt counter
     delivery.attempt_count += 1

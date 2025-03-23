@@ -1233,9 +1233,7 @@ class WebhookSubscription(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
     url = models.URLField()
     events = models.JSONField(default=default_events)
-    secret = models.ForeignKey(WebhookSecret, on_delete=models.PROTECT, related_name="webhook_subscriptions")
     is_active = models.BooleanField(default=True)
-    reputation = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

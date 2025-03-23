@@ -1,0 +1,102 @@
+{% extends 'projects/sidebar.html' %} {% block content %}
+<!-- Create Modal -->
+<div class="modal" id="createSubscriptionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create New Webhook Subscription</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <form
+          hx-post="{% url 'projects:create-webhook-subscription' project.object_id %}"
+          hx-target="#subscribeResult"
+          hx-swap="innerHTML"
+          hx-on::after-request="this.reset()"
+        >
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="url" class="form-label">URL</label>
+            <input
+              type="text"
+              class="form-control"
+              id="url"
+              name="url"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="events" class="form-label">Event</label>
+            <select class="form-select" id="events" name="events" required>
+              <option value="bot.state_change">bot.state_change</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result Modal (will be populated after webhook subscription) -->
+<div class="modal" id="subscribeResultModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" id="subscribeResult">
+      <!-- Content will be replaced by HTMX -->
+    </div>
+  </div>
+</div>
+
+<!-- Existing Webhooks Table -->
+
+<div class="container mt-4">
+  <div class="table-responsive" id="apiKeysTable">
+    {% if webhooks %}
+    <h2>Webhooks</h2>
+    <!-- Create Button -->
+    <button
+      class="btn btn-primary mb-3 mt-3"
+      data-bs-toggle="modal"
+      data-bs-target="#createSubscriptionModal"
+    >
+      Create Webhook Subscription
+    </button>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for webhook in webhooks %}
+        <tr>
+          <td>{{ webhook.url }}</td>
+          <td>{{ webhook.created_at|date:"M d, Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <h2>Webhooks</h2>
+    <p class="text-center mt-4">No webhooks found</p>
+    <p class="text-center">
+      <button
+        class="btn btn-primary mb-3"
+        data-bs-toggle="modal"
+        data-bs-target="#createSubscriptionModal"
+      >
+        Create new webhook
+      </button>
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
