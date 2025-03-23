@@ -293,6 +293,8 @@ class FullCaptureManager {
             frameLayout = this.computeFrameLayout(mainElement);
         });
 
+        // Commented out mutation observer because we don't need it anymore
+        // Just recomputing the layout every 500ms works good
         // Start observing the main element for changes which will trigger a recomputation of the frame layout
         // TODO: This observer fires whenever someone speaks. We should try to see if we can filter those out so it fires less often
         // because the computeFrameLayout is a relatively expensive operation
