@@ -100,21 +100,11 @@ class FullCaptureManager {
             {
                 const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo.find(video => video.ssrc === this.lastMainParticipantVideoSsrc) || videoElementsWithInfo[0];
                 this.lastMainParticipantVideoSsrc = mainParticipantVideo?.ssrc;
-                if (mainParticipantVideo) {
-                    let allStyles = "";
-                    const style = mainParticipantVideo.element.style;
-                    for (let i = 0; i < style.length; i++) {
-                        const property = style[i];
-                        allStyles += `${property}: ${style.getPropertyValue(property)}; `;
-                    }
-                    const debug_str = mainParticipantVideo.element.style.display + ", " + 
-                        (mainParticipantVideo.is_active_speaker ? "active speaker" : "not active speaker") + 
-                        ", full style string: " + allStyles;
-                    
+                if (mainParticipantVideo) {                   
                     layoutElements.push({
                         element: mainParticipantVideo.element,
                         dst_rect: mainParticipantVideo.bounding_rect,
-                        label: (mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName) + debug_str,
+                        label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
                         ssrc: mainParticipantVideo.ssrc,
                     });
                 }
@@ -321,61 +311,59 @@ class FullCaptureManager {
 
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
-            try {          
+            try {
+                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc }) => 
+                    (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) || !element.checkVisibility()
+                );
+                
+                if (hasMismatchOrInvisible) {
+                    // Schedule the next frame and exit
+                    this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
+                    return;
+                }
 
-            const hasMismatch = frameLayout.some(({ element, ssrc }) => 
-                (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) || !element.checkVisibility()
-            );
-            
-            if (hasMismatch) {
-                console.log('SSRC mismatch detected, skipping frame rendering');
-                // Schedule the next frame and exit
+                // Clear the canvas with black background
+                canvasContext.fillStyle = 'black';
+                canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+
+
+                frameLayout.forEach(({ element, dst_rect, src_rect, label }) => {
+
+                    if (src_rect) {
+                        canvasContext.drawImage(
+                            element,
+                            src_rect.left,
+                            src_rect.top,
+                            src_rect.width,
+                            src_rect.height,
+                            dst_rect.left,
+                            dst_rect.top,
+                            dst_rect.width,
+                            dst_rect.height
+                        );
+                    }
+                    else {
+                        canvasContext.drawImage(
+                            element,
+                            dst_rect.left,
+                            dst_rect.top,
+                            dst_rect.width,
+                            dst_rect.height
+                        );
+                    }
+
+                    if (label) {
+                        canvasContext.fillStyle = 'white';
+                        canvasContext.font = 'bold 16px Arial';
+                        canvasContext.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
+                    }
+                });
+
+                // Schedule the next frame
                 this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
-                return;
+            } catch (e) {
+                console.error('Error drawing frame layout to canvas', e);
             }
-
-            // Clear the canvas with black background
-            canvasContext.fillStyle = 'black';
-            canvasContext.fillRect(0, 0, canvas.width, canvas.height);
-
-
-            frameLayout.forEach(({ element, dst_rect, src_rect, label }) => {
-
-                if (src_rect) {
-                    canvasContext.drawImage(
-                        element,
-                        src_rect.left,
-                        src_rect.top,
-                        src_rect.width,
-                        src_rect.height,
-                        dst_rect.left,
-                        dst_rect.top,
-                        dst_rect.width,
-                        dst_rect.height
-                    );
-                }
-                else {
-                    canvasContext.drawImage(
-                        element,
-                        dst_rect.left,
-                        dst_rect.top,
-                        dst_rect.width,
-                        dst_rect.height
-                    );
-                }
-
-                if (label) {
-                    canvasContext.fillStyle = 'white';
-                    canvasContext.font = 'bold 16px Arial';
-                    canvasContext.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
-                }
-            });
-
-            // Schedule the next frame
-            this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
-        }catch (e) {
-            console.error('Error drawing frame layout to canvas', e);
-        }
         };
 
         // Start the drawing loop
