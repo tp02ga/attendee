@@ -131,11 +131,11 @@ class GoogleMeetUIMethods:
 
     def get_layout_to_select(self):
         if self.recording_view == RecordingViews.SPEAKER_VIEW:
-            return 'sidebar'
+            return "sidebar"
         elif self.recording_view == RecordingViews.GALLERY_VIEW:
-            return 'tiled'
+            return "tiled"
         else:
-            return 'sidebar'
+            return "sidebar"
 
     # returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):
@@ -188,7 +188,7 @@ class GoogleMeetUIMethods:
         logger.info("Clicking the 'Change layout' list item...")
         self.click_element(change_layout_list_item, "change_layout_list_item")
 
-        if layout_to_select == 'spotlight':
+        if layout_to_select == "spotlight":
             logger.info("Waiting for the 'Spotlight' label element")
             spotlight_label = self.locate_element(
                 step="spotlight_label",
@@ -198,7 +198,7 @@ class GoogleMeetUIMethods:
             logger.info("Clicking the 'Spotlight' label element")
             self.click_element(spotlight_label, "spotlight_label")
 
-        if layout_to_select == 'sidebar':
+        if layout_to_select == "sidebar":
             logger.info("Waiting for the 'Sidebar' label element")
             sidebar_label = self.locate_element(
                 step="sidebar_label",
@@ -208,7 +208,7 @@ class GoogleMeetUIMethods:
             logger.info("Clicking the 'Sidebar' label element")
             self.click_element(sidebar_label, "sidebar_label")
 
-        if layout_to_select == 'tiled':
+        if layout_to_select == "tiled":
             logger.info("Waiting for the 'Tiled' label element")
             tiled_label = self.locate_element(
                 step="tiled_label",
@@ -221,13 +221,13 @@ class GoogleMeetUIMethods:
             logger.info("Waiting for the tile selector element")
             tile_selector = self.locate_element(
                 step="tile_selector",
-                condition=EC.presence_of_element_located((By.CSS_SELECTOR, '.ByPkaf')),
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, ".ByPkaf")),
                 wait_time_seconds=6,
             )
-            
+
             logger.info("Finding all tile options")
-            tile_options = tile_selector.find_elements(By.CSS_SELECTOR, '.gyG0mb-zD2WHb-SYOSDb-OWXEXe-mt1Mkb')
-            
+            tile_options = tile_selector.find_elements(By.CSS_SELECTOR, ".gyG0mb-zD2WHb-SYOSDb-OWXEXe-mt1Mkb")
+
             if tile_options:
                 logger.info("Clicking the last tile option (49 tiles)")
                 last_tile_option = tile_options[-1]

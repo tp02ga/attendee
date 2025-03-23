@@ -115,9 +115,11 @@ class RecordingFormats(models.TextChoices):
     MP4 = "mp4"
     WEBM = "webm"
 
+
 class RecordingViews(models.TextChoices):
     SPEAKER_VIEW = "speaker_view"
     GALLERY_VIEW = "gallery_view"
+
 
 class Bot(models.Model):
     OBJECT_ID_PREFIX = "bot_"
