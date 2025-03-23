@@ -218,6 +218,23 @@ class GoogleMeetUIMethods:
             logger.info("Clicking the 'Tiled' label element")
             self.click_element(tiled_label, "tiled_label")
 
+            logger.info("Waiting for the tile selector element")
+            tile_selector = self.locate_element(
+                step="tile_selector",
+                condition=EC.presence_of_element_located((By.CSS_SELECTOR, '.ByPkaf')),
+                wait_time_seconds=6,
+            )
+            
+            logger.info("Finding all tile options")
+            tile_options = tile_selector.find_elements(By.CSS_SELECTOR, '.gyG0mb-zD2WHb-SYOSDb-OWXEXe-mt1Mkb')
+            
+            if tile_options:
+                logger.info("Clicking the last tile option (49 tiles)")
+                last_tile_option = tile_options[-1]
+                self.click_element(last_tile_option, "last_tile_option")
+            else:
+                logger.info("No tile options found")
+
         logger.info("Waiting for the close button")
         close_button = self.locate_element(
             step="close_button",
