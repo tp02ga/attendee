@@ -181,7 +181,7 @@ class CreateBotSerializer(serializers.Serializer):
     recording_settings = RecordingSettingsJSONField(
         help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}, with optional 'view': 'speaker_view' or 'gallery_view'.",
         required=False,
-        default={"format": RecordingFormats.WEBM, "view": RecordingViews.GALLERY_VIEW},
+        default={"format": RecordingFormats.WEBM, "view": RecordingViews.SPEAKER_VIEW},
     )
 
     RECORDING_SETTINGS_SCHEMA = {
