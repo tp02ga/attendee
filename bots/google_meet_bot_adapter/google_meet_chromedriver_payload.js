@@ -110,6 +110,45 @@ class FullCaptureManager {
             return this.scaleLayoutToCanvasWithLetterBoxing(layoutElements);
         }
 
+        if (window.initialData.recordingView === 'gallery_view') {
+            let galleryLayoutElements = videoElementsWithInfo.filter(video => !video.is_screen_share).map(video => {
+                const videoWidth = video.element.videoWidth;
+                const videoHeight = video.element.videoHeight;
+                const videoAspect = videoWidth / videoHeight;
+                const containerAspect = video.container_bounding_rect.width / video.container_bounding_rect.height;
+                
+                let cropX, cropY, cropWidth, cropHeight;
+                
+                // Determine crop dimensions to match container aspect ratio
+                if (videoAspect > containerAspect) {
+                    // Video is wider than container - crop width
+                    cropHeight = videoHeight;
+                    cropWidth = videoHeight * containerAspect;
+                } else {
+                    // Video is taller than container - crop height
+                    cropWidth = videoWidth;
+                    cropHeight = videoWidth / containerAspect;
+                }
+
+                cropX = (videoWidth - cropWidth) / 2;
+                cropY = (videoHeight - cropHeight) / 2;
+
+                return {
+                    element: video.element,
+                    src_rect: {
+                        left: cropX,
+                        top: cropY,
+                        width: cropWidth,
+                        height: cropHeight
+                    },
+                    dst_rect: video.container_bounding_rect,
+                    label: video.user?.fullName || video.user?.displayName,
+                };
+            });
+
+            return this.scaleLayoutToCanvasWithLetterBoxing(galleryLayoutElements);
+        }
+
         return layoutElements;
     }
 
@@ -311,8 +350,37 @@ class FullCaptureManager {
         canvas.style.left = '0';
         canvas.style.zIndex = '9999';
         canvas.style.border = '2px solid red';
-        canvas.style.opacity = '1.0'; // Make it semi-transparent to see through it
+        canvas.style.opacity = '0'; // Start with canvas hidden
         document.body.appendChild(canvas);
+        
+        // Create toggle button for canvas visibility
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = 'Show Canvas';
+        toggleButton.style.position = 'fixed';
+        toggleButton.style.bottom = '20px';
+        toggleButton.style.right = '20px';
+        toggleButton.style.zIndex = '10000';
+        toggleButton.style.padding = '8px 12px';
+        toggleButton.style.backgroundColor = '#4285f4';
+        toggleButton.style.color = 'white';
+        toggleButton.style.border = 'none';
+        toggleButton.style.borderRadius = '4px';
+        toggleButton.style.cursor = 'pointer';
+        toggleButton.style.fontFamily = 'Arial, sans-serif';
+        
+        // Toggle canvas visibility function
+        toggleButton.addEventListener('click', () => {
+            if (canvas.style.opacity === '0') {
+                canvas.style.opacity = '1.0';
+                toggleButton.textContent = 'Hide Canvas';
+            } else {
+                canvas.style.opacity = '0';
+                toggleButton.textContent = 'Show Canvas';
+            }
+        });
+        
+        document.body.appendChild(toggleButton);
+        this.toggleButton = toggleButton; // Store reference for cleanup
 
         // Set up the canvas context for drawing
         const ctx = canvas.getContext('2d');
@@ -346,13 +414,28 @@ class FullCaptureManager {
 
             frameLayout.forEach(({ element, dst_rect, src_rect, label }) => {
 
-                ctx.drawImage(
-                    element,
-                    dst_rect.left,
-                    dst_rect.top,
-                    dst_rect.width,
-                    dst_rect.height
-                );
+                if (src_rect) {
+                    ctx.drawImage(
+                        element,
+                        src_rect.left,
+                        src_rect.top,
+                        src_rect.width,
+                        src_rect.height,
+                        dst_rect.left,
+                        dst_rect.top,
+                        dst_rect.width,
+                        dst_rect.height
+                    );
+                }
+                else {
+                    ctx.drawImage(
+                        element,
+                        dst_rect.left,
+                        dst_rect.top,
+                        dst_rect.width,
+                        dst_rect.height
+                    );
+                }
 
                 if (label) {
                     ctx.fillStyle = 'white';
