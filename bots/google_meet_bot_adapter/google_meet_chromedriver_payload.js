@@ -130,8 +130,8 @@ class FullCaptureManager {
             if (element.videoWidth > 0 && element.videoHeight > 0) {
                 minX = Math.min(minX, dst_rect.left);
                 minY = Math.min(minY, dst_rect.top);
-                maxX = Math.max(maxX, dst_rect.right);
-                maxY = Math.max(maxY, dst_rect.bottom);
+                maxX = Math.max(maxX, dst_rect.left + dst_rect.width);
+                maxY = Math.max(maxY, dst_rect.top + dst_rect.height);
             }
         });
 
@@ -304,8 +304,14 @@ class FullCaptureManager {
 
         // Create a canvas element with initial dimensions (will be updated later)
         const canvas = document.createElement('canvas');
-        canvas.width = 1920;  // Default width, will be updated
-        canvas.height = 1080;  // Default height, will be updated
+        canvas.width = 1920;
+        canvas.height = 1080;
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.zIndex = '9999';
+        canvas.style.border = '2px solid red';
+        canvas.style.opacity = '1.0'; // Make it semi-transparent to see through it
         document.body.appendChild(canvas);
 
         // Set up the canvas context for drawing
