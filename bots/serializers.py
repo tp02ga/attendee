@@ -15,6 +15,7 @@ from .models import (
     RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
+    RecordingViews,
 )
 from .utils import meeting_type_from_url
 
@@ -71,6 +72,10 @@ class RTMPSettingsJSONField(serializers.JSONField):
             "format": {
                 "type": "string",
                 "description": "The format of the recording to save. The supported formats are 'webm' and 'mp4'.",
+            },
+            "view": {
+                "type": "string",
+                "description": "The view to use for the recording. The supported views are 'speaker_view' and 'gallery_view'.",
             },
         },
         "required": ["format"],
@@ -174,17 +179,18 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     recording_settings = RecordingSettingsJSONField(
-        help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}.",
+        help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}, with optional 'view': 'speaker_view' or 'gallery_view'.",
         required=False,
-        default={"format": RecordingFormats.WEBM},
+        default={"format": RecordingFormats.WEBM, "view": RecordingViews.GALLERY_VIEW},
     )
 
     RECORDING_SETTINGS_SCHEMA = {
         "type": "object",
         "properties": {
             "format": {"type": "string"},
+            "view": {"type": "string"},
         },
-        "required": ["format"],
+        "required": [],
     }
 
     def validate_recording_settings(self, value):
@@ -196,10 +202,15 @@ class CreateBotSerializer(serializers.Serializer):
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
 
-        # Validate format
-        format = value.get("format", "")
-        if format not in [RecordingFormats.MP4, RecordingFormats.WEBM]:
+        # Validate format if provided
+        format = value.get("format")
+        if format not in [RecordingFormats.MP4, RecordingFormats.WEBM, None]:
             raise serializers.ValidationError({"format": "Format must be mp4 or webm"})
+
+        # Validate view if provided
+        view = value.get("view")
+        if view not in [RecordingViews.SPEAKER_VIEW, RecordingViews.GALLERY_VIEW, None]:
+            raise serializers.ValidationError({"view": "View must be speaker_view or gallery_view"})
 
         return value
 
