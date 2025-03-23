@@ -223,167 +223,63 @@ class FullCaptureManager {
         });
     }
 
-    getVideoElementsForLayout(mainElement) {
-        const videoElements = mainElement.querySelectorAll('video');
-        const activeSpeakerElements = mainElement.querySelectorAll('div.tC2Wod.kssMZb');
-
-        const activeSpeakerElementsWithInfo = Array.from(activeSpeakerElements).map(element => {
-            const participantElement = element.closest('[data-participant-id]');
-            const participantId = participantElement ? participantElement.getAttribute('data-participant-id') : null;
-            
-            return {
-                element: element,
-                bounding_rect: element.getBoundingClientRect(),
-                participant_id: participantId
-            };
-        }).filter(element => element.bounding_rect.width > 0 && element.bounding_rect.height > 0 && element.participant_id);
-
-        const videoElementsWithInfo = Array.from(videoElements).map(video => {
-            // Get the parent element to extract SSRC
-            const parentElement = video.parentElement;
-            const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
-            const user = window.userManager.getUserByStreamId(ssrc);
-            const containerElement = video.closest('.LBDzPb');
-            const bounding_rect = video.getBoundingClientRect();
-            const container_bounding_rect = containerElement.getBoundingClientRect();
-            const clip_rect = {
-                top: container_bounding_rect.top - bounding_rect.top,
-                left: container_bounding_rect.left - bounding_rect.left,
-                right: container_bounding_rect.right - bounding_rect.top,
-                bottom: container_bounding_rect.bottom - bounding_rect.left,
-                width: container_bounding_rect.width,
-                height: container_bounding_rect.height,
-            }
-            return {
-                element: video,
-                bounding_rect: bounding_rect,
-                container_bounding_rect: container_bounding_rect,
-                clip_rect: clip_rect,
-                ssrc: ssrc,
-                user: user,
-                is_screen_share: Boolean(user?.parentDeviceId),
-                is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
-            };
-        }).filter(video => video.user && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
-
-        //console.log('videoElementsWithInfo', videoElementsWithInfo);
-        //console.log('activeSpeakerElementsWithInfo', activeSpeakerElementsWithInfo);
-
-        const finalVideoElements = [];
-
-        if (window.initialData.recordingView === 'speaker_view') {
-            const screenShareVideo = videoElementsWithInfo.find(video => video.is_screen_share);
-            if (screenShareVideo) {
-                finalVideoElements.push({
-                    element: screenShareVideo.element,
-                    final_bounding_rect: screenShareVideo.bounding_rect,
-                });
-                const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
-                if (activeSpeakerVideo) {                    
-                    // Calculate position in upper right corner of screen share
-                    const x = screenShareVideo.bounding_rect.right - activeSpeakerVideo.bounding_rect.width;
-                    const y = screenShareVideo.bounding_rect.top;
-                    
-                    finalVideoElements.push({
-                        element: activeSpeakerVideo.element,
-                        final_bounding_rect: {
-                            left: x,
-                            top: y,
-                            right: x + activeSpeakerVideo.bounding_rect.width,
-                            bottom: y + activeSpeakerVideo.bounding_rect.height,
-                            width: activeSpeakerVideo.bounding_rect.width,
-                            height: activeSpeakerVideo.bounding_rect.height
-                        },
-                        label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
-                    });
-                }
-            }
-            else
-            {
-                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo[0];
-                if (mainParticipantVideo) {
-                    finalVideoElements.push({
-                        element: mainParticipantVideo.element,
-                        final_bounding_rect: mainParticipantVideo.bounding_rect,
-                        label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
-                    });
-                }
-            }
-
-        }
-
-        if (window.initialData.recordingView === 'gallery_view') {
-            const allNonScreenShareVideos = videoElementsWithInfo.filter(video => !video.is_screen_share);
-            allNonScreenShareVideos.forEach(video => {
-                finalVideoElements.push({
-                    element: video.element,
-                    src_rect: video.clip_rect,
-                    final_bounding_rect: video.container_bounding_rect,
-                    label: video.user?.fullName || video.user?.displayName,
-                });
-            });
-        }
-
-        return finalVideoElements;
-    }
-
     async start() {
-        // Find the main element
+        // Find the main element that contains all the video elements
         const mainElement = document.querySelector('main');
         if (!mainElement) {
             console.error('No <main> element found in the DOM');
             return;
         }
 
-        //flush the video bytes
-        //make canvas dixed 1920x1080. scale video elements to fit
-        //make captions line up
-
-        //document.querySelectorAll('body *').forEach(el => el.tagName !== 'VIDEO' && !el.querySelector('video') ? el.style.display = 'none' : '');
-
-        // Create a canvas element with initial dimensions (will be updated later)
+        // Create a canvas element with dimensions of rendered frame
         const canvas = document.createElement('canvas');
         canvas.width = 1920;
         canvas.height = 1080;
-        canvas.style.position = 'fixed';
-        canvas.style.top = '0';
-        canvas.style.left = '0';
-        canvas.style.zIndex = '9999';
-        canvas.style.border = '2px solid red';
-        canvas.style.opacity = '0'; // Start with canvas hidden
         document.body.appendChild(canvas);
+
+        const debugCanvas = false;
+        if (debugCanvas) {
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.zIndex = '9999';
+            canvas.style.border = '2px solid red';
+            canvas.style.opacity = '1.0';
+    
+            
+            // Create toggle button for canvas visibility
+            const toggleButton = document.createElement('button');
+            toggleButton.textContent = 'Show Canvas';
+            toggleButton.style.position = 'fixed';
+            toggleButton.style.bottom = '20px';
+            toggleButton.style.right = '20px';
+            toggleButton.style.zIndex = '10000';
+            toggleButton.style.padding = '8px 12px';
+            toggleButton.style.backgroundColor = '#4285f4';
+            toggleButton.style.color = 'white';
+            toggleButton.style.border = 'none';
+            toggleButton.style.borderRadius = '4px';
+            toggleButton.style.cursor = 'pointer';
+            toggleButton.style.fontFamily = 'Arial, sans-serif';
+            
+            // Toggle canvas visibility function
+            toggleButton.addEventListener('click', () => {
+                if (canvas.style.opacity === '0') {
+                    canvas.style.opacity = '1.0';
+                    toggleButton.textContent = 'Hide Canvas';
+                } else {
+                    canvas.style.opacity = '0';
+                    toggleButton.textContent = 'Show Canvas';
+                }
+            });
+            
+            document.body.appendChild(toggleButton);
+            this.toggleButton = toggleButton; // Store reference for cleanup
+        }
         
-        // Create toggle button for canvas visibility
-        const toggleButton = document.createElement('button');
-        toggleButton.textContent = 'Show Canvas';
-        toggleButton.style.position = 'fixed';
-        toggleButton.style.bottom = '20px';
-        toggleButton.style.right = '20px';
-        toggleButton.style.zIndex = '10000';
-        toggleButton.style.padding = '8px 12px';
-        toggleButton.style.backgroundColor = '#4285f4';
-        toggleButton.style.color = 'white';
-        toggleButton.style.border = 'none';
-        toggleButton.style.borderRadius = '4px';
-        toggleButton.style.cursor = 'pointer';
-        toggleButton.style.fontFamily = 'Arial, sans-serif';
-        
-        // Toggle canvas visibility function
-        toggleButton.addEventListener('click', () => {
-            if (canvas.style.opacity === '0') {
-                canvas.style.opacity = '1.0';
-                toggleButton.textContent = 'Hide Canvas';
-            } else {
-                canvas.style.opacity = '0';
-                toggleButton.textContent = 'Show Canvas';
-            }
-        });
-        
-        document.body.appendChild(toggleButton);
-        this.toggleButton = toggleButton; // Store reference for cleanup
 
         // Set up the canvas context for drawing
-        const ctx = canvas.getContext('2d');
+        const canvasContext = canvas.getContext('2d');
 
         // Using the contents of the main element, compute the layout of the frame we want to render
         let frameLayout = this.computeFrameLayout(mainElement);
@@ -408,14 +304,14 @@ class FullCaptureManager {
         const drawFrameLayoutToCanvas = () => {  
             try {          
             // Clear the canvas with black background
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasContext.fillStyle = 'black';
+            canvasContext.fillRect(0, 0, canvas.width, canvas.height);
 
 
             frameLayout.forEach(({ element, dst_rect, src_rect, label }) => {
 
                 if (src_rect) {
-                    ctx.drawImage(
+                    canvasContext.drawImage(
                         element,
                         src_rect.left,
                         src_rect.top,
@@ -428,7 +324,7 @@ class FullCaptureManager {
                     );
                 }
                 else {
-                    ctx.drawImage(
+                    canvasContext.drawImage(
                         element,
                         dst_rect.left,
                         dst_rect.top,
@@ -438,9 +334,9 @@ class FullCaptureManager {
                 }
 
                 if (label) {
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
+                    canvasContext.fillStyle = 'white';
+                    canvasContext.font = 'bold 16px Arial';
+                    canvasContext.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
                 }
             });
 
@@ -454,7 +350,7 @@ class FullCaptureManager {
         // Start the drawing loop
         drawFrameLayoutToCanvas();
 
-        // Capture the canvas stream (30fps is typical for video conferencing)
+        // Capture the canvas stream at 30 fps
         const canvasStream = canvas.captureStream(30);
         const [videoTrack] = canvasStream.getVideoTracks();
         this.videoTrack = videoTrack;
