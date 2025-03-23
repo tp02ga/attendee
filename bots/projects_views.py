@@ -14,6 +14,7 @@ from .models import (
     Utterance,
     WebhookSecret,
     WebhookSubscription,
+    WebhookTriggerTypes,
 )
 from .utils import generate_recordings_json_for_bot_detail_view
 
@@ -227,6 +228,10 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         context = self.get_project_context(object_id, project)
         context["webhooks"] = WebhookSubscription.objects.filter(project=project).order_by("-created_at")
+        context["webhook_options"] = [
+            {'value': trigger_type, 'display': WebhookTriggerTypes.trigger_type_to_api_code(trigger_type)} 
+            for trigger_type in WebhookTriggerTypes
+        ]
         return render(request, "projects/project_webhooks.html", context)
 
 class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
@@ -247,12 +252,11 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
             project=project,
             url=url,
             events=events,
-            secret=webhook_secret,
         )
 
         # Render the success modal content
         return render(
             request,
             "projects/partials/webhook_subscription_created_modal.html",
-            {"secret": webhook_secret.get_secret(), "name": name},
+            {"secret": webhook_secret.get_secret(), "url": url, "events": events,},
         )

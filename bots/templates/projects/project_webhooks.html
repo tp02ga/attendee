@@ -20,7 +20,7 @@
         >
           {% csrf_token %}
           <div class="mb-3">
-            <label for="url" class="form-label">URL</label>
+            <label for="url" class="form-label">Webhook URL</label>
             <input
               type="text"
               class="form-control"
@@ -30,9 +30,11 @@
             />
           </div>
           <div class="mb-3">
-            <label for="events" class="form-label">Event</label>
+            <label for="events" class="form-label">Events</label>
             <select class="form-select" id="events" name="events" required>
-              <option value="bot.state_change">bot.state_change</option>
+              {% for option in webhook_options %}
+              <option value="{{ option.value }}">{{ option.display }}</option>
+              {% endfor %}
             </select>
           </div>
           <button type="submit" class="btn btn-primary">Create</button>
@@ -54,7 +56,7 @@
 <!-- Existing Webhooks Table -->
 
 <div class="container mt-4">
-  <div class="table-responsive" id="apiKeysTable">
+  <div class="table-responsive" id="webhooksTable">
     {% if webhooks %}
     <h2>Webhooks</h2>
     <!-- Create Button -->
@@ -69,15 +71,16 @@
     <table class="table">
       <thead>
         <tr>
-          <th>URL</th>
+          <th>Webhook URL</th>
+          <th>Subscribed Events</th>
           <th>Created</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for webhook in webhooks %}
         <tr>
           <td>{{ webhook.url }}</td>
+          <td>{{ webhook.events }}</td>
           <td>{{ webhook.created_at|date:"M d, Y H:i" }}</td>
         </tr>
         {% endfor %}

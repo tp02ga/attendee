@@ -1188,12 +1188,6 @@ class WebhookSecret(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        # TODO for later: Remove this line to support secret rotation
-        constraints = [
-            models.UniqueConstraint(fields=["project"], name="unique_webhook_secret_per_project"),
-        ]
-
     def get_secret(self):
         """Decrypt and return secret"""
         if not self._secret:
@@ -1216,12 +1210,14 @@ class WebhookSecret(models.Model):
 
 class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
+    MADE_UP_EVENT = 2, "Made Up Event"
     # add other event types here
 
     @classmethod
     def trigger_type_to_api_code(cls, value):
         mapping = {
             cls.BOT_STATE_CHANGE: "bot.state_change",
+            cls.MADE_UP_EVENT: "made.up_event",
         }
         return mapping.get(value)
 
