@@ -9,6 +9,7 @@ class FullCaptureManager {
         this.audioContext = null;
         this.observer = null;
         this.audioTracks = [];
+        this.layoutUpdateInterval = null;
 
         this.silenceThreshold = 0.0;
         this.silenceCheckInterval = null;
@@ -97,12 +98,24 @@ class FullCaptureManager {
             }
             else
             {
-                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo[0];
+                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo.find(video => video.ssrc === this.lastMainParticipantVideoSsrc) || videoElementsWithInfo[0];
+                this.lastMainParticipantVideoSsrc = mainParticipantVideo?.ssrc;
                 if (mainParticipantVideo) {
+                    let allStyles = "";
+                    const style = mainParticipantVideo.element.style;
+                    for (let i = 0; i < style.length; i++) {
+                        const property = style[i];
+                        allStyles += `${property}: ${style.getPropertyValue(property)}; `;
+                    }
+                    const debug_str = mainParticipantVideo.element.style.display + ", " + 
+                        (mainParticipantVideo.is_active_speaker ? "active speaker" : "not active speaker") + 
+                        ", full style string: " + allStyles;
+                    
                     layoutElements.push({
                         element: mainParticipantVideo.element,
                         dst_rect: mainParticipantVideo.bounding_rect,
-                        label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
+                        label: (mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName) + debug_str,
+                        ssrc: mainParticipantVideo.ssrc,
                     });
                 }
             }
@@ -293,16 +306,34 @@ class FullCaptureManager {
         // Start observing the main element for changes which will trigger a recomputation of the frame layout
         // TODO: This observer fires whenever someone speaks. We should try to see if we can filter those out so it fires less often
         // because the computeFrameLayout is a relatively expensive operation
+        /*
         this.observer.observe(mainElement, { 
             childList: true,      // Watch for added/removed nodes
             subtree: true,        // Watch all descendants
-            attributes: true,    // Don't need to watch attributes
+            attributes: false,    // Don't need to watch attributes
             characterData: false  // Don't need to watch text content
-        });
+        });*/
+
+        // Set up a timer to update the frame layout every 500ms
+        this.layoutUpdateInterval = setInterval(() => {
+            frameLayout = this.computeFrameLayout(mainElement);
+        }, 500);
 
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
             try {          
+
+            const hasMismatch = frameLayout.some(({ element, ssrc }) => 
+                (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) || !element.checkVisibility()
+            );
+            
+            if (hasMismatch) {
+                console.log('SSRC mismatch detected, skipping frame rendering');
+                // Schedule the next frame and exit
+                this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
+                return;
+            }
+
             // Clear the canvas with black background
             canvasContext.fillStyle = 'black';
             canvasContext.fillRect(0, 0, canvas.width, canvas.height);
@@ -464,6 +495,12 @@ class FullCaptureManager {
         if (this.silenceCheckInterval) {
             clearInterval(this.silenceCheckInterval);
             this.silenceCheckInterval = null;
+        }
+
+        // Clear layout update interval
+        if (this.layoutUpdateInterval) {
+            clearInterval(this.layoutUpdateInterval);
+            this.layoutUpdateInterval = null;
         }
 
         // Cancel animation frame if it exists
