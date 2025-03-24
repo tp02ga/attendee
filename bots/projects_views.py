@@ -234,19 +234,6 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
         return render(request, "projects/project_webhooks.html", context)
 
-class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
-    def delete(self, request, object_id, webhook_id):
-        webhook = get_object_or_404(
-            WebhookSubscription,
-            id=webhook_id,
-            project__organization=request.user.organization,
-        )
-        webhook.delete()
-        context = self.get_project_context(object_id, webhook.project)
-        context["webhooks"] = WebhookSubscription.objects.filter(project=webhook.project).order_by("-created_at")
-        context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
-        return render(request, "projects/project_webhooks.html", context)
-
 class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
@@ -278,3 +265,16 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
                 "events": [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in subscribed_events],
             },
         )
+
+class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def delete(self, request, object_id, webhook_object_id):
+        webhook = get_object_or_404(
+            WebhookSubscription,
+            object_id=webhook_object_id,
+            project__organization=request.user.organization,
+        )
+        webhook.delete()
+        context = self.get_project_context(object_id, webhook.project)
+        context["webhooks"] = WebhookSubscription.objects.filter(project=webhook.project).order_by("-created_at")
+        context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
+        return render(request, "projects/project_webhooks.html", context)

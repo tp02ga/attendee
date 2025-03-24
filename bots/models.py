@@ -1210,14 +1210,12 @@ class WebhookSecret(models.Model):
 
 class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
-    MADE_UP_EVENT = 2, "Made Up Event"
     # add other event types here
 
     @classmethod
     def trigger_type_to_api_code(cls, value):
         mapping = {
             cls.BOT_STATE_CHANGE: "bot.state_change",
-            cls.MADE_UP_EVENT: "made.up_event",
         }
         return mapping.get(value)
 
@@ -1227,6 +1225,17 @@ class WebhookSubscription(models.Model):
         return [WebhookTriggerTypes.BOT_STATE_CHANGE]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
+
+    OBJECT_ID_PREFIX = "webhook_"
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
     url = models.URLField()
     events = models.JSONField(default=default_events)
     is_active = models.BooleanField(default=True)

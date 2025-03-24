@@ -105,13 +105,17 @@
             <button
               class="btn btn-danger btn-sm"
               data-bs-toggle="modal"
-              data-bs-target="#deleteModal{{ webhook.id }}"
+              data-bs-target="#deleteModal{{ webhook.object_id }}"
             >
               Delete
             </button>
 
             <!-- Delete Confirmation Modal -->
-            <div class="modal" id="deleteModal{{ webhook.id }}" tabindex="-1">
+            <div
+              class="modal"
+              id="deleteModal{{ webhook.object_id }}"
+              tabindex="-1"
+            >
               <div class="modal-dialog">
                 <div class="modal-content">
                   <div class="modal-header">
@@ -138,7 +142,7 @@
                     </button>
                     <button
                       class="btn btn-danger"
-                      hx-delete="{% url 'projects:delete-webhook' project.object_id webhook.id %}"
+                      hx-delete="{% url 'projects:delete-webhook' project.object_id webhook.object_id %}"
                       hx-swap="outerHTML"
                       hx-select="#webhooksTable"
                       hx-target="#webhooksTable"
