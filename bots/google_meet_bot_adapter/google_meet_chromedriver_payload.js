@@ -132,9 +132,17 @@ class FullCaptureManager {
             const numCols = Math.ceil(Math.sqrt(this.ssrcsOrder.length));
             const cellWidth = 1920 / numCols;
             const cellHeight = 1080 / numCols;
+
+            const ssrcToVideoElement = new Map(videoElementsFiltered.map(video => [video.ssrc, video]));
                        
             let galleryLayoutElements = [];
-            videoElementsFiltered.forEach((video, index) => {
+            this.ssrcsOrder.forEach((ssrc, index) => {
+                const video = ssrcToVideoElement.get(ssrc);
+                if (!video) {
+                    console.error('Video element not found for ssrc', ssrc);
+                    return;
+                }
+
                 const videoWidth = video.element.videoWidth;
                 const videoHeight = video.element.videoHeight;
                 const videoAspect = videoWidth / videoHeight;
