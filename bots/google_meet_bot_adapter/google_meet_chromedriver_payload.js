@@ -116,29 +116,47 @@ class FullCaptureManager {
         }
 
         if (window.initialData.recordingView === 'gallery_view') {
-            let galleryLayoutElements = videoElementsWithInfo.filter(video => !video.is_screen_share).map(video => {
+            const videoElementsFiltered = videoElementsWithInfo.filter(video => !video.is_screen_share);
+
+            const ssrcsInCurrentFrame = videoElementsFiltered.map(video => video.ssrc);
+            const ssrcsInCurrentFrameSet = new Set(ssrcsInCurrentFrame);
+            this.ssrcsInLastFrame = this.ssrcsInLastFrame || [];
+            this.ssrcsOrder = this.ssrcsOrder || [];
+
+            // Remove ssrcs that are not in the current frame
+            this.ssrcsOrder = this.ssrcsOrder.filter(ssrc => ssrcsInCurrentFrameSet.has(ssrc));
+            // Add ssrcs that are in the current frame but are not in ssrcsOrder
+            const ssrcsOrderSet = new Set(this.ssrcsOrder);
+            this.ssrcsOrder.push(...ssrcsInCurrentFrame.filter(ssrc => !ssrcsOrderSet.has(ssrc)));
+
+            const numCols = Math.ceil(Math.sqrt(this.ssrcsOrder.length));
+            const cellWidth = 1920 / numCols;
+            const cellHeight = 1080 / numCols;
+                       
+            let galleryLayoutElements = [];
+            videoElementsFiltered.forEach((video, index) => {
                 const videoWidth = video.element.videoWidth;
                 const videoHeight = video.element.videoHeight;
                 const videoAspect = videoWidth / videoHeight;
-                const containerAspect = video.container_bounding_rect.width / video.container_bounding_rect.height;
+                const cellAspect = (cellWidth - 10) / (cellHeight - 10);
                 
                 let cropX, cropY, cropWidth, cropHeight;
                 
-                // Determine crop dimensions to match container aspect ratio
-                if (videoAspect > containerAspect) {
-                    // Video is wider than container - crop width
+                // Determine crop dimensions to match cell aspect ratio
+                if (videoAspect > cellAspect) {
+                    // Video is wider than cell - crop width
                     cropHeight = videoHeight;
-                    cropWidth = videoHeight * containerAspect;
+                    cropWidth = videoHeight * cellAspect;
                 } else {
-                    // Video is taller than container - crop height
+                    // Video is taller than cell - crop height
                     cropWidth = videoWidth;
-                    cropHeight = videoWidth / containerAspect;
+                    cropHeight = videoWidth / cellAspect;
                 }
 
                 cropX = (videoWidth - cropWidth) / 2;
                 cropY = (videoHeight - cropHeight) / 2;
 
-                return {
+                galleryLayoutElements.push({
                     element: video.element,
                     src_rect: {
                         left: cropX,
@@ -146,11 +164,19 @@ class FullCaptureManager {
                         width: cropWidth,
                         height: cropHeight
                     },
-                    dst_rect: video.container_bounding_rect,
+                    dst_rect: {
+                        left: (index % numCols) * cellWidth + 5,
+                        top: Math.floor(index / numCols) * cellHeight + 5,
+                        width: cellWidth - 10,
+                        height: cellHeight - 10
+                    },
                     label: video.user?.fullName || video.user?.displayName,
                     videoWidth: videoWidth,
-                };
+                    ssrc: video.ssrc,
+                });
             });
+
+            this.ssrcsInLastFrame = ssrcsInCurrentFrame;
 
             return this.scaleLayoutToCanvasWithLetterBoxing(galleryLayoutElements);
         }
