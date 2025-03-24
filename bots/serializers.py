@@ -36,9 +36,18 @@ from .utils import meeting_type_from_url
                         "description": "Whether to automatically detect the spoken language",
                     },
                 },
-            }
+            },
+            "meeting_closed_captions": {
+                "type": "object",
+                "properties": {
+                    "google_meet_language": {
+                        "type": "string",
+                        "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
+                    },
+                },
+            },
         },
-        "required": ["deepgram"],
+        "required": [],
     }
 )
 class TranscriptionSettingsJSONField(serializers.JSONField):
@@ -123,9 +132,17 @@ class CreateBotSerializer(serializers.Serializer):
                     {"required": ["detect_language"]},
                 ],
                 "additionalProperties": False,
-            }
+            },
+            "meeting_closed_captions": {
+                "type": "object",
+                "properties": {
+                    "google_meet_language": {"type": "string"},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
         },
-        "required": ["deepgram"],
+        "required": [],
         "additionalProperties": False,
     }
 

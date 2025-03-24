@@ -182,6 +182,9 @@ class Bot(models.Model):
     def deepgram_detect_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("detect_language", None)
 
+    def google_meet_closed_captions_language(self):
+        return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("google_meet_language", None)
+
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
         if not rtmp_settings:
