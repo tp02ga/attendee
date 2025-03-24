@@ -35,7 +35,7 @@ class MediaRecorderReceiver:
         # Check if input file exists
         if not os.path.exists(input_path):
             logger.info(f"Input file does not exist at {input_path}, creating empty file")
-            with open(input_path, "wb") as f:
+            with open(input_path, "wb"):
                 pass  # Create empty file
             return
 
