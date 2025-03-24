@@ -7,6 +7,7 @@ import boto3
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 class FileUploader:
     def __init__(self, bucket, key):
         """Initialize the FileUploader with an S3 bucket name.
