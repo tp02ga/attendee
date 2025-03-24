@@ -5,6 +5,15 @@ from bots.web_bot_adapter import WebBotAdapter
 
 
 class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
+    def __init__(
+        self,
+        *args,
+        google_meet_closed_captions_language: str | None,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.google_meet_closed_captions_language = google_meet_closed_captions_language
+
     def get_chromedriver_payload_file_name(self):
         return "google_meet_bot_adapter/google_meet_chromedriver_payload.js"
 

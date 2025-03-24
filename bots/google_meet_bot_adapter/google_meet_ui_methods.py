@@ -4,6 +4,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.action_chains import ActionChains
 
 from bots.models import RecordingViews
 from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableException
@@ -239,6 +240,80 @@ class GoogleMeetUIMethods:
         close_button = self.locate_element(
             step="close_button",
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the close button")
+        self.click_element(close_button, "close_button")
+
+        if self.google_meet_closed_captions_language:
+            self.select_language(self.google_meet_closed_captions_language)
+
+    def scroll_element_into_view(self, element, step):
+        try:
+            actions = ActionChains(self.driver)
+            actions.move_to_element(element).perform()
+            logger.info(f"Scrolled element into view for {step}")
+        except Exception as e:
+            logger.info(f"Error scrolling element into view for {step}")
+            raise UiCouldNotLocateElementException(f"Error scrolling element into view", step, e)
+
+    def select_language(self, language):
+        logger.info(f"Selecting language: {language}")
+        logger.info("Waiting for the more options button...")
+        MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
+        more_options_button = self.locate_element(
+            step="more_options_button_for_language_selection",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the more options button...")
+        self.click_element(more_options_button, "more_options_button")
+
+        logger.info("Waiting for the settings list item...")
+        settings_list_item = self.locate_element(
+            step="settings_list_item",
+            condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Settings"]]')),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the settings list item...")
+        self.click_element(settings_list_item, "settings_list_item")
+
+        logger.info("Waiting for the captions button")
+        captions_button = self.locate_element(
+            step="captions_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[jsname="z4Tpl"][aria-label="Captions"]')),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the captions button...")
+        self.click_element(captions_button, "captions_button")
+
+        logger.info("Waiting for the language dropdown")
+        language_dropdown = self.locate_element(
+            step="language_dropdown",
+            condition=EC.presence_of_element_located((By.XPATH, '//div[@jsname="oYxtQd"][.//span[contains(text(), "Language of the meeting")]]')),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the language dropdown...")
+        self.click_element(language_dropdown, "language_dropdown")
+
+        logger.info(f"Waiting for the language option: {language}...")
+        language_option = self.locate_element(
+            step="language_option",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, f'li[data-value="{language}"]')),
+            wait_time_seconds=6,
+        )
+        
+        # Scroll the language option into view before clicking
+        logger.info(f"Scrolling language option into view: {language}...")
+        self.scroll_element_into_view(language_option, "language_option")
+        
+        logger.info(f"Clicking the language option: {language}...")
+        self.click_element(language_option, "language_option")
+
+        logger.info("Waiting for the close button")
+        close_button = self.locate_element(
+            step="close_button_for_language_selection",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close dialog"]')),
             wait_time_seconds=6,
         )
         logger.info("Clicking the close button")
