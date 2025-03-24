@@ -77,6 +77,7 @@ class FullCaptureManager {
                 layoutElements.push({
                     element: screenShareVideo.element,
                     dst_rect: screenShareVideo.bounding_rect,
+                    ssrc: screenShareVideo.ssrc,
                 });
                 const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
                 if (activeSpeakerVideo) {                    
@@ -93,6 +94,7 @@ class FullCaptureManager {
                             height: activeSpeakerVideo.bounding_rect.height
                         },
                         label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
+                        ssrc: activeSpeakerVideo.ssrc,
                     });
                 }
             }
