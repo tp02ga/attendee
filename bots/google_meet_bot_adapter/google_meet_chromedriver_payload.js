@@ -43,6 +43,11 @@ class FullCaptureManager {
         }).filter(element => element.bounding_rect.width > 0 && element.bounding_rect.height > 0 && element.participant_id);
     }
 
+    getSSRCFromVideoElement(videoElement) {
+        const track_id = videoElement.srcObject?.getTracks().find(track => track.kind === 'video')?.id;
+        return this.videoTrackIdToSSRC.get(track_id);
+    }
+
     getVideoElementsWithInfo(mainElement, activeSpeakerElementsWithInfo) {
         const videoElements = mainElement.querySelectorAll('video');
         return Array.from(videoElements).map(video => {
@@ -58,8 +63,7 @@ class FullCaptureManager {
                 width: container_bounding_rect.width,
                 height: container_bounding_rect.height,
             }
-            const track_id = video.srcObject?.getTracks().find(track => track.kind === 'video')?.id;
-            const ssrc = this.videoTrackIdToSSRC.get(track_id);
+            const ssrc = this.getSSRCFromVideoElement(video);
             const user = window.userManager.getUserByStreamId(ssrc);
             return {
                 element: video,
@@ -361,7 +365,7 @@ class FullCaptureManager {
         const drawFrameLayoutToCanvas = () => {  
             try {
                 const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth }) => 
-                    (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) ||
+                    (ssrc && ssrc !== this.getSSRCFromVideoElement(element)) ||
                     (videoWidth && videoWidth !== element.videoWidth) ||
                     !element.checkVisibility()
                 );
@@ -408,19 +412,6 @@ class FullCaptureManager {
                         canvasContext.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
                     }
                 });
-
-
-                let locationY = 400;
-                canvasContext.fillStyle = 'white';
-                canvasContext.font = 'bold 15px Arial';
-                for (const frameLayoutElement of frameLayout) {
-                    const canvasLabel = JSON.stringify(frameLayoutElement);
-                    canvasContext.fillText(canvasLabel, 0, locationY);
-                    locationY += 30;
-                }
-                locationY += 30;
-                const canvasLabel2 = JSON.stringify(frameLayout.map(({ element, dst_rect, src_rect, label }) => ({ element_label: element?.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id })));
-                canvasContext.fillText(canvasLabel2, 0, locationY);
 
                 // Schedule the next frame
                 this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
