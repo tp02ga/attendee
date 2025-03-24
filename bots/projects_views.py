@@ -1,4 +1,5 @@
 import logging
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.http import HttpResponse
@@ -234,6 +235,7 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
         return render(request, "projects/project_webhooks.html", context)
 
+
 class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
@@ -260,11 +262,12 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
             request,
             "projects/partials/webhook_subscription_created_modal.html",
             {
-                "secret": webhook_secret.get_secret(), 
-                "url": url, 
+                "secret": webhook_secret.get_secret(),
+                "url": url,
                 "events": [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in subscribed_events],
             },
         )
+
 
 class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def delete(self, request, object_id, webhook_object_id):

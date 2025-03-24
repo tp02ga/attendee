@@ -31,8 +31,6 @@ from .models import (
     TranscriptionProviders,
     TranscriptionTypes,
     Utterance,
-    WebhookSecret,
-    WebhookSubscription,
 )
 from .serializers import (
     BotSerializer,
@@ -40,7 +38,6 @@ from .serializers import (
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
-    WebhookSubscriptionSerializer,
 )
 from .tasks import run_bot
 

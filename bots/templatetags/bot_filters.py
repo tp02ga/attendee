@@ -60,9 +60,10 @@ def participant_color(uuid):
 def md5(value):
     return hashlib.md5(str(value).encode()).hexdigest()
 
+
 @register.filter
 def map_trigger_types(events):
     """Transform webhook events to their API codes, works for both single events and lists"""
-    if hasattr(events, '__iter__') and not isinstance(events, str):
+    if hasattr(events, "__iter__") and not isinstance(events, str):
         return [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in events]
     return WebhookTriggerTypes.trigger_type_to_api_code(events)
