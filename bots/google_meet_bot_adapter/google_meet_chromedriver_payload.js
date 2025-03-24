@@ -67,7 +67,6 @@ class FullCaptureManager {
                 container_bounding_rect: container_bounding_rect,
                 clip_rect: clip_rect,
                 ssrc: ssrc,
-                track_id: track_id,
                 user: user,
                 is_screen_share: Boolean(user?.parentDeviceId),
                 is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
@@ -88,7 +87,6 @@ class FullCaptureManager {
                     element: screenShareVideo.element,
                     dst_rect: screenShareVideo.bounding_rect,
                     ssrc: screenShareVideo.ssrc,
-                    track_id: screenShareVideo.track_id,
                 });
                 const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
                 if (activeSpeakerVideo) {                    
@@ -106,7 +104,6 @@ class FullCaptureManager {
                         },
                         label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
                         ssrc: activeSpeakerVideo.ssrc,
-                        track_id: activeSpeakerVideo.track_id,
                     });
                 }
             }
@@ -120,7 +117,6 @@ class FullCaptureManager {
                         dst_rect: mainParticipantVideo.bounding_rect,
                         label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
                         ssrc: mainParticipantVideo.ssrc,
-                        track_id: mainParticipantVideo.track_id,
                     });
                 }
             }
@@ -364,10 +360,9 @@ class FullCaptureManager {
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
             try {
-                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth, track_id }) => 
+                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth }) => 
                     (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) ||
                     (videoWidth && videoWidth !== element.videoWidth) ||
-                    (!track_id || !element.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id || track_id !== element.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id) ||
                     !element.checkVisibility()
                 );
                 
