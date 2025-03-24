@@ -12,9 +12,9 @@ def trigger_webhook(webhook_event_type, bot, payload):
     """
     Trigger a webhook for a given event.
     """
-    from bots.models import WebhookDeliveryAttempt, WebhookSubscription
+    from bots.models import WebhookDeliveryAttempt
 
-    subscriptions = WebhookSubscription.objects.filter(project=bot.project, events__contains=[webhook_event_type], is_active=True)
+    subscriptions = bot.project.webhook_subscriptions.filter(events__contains=[webhook_event_type], is_active=True)
 
     delivery_attempts = []
     for subscription in subscriptions:

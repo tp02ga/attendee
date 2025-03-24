@@ -29,8 +29,12 @@ def deliver_webhook(self, delivery_id):
 
     # If the subscription is no longer active, mark as failed and return
     if not subscription.is_active:
-        delivery.status = "failed"
-        delivery.error_message = "Webhook subscription is no longer active"
+        delivery.status = WebhookDeliveryAttemptStatus.FAILURE
+        response_body = "Webhook subscription is no longer active"
+        if delivery.response_body_list is None:
+            delivery.response_body_list = [response_body]
+        else:
+            delivery.response_body_list.append(response_body)
         delivery.save()
         return
 
@@ -43,7 +47,7 @@ def deliver_webhook(self, delivery_id):
     }
 
     # Sign the payload
-    active_secret = subscription.secrets.filter(is_active=True).order_by('-created_at').first()
+    active_secret = subscription.project.webhook_secrets.filter().order_by('-created_at').first()
     signature = sign_payload(webhook_data, active_secret.get_secret())
 
     # Increment attempt counter
@@ -68,7 +72,10 @@ def deliver_webhook(self, delivery_id):
 
         # Limit response body storage to prevent DB issues with large responses
         response_body = response.text[:10000]
-        delivery.response_body_list.append(response_body)
+        if delivery.response_body_list is None:
+            delivery.response_body_list = [response_body]
+        else:
+            delivery.response_body_list.append(response_body)
 
         # Check if the delivery was successful (2xx status code)
         if 200 <= response.status_code < 300:

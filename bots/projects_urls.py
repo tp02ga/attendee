@@ -55,6 +55,11 @@ urlpatterns = [
         projects_views.CreateWebhookSubscriptionView.as_view(),
         name="create-webhook-subscription",
     ),
+    path(
+        "<str:object_id>/webhooks/<str:webhook_id>/delete/",
+        projects_views.DeleteWebhookView.as_view(),
+        name="delete-webhook",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",

@@ -1,4 +1,4 @@
-{% extends 'projects/sidebar.html' %} {% block content %}
+{% extends 'projects/sidebar.html' %} {% load bot_filters %} {% block content %}
 <!-- Create Modal -->
 <div class="modal" id="createSubscriptionModal" tabindex="-1">
   <div class="modal-dialog">
@@ -31,13 +31,23 @@
           </div>
           <div class="mb-3">
             <label for="events" class="form-label">Events</label>
-            <select class="form-select" id="events" name="events" required>
+            <select
+              class="form-select"
+              id="events"
+              name="events[]"
+              multiple
+              required
+            >
               {% for option in webhook_options %}
-              <option value="{{ option.value }}">{{ option.display }}</option>
+              <option value="{{ option }}">
+                {{ option|map_trigger_types }}
+              </option>
               {% endfor %}
             </select>
           </div>
-          <button type="submit" class="btn btn-primary">Create</button>
+          <button id="submitBtn" type="submit" class="btn btn-primary">
+            Create
+          </button>
         </form>
       </div>
     </div>
@@ -73,15 +83,75 @@
         <tr>
           <th>Webhook URL</th>
           <th>Subscribed Events</th>
+          <th>Active</th>
           <th>Created</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for webhook in webhooks %}
         <tr>
           <td>{{ webhook.url }}</td>
-          <td>{{ webhook.events }}</td>
+          <td>{{ webhook.events|map_trigger_types|join:", " }}</td>
+          <td>
+            {% if webhook.is_active %}
+            <input type="checkbox" checked disabled />
+            {% else %}
+            <input type="checkbox" disabled />
+            {% endif %}
+          </td>
           <td>{{ webhook.created_at|date:"M d, Y H:i" }}</td>
+          <td>
+            <button
+              class="btn btn-danger btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#deleteModal{{ webhook.id }}"
+            >
+              Delete
+            </button>
+
+            <!-- Delete Confirmation Modal -->
+            <div class="modal" id="deleteModal{{ webhook.id }}" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button
+                      type="button"
+                      class="btn-close"
+                      data-bs-dismiss="modal"
+                    ></button>
+                  </div>
+                  <div class="modal-body">
+                    <p>
+                      Are you sure you want to delete the webhook? This action
+                      cannot be undone.
+                    </p>
+                  </div>
+                  <div class="modal-footer">
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      data-bs-dismiss="modal"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      class="btn btn-danger"
+                      hx-delete="{% url 'projects:delete-webhook' project.object_id webhook.id %}"
+                      hx-swap="outerHTML"
+                      hx-select="#webhooksTable"
+                      hx-target="#webhooksTable"
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                      data-bs-dismiss="modal"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
