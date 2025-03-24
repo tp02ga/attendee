@@ -148,6 +148,7 @@ class FullCaptureManager {
                     },
                     dst_rect: video.container_bounding_rect,
                     label: video.user?.fullName || video.user?.displayName,
+                    videoWidth: videoWidth,
                 };
             });
 
@@ -316,8 +317,10 @@ class FullCaptureManager {
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
             try {
-                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc }) => 
-                    (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) || !element.checkVisibility()
+                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth }) => 
+                    (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) ||
+                    (videoWidth && videoWidth !== element.videoWidth) ||
+                    !element.checkVisibility()
                 );
                 
                 if (hasMismatchOrInvisible) {
