@@ -116,6 +116,11 @@ class RecordingFormats(models.TextChoices):
     WEBM = "webm"
 
 
+class RecordingViews(models.TextChoices):
+    SPEAKER_VIEW = "speaker_view"
+    GALLERY_VIEW = "gallery_view"
+
+
 class Bot(models.Model):
     OBJECT_ID_PREFIX = "bot_"
 
@@ -195,6 +200,12 @@ class Bot(models.Model):
         if recording_settings is None:
             recording_settings = {}
         return recording_settings.get("format", RecordingFormats.WEBM)
+
+    def recording_view(self):
+        recording_settings = self.settings.get("recording_settings", {})
+        if recording_settings is None:
+            recording_settings = {}
+        return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
     def last_bot_event(self):
         return self.bot_events.order_by("-created_at").first()

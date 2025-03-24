@@ -25,6 +25,7 @@ class Command(BaseCommand):
         # Add any arguments you need
         parser.add_argument("--joinurl", type=str, help="Join URL")
         parser.add_argument("--rtmpsettings", type=str, help="RTMP Settings")
+        parser.add_argument("--recording_settings", type=str, help="Recording Settings")
         parser.add_argument("--botname", type=str, help="Bot Name")
         parser.add_argument("--projectid", type=str, help="Project ID")
 
@@ -35,12 +36,13 @@ class Command(BaseCommand):
 
         meeting_url = options["joinurl"]
         rtmp_settings = json.loads(options.get("rtmpsettings")) if options.get("rtmpsettings") else None
+        recording_settings = json.loads(options.get("recording_settings")) if options.get("recording_settings") else None
         bot_name = options["botname"]
         bot = Bot.objects.create(
             project=project,
             meeting_url=meeting_url,
             name=bot_name,
-            settings={"rtmp_settings": rtmp_settings},
+            settings={"rtmp_settings": rtmp_settings, "recording_settings": recording_settings},
         )
 
         Recording.objects.create(

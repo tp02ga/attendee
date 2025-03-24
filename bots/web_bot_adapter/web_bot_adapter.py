@@ -15,6 +15,7 @@ from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
@@ -35,6 +36,7 @@ class WebBotAdapter(BotAdapter):
         add_encoded_mp4_chunk_callback,
         upsert_caption_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
+        recording_view: RecordingViews,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -43,6 +45,7 @@ class WebBotAdapter(BotAdapter):
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
         self.add_encoded_mp4_chunk_callback = add_encoded_mp4_chunk_callback
         self.upsert_caption_callback = upsert_caption_callback
+        self.recording_view = recording_view
 
         self.meeting_url = meeting_url
 
@@ -289,7 +292,7 @@ class WebBotAdapter(BotAdapter):
         self.driver = webdriver.Chrome(options=options)
         logger.info(f"web driver server initialized at port {self.driver.service.port}")
 
-        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}}}"
+        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}, recordingView: '{self.recording_view}'}}"
 
         # Define the CDN libraries needed
         CDN_LIBRARIES = ["https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js", "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"]
