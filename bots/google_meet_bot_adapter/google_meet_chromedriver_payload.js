@@ -13,6 +13,15 @@ class FullCaptureManager {
 
         this.silenceThreshold = 0.0;
         this.silenceCheckInterval = null;
+
+        this.videoTrackIdToSSRC = new Map();
+    }
+
+    addVideoTrack(trackEvent) {
+        const firstStreamId = trackEvent.streams[0]?.id;
+        const trackId = trackEvent.track?.id;
+
+        this.videoTrackIdToSSRC.set(trackId, firstStreamId);
     }
 
     addAudioTrack(audioTrack) {
@@ -38,9 +47,6 @@ class FullCaptureManager {
         const videoElements = mainElement.querySelectorAll('video');
         return Array.from(videoElements).map(video => {
             // Get the parent element to extract SSRC
-            const parentElement = video.parentElement;
-            const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
-            const user = window.userManager.getUserByStreamId(ssrc);
             const containerElement = video.closest('.LBDzPb');
             const bounding_rect = video.getBoundingClientRect();
             const container_bounding_rect = containerElement.getBoundingClientRect();
@@ -52,17 +58,21 @@ class FullCaptureManager {
                 width: container_bounding_rect.width,
                 height: container_bounding_rect.height,
             }
+            const track_id = video.srcObject?.getTracks().find(track => track.kind === 'video')?.id;
+            const ssrc = this.videoTrackIdToSSRC.get(track_id);
+            const user = window.userManager.getUserByStreamId(ssrc);
             return {
                 element: video,
                 bounding_rect: bounding_rect,
                 container_bounding_rect: container_bounding_rect,
                 clip_rect: clip_rect,
                 ssrc: ssrc,
+                track_id: track_id,
                 user: user,
                 is_screen_share: Boolean(user?.parentDeviceId),
                 is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
             };
-        }).filter(video => video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
+        }).filter(video => video.ssrc && video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
     }
 
     computeFrameLayout(mainElement) {
@@ -78,6 +88,7 @@ class FullCaptureManager {
                     element: screenShareVideo.element,
                     dst_rect: screenShareVideo.bounding_rect,
                     ssrc: screenShareVideo.ssrc,
+                    track_id: screenShareVideo.track_id,
                 });
                 const activeSpeakerVideo = videoElementsWithInfo.find(video => video.is_active_speaker);
                 if (activeSpeakerVideo) {                    
@@ -95,6 +106,7 @@ class FullCaptureManager {
                         },
                         label: activeSpeakerVideo.user?.fullName || activeSpeakerVideo.user?.displayName,
                         ssrc: activeSpeakerVideo.ssrc,
+                        track_id: activeSpeakerVideo.track_id,
                     });
                 }
             }
@@ -108,6 +120,7 @@ class FullCaptureManager {
                         dst_rect: mainParticipantVideo.bounding_rect,
                         label: mainParticipantVideo.user?.fullName || mainParticipantVideo.user?.displayName,
                         ssrc: mainParticipantVideo.ssrc,
+                        track_id: mainParticipantVideo.track_id,
                     });
                 }
             }
@@ -351,9 +364,10 @@ class FullCaptureManager {
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
             try {
-                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth }) => 
+                const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth, track_id }) => 
                     (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) ||
                     (videoWidth && videoWidth !== element.videoWidth) ||
+                    (!track_id || !element.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id || track_id !== element.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id) ||
                     !element.checkVisibility()
                 );
                 
@@ -399,6 +413,19 @@ class FullCaptureManager {
                         canvasContext.fillText(label, dst_rect.left + 16, dst_rect.top + dst_rect.height - 16);
                     }
                 });
+
+
+                let locationY = 400;
+                canvasContext.fillStyle = 'white';
+                canvasContext.font = 'bold 15px Arial';
+                for (const frameLayoutElement of frameLayout) {
+                    const canvasLabel = JSON.stringify(frameLayoutElement);
+                    canvasContext.fillText(canvasLabel, 0, locationY);
+                    locationY += 30;
+                }
+                locationY += 30;
+                const canvasLabel2 = JSON.stringify(frameLayout.map(({ element, dst_rect, src_rect, label }) => ({ element_label: element?.srcObject?.getTracks()?.find(track => track.kind === 'video')?.id })));
+                canvasContext.fillText(canvasLabel2, 0, locationY);
 
                 // Schedule the next frame
                 this.animationFrameId = requestAnimationFrame(drawFrameLayoutToCanvas);
@@ -1681,6 +1708,9 @@ new RTCInterceptor({
             // but we don't need to do anything with the video tracks
             if (event.track.kind === 'audio') {
                 window.fullCaptureManager.addAudioTrack(event.track);
+            }
+            if (event.track.kind === 'video') {
+                window.fullCaptureManager.addVideoTrack(event);
             }
         });
 
