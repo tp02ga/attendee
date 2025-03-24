@@ -31,14 +31,14 @@ class MediaRecorderReceiver:
     def make_file_seekable(self):
         input_path = self.file_location
         output_path = self.get_seekable_path(self.file_location)
-        
+
         # Check if input file exists
         if not os.path.exists(input_path):
             logger.info(f"Input file does not exist at {input_path}, creating empty file")
-            with open(input_path, 'wb') as f:
+            with open(input_path, "wb") as f:
                 pass  # Create empty file
             return
-            
+
         """Use ffmpeg to move the moov atom to the beginning of the file."""
         logger.info(f"Making file seekable: {input_path} -> {output_path}")
         # log how many bytes are in the file
