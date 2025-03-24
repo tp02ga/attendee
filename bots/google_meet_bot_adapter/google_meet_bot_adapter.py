@@ -9,7 +9,7 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         self,
         *args,
         google_meet_closed_captions_language: str | None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.google_meet_closed_captions_language = google_meet_closed_captions_language

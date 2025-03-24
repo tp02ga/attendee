@@ -1,10 +1,10 @@
 import logging
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.action_chains import ActionChains
 
 from bots.models import RecordingViews
 from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableException
@@ -255,7 +255,11 @@ class GoogleMeetUIMethods:
             logger.info(f"Scrolled element into view for {step}")
         except Exception as e:
             logger.info(f"Error scrolling element into view for {step}")
-            raise UiCouldNotLocateElementException(f"Error scrolling element into view", step, e)
+            raise UiCouldNotLocateElementException(
+                "Error scrolling element into view",
+                step,
+                e,
+            )
 
     def select_language(self, language):
         logger.info(f"Selecting language: {language}")
@@ -302,11 +306,11 @@ class GoogleMeetUIMethods:
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, f'li[data-value="{language}"]')),
             wait_time_seconds=6,
         )
-        
+
         # Scroll the language option into view before clicking
         logger.info(f"Scrolling language option into view: {language}...")
         self.scroll_element_into_view(language_option, "language_option")
-        
+
         logger.info(f"Clicking the language option: {language}...")
         self.click_element(language_option, "language_option")
 

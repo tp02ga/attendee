@@ -19,6 +19,7 @@ from .models import (
 )
 from .utils import meeting_type_from_url
 
+
 @extend_schema_field(
     {
         "type": "object",
@@ -44,7 +45,7 @@ from .utils import meeting_type_from_url
                         "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
                     },
                 },
-            },            
+            },
         },
         "required": [],
     }
