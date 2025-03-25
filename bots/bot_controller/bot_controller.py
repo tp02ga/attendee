@@ -627,6 +627,7 @@ class BotController:
             logger.info(f"Received message that UI element not found at {message.get('current_time')}")
 
             screenshot_available = message.get("screenshot_path") is not None
+            mhtml_file_available = message.get("mhtml_file_path") is not None
 
             new_bot_event = BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -655,6 +656,18 @@ class BotController:
                         save=True,
                     )
 
+            if mhtml_file_available:
+                # Create debug screenshot
+                mhtml_debug_screenshot = BotDebugScreenshot.objects.create(bot_event=new_bot_event)
+
+                with open(message.get("mhtml_file_path"), "rb") as f:
+                    mhtml_content = f.read()
+                    mhtml_debug_screenshot.file.save(
+                        "debug_screenshot.mhtml",
+                        ContentFile(mhtml_content),
+                        save=True,
+                    )
+            
             self.cleanup()
             return
 

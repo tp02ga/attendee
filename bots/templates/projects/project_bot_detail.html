@@ -208,6 +208,12 @@
                                                 <source src="{{ screenshot.url }}" type="video/mp4">
                                                 Your browser does not support the video tag.
                                             </video>
+                                        {% elif screenshot.file.name|stringformat:"s"|slice:"-6:" == ".mhtml" %}
+                                            <a href="{{ screenshot.url }}" 
+                                               class="btn btn-outline-secondary mb-2" 
+                                               target="_blank">
+                                                Download MHTML
+                                            </a>
                                         {% else %}
                                             <img src="{{ screenshot.url }}" 
                                                  class="img-fluid mb-2" 

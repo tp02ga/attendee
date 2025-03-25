@@ -254,11 +254,22 @@ class WebBotAdapter(BotAdapter):
             logger.info(f"Error saving screenshot: {e}")
             screenshot_path = None
 
+        mhtml_file_path = f"/tmp/page_snapshot_{timestamp}.mhtml"
+        try:
+            result = self.driver.execute_cdp_cmd("Page.captureSnapshot", {})
+            mhtml_bytes = result["data"]  # Extract the data from the response dictionary
+            with open(mhtml_file_path, "w", encoding="utf-8") as f:
+                f.write(mhtml_bytes)
+        except Exception as e:
+            logger.info(f"Error saving mhtml: {e}")
+            mhtml_file_path = None
+
         self.send_message_callback(
             {
                 "message": self.Messages.UI_ELEMENT_NOT_FOUND,
                 "step": step,
                 "current_time": current_time,
+                "mhtml_file_path": mhtml_file_path,
                 "screenshot_path": screenshot_path,
                 "exception_type": exception.__class__.__name__ if exception else "exception_not_available",
                 "exception_message": exception.__str__() if exception else "exception_message_not_available",
