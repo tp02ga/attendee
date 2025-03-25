@@ -1774,3 +1774,44 @@ new RTCInterceptor({
         }
     }
 });
+
+function addClickRipple() {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .click-ripple {
+        position: fixed;
+        border-radius: 50%;
+        width: 20px; 
+        height: 20px;
+        margin-left: -10px;
+        margin-top: -10px;
+        background: red;
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0);
+        transition: transform 0.3s, opacity 0.3s;
+        z-index: 9999999;
+      }
+    `;
+    document.head.appendChild(style);
+  
+    document.addEventListener('click', function(e) {
+      const ripple = document.createElement('div');
+      ripple.className = 'click-ripple';
+      ripple.style.left = e.pageX + 'px';
+      ripple.style.top = e.pageY + 'px';
+      document.body.appendChild(ripple);
+  
+      // Force reflow so CSS transition will play
+      getComputedStyle(ripple).transform;
+      
+      // Animate
+      ripple.style.transform = 'scale(3)';
+      ripple.style.opacity = '0.7';
+  
+      // Remove after animation
+      setTimeout(() => {
+        ripple.remove();
+      }, 300);
+    }, true);
+}
