@@ -6,7 +6,6 @@ import os
 import threading
 import time
 from time import sleep
-import subprocess
 
 import numpy as np
 import requests
@@ -16,13 +15,11 @@ from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
-from bots.models import RecordingViews, BotDebugScreenshot
+from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
+
 from .debug_screen_recorder import DebugScreenRecorder
-
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
-
-from gi.repository import GLib
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +450,6 @@ class WebBotAdapter(BotAdapter):
         return self.first_buffer_timestamp_ms_offset
 
     def check_auto_leave_conditions(self) -> None:
-
         if self.left_meeting:
             return
         if self.cleaned_up:

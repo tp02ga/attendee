@@ -605,14 +605,10 @@ class BotController:
         last_bot_event = self.bot_in_db.last_bot_event()
         if last_bot_event:
             debug_screenshot = BotDebugScreenshot.objects.create(bot_event=last_bot_event)
-        
+
             # Save the file directly from the file path
-            with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, 'rb') as f:
-                debug_screenshot.file.save(
-                    "debug_screen_recording.mp4",
-                    f,
-                    save=True
-                )
+            with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, "rb") as f:
+                debug_screenshot.file.save("debug_screen_recording.mp4", f, save=True)
             logger.info(f"Saved debug screenshot with ID {debug_screenshot.object_id}")
 
     def take_action_based_on_message_from_adapter(self, message):
