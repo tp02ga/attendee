@@ -64,6 +64,7 @@ class BotController:
             add_encoded_mp4_chunk_callback=self.media_recorder_receiver.on_encoded_mp4_chunk,
             recording_view=self.bot_in_db.recording_view(),
             google_meet_closed_captions_language=self.bot_in_db.google_meet_closed_captions_language(),
+            should_create_debug_recording=self.bot_in_db.create_debug_recording(),
         )
 
     def get_teams_bot_adapter(self):
@@ -80,6 +81,7 @@ class BotController:
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
+            should_create_debug_recording=self.bot_in_db.create_debug_recording(),
         )
 
     def get_zoom_bot_adapter(self):

@@ -86,8 +86,12 @@ class RTMPSettingsJSONField(serializers.JSONField):
                 "type": "string",
                 "description": "The view to use for the recording. The supported views are 'speaker_view' and 'gallery_view'.",
             },
+            "create_debug_recording": {
+                "type": "boolean",
+                "description": "Whether to generate a recording of the attempt to join the meeting. Used for debugging.",
+            },
         },
-        "required": ["format"],
+        "required": [],
     }
 )
 class RecordingSettingsJSONField(serializers.JSONField):
@@ -206,6 +210,7 @@ class CreateBotSerializer(serializers.Serializer):
         "properties": {
             "format": {"type": "string"},
             "view": {"type": "string"},
+            "create_debug_recording": {"type": "boolean"},
         },
         "required": [],
     }

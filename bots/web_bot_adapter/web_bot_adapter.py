@@ -40,6 +40,7 @@ class WebBotAdapter(BotAdapter):
         upsert_caption_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         recording_view: RecordingViews,
+        should_create_debug_recording: bool,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -77,7 +78,7 @@ class WebBotAdapter(BotAdapter):
 
         self.automatic_leave_configuration = automatic_leave_configuration
 
-        self.record_attempt_to_join_meeting = True
+        self.should_create_debug_recording = should_create_debug_recording
         self.attempt_to_join_meeting_recording_dir = "/tmp/attempt_to_join_meeting_recording"
         
     def process_encoded_mp4_chunk(self, message):
@@ -448,7 +449,9 @@ class WebBotAdapter(BotAdapter):
         return self.first_buffer_timestamp_ms_offset
 
     def stop_recording_attempt_to_join_meeting(self):
-        self.record_attempt_to_join_meeting = False
+        if not self.should_create_debug_recording:
+            return
+        self.should_create_debug_recording = False
         output_mp4_path = f"{self.attempt_to_join_meeting_recording_dir}/attempt_to_join_recording.mp4"      
         # Generate MP4 from captured screenshots
         try:
@@ -473,10 +476,10 @@ class WebBotAdapter(BotAdapter):
             logger.error(f"Error generating MP4 from screenshots: {e}")
 
     def capture_frame_for_recording_attempt_to_join_meeting(self):
-        if not self.record_attempt_to_join_meeting:
+        if not self.should_create_debug_recording:
             return False
         if not self.driver:
-            return self.record_attempt_to_join_meeting and not self.cleaned_up
+            return self.should_create_debug_recording and not self.cleaned_up
         try:
             # Take a screenshot
             screenshot_bytes = self.driver.get_screenshot_as_png()
@@ -492,7 +495,7 @@ class WebBotAdapter(BotAdapter):
         except Exception as e:
             logger.error(f"Error taking screenshot: {e}")
         finally:
-            return self.record_attempt_to_join_meeting and not self.cleaned_up
+            return self.should_create_debug_recording and not self.cleaned_up
 
     def check_auto_leave_conditions(self) -> None:
 
