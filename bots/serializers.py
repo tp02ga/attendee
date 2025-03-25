@@ -87,10 +87,26 @@ class RTMPSettingsJSONField(serializers.JSONField):
                 "description": "The view to use for the recording. The supported views are 'speaker_view' and 'gallery_view'.",
             },
         },
-        "required": ["format"],
+        "required": [],
     }
 )
 class RecordingSettingsJSONField(serializers.JSONField):
+    pass
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "create_debug_recording": {
+                "type": "boolean",
+                "description": "Whether to generate a recording of the attempt to join the meeting. Used for debugging.",
+            },
+        },
+        "required": [],
+    }
+)
+class DebugSettingsJSONField(serializers.JSONField):
     pass
 
 
@@ -228,6 +244,32 @@ class CreateBotSerializer(serializers.Serializer):
         view = value.get("view")
         if view not in [RecordingViews.SPEAKER_VIEW, RecordingViews.GALLERY_VIEW, None]:
             raise serializers.ValidationError({"view": "View must be speaker_view or gallery_view"})
+
+        return value
+
+    debug_settings = DebugSettingsJSONField(
+        help_text="The debug settings for the bot, e.g. {'create_debug_recording': True}.",
+        required=False,
+        default={"create_debug_recording": False},
+    )
+
+    DEBUG_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "create_debug_recording": {"type": "boolean"},
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_debug_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.DEBUG_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
 
         return value
 

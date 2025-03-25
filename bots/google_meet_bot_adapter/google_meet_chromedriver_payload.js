@@ -1774,3 +1774,43 @@ new RTCInterceptor({
         }
     }
 });
+
+function addClickRipple() {
+    document.addEventListener('click', function(e) {
+      const ripple = document.createElement('div');
+      
+      // Apply styles directly to the element
+      ripple.style.position = 'fixed';
+      ripple.style.borderRadius = '50%';
+      ripple.style.width = '20px';
+      ripple.style.height = '20px';
+      ripple.style.marginLeft = '-10px';
+      ripple.style.marginTop = '-10px';
+      ripple.style.background = 'red';
+      ripple.style.opacity = '0';
+      ripple.style.pointerEvents = 'none';
+      ripple.style.transform = 'scale(0)';
+      ripple.style.transition = 'transform 0.3s, opacity 0.3s';
+      ripple.style.zIndex = '9999999';
+      
+      ripple.style.left = e.pageX + 'px';
+      ripple.style.top = e.pageY + 'px';
+      document.body.appendChild(ripple);
+  
+      // Force reflow so CSS transition will play
+      getComputedStyle(ripple).transform;
+      
+      // Animate
+      ripple.style.transform = 'scale(3)';
+      ripple.style.opacity = '0.7';
+  
+      // Remove after animation
+      setTimeout(() => {
+        ripple.remove();
+      }, 300);
+    }, true);
+}
+
+if (window.initialData.addClickRipple) {
+    addClickRipple();
+}

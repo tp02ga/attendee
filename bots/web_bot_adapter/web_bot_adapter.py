@@ -18,6 +18,7 @@ from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConf
 from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
+from .debug_screen_recorder import DebugScreenRecorder
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class WebBotAdapter(BotAdapter):
         upsert_caption_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         recording_view: RecordingViews,
+        should_create_debug_recording: bool,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -73,6 +75,9 @@ class WebBotAdapter(BotAdapter):
         self.video_frame_ticker = 0
 
         self.automatic_leave_configuration = automatic_leave_configuration
+
+        self.should_create_debug_recording = should_create_debug_recording
+        self.debug_screen_recorder = None
 
     def process_encoded_mp4_chunk(self, message):
         self.last_media_message_processed_time = time.time()
@@ -249,11 +254,22 @@ class WebBotAdapter(BotAdapter):
             logger.info(f"Error saving screenshot: {e}")
             screenshot_path = None
 
+        mhtml_file_path = f"/tmp/page_snapshot_{timestamp}.mhtml"
+        try:
+            result = self.driver.execute_cdp_cmd("Page.captureSnapshot", {})
+            mhtml_bytes = result["data"]  # Extract the data from the response dictionary
+            with open(mhtml_file_path, "w", encoding="utf-8") as f:
+                f.write(mhtml_bytes)
+        except Exception as e:
+            logger.info(f"Error saving mhtml: {e}")
+            mhtml_file_path = None
+
         self.send_message_callback(
             {
                 "message": self.Messages.UI_ELEMENT_NOT_FOUND,
                 "step": step,
                 "current_time": current_time,
+                "mhtml_file_path": mhtml_file_path,
                 "screenshot_path": screenshot_path,
                 "exception_type": exception.__class__.__name__ if exception else "exception_not_available",
                 "exception_message": exception.__str__() if exception else "exception_message_not_available",
@@ -292,7 +308,7 @@ class WebBotAdapter(BotAdapter):
         self.driver = webdriver.Chrome(options=options)
         logger.info(f"web driver server initialized at port {self.driver.service.port}")
 
-        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}, recordingView: '{self.recording_view}'}}"
+        initial_data_code = f"window.initialData = {{websocketPort: {self.websocket_port}, addClickRipple: {'true' if self.should_create_debug_recording else 'false'}, recordingView: '{self.recording_view}'}}"
 
         # Define the CDN libraries needed
         CDN_LIBRARIES = ["https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js", "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"]
@@ -323,10 +339,16 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": combined_code})
 
     def init(self):
+        display_var_for_debug_recording = os.environ.get("DISPLAY")
         if os.environ.get("DISPLAY") is None:
             # Create virtual display only if no real display is available
             display = Display(visible=0, size=(1920, 1080))
             display.start()
+            display_var_for_debug_recording = display.new_display_var
+
+        if self.should_create_debug_recording:
+            self.debug_screen_recorder = DebugScreenRecorder(display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+            self.debug_screen_recorder.start()
 
         # Start websocket server in a separate thread
         websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
@@ -424,6 +446,9 @@ class WebBotAdapter(BotAdapter):
                     logger.info(f"Error quitting driver: {e}")
         except Exception as e:
             logger.info(f"Error during cleanup: {e}")
+
+        if self.debug_screen_recorder:
+            self.debug_screen_recorder.stop()
 
         # Properly shutdown the websocket server
         if self.websocket_server:

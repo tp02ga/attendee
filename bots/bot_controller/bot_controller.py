@@ -64,6 +64,7 @@ class BotController:
             add_encoded_mp4_chunk_callback=self.media_recorder_receiver.on_encoded_mp4_chunk,
             recording_view=self.bot_in_db.recording_view(),
             google_meet_closed_captions_language=self.bot_in_db.google_meet_closed_captions_language(),
+            should_create_debug_recording=self.bot_in_db.create_debug_recording(),
         )
 
     def get_teams_bot_adapter(self):
@@ -80,6 +81,7 @@ class BotController:
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
+            should_create_debug_recording=self.bot_in_db.create_debug_recording(),
         )
 
     def get_zoom_bot_adapter(self):
@@ -235,6 +237,9 @@ class BotController:
             file_uploader.delete_file(self.get_recording_file_location())
             logger.info("File uploader deleted file from local filesystem")
             self.recording_file_saved(file_uploader.key)
+
+        if self.bot_in_db.create_debug_recording():
+            self.save_debug_recording()
 
         if self.bot_in_db.state == BotStates.POST_PROCESSING:
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.POST_PROCESSING_COMPLETED)
@@ -591,6 +596,22 @@ class BotController:
             logger.info("Flushing captions...")
             self.closed_caption_manager.flush_captions()
 
+    def save_debug_recording(self):
+        # Only save if the file exists
+        if not os.path.exists(BotAdapter.DEBUG_RECORDING_FILE_PATH):
+            logger.info(f"Debug recording file at {BotAdapter.DEBUG_RECORDING_FILE_PATH} does not exist, not saving")
+            return
+
+        # Find the bot's last event
+        last_bot_event = self.bot_in_db.last_bot_event()
+        if last_bot_event:
+            debug_screenshot = BotDebugScreenshot.objects.create(bot_event=last_bot_event)
+
+            # Save the file directly from the file path
+            with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, "rb") as f:
+                debug_screenshot.file.save("debug_screen_recording.mp4", f, save=True)
+            logger.info(f"Saved debug recording with ID {debug_screenshot.object_id}")
+
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
             logger.info("Received message that request to join was denied")
@@ -606,6 +627,7 @@ class BotController:
             logger.info(f"Received message that UI element not found at {message.get('current_time')}")
 
             screenshot_available = message.get("screenshot_path") is not None
+            mhtml_file_available = message.get("mhtml_file_path") is not None
 
             new_bot_event = BotEventManager.create_event(
                 bot=self.bot_in_db,
@@ -631,6 +653,18 @@ class BotController:
                     debug_screenshot.file.save(
                         "debug_screenshot.png",
                         ContentFile(screenshot_content),
+                        save=True,
+                    )
+
+            if mhtml_file_available:
+                # Create debug screenshot
+                mhtml_debug_screenshot = BotDebugScreenshot.objects.create(bot_event=new_bot_event)
+
+                with open(message.get("mhtml_file_path"), "rb") as f:
+                    mhtml_content = f.read()
+                    mhtml_debug_screenshot.file.save(
+                        "debug_screenshot.mhtml",
+                        ContentFile(mhtml_content),
                         save=True,
                     )
 
