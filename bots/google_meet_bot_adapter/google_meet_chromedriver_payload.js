@@ -13,6 +13,15 @@ class FullCaptureManager {
 
         this.silenceThreshold = 0.0;
         this.silenceCheckInterval = null;
+
+        this.videoTrackIdToSSRC = new Map();
+    }
+
+    addVideoTrack(trackEvent) {
+        const firstStreamId = trackEvent.streams[0]?.id;
+        const trackId = trackEvent.track?.id;
+
+        this.videoTrackIdToSSRC.set(trackId, firstStreamId);
     }
 
     addAudioTrack(audioTrack) {
@@ -34,13 +43,15 @@ class FullCaptureManager {
         }).filter(element => element.bounding_rect.width > 0 && element.bounding_rect.height > 0 && element.participant_id);
     }
 
+    getSSRCFromVideoElement(videoElement) {
+        const track_id = videoElement.srcObject?.getTracks().find(track => track.kind === 'video')?.id;
+        return this.videoTrackIdToSSRC.get(track_id);
+    }
+
     getVideoElementsWithInfo(mainElement, activeSpeakerElementsWithInfo) {
         const videoElements = mainElement.querySelectorAll('video');
         return Array.from(videoElements).map(video => {
             // Get the parent element to extract SSRC
-            const parentElement = video.parentElement;
-            const ssrc = parentElement ? parentElement.getAttribute('data-ssrc') : null;
-            const user = window.userManager.getUserByStreamId(ssrc);
             const containerElement = video.closest('.LBDzPb');
             const bounding_rect = video.getBoundingClientRect();
             const container_bounding_rect = containerElement.getBoundingClientRect();
@@ -52,6 +63,8 @@ class FullCaptureManager {
                 width: container_bounding_rect.width,
                 height: container_bounding_rect.height,
             }
+            const ssrc = this.getSSRCFromVideoElement(video);
+            const user = window.userManager.getUserByStreamId(ssrc);
             return {
                 element: video,
                 bounding_rect: bounding_rect,
@@ -62,7 +75,7 @@ class FullCaptureManager {
                 is_screen_share: Boolean(user?.parentDeviceId),
                 is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
             };
-        }).filter(video => video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
+        }).filter(video => video.ssrc && video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
     }
 
     computeFrameLayout(mainElement) {
@@ -352,7 +365,7 @@ class FullCaptureManager {
         const drawFrameLayoutToCanvas = () => {  
             try {
                 const hasMismatchOrInvisible = frameLayout.some(({ element, ssrc, videoWidth }) => 
-                    (ssrc && ssrc !== element.parentElement?.getAttribute('data-ssrc')) ||
+                    (ssrc && ssrc !== this.getSSRCFromVideoElement(element)) ||
                     (videoWidth && videoWidth !== element.videoWidth) ||
                     !element.checkVisibility()
                 );
@@ -1681,6 +1694,9 @@ new RTCInterceptor({
             // but we don't need to do anything with the video tracks
             if (event.track.kind === 'audio') {
                 window.fullCaptureManager.addAudioTrack(event.track);
+            }
+            if (event.track.kind === 'video') {
+                window.fullCaptureManager.addVideoTrack(event);
             }
         });
 
