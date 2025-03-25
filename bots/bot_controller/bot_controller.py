@@ -667,7 +667,7 @@ class BotController:
                         ContentFile(mhtml_content),
                         save=True,
                     )
-            
+
             self.cleanup()
             return
 
