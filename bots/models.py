@@ -211,10 +211,10 @@ class Bot(models.Model):
         return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
     def create_debug_recording(self):
-        recording_settings = self.settings.get("recording_settings", {})
-        if recording_settings is None:
-            recording_settings = {}
-        return recording_settings.get("create_debug_recording", False)
+        debug_settings = self.settings.get("debug_settings", {})
+        if debug_settings is None:
+            debug_settings = {}
+        return debug_settings.get("create_debug_recording", False)
 
     def last_bot_event(self):
         return self.bot_events.order_by("-created_at").first()
