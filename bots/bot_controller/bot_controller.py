@@ -591,7 +591,39 @@ class BotController:
             logger.info("Flushing captions...")
             self.closed_caption_manager.flush_captions()
 
+    def save_attempt_to_join_meeting_recording(self, recording_directory):
+        output_mp4_path = os.path.join(recording_directory, "attempt_to_join_recording.mp4")
+        logger.info("Received message to save attempt to join meeting recording")
+        # Find the bot's last event
+        last_bot_event = self.bot_in_db.last_bot_event()
+        if last_bot_event:
+            debug_screenshot = BotDebugScreenshot.objects.create(bot_event=last_bot_event)
+        
+            # Save the file directly from the file path
+            with open(output_mp4_path, 'rb') as f:
+                debug_screenshot.file.save(
+                    "attempt_to_join_recording.mp4",
+                    f,
+                    save=True
+                )
+            logger.info(f"Saved debug screenshot with ID {debug_screenshot.object_id}")
+
+            # Delete only PNG files in the directory after MP4 is uploaded
+            try:
+                for file in os.listdir(recording_directory):
+                    if file.lower().endswith('.png'):
+                        file_path = os.path.join(recording_directory, file)
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
+                logger.info(f"Cleaned up PNG screenshot files in {recording_directory}")
+            except Exception as e:
+                logger.error(f"Error deleting screenshot files: {e}")
+
     def take_action_based_on_message_from_adapter(self, message):
+        if message.get("message") == BotAdapter.Messages.SAVE_ATTEMPT_TO_JOIN_MEETING_RECORDING:
+            self.save_attempt_to_join_meeting_recording(message.get("recording_directory"))
+            return
+
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
             logger.info("Received message that request to join was denied")
             BotEventManager.create_event(
