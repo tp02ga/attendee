@@ -1775,7 +1775,7 @@ new RTCInterceptor({
     }
 });
 
-(function addClickRipple() {
+function addClickRipple() {
     document.addEventListener('click', function(e) {
       const ripple = document.createElement('div');
       
@@ -1809,4 +1809,8 @@ new RTCInterceptor({
         ripple.remove();
       }, 300);
     }, true);
-})();
+}
+
+if (window.initialData.addClickRipple) {
+    addClickRipple();
+}
