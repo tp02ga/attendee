@@ -599,6 +599,7 @@ class BotController:
     def save_debug_recording(self):
         # Only save if the file exists
         if not os.path.exists(BotAdapter.DEBUG_RECORDING_FILE_PATH):
+            logger.info(f"Debug recording file at {BotAdapter.DEBUG_RECORDING_FILE_PATH} does not exist, not saving")
             return
 
         # Find the bot's last event
@@ -609,7 +610,7 @@ class BotController:
             # Save the file directly from the file path
             with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, "rb") as f:
                 debug_screenshot.file.save("debug_screen_recording.mp4", f, save=True)
-            logger.info(f"Saved debug screenshot with ID {debug_screenshot.object_id}")
+            logger.info(f"Saved debug recording with ID {debug_screenshot.object_id}")
 
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
