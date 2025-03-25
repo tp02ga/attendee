@@ -18,6 +18,7 @@ from bots.bot_adapter import BotAdapter
 from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.models import RecordingViews, BotDebugScreenshot
 from bots.utils import half_ceil, scale_i420
+from .debug_screen_recorder import DebugScreenRecorder
 
 from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
 
@@ -78,9 +79,9 @@ class WebBotAdapter(BotAdapter):
 
         self.automatic_leave_configuration = automatic_leave_configuration
 
-        self.should_create_debug_recording = should_create_debug_recording
-        self.attempt_to_join_meeting_recording_dir = "/tmp/attempt_to_join_meeting_recording"
-        
+        self.should_create_debug_recording = True
+        self.debug_screen_recorder = None
+
     def process_encoded_mp4_chunk(self, message):
         self.last_media_message_processed_time = time.time()
         if len(message) > 4:
@@ -335,6 +336,10 @@ class WebBotAdapter(BotAdapter):
             display = Display(visible=0, size=(1920, 1080))
             display.start()
 
+            if self.should_create_debug_recording:
+                self.debug_screen_recorder = DebugScreenRecorder(display.new_display_var, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+                self.debug_screen_recorder.start()
+
         # Start websocket server in a separate thread
         websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
         websocket_thread.start()
@@ -348,8 +353,6 @@ class WebBotAdapter(BotAdapter):
 
     def repeatedly_attempt_to_join_meeting(self):
         logger.info(f"Trying to join meeting at {self.meeting_url}")
-
-        GLib.timeout_add(100, self.capture_frame_for_recording_attempt_to_join_meeting)
 
         num_retries = 0
         max_retries = 2
@@ -378,8 +381,6 @@ class WebBotAdapter(BotAdapter):
 
             num_retries += 1
             sleep(1)
-
-        self.stop_recording_attempt_to_join_meeting()
 
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
         self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
@@ -436,6 +437,9 @@ class WebBotAdapter(BotAdapter):
         except Exception as e:
             logger.info(f"Error during cleanup: {e}")
 
+        if self.debug_screen_recorder:
+            self.debug_screen_recorder.stop()
+
         # Properly shutdown the websocket server
         if self.websocket_server:
             try:
@@ -447,55 +451,6 @@ class WebBotAdapter(BotAdapter):
 
     def get_first_buffer_timestamp_ms_offset(self):
         return self.first_buffer_timestamp_ms_offset
-
-    def stop_recording_attempt_to_join_meeting(self):
-        if not self.should_create_debug_recording:
-            return
-        self.should_create_debug_recording = False
-        output_mp4_path = f"{self.attempt_to_join_meeting_recording_dir}/attempt_to_join_recording.mp4"      
-        # Generate MP4 from captured screenshots
-        try:
-            if os.path.exists(self.attempt_to_join_meeting_recording_dir) and os.listdir(self.attempt_to_join_meeting_recording_dir):
-                logger.info("Generating attempt to join meeting recording MP4 from screenshots...")
-                subprocess.run([
-                    "ffmpeg", 
-                    "-y",  # Overwrite output file if it exists
-                    "-framerate", "3", 
-                    "-pattern_type", "glob", 
-                    "-i", f"{self.attempt_to_join_meeting_recording_dir}/frame_*.png", 
-                    "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", 
-                    "-c:v", "libx264", 
-                    "-pix_fmt", "yuv420p", 
-                    output_mp4_path
-                ], check=True)
-                logger.info(f"MP4 file generated at {output_mp4_path}")
-                                
-                self.send_message_callback({"message": self.Messages.SAVE_ATTEMPT_TO_JOIN_MEETING_RECORDING, "recording_directory": self.attempt_to_join_meeting_recording_dir})
-                
-        except Exception as e:
-            logger.error(f"Error generating MP4 from screenshots: {e}")
-
-    def capture_frame_for_recording_attempt_to_join_meeting(self):
-        if not self.should_create_debug_recording:
-            return False
-        if not self.driver:
-            return self.should_create_debug_recording and not self.cleaned_up
-        try:
-            # Take a screenshot
-            screenshot_bytes = self.driver.get_screenshot_as_png()
-            # Save screenshot to temp directory
-            timestamp = int(time.time() * 1000)
-            # Create directory if it doesn't exist
-            os.makedirs(self.attempt_to_join_meeting_recording_dir, exist_ok=True)
-            screenshot_path = os.path.join(self.attempt_to_join_meeting_recording_dir, f"frame_{timestamp}.png")
-            
-            with open(screenshot_path, "wb") as f:
-                f.write(screenshot_bytes)
-
-        except Exception as e:
-            logger.error(f"Error taking screenshot: {e}")
-        finally:
-            return self.should_create_debug_recording and not self.cleaned_up
 
     def check_auto_leave_conditions(self) -> None:
 
