@@ -201,7 +201,7 @@
                             {% endif %}
                             {% if event.debug_screenshots.all %}
                                 <div class="mt-2">
-                                    <h6 class="text-muted mb-2">Debug Screenshots:</h6>
+                                    <h6 class="text-muted mb-2">Debug Files:</h6>
                                     {% for screenshot in event.debug_screenshots.all %}
                                         {% if screenshot.file.name|stringformat:"s"|slice:"-4:" == ".mp4" %}
                                             <video class="img-fluid mb-2" controls style="max-width: 300px;">
