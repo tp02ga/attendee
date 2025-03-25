@@ -607,7 +607,7 @@ class BotController:
             debug_screenshot = BotDebugScreenshot.objects.create(bot_event=last_bot_event)
         
             # Save the file directly from the file path
-            with open(BotAdapter.DEBUG_SCREEN_RECORDING_FILE_PATH, 'rb') as f:
+            with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, 'rb') as f:
                 debug_screenshot.file.save(
                     "debug_screen_recording.mp4",
                     f,
