@@ -1776,28 +1776,23 @@ new RTCInterceptor({
 });
 
 (function addClickRipple() {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .click-ripple {
-        position: fixed;
-        border-radius: 50%;
-        width: 20px; 
-        height: 20px;
-        margin-left: -10px;
-        margin-top: -10px;
-        background: red;
-        opacity: 0;
-        pointer-events: none;
-        transform: scale(0);
-        transition: transform 0.3s, opacity 0.3s;
-        z-index: 9999999;
-      }
-    `;
-    document.head.appendChild(style);
-  
     document.addEventListener('click', function(e) {
       const ripple = document.createElement('div');
-      ripple.className = 'click-ripple';
+      
+      // Apply styles directly to the element
+      ripple.style.position = 'fixed';
+      ripple.style.borderRadius = '50%';
+      ripple.style.width = '20px';
+      ripple.style.height = '20px';
+      ripple.style.marginLeft = '-10px';
+      ripple.style.marginTop = '-10px';
+      ripple.style.background = 'red';
+      ripple.style.opacity = '0';
+      ripple.style.pointerEvents = 'none';
+      ripple.style.transform = 'scale(0)';
+      ripple.style.transition = 'transform 0.3s, opacity 0.3s';
+      ripple.style.zIndex = '9999999';
+      
       ripple.style.left = e.pageX + 'px';
       ripple.style.top = e.pageY + 'px';
       document.body.appendChild(ripple);
@@ -1814,4 +1809,4 @@ new RTCInterceptor({
         ripple.remove();
       }, 300);
     }, true);
-  })();
+})();
