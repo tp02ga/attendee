@@ -1775,7 +1775,7 @@ new RTCInterceptor({
     }
 });
 
-function addClickRipple() {
+(function addClickRipple() {
     const style = document.createElement('style');
     style.innerHTML = `
       .click-ripple {
@@ -1814,4 +1814,4 @@ function addClickRipple() {
         ripple.remove();
       }, 300);
     }, true);
-}
+  })();
