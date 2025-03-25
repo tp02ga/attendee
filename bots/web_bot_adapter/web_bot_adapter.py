@@ -79,7 +79,7 @@ class WebBotAdapter(BotAdapter):
 
         self.automatic_leave_configuration = automatic_leave_configuration
 
-        self.should_create_debug_recording = True
+        self.should_create_debug_recording = should_create_debug_recording
         self.debug_screen_recorder = None
 
     def process_encoded_mp4_chunk(self, message):
