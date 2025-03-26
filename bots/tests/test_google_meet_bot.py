@@ -377,7 +377,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             self.assertEqual(mock_attempt_to_join.call_count, 2, "attempt_to_join_meeting should be called twice - once for the initial failure and once for the retry")
 
             # Verify joining succeeded after retry by checking that these methods were called
-            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")           
+            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")
 
             # Now wait for the thread to finish naturally
             bot_thread.join(timeout=5)  # Give it time to clean up
