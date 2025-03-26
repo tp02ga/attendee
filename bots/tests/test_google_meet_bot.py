@@ -10,7 +10,6 @@ from django.db import connection
 from django.test.testcases import TransactionTestCase
 from django.utils import timezone
 
-from bots.bot_adapter import BotAdapter
 from bots.bot_controller import BotController
 from bots.models import (
     Bot,
@@ -28,6 +27,7 @@ from bots.models import (
     TranscriptionTypes,
     Utterance,
 )
+from bots.web_bot_adapter.ui_methods import UiRetryableException
 
 
 def create_mock_file_uploader():
@@ -45,7 +45,18 @@ def create_mock_google_meet_driver():
         None,  # First call (window.ws.enableMediaSending())
         12345,  # Second call (performance.timeOrigin)
     ]
-    mock_driver.save_screenshot.return_value = None
+
+    # Make save_screenshot actually create an empty PNG file
+    def mock_save_screenshot(filepath):
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # Create empty file
+        with open(filepath, "wb") as f:
+            # Write minimal valid PNG file bytes
+            f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+        return filepath
+
+    mock_driver.save_screenshot.side_effect = mock_save_screenshot
     return mock_driver
 
 
@@ -146,8 +157,10 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Simulate flushing captions - normally done before leaving
             controller.closed_caption_manager.flush_captions()
 
+            controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
+            time.sleep(4)
             # Simulate meeting ended
-            controller.on_message_from_adapter({"message": BotAdapter.Messages.MEETING_ENDED})
+            # controller.on_message_from_adapter({"message": BotAdapter.Messages.MEETING_ENDED})
 
             # Clean up connections in thread
             connection.close()
@@ -170,7 +183,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
-        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+        self.assertEqual(len(bot_events), 6)  # We expect 5 events in total
 
         # Verify join_requested_event (Event 1)
         join_requested_event = bot_events[0]
@@ -193,14 +206,20 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
         self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
 
-        # Verify meeting_ended_event (Event 4)
-        meeting_ended_event = bot_events[3]
-        self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
-        self.assertEqual(meeting_ended_event.old_state, BotStates.JOINED_RECORDING)
-        self.assertEqual(meeting_ended_event.new_state, BotStates.POST_PROCESSING)
+        # Verify bot requested to leave meeting (Event 4)
+        bot_requested_to_leave_meeting_event = bot_events[3]
+        self.assertEqual(bot_requested_to_leave_meeting_event.event_type, BotEventTypes.LEAVE_REQUESTED)
+        self.assertEqual(bot_requested_to_leave_meeting_event.old_state, BotStates.JOINED_RECORDING)
+        self.assertEqual(bot_requested_to_leave_meeting_event.new_state, BotStates.LEAVING)
 
-        # Verify post_processing_completed_event (Event 5)
-        post_processing_completed_event = bot_events[4]
+        # Verify bot left meeting (Event 5)
+        bot_left_meeting_event = bot_events[4]
+        self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
+        self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
         self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
         self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
         self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
@@ -311,6 +330,139 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify that no FATAL_ERROR event was created with heartbeat timeout subtype
         fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT).first()
         self.assertIsNone(fatal_error_event)
+
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    def test_z_join_fails_after_max_retries(
+        self,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+    ):
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Set up a side effect that raises an exception on all attempts (4 times)
+        with patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.attempt_to_join_meeting") as mock_attempt_to_join:
+            mock_attempt_to_join.side_effect = [
+                UiRetryableException("Simulated failure 1", "test_step"),
+                UiRetryableException("Simulated failure 2", "test_step"),
+                UiRetryableException("Simulated failure 3", "test_step"),
+            ]
+
+            # Run the bot in a separate thread since it has an event loop
+            bot_thread = threading.Thread(target=controller.run)
+            bot_thread.daemon = True
+            bot_thread.start()
+
+            # Allow time for all retry attempts to complete
+            time.sleep(10)
+
+            # Verify the attempt_to_join_meeting method was called 4 times (max retries)
+            self.assertEqual(mock_attempt_to_join.call_count, 3, "attempt_to_join_meeting should be called 3 times for max retries")
+
+            # Refresh the bot to check its state
+            self.bot.refresh_from_db()
+
+            # Verify the bot entered FATAL_ERROR state after max retries
+            self.assertEqual(self.bot.state, BotStates.FATAL_ERROR, "Bot should be in FATAL_ERROR state after max join retries")
+
+            # Verify a FATAL_ERROR event was created with the correct sub type
+            fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND).first()
+            self.assertIsNotNone(fatal_error_event, "A FATAL_ERROR event with FATAL_ERROR_UI_ELEMENT_NOT_FOUND subtype should exist")
+
+            # Cleanup - signal controller to clean up from within its own thread
+            # Instead of killing the thread, we need to tell the controller to quit its main loop
+            # This will trigger the cleanup process in the same thread
+            if controller.main_loop and controller.main_loop.is_running():
+                GLib.idle_add(controller.cleanup)  # Schedule cleanup in the main loop thread
+
+            # Now wait for the thread to finish naturally
+            bot_thread.join(timeout=5)  # Give it time to clean up
+
+            # If thread is still running after timeout, that's a problem to report
+            if bot_thread.is_alive():
+                print("WARNING: Bot thread did not terminate properly after cleanup")
+
+            # Close the database connection since we're in a thread
+            connection.close()
+
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    def test_join_retry_on_failure(
+        self,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+    ):
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Set up a side effect that raises an exception on first attempt, then succeeds on second attempt
+        with patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.attempt_to_join_meeting") as mock_attempt_to_join:
+            mock_attempt_to_join.side_effect = [
+                UiRetryableException("Simulated first attempt failure", "test_step"),  # First call fails
+                None,  # Second call succeeds
+            ]
+
+            # Run the bot in a separate thread since it has an event loop
+            bot_thread = threading.Thread(target=controller.run)
+            bot_thread.daemon = True
+            bot_thread.start()
+
+            # Allow time for the retry logic to run
+            time.sleep(5)
+
+            controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
+            time.sleep(4)
+
+            # Verify the attempt_to_join_meeting method was called twice
+            self.assertEqual(mock_attempt_to_join.call_count, 2, "attempt_to_join_meeting should be called twice - once for the initial failure and once for the retry")
+
+            # Verify joining succeeded after retry by checking that these methods were called
+            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")
+
+            # Cleanup - signal controller to clean up from within its own thread
+            # Instead of killing the thread, we need to tell the controller to quit its main loop
+            # This will trigger the cleanup process in the same thread
+            if controller.main_loop and controller.main_loop.is_running():
+                GLib.idle_add(controller.cleanup)  # Schedule cleanup in the main loop thread
+
+            # Now wait for the thread to finish naturally
+            bot_thread.join(timeout=5)  # Give it time to clean up
+
+            # If thread is still running after timeout, that's a problem to report
+            if bot_thread.is_alive():
+                print("WARNING: Bot thread did not terminate properly after cleanup")
+
+            # Close the database connection since we're in a thread
+            connection.close()
 
 
 # Simulate video data arrival
