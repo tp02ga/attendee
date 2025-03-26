@@ -1814,3 +1814,17 @@ function addClickRipple() {
 if (window.initialData.addClickRipple) {
     addClickRipple();
 }
+
+function clickLanguageOption(languageCode) {
+    // Find the element with data-value attribute matching the language code
+    const languageElement = document.querySelector(`li[data-value="${languageCode}"]`);
+
+    // Check if the element exists
+    if (languageElement) {
+        // Click the element
+        languageElement.click();
+        return true;
+    } else {
+        return false;
+    }
+}
