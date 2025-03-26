@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException
+from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +364,8 @@ class WebBotAdapter(BotAdapter):
     def repeatedly_attempt_to_join_meeting(self):
         logger.info(f"Trying to join meeting at {self.meeting_url}")
 
+        # Expected exceptions are ones that we expect to happen and are not a big deal, so we only increment num_retries once every three expected exceptions
+        num_expected_exceptions = 0
         num_retries = 0
         max_retries = 2
         while num_retries <= max_retries:
@@ -377,6 +379,14 @@ class WebBotAdapter(BotAdapter):
                 self.send_request_to_join_denied_message()
                 return
 
+            except UiRetryableExpectedException as e:
+                num_expected_exceptions += 1
+                if num_expected_exceptions % 3 == 0:
+                    num_retries += 1
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected and {num_expected_exceptions} expected exceptions have occurred, so incrementing num_retries")
+                else:
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected so not incrementing num_retries, but {num_expected_exceptions} expected exceptions have occurred")
+
             except UiRetryableException as e:
                 if num_retries >= max_retries:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit, so returning")
@@ -389,7 +399,8 @@ class WebBotAdapter(BotAdapter):
 
                 logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable so retrying")
 
-            num_retries += 1
+                num_retries += 1
+
             sleep(1)
 
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
