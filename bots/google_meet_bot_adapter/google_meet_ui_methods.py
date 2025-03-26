@@ -239,7 +239,7 @@ class GoogleMeetUIMethods:
         logger.info("Waiting for the close button")
         close_button = self.locate_element(
             step="close_button",
-            condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Close"]')),
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[aria-modal="true"] button[aria-label="Close"]')),
             wait_time_seconds=6,
         )
         logger.info("Clicking the close button")
