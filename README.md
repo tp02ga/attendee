@@ -2,7 +2,7 @@
   <a href="https://attendee.dev/" target="blank">
     <img 
       src="https://attendee.dev/assets/img/logo.svg" 
-      style="width: 300px; height: auto; max-width: 100%;"
+      style="width: 170px; height: auto; max-width: 100%;"
       alt="Attendee Logo" 
     />
   </a>
