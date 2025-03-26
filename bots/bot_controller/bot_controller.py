@@ -161,7 +161,7 @@ class BotController:
 
     def get_recording_filename(self):
         recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
-        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.{self.bot_in_db.recording_format()}"
+        return f"{recording.object_id}.{self.bot_in_db.recording_format()}"
 
     def on_rtmp_connection_failed(self):
         logger.info("RTMP connection failed")
