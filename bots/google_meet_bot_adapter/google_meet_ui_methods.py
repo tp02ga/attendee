@@ -283,7 +283,7 @@ class GoogleMeetUIMethods:
         self.click_element(settings_list_item, "settings_list_item")
 
         logger.info("Waiting for the captions button")
-        captions_button = self.locate_element(
+        self.locate_element(
             step="captions_button",
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[jsname="z4Tpl"][aria-label="Captions"]')),
             wait_time_seconds=6,
