@@ -377,13 +377,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             self.assertEqual(mock_attempt_to_join.call_count, 2, "attempt_to_join_meeting should be called twice - once for the initial failure and once for the retry")
 
             # Verify joining succeeded after retry by checking that these methods were called
-            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")
-
-            # Cleanup - signal controller to clean up from within its own thread
-            # Instead of killing the thread, we need to tell the controller to quit its main loop
-            # This will trigger the cleanup process in the same thread
-            if controller.main_loop and controller.main_loop.is_running():
-                GLib.idle_add(controller.cleanup)  # Schedule cleanup in the main loop thread
+            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")           
 
             # Now wait for the thread to finish naturally
             bot_thread.join(timeout=5)  # Give it time to clean up
