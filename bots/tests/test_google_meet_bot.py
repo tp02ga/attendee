@@ -157,10 +157,9 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Simulate flushing captions - normally done before leaving
             controller.closed_caption_manager.flush_captions()
 
+            # Trigger only one participant in meeting auto leave
             controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
             time.sleep(4)
-            # Simulate meeting ended
-            # controller.on_message_from_adapter({"message": BotAdapter.Messages.MEETING_ENDED})
 
             # Clean up connections in thread
             connection.close()

@@ -288,31 +288,12 @@ class GoogleMeetUIMethods:
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[jsname="z4Tpl"][aria-label="Captions"]')),
             wait_time_seconds=6,
         )
-        logger.info("Clicking the captions button...")
-        self.click_element(captions_button, "captions_button")
 
-        logger.info("Waiting for the language dropdown")
-        language_dropdown = self.locate_element(
-            step="language_dropdown",
-            condition=EC.presence_of_element_located((By.XPATH, '//div[@jsname="oYxtQd"][.//span[contains(text(), "Language of the meeting")]]')),
-            wait_time_seconds=6,
-        )
-        logger.info("Clicking the language dropdown...")
-        self.click_element(language_dropdown, "language_dropdown")
-
-        logger.info(f"Waiting for the language option: {language}...")
-        language_option = self.locate_element(
-            step="language_option",
-            condition=EC.presence_of_element_located((By.CSS_SELECTOR, f'li[data-value="{language}"]')),
-            wait_time_seconds=6,
-        )
-
-        # Scroll the language option into view before clicking
-        logger.info(f"Scrolling language option into view: {language}...")
-        self.scroll_element_into_view(language_option, "language_option")
-
-        logger.info(f"Clicking the language option: {language}...")
-        self.click_element(language_option, "language_option")
+        # Uses javascript to select the language, bypassing the need for the dropdown to be visible
+        click_language_option_result = self.driver.execute_script("return clickLanguageOption('{}')".format(language))
+        logger.info(f"click_language_option_result: {click_language_option_result}")
+        if not click_language_option_result:
+            raise UiCouldNotLocateElementException(f"Could not find language option {language}", "language_option")
 
         logger.info("Waiting for the close button")
         close_button = self.locate_element(
