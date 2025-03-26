@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import os
@@ -161,7 +160,7 @@ class BotController:
 
     def get_recording_filename(self):
         recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
-        return f"{hashlib.md5(recording.object_id.encode()).hexdigest()}.{self.bot_in_db.recording_format()}"
+        return f"{recording.object_id}.{self.bot_in_db.recording_format()}"
 
     def on_rtmp_connection_failed(self):
         logger.info("RTMP connection failed")
@@ -609,7 +608,7 @@ class BotController:
 
             # Save the file directly from the file path
             with open(BotAdapter.DEBUG_RECORDING_FILE_PATH, "rb") as f:
-                debug_screenshot.file.save("debug_screen_recording.mp4", f, save=True)
+                debug_screenshot.file.save(f"debug_screen_recording_{debug_screenshot.object_id}.mp4", f, save=True)
             logger.info(f"Saved debug recording with ID {debug_screenshot.object_id}")
 
     def take_action_based_on_message_from_adapter(self, message):
@@ -651,7 +650,7 @@ class BotController:
                 with open(message.get("screenshot_path"), "rb") as f:
                     screenshot_content = f.read()
                     debug_screenshot.file.save(
-                        "debug_screenshot.png",
+                        f"debug_screenshot_{debug_screenshot.object_id}.png",
                         ContentFile(screenshot_content),
                         save=True,
                     )
@@ -663,7 +662,7 @@ class BotController:
                 with open(message.get("mhtml_file_path"), "rb") as f:
                     mhtml_content = f.read()
                     mhtml_debug_screenshot.file.save(
-                        "debug_screenshot.mhtml",
+                        f"debug_screenshot_{mhtml_debug_screenshot.object_id}.mhtml",
                         ContentFile(mhtml_content),
                         save=True,
                     )
