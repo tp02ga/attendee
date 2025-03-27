@@ -12,6 +12,7 @@ class Organization(models.Model):
     # These represent hundredths of a credit
     centicredits = models.IntegerField(default=500, null=False)
     version = IntegerVersionField()
+    is_webhooks_enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
