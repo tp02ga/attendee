@@ -15,11 +15,11 @@ from .models import (
     Project,
     RecordingStates,
     Utterance,
+    WebhookDeliveryAttempt,
+    WebhookDeliveryAttemptStatus,
     WebhookSecret,
     WebhookSubscription,
     WebhookTriggerTypes,
-    WebhookDeliveryAttempt,
-    WebhookDeliveryAttemptStatus,
 )
 from .utils import generate_recordings_json_for_bot_detail_view
 
@@ -218,17 +218,19 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         bot.bot_events.prefetch_related("debug_screenshots")
 
         # Get webhook delivery attempts for this bot
-        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related('webhook_subscription').order_by('-created_at')
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related("webhook_subscription").order_by("-created_at")
 
         context = self.get_project_context(object_id, project)
-        context.update({
-            "bot": bot,
-            "BotStates": BotStates,
-            "RecordingStates": RecordingStates,
-            "recordings": generate_recordings_json_for_bot_detail_view(bot),
-            "webhook_delivery_attempts": webhook_delivery_attempts,
-            "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
-        })
+        context.update(
+            {
+                "bot": bot,
+                "BotStates": BotStates,
+                "RecordingStates": RecordingStates,
+                "recordings": generate_recordings_json_for_bot_detail_view(bot),
+                "webhook_delivery_attempts": webhook_delivery_attempts,
+                "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
+            }
+        )
 
         return render(request, "projects/project_bot_detail.html", context)
 
