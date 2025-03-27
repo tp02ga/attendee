@@ -4,8 +4,9 @@
 </div>
 <div class="modal-body">
   <div class="alert alert-warning">
-    <strong>Important:</strong> The webhook secret will only be shown once.
-    Please copy it now and store it securely.
+    <strong>Important:</strong> The webhook secret will only be shown at time of
+    creation. Please copy and save this token securely on your server and use it
+    to validate the signature of incoming webhook payloads.
   </div>
   <div class="mb-3">
     <label class="form-label">Webhook Subscription URL</label>
@@ -19,18 +20,12 @@
     />
   </div>
   <div class="mb-3">
-    <label class="form-label">Subscribed Events</label>
-    <input
-      type="text"
-      class="form-control"
-      value="{{ events }}"
-      readonly
-      tabindex="-1"
-      style="pointer-events: none"
-    />
+    <label class="form-label">Subscribed Triggers</label>
+    <input type="text" class="form-control" value="{{ triggers|join:", " }}"
+    readonly tabindex="-1" style="pointer-events: none" />
   </div>
   <div class="mb-3">
-    <label class="form-label">API Key</label>
+    <label class="form-label">Signed Secret</label>
     <div class="input-group">
       <input
         type="text"
@@ -71,13 +66,13 @@
   }
 
   var modal = new bootstrap.Modal(
-    document.getElementById("subscribeResultModal")
+    document.getElementById("webhookSubscribeResultModal")
   );
   modal.show();
 
   // Add event listener to refresh table when modal is hidden
   document
-    .getElementById("subscribeResultModal")
+    .getElementById("webhookSubscribeResultModal")
     .addEventListener("hidden.bs.modal", function () {
       htmx.ajax("GET", window.location.pathname, {
         target: "#webhooksTable",
@@ -87,7 +82,7 @@
     });
 
   var createModal = bootstrap.Modal.getInstance(
-    document.getElementById("createSubscriptionModal")
+    document.getElementById("createWebhookModal")
   );
   if (createModal) {
     createModal.hide();

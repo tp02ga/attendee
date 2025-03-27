@@ -1,6 +1,6 @@
 {% extends 'projects/sidebar.html' %} {% load bot_filters %} {% block content %}
 <!-- Create Modal -->
-<div class="modal" id="createSubscriptionModal" tabindex="-1">
+<div class="modal" id="createWebhookModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -13,8 +13,8 @@
       </div>
       <div class="modal-body">
         <form
-          hx-post="{% url 'projects:create-webhook-subscription' project.object_id %}"
-          hx-target="#subscribeResult"
+          hx-post="{% url 'projects:create-webhook' project.object_id %}"
+          hx-target="#webhookSubscribeResult"
           hx-swap="innerHTML"
           hx-on::after-request="this.reset()"
         >
@@ -30,11 +30,11 @@
             />
           </div>
           <div class="mb-3">
-            <label for="events" class="form-label">Events</label>
+            <label for="triggers" class="form-label">Triggers</label>
             <select
               class="form-select"
-              id="events"
-              name="events[]"
+              id="triggers"
+              name="triggers[]"
               multiple
               required
             >
@@ -55,9 +55,9 @@
 </div>
 
 <!-- Result Modal (will be populated after webhook subscription) -->
-<div class="modal" id="subscribeResultModal" tabindex="-1">
+<div class="modal" id="webhookSubscribeResultModal" tabindex="-1">
   <div class="modal-dialog">
-    <div class="modal-content" id="subscribeResult">
+    <div class="modal-content" id="webhookSubscribeResult">
       <!-- Content will be replaced by HTMX -->
     </div>
   </div>
@@ -73,7 +73,7 @@
     <button
       class="btn btn-primary mb-3 mt-3"
       data-bs-toggle="modal"
-      data-bs-target="#createSubscriptionModal"
+      data-bs-target="#createWebhookModal"
     >
       Create Webhook Subscription
     </button>
@@ -82,8 +82,8 @@
       <thead>
         <tr>
           <th>Webhook URL</th>
-          <th>Subscribed Events</th>
-          <th>Active</th>
+          <th>Subscribed Triggers</th>
+          <th>Is Active</th>
           <th>Created</th>
           <th>Actions</th>
         </tr>
@@ -92,7 +92,7 @@
         {% for webhook in webhooks %}
         <tr>
           <td>{{ webhook.url }}</td>
-          <td>{{ webhook.events|map_trigger_types|join:", " }}</td>
+          <td>{{ webhook.triggers|map_trigger_types|join:", " }}</td>
           <td>
             {% if webhook.is_active %}
             <input type="checkbox" checked disabled />
@@ -100,7 +100,9 @@
             <input type="checkbox" disabled />
             {% endif %}
           </td>
-          <td>{{ webhook.created_at|date:"M d, Y H:i" }}</td>
+          <td>
+            {{ webhook.created_at|date:"M d, Y H:i" }}
+          </td>
           <td>
             <button
               class="btn btn-danger btn-sm"
@@ -167,7 +169,7 @@
       <button
         class="btn btn-primary mb-3"
         data-bs-toggle="modal"
-        data-bs-target="#createSubscriptionModal"
+        data-bs-target="#createWebhookModal"
       >
         Create new webhook
       </button>

@@ -18,7 +18,7 @@ from bots.models import (
     WebhookSubscription,
     WebhookTriggerTypes,
 )
-from bots.projects_views import CreateWebhookSubscriptionView, DeleteWebhookView, ProjectWebhooksView
+from bots.projects_views import CreateWebhookView, DeleteWebhookView, ProjectWebhooksView
 from bots.tasks.deliver_webhook_task import deliver_webhook
 from bots.webhook_utils import sign_payload, verify_signature
 
@@ -39,15 +39,15 @@ class WebhookSubscriptionTest(TestCase):
 
         # Create test webhook subscriptions
         self.webhook_subscriptions = [
-            WebhookSubscription.objects.create(project=self.project, url="https://example.com/webhook1", events=[WebhookTriggerTypes.BOT_STATE_CHANGE]),
-            WebhookSubscription.objects.create(project=self.project, url="https://example.com/webhook2", events=[WebhookTriggerTypes.BOT_STATE_CHANGE]),
+            WebhookSubscription.objects.create(project=self.project, url="https://example.com/webhook1", triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE]),
+            WebhookSubscription.objects.create(project=self.project, url="https://example.com/webhook2", triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE]),
         ]
 
         # Create webhook secret
         self.webhook_secret = WebhookSecret.objects.create(project=self.project)
 
         self.get_webhooks_view = ProjectWebhooksView()
-        self.create_webhook_view = CreateWebhookSubscriptionView()
+        self.create_webhook_view = CreateWebhookView()
         self.delete_webhook_view = DeleteWebhookView()
 
     def _get_request(self, user=None, method="GET", post_data=None):
@@ -110,7 +110,7 @@ class WebhookSubscriptionTest(TestCase):
         # New webhook data
         webhook_data = {
             "url": "https://example.com/new-webhook",
-            "events[]": [
+            "triggers[]": [
                 WebhookTriggerTypes.BOT_STATE_CHANGE,
             ],
         }
@@ -129,7 +129,7 @@ class WebhookSubscriptionTest(TestCase):
         self.assertIsNotNone(new_webhook)
         self.assertEqual(new_webhook.project, self.project)
         self.assertEqual(
-            set(new_webhook.events),
+            set(new_webhook.triggers),
             set(
                 [
                     WebhookTriggerTypes.BOT_STATE_CHANGE,
@@ -139,7 +139,7 @@ class WebhookSubscriptionTest(TestCase):
 
     def test_create_webhook_invalid_url(self):
         """Test webhook creation with invalid URL (non-HTTPS)"""
-        webhook_data = {"url": "http://example.com/insecure", "events[]": [WebhookTriggerTypes.BOT_STATE_CHANGE]}
+        webhook_data = {"url": "http://example.com/insecure", "triggers[]": [WebhookTriggerTypes.BOT_STATE_CHANGE]}
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
         response = self.create_webhook_view.post(request, self.project.object_id)
@@ -155,7 +155,7 @@ class WebhookSubscriptionTest(TestCase):
         """Test webhook creation with already existing URL"""
         webhook_data = {
             "url": "https://example.com/webhook1",  # This URL already exists from setUp
-            "events[]": [WebhookTriggerTypes.BOT_STATE_CHANGE],
+            "triggers[]": [WebhookTriggerTypes.BOT_STATE_CHANGE],
         }
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
@@ -169,7 +169,7 @@ class WebhookSubscriptionTest(TestCase):
         """Test webhook creation with invalid event type"""
         webhook_data = {
             "url": "https://example.com/new-webhook",
-            "events[]": [9999],  # Invalid event type
+            "triggers[]": [9999],  # Invalid event type
         }
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
@@ -195,7 +195,7 @@ class WebhookSubscriptionTest(TestCase):
         # Create webhook in another org
         other_org = Organization.objects.create(name="Other Organization")
         other_project = Project.objects.create(name="Other Project", organization=other_org)
-        other_webhook = WebhookSubscription.objects.create(project=other_project, url="https://example.com/other-webhook", events=[WebhookTriggerTypes.BOT_STATE_CHANGE])
+        other_webhook = WebhookSubscription.objects.create(project=other_project, url="https://example.com/other-webhook", triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE])
 
         request = self._get_request(user=self.user, method="DELETE")
 
@@ -215,7 +215,7 @@ class WebhookSubscriptionTest(TestCase):
         # Create first subscription which should create a secret
         webhook_data = {
             "url": "https://example.com/new-webhook",
-            "events[]": [
+            "triggers[]": [
                 WebhookTriggerTypes.BOT_STATE_CHANGE,
             ],
         }
@@ -256,7 +256,7 @@ class WebhookDeliveryTest(TestCase):
         self.webhook_subscription = WebhookSubscription.objects.create(
             project=self.project,
             url="https://example.com/webhook",
-            events=[
+            triggers=[
                 WebhookTriggerTypes.BOT_STATE_CHANGE,
             ],
         )
@@ -277,7 +277,7 @@ class WebhookDeliveryTest(TestCase):
         # Create delivery attempt
         attempt = WebhookDeliveryAttempt.objects.create(
             webhook_subscription=self.webhook_subscription,
-            webhook_event_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+            webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
             bot=self.bot,
             idempotency_key=uuid.uuid4(),
             payload={"test": "data"},
@@ -291,7 +291,9 @@ class WebhookDeliveryTest(TestCase):
 
         # Verify request was made with correct data
         mock_post.assert_called_once()
+        self.assertTrue(isinstance(attempt.status, int))
         self.assertEqual(attempt.status, WebhookDeliveryAttemptStatus.SUCCESS)
+        self.assertEqual(len(attempt.response_body_list), 1)
         self.assertIsNotNone(attempt.succeeded_at)
 
     @patch("bots.tasks.deliver_webhook_task.requests.post")
@@ -302,7 +304,33 @@ class WebhookDeliveryTest(TestCase):
 
         attempt = WebhookDeliveryAttempt.objects.create(
             webhook_subscription=self.webhook_subscription,
-            webhook_event_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+            webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+            bot=self.bot,
+            idempotency_key=uuid.uuid4(),
+            payload={"test": "data"},
+        )
+
+        # Call delivery task
+        deliver_webhook.apply(args=[attempt.id])
+
+        # Refresh the attempt object from the db
+        attempt.refresh_from_db()
+
+        self.assertTrue(isinstance(attempt.status, int))
+        self.assertEqual(attempt.status, WebhookDeliveryAttemptStatus.FAILURE)
+        self.assertEqual(len(attempt.response_body_list), 1)
+        self.assertIsNone(attempt.succeeded_at)
+        self.assertEqual(attempt.attempt_count, 1)
+
+    @patch("bots.tasks.deliver_webhook_task.requests.post")
+    def test_webhook_delivery_inactive(self, mock_post):
+        """Test webhook delivery does not deliver when the subscription is inactive"""
+        mock_post.return_value.status_code = 500
+        mock_post.return_value.text = "Server Error"
+
+        attempt = WebhookDeliveryAttempt.objects.create(
+            webhook_subscription=self.webhook_subscription,
+            webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
             bot=self.bot,
             idempotency_key=uuid.uuid4(),
             payload={"test": "data"},
@@ -315,5 +343,7 @@ class WebhookDeliveryTest(TestCase):
         attempt.refresh_from_db()
 
         self.assertEqual(attempt.status, WebhookDeliveryAttemptStatus.FAILURE)
+        self.assertEqual(len(attempt.response_body_list), 1)
+        self.assertIsNone(attempt.response_body_list[0]["status_code"])
         self.assertIsNone(attempt.succeeded_at)
         self.assertEqual(attempt.attempt_count, 1)

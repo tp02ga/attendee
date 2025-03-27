@@ -1,3 +1,4 @@
+import base64
 import logging
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -236,11 +237,11 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_webhooks.html", context)
 
 
-class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         url = request.POST.get("url")
-        events = request.POST.getlist("events[]")
+        triggers = request.POST.getlist("triggers[]")
 
         # Check if URL is valid
         if not url.startswith("https://"):
@@ -249,10 +250,10 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
             return HttpResponse("URL already subscribed", status=400)
 
         # Check the event is subscribable
-        subscribed_events = [int(x) for x in events]
-        for event in subscribed_events:
-            if event not in [event.value for event in WebhookTriggerTypes]:
-                return HttpResponse(f"Invalid event type: {event}", status=400)
+        subscribed_triggers = [int(x) for x in triggers]
+        for trigger in subscribed_triggers:
+            if trigger not in [trigger.value for trigger in WebhookTriggerTypes]:
+                return HttpResponse(f"Invalid event type: {trigger}", status=400)
 
         # Get the project's secret for the webhook subscription. If new project, create a new one
         webhook_secret, created = WebhookSecret.objects.get_or_create(project=project)
@@ -261,7 +262,7 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
         WebhookSubscription.objects.create(
             project=project,
             url=url,
-            events=subscribed_events,
+            triggers=subscribed_triggers,
         )
 
         # Render the success modal content
@@ -269,9 +270,9 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
             request,
             "projects/partials/webhook_subscription_created_modal.html",
             {
-                "secret": webhook_secret.get_secret(),
+                "secret": base64.b64encode(webhook_secret.get_secret()).decode("utf-8"),
                 "url": url,
-                "events": [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in subscribed_events],
+                "triggers": [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in subscribed_triggers],
             },
         )
 

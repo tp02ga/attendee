@@ -62,8 +62,8 @@ def md5(value):
 
 
 @register.filter
-def map_trigger_types(events):
-    """Transform webhook events to their API codes, works for both single events and lists"""
-    if hasattr(events, "__iter__") and not isinstance(events, str):
-        return [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in events]
-    return WebhookTriggerTypes.trigger_type_to_api_code(events)
+def map_trigger_types(trigger_or_triggers):
+    """Transform webhook trigger types to their API codes, works for both single triggers and lists"""
+    if hasattr(trigger_or_triggers, "__iter__") and not isinstance(trigger_or_triggers, str):
+        return [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in trigger_or_triggers]
+    return WebhookTriggerTypes.trigger_type_to_api_code(trigger_or_triggers)

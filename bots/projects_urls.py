@@ -52,8 +52,8 @@ urlpatterns = [
     ),
     path(
         "<str:object_id>/webhooks/create/",
-        projects_views.CreateWebhookSubscriptionView.as_view(),
-        name="create-webhook-subscription",
+        projects_views.CreateWebhookView.as_view(),
+        name="create-webhook",
     ),
     path(
         "<str:object_id>/webhooks/<str:webhook_object_id>/delete/",

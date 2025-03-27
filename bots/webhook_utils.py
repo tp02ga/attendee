@@ -8,20 +8,20 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
-def trigger_webhook(webhook_event_type, bot, payload):
+def trigger_webhook(webhook_trigger_type, bot, payload):
     """
     Trigger a webhook for a given event.
     """
     from bots.models import WebhookDeliveryAttempt
 
-    subscriptions = bot.project.webhook_subscriptions.filter(events__contains=[webhook_event_type], is_active=True)
+    subscriptions = bot.project.webhook_subscriptions.filter(triggers__contains=[webhook_trigger_type], is_active=True)
 
     delivery_attempts = []
     for subscription in subscriptions:
         # Create a webhook delivery attempt record
         delivery_attempt = WebhookDeliveryAttempt.objects.create(
             webhook_subscription=subscription,
-            webhook_event_type=webhook_event_type,
+            webhook_trigger_type=webhook_trigger_type,
             idempotency_key=uuid.uuid4(),
             bot=bot,
             payload=payload,

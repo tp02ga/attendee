@@ -626,7 +626,7 @@ class BotEventManager:
 
                     # Trigger webhook for this event
                     trigger_webhook(
-                        webhook_event_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+                        webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
                         bot=bot,
                         payload={
                             "event_type": BotEventTypes.type_to_api_code(event_type),
@@ -1221,7 +1221,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
 
 
 class WebhookSubscription(models.Model):
-    def default_events():
+    def default_triggers():
         return [WebhookTriggerTypes.BOT_STATE_CHANGE]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
@@ -1237,7 +1237,7 @@ class WebhookSubscription(models.Model):
         super().save(*args, **kwargs)
 
     url = models.URLField()
-    events = models.JSONField(default=default_events)
+    triggers = models.JSONField(default=default_triggers)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1251,7 +1251,7 @@ class WebhookDeliveryAttemptStatus(models.IntegerChoices):
 
 class WebhookDeliveryAttempt(models.Model):
     webhook_subscription = models.ForeignKey(WebhookSubscription, on_delete=models.CASCADE, related_name="webhookdelivery_attempts")
-    webhook_event_type = models.IntegerField(choices=WebhookTriggerTypes.choices, default=WebhookTriggerTypes.BOT_STATE_CHANGE, null=False)
+    webhook_trigger_type = models.IntegerField(choices=WebhookTriggerTypes.choices, default=WebhookTriggerTypes.BOT_STATE_CHANGE, null=False)
     idempotency_key = models.UUIDField(unique=True, editable=False)
     bot = models.ForeignKey(Bot, on_delete=models.SET_NULL, null=True, related_name="webhook_delivery_attempts")
     payload = models.JSONField(default=dict)
@@ -1262,3 +1262,10 @@ class WebhookDeliveryAttempt(models.Model):
     response_body_list = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def add_to_response_body_list(self, response_body):
+        """Add content to the response body list without saving."""
+        if self.response_body_list is None:
+            self.response_body_list = [response_body]
+        else:
+            self.response_body_list.append(response_body)
