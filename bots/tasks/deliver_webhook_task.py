@@ -23,7 +23,7 @@ def deliver_webhook(self, delivery_id):
         delivery = WebhookDeliveryAttempt.objects.get(id=delivery_id)
     except WebhookDeliveryAttempt.DoesNotExist:
         logger.error(f"Webhook delivery attempt {delivery_id} not found")
-        return
+        raise  # Re-raises the original exception with preserved traceback
 
     subscription = delivery.webhook_subscription
 

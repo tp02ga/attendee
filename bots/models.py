@@ -624,19 +624,6 @@ class BotEventManager:
                         metadata=event_metadata,
                     )
 
-                    # Trigger webhook for this event
-                    trigger_webhook(
-                        webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
-                        bot=bot,
-                        payload={
-                            "event_type": BotEventTypes.type_to_api_code(event_type),
-                            "event_sub_type": BotEventSubTypes.sub_type_to_api_code(event_sub_type),
-                            "old_state": BotStates.state_to_api_code(old_state),
-                            "new_state": BotStates.state_to_api_code(bot.state),
-                            "created_at": event.created_at.isoformat(),
-                        },
-                    )
-
                     # If we moved to the recording state
                     if new_state == BotStates.JOINED_RECORDING:
                         pending_recordings = bot.recordings.filter(state=RecordingStates.NOT_STARTED)
@@ -663,6 +650,19 @@ class BotEventManager:
                                     bot=bot,
                                     description=f"For bot {bot.object_id}",
                                 )
+
+                    # Trigger webhook for this event
+                    trigger_webhook(
+                        webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+                        bot=bot,
+                        payload={
+                            "event_type": BotEventTypes.type_to_api_code(event_type),
+                            "event_sub_type": BotEventSubTypes.sub_type_to_api_code(event_sub_type),
+                            "old_state": BotStates.state_to_api_code(old_state),
+                            "new_state": BotStates.state_to_api_code(bot.state),
+                            "created_at": event.created_at.isoformat(),
+                        },
+                    )
 
                     return event
 
