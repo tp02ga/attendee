@@ -2,9 +2,13 @@ import uuid
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.http import HttpRequest, Http404
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.urls import reverse
+from django.http.request import QueryDict
+from accounts.models import User
+from bots.projects_views import CreateWebhookSubscriptionView, DeleteWebhookView, ProjectWebhooksView
 from rest_framework import status
-from rest_framework.test import APITestCase
 
 from bots.models import (
     ApiKey,
@@ -21,101 +25,240 @@ from bots.models import (
 from bots.tasks.deliver_webhook_task import deliver_webhook
 from bots.webhook_utils import sign_payload, verify_signature
 
-
-class WebhookSubscriptionTest(APITestCase):
+class WebhookSubscriptionTest(TestCase):
     def setUp(self):
-        """Set up test data"""
-        # Create organization and project
-        self.organization = Organization.objects.create(name="Test Org")
+         # Create test user with organization
+        self.organization = Organization.objects.create(name="Test Organization")
+        self.user = User.objects.create_user(
+            username="testuser", 
+            email="test@example.com", 
+            password="testpassword"
+        )
+        self.user.organization = self.organization
+        self.user.save()
+        
+        # Create test project
         self.project = Project.objects.create(
             name="Test Project",
             organization=self.organization,
         )
-
-        # Create API key for authentication
-        self.api_key, self.api_key_plain = ApiKey.create(
+        
+        # Create test webhook subscriptions
+        self.webhook_subscriptions = [WebhookSubscription.objects.create(
             project=self.project,
-            name="Test API Key",
+            url="https://example.com/webhook1",
+            events=[WebhookTriggerTypes.BOT_STATE_CHANGE]
+        ),WebhookSubscription.objects.create(
+            project=self.project,
+            url="https://example.com/webhook2",
+            events=[WebhookTriggerTypes.BOT_STATE_CHANGE]
+        ),]
+        
+        # Create webhook secret
+        self.webhook_secret = WebhookSecret.objects.create(
+            project=self.project
         )
 
-        # Set up authentication header
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.api_key_plain}")
-
-        # URL for webhook subscription endpoint
-        self.url = reverse("webhook-subscription")
-
-        # Valid webhook data
-        self.valid_webhook_data = {
-            "url": "https://example.com/webhook",
-            "events": [
-                WebhookTriggerTypes.BOT_STATE_CHANGE,
-            ],
-        }
-
+        self.get_webhooks_view = ProjectWebhooksView()
+        self.create_webhook_view = CreateWebhookSubscriptionView()
+        self.delete_webhook_view = DeleteWebhookView()
+    
+    def _get_request(self, user=None, method='GET', post_data=None):
+        """Helper method to create a request object"""
+        request = HttpRequest()
+        request.method = method
+        
+        # Set the user if provided
+        if user:
+            request.user = user
+        
+        # Set POST data if provided
+        if method == 'POST' and post_data:
+            # Create a QueryDict from the post_data
+            q_dict = QueryDict('', mutable=True)
+            for key, value in post_data.items():
+                if isinstance(value, list):
+                    for item in value:
+                        q_dict.update({key: item})
+                else:
+                    q_dict[key] = value
+            request.POST = q_dict
+        
+        # Add messages support to request
+        setattr(request, 'session', 'session')
+        messages = FallbackStorage(request)
+        setattr(request, '_messages', messages)
+        
+        return request
+    
+    def test_project_webhooks_view(self):
+        """Test that project webhooks view renders correctly"""
+        request = self._get_request(user=self.user)
+        
+        # Call the view directly
+        response = self.get_webhooks_view.get(request, self.project.object_id)
+        
+        # Check response code
+        self.assertEqual(response.status_code, 200)
+        
+    def test_project_webhooks_view_unauthorized(self):
+        """Test that unauthorized users cannot access the webhooks view"""
+        # Create another organization and project
+        other_org = Organization.objects.create(name="Other Organization")
+        other_project = Project.objects.create(
+            name="Other Project",
+            organization=other_org
+        )
+        
+        # Create request
+        request = self._get_request(user=self.user)
+        
+        # Patch the get_object_or_404 function to simulate a 404
+        with patch('django.shortcuts.get_object_or_404') as mock_get_object:
+            mock_get_object.side_effect = Http404()
+            
+            # This should raise Http404
+            with self.assertRaises(Http404):
+                self.get_webhooks_view.get(request, other_project.object_id)
+        
     def test_create_webhook_subscription_success(self):
         """Test successful webhook subscription creation"""
-        response = self.client.post(self.url, self.valid_webhook_data, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(WebhookSubscription.objects.count(), 1)
-
-        # Verify response data
-        self.assertEqual(response.data["url"], self.valid_webhook_data["url"])
-        self.assertEqual(response.data["events"], self.valid_webhook_data["events"])
-
-        # Verify webhook secret was created
-        self.assertTrue(WebhookSecret.objects.filter(project=self.project).exists())
-
-    def test_create_webhook_subscription_duplicate_url(self):
-        """Test that duplicate URLs are not allowed"""
-        # Create first subscription
-        self.client.post(self.url, self.valid_webhook_data, format="json")
-
-        # Try to create second subscription with same URL
-        response = self.client.post(self.url, self.valid_webhook_data, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(WebhookSubscription.objects.count(), 1)
-        self.assertEqual(response.data["error"], "URL already subscribed")
-
-    def test_create_webhook_subscription_invalid_url(self):
-        """Test validation of invalid URLs"""
-        invalid_data = self.valid_webhook_data.copy()
-        invalid_data["url"] = "not-a-url"
-
-        response = self.client.post(self.url, invalid_data, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(WebhookSubscription.objects.count(), 0)
-
-    def test_create_webhook_subscription_invalid_events(self):
-        """Test validation of invalid events"""
-        invalid_data = self.valid_webhook_data.copy()
-        invalid_data["events"] = ["invalid.event"]
-
-        response = self.client.post(self.url, invalid_data, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(WebhookSubscription.objects.count(), 0)
-
-    def test_create_webhook_subscription_unauthorized(self):
-        """Test that authentication is required"""
-        # Remove authentication credentials
-        self.client.credentials()
-
-        response = self.client.post(self.url, self.valid_webhook_data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        # New webhook data
+        webhook_data = {
+            'url': 'https://example.com/new-webhook',
+            'events[]': [
+                WebhookTriggerTypes.BOT_STATE_CHANGE,
+            ]
+        }
+        
+        # Create a mock request
+        request = self._get_request(user=self.user, method='POST', post_data=webhook_data)
+        
+        # Call the view directly
+        response = self.create_webhook_view.post(request, self.project.object_id)
+        
+        # Check response status
+        self.assertEqual(response.status_code, 200)
+        
+        # Check that webhook was created in database
+        new_webhook = WebhookSubscription.objects.get(url='https://example.com/new-webhook')
+        self.assertIsNotNone(new_webhook)
+        self.assertEqual(new_webhook.project, self.project)
+        self.assertEqual(set(new_webhook.events), set([
+            WebhookTriggerTypes.BOT_STATE_CHANGE,
+        ]))
+        
+    def test_create_webhook_invalid_url(self):
+        """Test webhook creation with invalid URL (non-HTTPS)"""
+        webhook_data = {
+            'url': 'http://example.com/insecure',
+            'events[]': [WebhookTriggerTypes.BOT_STATE_CHANGE]
+        }
+        
+        request = self._get_request(user=self.user, method='POST', post_data=webhook_data)
+        response = self.create_webhook_view.post(request, self.project.object_id)
+        
+        # Check for error response
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content.decode(), "URL must start with https://")
+        
+        # Verify webhook wasn't created
+        self.assertFalse(WebhookSubscription.objects.filter(url='http://example.com/insecure').exists())
+        
+    def test_create_webhook_duplicate_url(self):
+        """Test webhook creation with already existing URL"""
+        webhook_data = {
+            'url': 'https://example.com/webhook1',  # This URL already exists from setUp
+            'events[]': [WebhookTriggerTypes.BOT_STATE_CHANGE]
+        }
+        
+        request = self._get_request(user=self.user, method='POST', post_data=webhook_data)
+        response = self.create_webhook_view.post(request, self.project.object_id)
+        
+        # Check for error response
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content.decode(), "URL already subscribed")
+        
+    def test_create_webhook_invalid_event(self):
+        """Test webhook creation with invalid event type"""
+        webhook_data = {
+            'url': 'https://example.com/new-webhook',
+            'events[]': [9999]  # Invalid event type
+        }
+        
+        request = self._get_request(user=self.user, method='POST', post_data=webhook_data)
+        response = self.create_webhook_view.post(request, self.project.object_id)
+        
+        # Check for error response
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content.decode(), "Invalid event type: 9999")
+        
+    def test_delete_webhook(self):
+        """Test webhook deletion"""
+        request = self._get_request(user=self.user, method='DELETE')
+        response = self.delete_webhook_view.delete(
+            request, 
+            self.project.object_id, 
+            self.webhook_subscriptions[0].object_id
+        )
+        
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify webhook is deleted
+        self.assertFalse(WebhookSubscription.objects.filter(
+            object_id=self.webhook_subscriptions[0].object_id
+        ).exists())
+        
+    def test_delete_webhook_unauthorized(self):
+        """Test unauthorized webhook deletion"""
+        # Create webhook in another org
+        other_org = Organization.objects.create(name="Other Organization")
+        other_project = Project.objects.create(
+            name="Other Project",
+            organization=other_org
+        )
+        other_webhook = WebhookSubscription.objects.create(
+            project=other_project,
+            url="https://example.com/other-webhook",
+            events=[WebhookTriggerTypes.BOT_STATE_CHANGE]
+        )
+        
+        request = self._get_request(user=self.user, method='DELETE')
+        
+        # Patch the get_object_or_404 function to simulate a 404
+        with patch('django.shortcuts.get_object_or_404') as mock_get_object:
+            mock_get_object.side_effect = Http404()
+            
+            # This should raise Http404
+            with self.assertRaises(Http404):
+                self.delete_webhook_view.delete(
+                    request, 
+                    other_project.object_id, 
+                    other_webhook.object_id
+                )
+                
+        # Webhook should still exist
+        self.assertTrue(WebhookSubscription.objects.filter(object_id=other_webhook.object_id).exists())
 
     def test_webhook_secret_reuse(self):
         """Test that existing webhook secret is reused for same project"""
         # Create first subscription which should create a secret
-        self.client.post(self.url, self.valid_webhook_data, format="json")
+        webhook_data = {
+            'url': 'https://example.com/new-webhook',
+            'events[]': [
+                WebhookTriggerTypes.BOT_STATE_CHANGE,
+            ]
+        }
+        request = self._get_request(user=self.user, method='POST', post_data=webhook_data)
+        self.create_webhook_view.post(request, self.project.object_id)
         first_secret = WebhookSecret.objects.get(project=self.project)
 
         # Create second subscription with different URL
-        different_url_data = self.valid_webhook_data.copy()
+        different_url_data = webhook_data.copy()
         different_url_data["url"] = "https://another-example.com/webhook"
-        self.client.post(self.url, different_url_data, format="json")
+        request = self._get_request(user=self.user, method='POST', post_data=different_url_data)
+        self.create_webhook_view.post(request, self.project.object_id)
 
         # Verify same secret is used
         self.assertEqual(WebhookSecret.objects.filter(project=self.project).count(), 1)
@@ -147,9 +290,10 @@ class WebhookDeliveryTest(TestCase):
             events=[
                 WebhookTriggerTypes.BOT_STATE_CHANGE,
             ],
-            secret=WebhookSecret.objects.create(
-                project=self.project,
-            ),
+        )
+        # Create webhook secret
+        self.webhook_secret = WebhookSecret.objects.create(
+            project=self.project
         )
         self.bot = Bot.objects.create(
             project=self.project,

@@ -241,11 +241,18 @@ class CreateWebhookSubscriptionView(LoginRequiredMixin, ProjectUrlContextMixin, 
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         url = request.POST.get("url")
         events = request.POST.getlist("events[]")
-        subscribed_events = [int(x) for x in events]
 
-        # Check if the URL is already subscribed
+        # Check if URL is valid
+        if not url.startswith("https://"):
+            return HttpResponse("URL must start with https://", status=400)
         if WebhookSubscription.objects.filter(url=url).exists():
             return HttpResponse("URL already subscribed", status=400)
+
+        # Check the event is subscribable
+        subscribed_events = [int(x) for x in events]
+        for event in subscribed_events:
+            if event not in [event.value for event in WebhookTriggerTypes]:
+                return HttpResponse(f"Invalid event type: {event}", status=400)
 
         # Get the project's secret for the webhook subscription. If new project, create a new one
         webhook_secret, created = WebhookSecret.objects.get_or_create(project=project)
