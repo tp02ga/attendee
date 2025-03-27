@@ -325,8 +325,6 @@ class WebhookDeliveryTest(TestCase):
     @patch("bots.tasks.deliver_webhook_task.requests.post")
     def test_webhook_delivery_inactive(self, mock_post):
         """Test webhook delivery does not deliver when the subscription is inactive"""
-        mock_post.return_value.status_code = 500
-        mock_post.return_value.text = "Server Error"
 
         attempt = WebhookDeliveryAttempt.objects.create(
             webhook_subscription=self.webhook_subscription,
@@ -335,6 +333,8 @@ class WebhookDeliveryTest(TestCase):
             idempotency_key=uuid.uuid4(),
             payload={"test": "data"},
         )
+        attempt.webhook_subscription.is_active = False
+        attempt.webhook_subscription.save()
 
         # Call delivery task
         deliver_webhook.apply(args=[attempt.id])
@@ -346,4 +346,4 @@ class WebhookDeliveryTest(TestCase):
         self.assertEqual(len(attempt.response_body_list), 1)
         self.assertIsNone(attempt.response_body_list[0]["status_code"])
         self.assertIsNone(attempt.succeeded_at)
-        self.assertEqual(attempt.attempt_count, 1)
+        self.assertEqual(attempt.attempt_count, 0)
