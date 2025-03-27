@@ -24,7 +24,7 @@ def deliver_webhook(self, delivery_id):
     except WebhookDeliveryAttempt.DoesNotExist:
         logger.error(f"Webhook delivery attempt {delivery_id} not found")
         return
-    
+
     subscription = delivery.webhook_subscription
 
     # If the subscription is no longer active, mark as failed and return
