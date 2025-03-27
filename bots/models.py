@@ -3,11 +3,12 @@ import json
 import math
 import os
 import random
+import secrets
 import string
 
 from concurrency.exceptions import RecordModifiedError
 from concurrency.fields import IntegerVersionField
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -17,6 +18,9 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 from accounts.models import Organization
+from bots.webhook_utils import trigger_webhook
+
+# Create your models here.
 
 
 class Project(models.Model):
@@ -647,6 +651,19 @@ class BotEventManager:
                                     description=f"For bot {bot.object_id}",
                                 )
 
+                    # Trigger webhook for this event
+                    trigger_webhook(
+                        webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE,
+                        bot=bot,
+                        payload={
+                            "event_type": BotEventTypes.type_to_api_code(event_type),
+                            "event_sub_type": BotEventSubTypes.sub_type_to_api_code(event_sub_type),
+                            "old_state": BotStates.state_to_api_code(old_state),
+                            "new_state": BotStates.state_to_api_code(bot.state),
+                            "created_at": event.created_at.isoformat(),
+                        },
+                    )
+
                     return event
 
             except RecordModifiedError:
@@ -1160,3 +1177,95 @@ class BotDebugScreenshot(models.Model):
 
     def __str__(self):
         return f"Debug Screenshot {self.object_id} for event {self.bot_event}"
+
+
+class WebhookSecret(models.Model):
+    _secret = models.BinaryField(
+        null=True,
+        editable=False,  # Prevents editing through admin/forms
+    )
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_secrets")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def get_secret(self):
+        """Decrypt and return secret"""
+        if not self._secret:
+            return None
+        try:
+            f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
+            decrypted_data = f.decrypt(bytes(self._secret))
+            return decrypted_data
+        except (InvalidToken, ValueError):
+            return None
+
+    def save(self, *args, **kwargs):
+        # Only generate a secret if this is a new object (not yet saved to DB)
+        if not self.pk and not self._secret:
+            secret = secrets.token_bytes(32)
+            f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
+            self._secret = f.encrypt(secret)
+        super().save(*args, **kwargs)
+
+
+class WebhookTriggerTypes(models.IntegerChoices):
+    BOT_STATE_CHANGE = 1, "Bot State Change"
+    # add other event types here
+
+    @classmethod
+    def trigger_type_to_api_code(cls, value):
+        mapping = {
+            cls.BOT_STATE_CHANGE: "bot.state_change",
+        }
+        return mapping.get(value)
+
+
+class WebhookSubscription(models.Model):
+    def default_triggers():
+        return [WebhookTriggerTypes.BOT_STATE_CHANGE]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
+
+    OBJECT_ID_PREFIX = "webhook_"
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
+    url = models.URLField()
+    triggers = models.JSONField(default=default_triggers)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class WebhookDeliveryAttemptStatus(models.IntegerChoices):
+    PENDING = 1, "Pending"
+    SUCCESS = 2, "Success"
+    FAILURE = 3, "Failure"
+
+
+class WebhookDeliveryAttempt(models.Model):
+    webhook_subscription = models.ForeignKey(WebhookSubscription, on_delete=models.CASCADE, related_name="webhookdelivery_attempts")
+    webhook_trigger_type = models.IntegerField(choices=WebhookTriggerTypes.choices, default=WebhookTriggerTypes.BOT_STATE_CHANGE, null=False)
+    idempotency_key = models.UUIDField(unique=True, editable=False)
+    bot = models.ForeignKey(Bot, on_delete=models.SET_NULL, null=True, related_name="webhook_delivery_attempts")
+    payload = models.JSONField(default=dict)
+    status = models.IntegerField(choices=WebhookDeliveryAttemptStatus.choices, default=WebhookDeliveryAttemptStatus.PENDING, null=False)
+    attempt_count = models.IntegerField(default=0)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    succeeded_at = models.DateTimeField(null=True, blank=True)
+    response_body_list = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def add_to_response_body_list(self, response_body):
+        """Add content to the response body list without saving."""
+        if self.response_body_list is None:
+            self.response_body_list = [response_body]
+        else:
+            self.response_body_list.append(response_body)
