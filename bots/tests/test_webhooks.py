@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.http import Http404, HttpRequest
 from django.http.request import QueryDict
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 
 from accounts.models import User
 from bots.models import (
@@ -171,7 +171,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
     def test_create_webhook_invalid_event(self):
         # Clear the existing webhooks
         WebhookSubscription.objects.filter(project=self.project).delete()
-        
+
         """Test webhook creation with invalid event type"""
         webhook_data = {
             "url": "https://example.com/new-webhook",
