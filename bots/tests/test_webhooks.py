@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.http import Http404, HttpRequest
 from django.http.request import QueryDict
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 
 from accounts.models import User
 from bots.models import (
@@ -23,7 +23,7 @@ from bots.tasks.deliver_webhook_task import deliver_webhook
 from bots.webhook_utils import sign_payload, verify_signature
 
 
-class WebhookSubscriptionTest(TestCase):
+class WebhookSubscriptionTest(TransactionTestCase):
     def setUp(self):
         # Create test user with organization
         self.organization = Organization.objects.create(name="Test Organization")
@@ -106,6 +106,9 @@ class WebhookSubscriptionTest(TestCase):
                 self.get_webhooks_view.get(request, other_project.object_id)
 
     def test_create_webhook_subscription_success(self):
+        # Clear the existing webhooks
+        WebhookSubscription.objects.filter(project=self.project).delete()
+
         """Test successful webhook subscription creation"""
         # New webhook data
         webhook_data = {
@@ -166,6 +169,9 @@ class WebhookSubscriptionTest(TestCase):
         self.assertEqual(response.content.decode(), "URL already subscribed")
 
     def test_create_webhook_invalid_event(self):
+        # Clear the existing webhooks
+        WebhookSubscription.objects.filter(project=self.project).delete()
+        
         """Test webhook creation with invalid event type"""
         webhook_data = {
             "url": "https://example.com/new-webhook",
@@ -249,7 +255,7 @@ class WebhookSubscriptionTest(TestCase):
         self.assertFalse(verify_signature(modified_payload, signature, secret))
 
 
-class WebhookDeliveryTest(TestCase):
+class WebhookDeliveryTest(TransactionTestCase):
     def setUp(self):
         self.organization = Organization.objects.create(name="Test Org")
         self.project = Project.objects.create(name="Test Project", organization=self.organization)
