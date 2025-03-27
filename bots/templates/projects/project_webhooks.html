@@ -4,7 +4,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Create New Webhook Subscription</h5>
+        <h5 class="modal-title">Create Webhook</h5>
         <button
           type="button"
           class="btn-close"
@@ -28,24 +28,35 @@
               name="url"
               required
             />
+            <div class="text-danger mt-2 d-none" id="url-validation-message">
+              Please enter a valid URL starting with https://
+            </div>
           </div>
           <div class="mb-3">
-            <label for="triggers" class="form-label">Triggers</label>
-            <select
-              class="form-select"
-              id="triggers"
-              name="triggers[]"
-              multiple
-              required
-            >
-              {% for option in webhook_options %}
-              <option value="{{ option }}">
-                {{ option|map_trigger_types }}
-              </option>
-              {% endfor %}
-            </select>
+            <label class="form-label">Triggers</label>
+            <div class="border rounded p-3" id="triggers-container">
+              <div class="d-flex flex-wrap gap-2">
+                {% for option in webhook_options %}
+                <div class="form-check">
+                  <input 
+                    class="form-check-input trigger-checkbox" 
+                    type="checkbox" 
+                    name="triggers[]" 
+                    value="{{ option }}" 
+                    id="trigger-{{ forloop.counter }}"
+                  >
+                  <label class="form-check-label" for="trigger-{{ forloop.counter }}">
+                    {{ option|map_trigger_types }}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="text-danger mt-2 d-none" id="trigger-validation-message">
+                Please select at least one trigger
+              </div>
+            </div>
           </div>
-          <button id="submitBtn" type="submit" class="btn btn-primary">
+          <button id="submitBtn" type="submit" class="btn btn-primary" onclick="validateForm(event)">
             Create
           </button>
         </form>
@@ -75,7 +86,7 @@
       data-bs-toggle="modal"
       data-bs-target="#createWebhookModal"
     >
-      Create Webhook Subscription
+      Create Webhook
     </button>
 
     <table class="table">
@@ -171,11 +182,49 @@
         data-bs-toggle="modal"
         data-bs-target="#createWebhookModal"
       >
-        Create new webhook
+        Create Webhook
       </button>
     </p>
     {% endif %}
   </div>
 </div>
+
+<script>
+  function validateForm(event) {
+    let isValid = true;
+    
+    // Validate triggers
+    const checkboxes = document.querySelectorAll('.trigger-checkbox:checked');
+    const validationMessage = document.getElementById('trigger-validation-message');
+    
+    if (checkboxes.length === 0) {
+      validationMessage.classList.remove('d-none');
+      isValid = false;
+    } else {
+      validationMessage.classList.add('d-none');
+    }
+    
+    // Validate URL
+    const urlInput = document.getElementById('url');
+    const urlValue = urlInput.value.trim();
+    const urlValidationMessage = document.getElementById('url-validation-message');
+    
+    // Regular expression to validate URL format and ensure it starts with https://
+    const urlRegex = /^https:\/\/([\w-]+(\.[\w-]+)+)([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?$/;
+    
+    if (!urlRegex.test(urlValue)) {
+      urlValidationMessage.classList.remove('d-none');
+      isValid = false;
+    } else {
+      urlValidationMessage.classList.add('d-none');
+    }
+    
+    if (!isValid) {
+      event.preventDefault();
+    }
+    
+    return isValid;
+  }
+</script>
 
 {% endblock %}

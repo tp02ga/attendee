@@ -246,8 +246,11 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Check if URL is valid
         if not url.startswith("https://"):
             return HttpResponse("URL must start with https://", status=400)
-        if WebhookSubscription.objects.filter(url=url).exists():
+        if WebhookSubscription.objects.filter(url=url, project=project).exists():
             return HttpResponse("URL already subscribed", status=400)
+        # There is a limit of 2 webhooks per project
+        if WebhookSubscription.objects.filter(project=project).count() >= 2:
+            return HttpResponse("You have reached the maximum number of webhooks", status=400)
 
         # Check the event is subscribable
         subscribed_triggers = [int(x) for x in triggers]
