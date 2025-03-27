@@ -6,7 +6,7 @@
   <div class="alert alert-warning">
     <strong>Important:</strong> The webhook secret will only be shown at time of
     creation. Please copy and save this token securely on your server and use it
-    to validate the signature of incoming webhook payloads.
+    to validate the signature of incoming webhook payloads using <a href="https://webhooks.fyi/security/hmac" target="_blank" rel="noopener noreferrer">HMAC</a>.
   </div>
   <div class="mb-3">
     <label class="form-label">Webhook URL</label>
@@ -25,7 +25,7 @@
     readonly tabindex="-1" style="pointer-events: none" />
   </div>
   <div class="mb-3">
-    <label class="form-label">Signed Secret</label>
+    <label class="form-label">Secret</label>
     <div class="input-group">
       <input
         type="text"
