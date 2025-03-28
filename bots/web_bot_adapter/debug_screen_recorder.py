@@ -13,7 +13,21 @@ class DebugScreenRecorder:
 
     def start(self):
         logger.info(f"Starting debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
-        self.ffmpeg_proc = subprocess.Popen(["ffmpeg", "-y", "-f", "x11grab", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-i", self.display_var, "-pix_fmt", "yuv420p", self.output_file_path], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        self.ffmpeg_proc = subprocess.Popen([
+            "ffmpeg", "-y", 
+            # Video input
+            "-f", "x11grab", 
+            "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", 
+            "-i", self.display_var, 
+            # Audio input
+            "-f", "pulse", 
+            "-i", "VirtualSpeaker", 
+            # Output options
+            "-c:v", "libx264", "-preset", "fast",
+            "-c:a", "aac", "-b:a", "128k",
+            "-pix_fmt", "yuv420p", 
+            self.output_file_path
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     def stop(self):
         if not self.ffmpeg_proc:

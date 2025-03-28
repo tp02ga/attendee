@@ -90,5 +90,8 @@ FROM deps AS build
 WORKDIR $cwd
 COPY . .
 
-CMD ["/bin/bash"]
+COPY entrypoint.sh /opt/bin/entrypoint.sh
+RUN chmod +x /opt/bin/entrypoint.sh
+RUN adduser root pulse-access
 
+# CMD ["/bin/bash"] is added in entrypoint.sh

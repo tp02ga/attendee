@@ -44,7 +44,7 @@ class BotPodCreator:
 
         # Set the command based on bot_id
         # python manage.py run_bot --botid
-        command = ["python", "manage.py", "run_bot", "--botid", str(bot_id)]
+        command = ["/bin/bash", "-c", "/opt/bin/entrypoint.sh && python manage.py run_bot --botid", str(bot_id)]
 
         # Metadata labels matching the deployment
         labels = {
