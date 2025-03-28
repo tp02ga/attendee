@@ -16,13 +16,15 @@ class DebugScreenRecorder:
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",
-            "-thread_queue_size", "2048", # Video input queue
+            "-thread_queue_size", "4096", # Video input queue
+            "-re",
             "-f", "x11grab",
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             # Explicitly set framerate if you know it (e.g., 30, 25)
-            # "-framerate", "30",
+            "-framerate", "30",
             "-i", self.display_var,
-            "-thread_queue_size", "1024", # Audio input queue
+            "-thread_queue_size", "4096", # Audio input queue
+             "-re",
             "-f", "pulse",
             "-i", "default",
             "-c:v", "libx264",
