@@ -13,21 +13,26 @@ class DebugScreenRecorder:
 
     def start(self):
         logger.info(f"Starting debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
-        self.ffmpeg_proc = subprocess.Popen([
-            "ffmpeg", "-y", 
-            # Video input
-            "-f", "x11grab", 
-            "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", 
-            "-i", self.display_var, 
-            # Audio input
-            "-f", "pulse", 
-            "-i", "VirtualSpeaker", 
-            # Output options
-            "-c:v", "libx264", "-preset", "fast",
-            "-c:a", "aac", "-b:a", "128k",
-            "-pix_fmt", "yuv420p", 
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-y",  # Overwrite output file if it exists
+            # --- Video Input ---
+            "-f", "x11grab",
+            "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
+            "-i", self.display_var,
+            # --- Audio Input ---
+            "-f", "pulse",
+            "-i", "VirtualSpeaker.monitor",
+            # --- Output Settings ---
+            "-pix_fmt", "yuv420p",  # Video pixel format
+            "-c:a", "aac",         # Audio codec
+            "-b:a", "128k",        # Audio bitrate
+            # '-c:v', 'libx264',   # Optional: Specify video codec if needed (often default)
+            # '-preset', 'fast',   # Optional: Encoding speed/compression trade-off
             self.output_file_path
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        ]
+        logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
+        self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     def stop(self):
         if not self.ffmpeg_proc:
