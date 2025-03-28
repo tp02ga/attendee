@@ -31,7 +31,7 @@ class DebugScreenRecorder:
             "-preset", "ultrafast",
             "-c:a", "aac",
             # "-b:a", "128k",
-            "-async", "1",  # Add this audio sync method
+            "-async", "10",  # Add this audio sync method
             self.output_file_path
         ]
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
