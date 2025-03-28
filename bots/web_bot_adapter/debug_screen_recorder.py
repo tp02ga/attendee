@@ -15,24 +15,15 @@ class DebugScreenRecorder:
         logger.info(f"Starting debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
         ffmpeg_cmd = [
             "ffmpeg",
-            "-y",  # Overwrite output file if it exists
-            # --- Video Input ---
+            "-y",
             "-f", "x11grab",
-            "-framerate", "30",    # Add explicit framerate (30fps)
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             "-i", self.display_var,
-            # --- Audio Input ---
             "-f", "pulse",
-            "-i", "VirtualSpeaker.monitor",
-            # --- Output Settings ---
-            "-pix_fmt", "yuv420p",  # Video pixel format
-            "-c:v", "libx264",      # Video codec
-            "-preset", "ultrafast",  # Prioritize speed over compression
-            "-crf", "23",           # Constant Rate Factor (lower = better quality)
-            "-tune", "zerolatency", # Reduce encoding latency
-            "-r", "30",             # Output framerate
-            "-c:a", "aac",          # Audio codec
-            "-b:a", "128k",         # Audio bitrate
+            "-i", "default",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-c:a", "aac",
             self.output_file_path
         ]
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
