@@ -20,8 +20,6 @@ class DebugScreenRecorder:
             "-re",
             "-f", "x11grab",
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
-            # Explicitly set framerate if you know it (e.g., 30, 25)
-            "-framerate", "30",
             "-i", self.display_var,
             "-thread_queue_size", "4096", # Audio input queue
              "-re",
