@@ -347,7 +347,7 @@ class WebBotAdapter(BotAdapter):
             display_var_for_debug_recording = display.new_display_var
 
         if self.should_create_debug_recording:
-            self.debug_screen_recorder = DebugScreenRecorder(display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+            self.debug_screen_recorder = DebugScreenRecorder(display_var_for_debug_recording, (1280, 720), BotAdapter.DEBUG_RECORDING_FILE_PATH)
             self.debug_screen_recorder.start()
 
         # Start websocket server in a separate thread
