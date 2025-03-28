@@ -339,16 +339,12 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": combined_code})
 
     def init(self):
-        display_var_for_debug_recording = os.environ.get("DISPLAY")
+        self.display_var_for_debug_recording = os.environ.get("DISPLAY")
         if os.environ.get("DISPLAY") is None:
             # Create virtual display only if no real display is available
-            display = Display(visible=0, size=(1920, 1080))
-            display.start()
-            display_var_for_debug_recording = display.new_display_var
-
-        if self.should_create_debug_recording:
-            self.debug_screen_recorder = DebugScreenRecorder(display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
-            self.debug_screen_recorder.start()
+            self.display = Display(visible=0, size=(1920, 1080))
+            self.display.start()
+            self.display_var_for_debug_recording = self.display.new_display_var
 
         # Start websocket server in a separate thread
         websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
@@ -410,6 +406,10 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
         self.media_sending_enable_timestamp_ms = time.time() * 1000
+
+        if self.should_create_debug_recording:
+            self.debug_screen_recorder = DebugScreenRecorder(self.display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+            self.debug_screen_recorder.start()
 
     def leave(self):
         if self.left_meeting:
