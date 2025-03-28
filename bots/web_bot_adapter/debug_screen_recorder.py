@@ -18,6 +18,7 @@ class DebugScreenRecorder:
             "-y",  # Overwrite output file if it exists
             # --- Video Input ---
             "-f", "x11grab",
+            "-framerate", "30",    # Add explicit framerate (30fps)
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             "-i", self.display_var,
             # --- Audio Input ---
@@ -25,10 +26,13 @@ class DebugScreenRecorder:
             "-i", "VirtualSpeaker.monitor",
             # --- Output Settings ---
             "-pix_fmt", "yuv420p",  # Video pixel format
-            "-c:a", "aac",         # Audio codec
-            "-b:a", "128k",        # Audio bitrate
-            # '-c:v', 'libx264',   # Optional: Specify video codec if needed (often default)
-            # '-preset', 'fast',   # Optional: Encoding speed/compression trade-off
+            "-c:v", "libx264",      # Video codec
+            "-preset", "ultrafast",  # Prioritize speed over compression
+            "-crf", "23",           # Constant Rate Factor (lower = better quality)
+            "-tune", "zerolatency", # Reduce encoding latency
+            "-r", "30",             # Output framerate
+            "-c:a", "aac",          # Audio codec
+            "-b:a", "128k",         # Audio bitrate
             self.output_file_path
         ]
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
