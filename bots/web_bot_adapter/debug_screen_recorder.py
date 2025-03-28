@@ -16,22 +16,24 @@ class DebugScreenRecorder:
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",
-            "-thread_queue_size", "4096", # Video input queue
-            "-re",
+            # Inputs
+            "-thread_queue_size", "2048",
             "-f", "x11grab",
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
-            # Explicitly set framerate if you know it (e.g., 30, 25)
-            "-framerate", "30",
+            "-framerate", "30", # Explicit framerate can still help
             "-i", self.display_var,
-            "-thread_queue_size", "4096", # Audio input queue
-             "-re",
+            "-thread_queue_size", "2048",
             "-f", "pulse",
             "-i", "default",
+            # Filters to reset timestamps
+            "-vf", "setpts=PTS-STARTPTS", # Reset video timestamps
+            "-af", "asetpts=PTS-STARTPTS", # Reset audio timestamps
+            # Encoders
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-c:a", "aac",
             # "-b:a", "128k",
-            "-async", "1",  # Add this audio sync method
+            # Output
             self.output_file_path
         ]
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
