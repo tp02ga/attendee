@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-# Clean up old PulseAudio state
+# Clean up old PulseAudio state (optional, but helps avoid conflicts)
 rm -rf /var/run/pulse /var/lib/pulse /root/.config/pulse
 
-# Start PulseAudio as user
-pulseaudio --start --exit-idle-time=-1 -v
+# Start PulseAudio in daemon mode
+pulseaudio -D --exit-idle-time=-1
 
-# Load a virtual sink (speaker)
-pactl load-module module-null-sink sink_name=VirtualSpeaker
-pactl set-default-sink VirtualSpeaker
+# Give PulseAudio time to initialize (optional)
+sleep 1

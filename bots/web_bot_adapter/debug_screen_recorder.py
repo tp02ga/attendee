@@ -19,8 +19,11 @@ class DebugScreenRecorder:
             "-f", "x11grab",
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             "-i", self.display_var,
+            "-f", "pulse",
+            "-i", "default",
             "-c:v", "libx264",
             "-preset", "ultrafast",
+            "-c:a", "aac",
             self.output_file_path
         ]
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
