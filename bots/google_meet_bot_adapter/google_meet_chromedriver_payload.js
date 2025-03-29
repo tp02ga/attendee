@@ -1,3 +1,40 @@
+class StyleManager {
+    constructor() {
+    }
+
+    start() {
+        this.hideAllNonVideoElements();
+    }
+
+    hideAllNonVideoElements() {
+        const style = document.createElement('style');
+        style.textContent = `
+        /* First, hide everything */
+        body * {
+          visibility: hidden !important;
+        }
+        
+        /* Then, show only video elements */
+        body video,
+        body video * {
+          visibility: visible !important;
+        }
+        
+        /* Make sure parent containers of videos are visible too */
+        body video,
+        body video *,
+        body video:hover,
+        body video:focus {
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    
+}
+
 class FullCaptureManager {
     constructor() {
         this.videoTrack = null;
@@ -912,6 +949,7 @@ class WebSocketClient {
 
   enableMediaSending() {
     this.mediaSendingEnabled = true;
+    window.styleManager.start();
     //window.fullCaptureManager.start();
 
     // No longer need this because we're not using MediaStreamTrackProcessor's
@@ -1342,10 +1380,12 @@ const userManager = new UserManager(ws);
 const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
 const fullCaptureManager = new FullCaptureManager();
+const styleManager = new StyleManager();
 
 window.videoTrackManager = videoTrackManager;
 window.userManager = userManager;
 window.fullCaptureManager = fullCaptureManager;
+window.styleManager = styleManager;
 // Create decoders for all message types
 const messageDecoders = {};
 messageTypes.forEach(type => {
