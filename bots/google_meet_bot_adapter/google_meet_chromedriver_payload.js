@@ -3,7 +3,19 @@ class StyleManager {
     }
 
     start() {
+        this.hideSideAreas();
         this.hideAllNonVideoElements();
+    }
+
+    hideSideAreas() {
+        const style = document.createElement('style');
+        style.textContent = `
+        [jscontroller="hVZhab"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        `;
+        document.head.appendChild(style);
     }
 
     hideAllNonVideoElements() {
