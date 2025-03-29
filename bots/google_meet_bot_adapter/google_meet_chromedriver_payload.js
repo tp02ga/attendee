@@ -1,7 +1,7 @@
 class StyleManager {
     constructor() {
         this.videoTrackIdToSSRC = new Map();
-        this.videoElementToCaptureCanvasElement = new Map();
+        this.videoElementToCaptureCanvasElements = new Map();
         this.captureCanvasVisible = true; // Track visibility state
     }
 
@@ -62,35 +62,60 @@ class StyleManager {
     }
 
     syncCaptureCanvasElements(frameLayout) {
-        frameLayout.forEach(({ element, dst_rect }) => {
-            let captureCanvasElement = this.videoElementToCaptureCanvasElement.get(element);
-            if (!captureCanvasElement) {
-                captureCanvasElement = document.createElement('video');
-                captureCanvasElement.style.position = 'absolute';
-                captureCanvasElement.srcObject = element.srcObject;
-                captureCanvasElement.autoplay = true;
-                this.captureCanvas.appendChild(captureCanvasElement);
-                this.videoElementToCaptureCanvasElement.set(element, captureCanvasElement);
+        frameLayout.forEach(({ element, dst_rect, label }) => {
+            let captureCanvasElements = this.videoElementToCaptureCanvasElements.get(element);
+            if (!captureCanvasElements) {
+                let captureCanvasVideoElement = document.createElement('video');
+                captureCanvasVideoElement.style.position = 'absolute';
+                captureCanvasVideoElement.srcObject = element.srcObject;
+                captureCanvasVideoElement.autoplay = true;
+                this.captureCanvas.appendChild(captureCanvasVideoElement);
+
+                let captureCanvasLabelElement = document.createElement('div');
+                captureCanvasLabelElement.style.position = 'absolute';
+                captureCanvasLabelElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                captureCanvasLabelElement.style.color = 'white';
+                captureCanvasLabelElement.style.fontSize = '12px';
+                captureCanvasLabelElement.style.textAlign = 'left';
+                captureCanvasLabelElement.style.lineHeight = '1.2';
+                captureCanvasLabelElement.style.padding = '2px 6px';
+                captureCanvasLabelElement.style.display = 'inline-block';
+                captureCanvasLabelElement.textContent = label;
+                
+
+                this.captureCanvas.appendChild(captureCanvasLabelElement);
+                captureCanvasElements = {
+                    captureCanvasVideoElement,
+                    captureCanvasLabelElement
+                }
+                this.videoElementToCaptureCanvasElements.set(element, captureCanvasElements);
             }
 
-            captureCanvasElement.style.left = `${dst_rect.left}px`;
-            captureCanvasElement.style.top = `${dst_rect.top}px`;
-            captureCanvasElement.style.width = `${dst_rect.width}px`;
-            captureCanvasElement.style.height = `${dst_rect.height}px`;
+            captureCanvasElements.captureCanvasVideoElement.style.left = `${dst_rect.left}px`;
+            captureCanvasElements.captureCanvasVideoElement.style.top = `${dst_rect.top}px`;
+            captureCanvasElements.captureCanvasVideoElement.style.width = `${dst_rect.width}px`;
+            captureCanvasElements.captureCanvasVideoElement.style.height = `${dst_rect.height}px`;
+
+
+            captureCanvasElements.captureCanvasLabelElement.style.left = `${dst_rect.left}px`;
+            captureCanvasElements.captureCanvasLabelElement.style.top = `${dst_rect.top + dst_rect.height - 24}px`;
+            captureCanvasElements.captureCanvasLabelElement.style.width = 'auto';
+            captureCanvasElements.captureCanvasLabelElement.style.height = `${20}px`;
         });
 
-        // For each element in videoElementToCaptureCanvasElement that was not in the frameLayout, remove it
-        this.videoElementToCaptureCanvasElement.forEach((captureCanvasElement, videoElement) => {
+        // For each element in videoElementToCaptureCanvasElements that was not in the frameLayout, remove it
+        this.videoElementToCaptureCanvasElements.forEach((captureCanvasElements, videoElement) => {
             if (!frameLayout.some(frameLayoutElement => frameLayoutElement.element === videoElement)) {
                 // remove after a 100 ms timeout to eliminate flicker
                 setTimeout(() => {
-                    this.captureCanvas.removeChild(captureCanvasElement);
-                    this.videoElementToCaptureCanvasElement.delete(videoElement);
+                    this.captureCanvas.removeChild(captureCanvasElements.captureCanvasVideoElement);
+                    this.captureCanvas.removeChild(captureCanvasElements.captureCanvasLabelElement);
+                    this.videoElementToCaptureCanvasElements.delete(videoElement);
                 }, 100);                
             }
         });
 
-        console.log('Synced capture canvas elements', this.videoElementToCaptureCanvasElement);
+        console.log('Synced capture canvas elements', this.videoElementToCaptureCanvasElements);
     }
     
     addVideoTrack(trackEvent) {
