@@ -292,7 +292,8 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
-
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        
         if self.driver:
             # Simulate closing browser window
             try:
