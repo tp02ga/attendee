@@ -410,6 +410,7 @@ class WebBotAdapter(BotAdapter):
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
         if self.should_create_debug_recording:
+            sleep(1)
             self.debug_screen_recorder = DebugScreenRecorder(self.display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
             self.debug_screen_recorder.start()
 
