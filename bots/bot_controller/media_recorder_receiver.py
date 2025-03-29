@@ -8,17 +8,44 @@ logger = logging.getLogger(__name__)
 class MediaRecorderReceiver:
     def __init__(self, file_location):
         self.file_location = file_location
+        self.ffmpeg_proc = None
+        self.screen_dimensions = (1920, 1080)
+
+    def start_recording(self, display_var):
+        logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-y",
+            "-thread_queue_size", "4096",
+            "-framerate", "30",
+            "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
+            "-f", "x11grab",
+            "-draw_mouse", "0",
+            "-i", display_var,
+            "-thread_queue_size", "4096",
+            "-f", "pulse",
+            "-i", "default",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-strict", "experimental",
+            "-b:a", "128k",
+            self.file_location
+        ]
+        
+        logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
+        self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+    def stop_recording(self):
+        if not self.ffmpeg_proc:
+            return
+        self.ffmpeg_proc.terminate()
+        self.ffmpeg_proc.wait()
+        logger.info(f"Stopped debug screen recorder for display with dimensions {self.screen_dimensions} and file location {self.file_location}")
 
     def cleanup(self):
         self.make_file_seekable()
-
-    def on_encoded_mp4_chunk(self, chunk):
-        # Check if file exists and open in appropriate mode
-        mode = "ab" if os.path.exists(self.file_location) else "wb"
-
-        # Write or append data to the file
-        with open(self.file_location, mode) as f:
-            f.write(chunk)
 
     def get_seekable_path(self, path):
         """

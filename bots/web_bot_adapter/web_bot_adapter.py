@@ -39,6 +39,8 @@ class WebBotAdapter(BotAdapter):
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         recording_view: RecordingViews,
         should_create_debug_recording: bool,
+        start_recording_screen_callback,
+        stop_recording_screen_callback,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -47,6 +49,8 @@ class WebBotAdapter(BotAdapter):
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
         self.add_encoded_mp4_chunk_callback = add_encoded_mp4_chunk_callback
         self.upsert_caption_callback = upsert_caption_callback
+        self.start_recording_screen_callback = start_recording_screen_callback
+        self.stop_recording_screen_callback = stop_recording_screen_callback
         self.recording_view = recording_view
 
         self.meeting_url = meeting_url
@@ -348,6 +352,10 @@ class WebBotAdapter(BotAdapter):
             self.display.start()
             self.display_var_for_debug_recording = self.display.new_display_var
 
+        if self.should_create_debug_recording:
+            self.debug_screen_recorder = DebugScreenRecorder(self.display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+            self.debug_screen_recorder.start()
+
         # Start websocket server in a separate thread
         websocket_thread = threading.Thread(target=self.run_websocket_server, daemon=True)
         websocket_thread.start()
@@ -409,10 +417,9 @@ class WebBotAdapter(BotAdapter):
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
-        if self.should_create_debug_recording:
+        if self.start_recording_screen_callback:
             sleep(1)
-            self.debug_screen_recorder = DebugScreenRecorder(self.display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
-            self.debug_screen_recorder.start()
+            self.start_recording_screen_callback(self.display_var_for_debug_recording)
 
     def leave(self):
         if self.left_meeting:
@@ -432,6 +439,9 @@ class WebBotAdapter(BotAdapter):
             self.left_meeting = True
 
     def cleanup(self):
+        if self.stop_recording_screen_callback:
+            self.stop_recording_screen_callback()
+
         try:
             logger.info("disable media sending")
             self.driver.execute_script("window.ws?.disableMediaSending();")
