@@ -29,7 +29,7 @@ class StyleManager {
             catch (error) {
                 console.error('Error updating frame layout', error);
             }
-        }, 500);
+        }, 2500);
 
         // Add keyboard listener for toggling canvas visibility
         document.addEventListener('keydown', this.handleKeyDown.bind(this));

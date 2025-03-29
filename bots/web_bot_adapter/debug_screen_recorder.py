@@ -20,6 +20,7 @@ class DebugScreenRecorder:
             "-framerate", "30",
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             "-f", "x11grab",
+            "-draw_mouse", "0",
             "-i", self.display_var,
             "-thread_queue_size", "4096",
             "-f", "pulse",
