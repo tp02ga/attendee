@@ -8,3 +8,5 @@ pulseaudio -D --exit-idle-time=-1
 
 # Give PulseAudio time to initialize (optional)
 sleep 1
+
+echo "PulseAudio initialized"
