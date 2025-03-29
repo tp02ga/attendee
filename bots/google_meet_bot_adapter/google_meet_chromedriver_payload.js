@@ -29,7 +29,7 @@ class StyleManager {
             catch (error) {
                 console.error('Error updating frame layout', error);
             }
-        }, 2500);
+        }, 500);
 
         // Add keyboard listener for toggling canvas visibility
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -82,8 +82,11 @@ class StyleManager {
         // For each element in videoElementToCaptureCanvasElement that was not in the frameLayout, remove it
         this.videoElementToCaptureCanvasElement.forEach((captureCanvasElement, videoElement) => {
             if (!frameLayout.some(frameLayoutElement => frameLayoutElement.element === videoElement)) {
-                this.captureCanvas.removeChild(captureCanvasElement);
-                this.videoElementToCaptureCanvasElement.delete(videoElement);
+                // remove after a 100 ms timeout to eliminate flicker
+                setTimeout(() => {
+                    this.captureCanvas.removeChild(captureCanvasElement);
+                    this.videoElementToCaptureCanvasElement.delete(videoElement);
+                }, 100);                
             }
         });
 
