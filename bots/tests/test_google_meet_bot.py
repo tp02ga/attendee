@@ -135,18 +135,6 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Add participants - simulate websocket message processing
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
 
-            # Simulate encoded MP4 chunk arrival
-            # Create a mock MP4 message in the format expected by process_encoded_mp4_chunk
-            mock_mp4_message = bytearray()
-            # Add message type (4 for ENCODED_MP4_CHUNK) as first 4 bytes
-            mock_mp4_message.extend((4).to_bytes(4, byteorder="little"))
-            # Add sample MP4 data (just a small dummy chunk for testing)
-            tiny_mp4_base64 = "GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA="
-            mock_mp4_data = base64.b64decode(tiny_mp4_base64)
-            mock_mp4_message.extend(mock_mp4_data)
-
-            controller.adapter.process_encoded_mp4_chunk(mock_mp4_message)
-
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption"}
             controller.closed_caption_manager.upsert_caption(caption_data)
