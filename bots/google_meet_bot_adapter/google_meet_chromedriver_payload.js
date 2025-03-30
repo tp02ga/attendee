@@ -3,12 +3,14 @@ class StyleManager {
         this.videoTrackIdToSSRC = new Map();
         this.videoElementToCaptureCanvasElements = new Map();
         this.captureCanvasVisible = true; // Track visibility state
+        this.mainElement = null;
+        this.misMatchTracker = new Map();
     }
 
     start() {
         // Find the main element that contains all the video elements
-        const mainElement = document.querySelector('main');
-        if (!mainElement) {
+        this.mainElement = document.querySelector('main');
+        if (!this.mainElement) {
             console.error('No <main> element found in the DOM');
             return;
         }
@@ -17,12 +19,12 @@ class StyleManager {
         this.captureCanvas = this.createCaptureCanvas();
 
         // Using the contents of the main element, compute the layout of the frame we want to render
-        let frameLayout = this.computeFrameLayout(mainElement);
+        let frameLayout = this.computeFrameLayout(this.mainElement);
 
         // Set up a timer to update the frame layout every 250ms
         this.layoutUpdateInterval = setInterval(() => {
             try {
-                frameLayout = this.computeFrameLayout(mainElement);
+                frameLayout = this.computeFrameLayout(this.mainElement);
                 this.syncCaptureCanvasElements(frameLayout);
             }
             catch (error) {
@@ -53,37 +55,31 @@ class StyleManager {
     }
 
     makeSureElementsAreInSync(frameLayout) {
-        frameLayout.forEach(({ element, ssrc, videoWidth }) => {
-            let captureCanvasElements = this.videoElementToCaptureCanvasElements.get(element);
-            if (!captureCanvasElements) {
-                return;
-            }
-
-            let misMatch = false;
+        frameLayout.forEach(({ element, ssrc })  => {
+            let anyMisMatch = false;
             if (ssrc && ssrc !== this.getSSRCFromVideoElement(element)) {
-                misMatch = true;
-            }
-            if (videoWidth && videoWidth !== element.videoWidth) {
-                misMatch = true;
+                anyMisMatch = true;
             }
             if (!element.checkVisibility()) {
-                misMatch = true;
+                anyMisMatch = true;
             }
-            if (misMatch) {
-                if (captureCanvasElements.captureCanvasVideoElement.style.display !== 'none') {
-                    const ctx = captureCanvasElements.captureCanvasCanvasElement.getContext("2d");
-                    ctx.drawImage(captureCanvasElements.captureCanvasVideoElement, 0, 0, captureCanvasElements.captureCanvasCanvasElement.width, captureCanvasElements.captureCanvasCanvasElement.height);
-                    captureCanvasElements.captureCanvasCanvasElement.style.display = '';
-                }
-                captureCanvasElements.captureCanvasVideoElement.style.display = 'none';
+            if (anyMisMatch) {
+                this.misMatchTracker.set(element, this.misMatchTracker.get(element) + 1);
             }
             else {
-                if (captureCanvasElements.captureCanvasVideoElement.style.display !== '') {
-                    captureCanvasElements.captureCanvasCanvasElement.style.display = 'none';
-                }
-                captureCanvasElements.captureCanvasVideoElement.style.display = '';
+                this.misMatchTracker.set(element, 0);
             }
         });
+
+        const anyMisMatchForManyFrames = Array.from(this.misMatchTracker.values()).some(count => count > 0);
+
+        if (anyMisMatchForManyFrames) {
+            console.log('MisMatch found');
+            frameLayout = this.computeFrameLayout(this.mainElement);
+            this.syncCaptureCanvasElements(frameLayout);
+            this.misMatchTracker.clear();
+            console.log('MisMatch fixed');
+        }
     }
 
     handleKeyDown(event) {
@@ -157,6 +153,7 @@ class StyleManager {
                 captureCanvasCanvasElement.style.position = 'absolute';
                 captureCanvasCanvasElement.style.top = '0';
                 captureCanvasCanvasElement.style.left = '0';
+                captureCanvasCanvasElement.style.border = '2px solid red';
                 captureCanvasCanvasElement.style.display = 'none';                
                 captureCanvasContainerElement.appendChild(captureCanvasCanvasElement);
 
@@ -183,11 +180,11 @@ class StyleManager {
         // For each element in videoElementToCaptureCanvasElements that was not in the frameLayout, remove it
         this.videoElementToCaptureCanvasElements.forEach((captureCanvasElements, videoElement) => {
             if (!frameLayout.some(frameLayoutElement => frameLayoutElement.element === videoElement)) {
-                // remove after a 100 ms timeout to eliminate flicker
+                // remove after a 16 ms timeout to eliminate flicker
                 setTimeout(() => {
                     this.captureCanvas.removeChild(captureCanvasElements.captureCanvasContainerElement);
                     this.videoElementToCaptureCanvasElements.delete(videoElement);
-                }, 100);                
+                }, 16);                
             }
         });
     }
@@ -275,7 +272,7 @@ class StyleManager {
 
     getVideoElementsWithInfo(mainElement, activeSpeakerElementsWithInfo) {
         const videoElements = mainElement.querySelectorAll('video');
-        return Array.from(videoElements).map(video => {
+        const results = Array.from(videoElements).map(video => {
             // Get the parent element to extract SSRC
             const containerElement = video.closest('.LBDzPb');
             const bounding_rect = video.getBoundingClientRect();
@@ -301,6 +298,15 @@ class StyleManager {
                 is_active_speaker: activeSpeakerElementsWithInfo?.[0]?.participant_id === user?.deviceId,
             };
         }).filter(video => video.ssrc && video.user && !video.paused && video.bounding_rect.width > 0 && video.bounding_rect.height > 0);
+        const largestContainerBoundingRectArea = results.reduce((max, video) => {
+            return Math.max(max, video.container_bounding_rect.width * video.container_bounding_rect.height);
+        }, 0);
+        return results.map(video => {
+            return {
+                ...video,
+                is_largest: video.container_bounding_rect.width * video.container_bounding_rect.height === largestContainerBoundingRectArea,
+            };
+        });
     }
 
     computeFrameLayout(mainElement) {
@@ -338,7 +344,7 @@ class StyleManager {
             }
             else
             {
-                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_active_speaker) || videoElementsWithInfo.find(video => video.ssrc === this.lastMainParticipantVideoSsrc) || videoElementsWithInfo[0];
+                const mainParticipantVideo = videoElementsWithInfo.find(video => video.is_largest) || videoElementsWithInfo[0];
                 this.lastMainParticipantVideoSsrc = mainParticipantVideo?.ssrc;
                 if (mainParticipantVideo) {                   
                     layoutElements.push({
