@@ -1,6 +1,6 @@
 {
   "subdomain": "attendee",
-  "customDomain": "attendee.apidocumentation.com",
+  "customDomain": "docs.attendee.dev",
   "guides": [{
       "name": "Guides",
       "sidebar": [
