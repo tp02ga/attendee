@@ -979,10 +979,10 @@ class FullCaptureManager {
             characterData: false  // Don't need to watch text content
         });*/
 
-        // Set up a timer to update the frame layout every 500ms
+        // Set up a timer to update the frame layout every 100
         this.layoutUpdateInterval = setInterval(() => {
             frameLayout = this.computeFrameLayout(mainElement);
-        }, 500);
+        }, 100);
 
         // Create a drawing function that runs at 30fps
         const drawFrameLayoutToCanvas = () => {  
