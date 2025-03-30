@@ -33,7 +33,12 @@ class StyleManager {
         const outerThis = this;
 
         function beforeFrameRenders() {
-            outerThis.makeSureElementsAreInSync(frameLayout);
+            try {
+                outerThis.makeSureElementsAreInSync(frameLayout);
+            }
+            catch (error) {
+                console.error('Error making sure elements are in sync', error);
+            }
             // Request the next frame
             requestAnimationFrame(beforeFrameRenders);
         }
@@ -65,6 +70,11 @@ class StyleManager {
                 misMatch = true;
             }
             if (misMatch) {
+                if (captureCanvasElements.captureCanvasVideoElement.style.display !== 'none') {
+                    const ctx = captureCanvasElements.captureCanvasCanvasElement.getContext("2d");
+                    ctx.drawImage(captureCanvasElements.captureCanvasVideoElement, 0, 0, captureCanvasElements.captureCanvasCanvasElement.width, captureCanvasElements.captureCanvasCanvasElement.height);
+                    captureCanvasElements.captureCanvasCanvasElement.style.display = '';
+                }
                 captureCanvasElements.captureCanvasVideoElement.style.display = 'none';
             }
             else {
@@ -134,14 +144,25 @@ class StyleManager {
                 captureCanvasLabelElement.style.position = 'absolute';
                 captureCanvasLabelElement.style.bottom = '3px';
                 captureCanvasLabelElement.style.left = '5px';
-                captureCanvasLabelElement.textContent = label;               
+                captureCanvasLabelElement.style.zIndex = '10'; // Add this line to ensure label is above other elements
+                captureCanvasLabelElement.textContent = label;
+                captureCanvasContainerElement.appendChild(captureCanvasLabelElement);    
+                
+                let captureCanvasCanvasElement = document.createElement('canvas');
+                captureCanvasCanvasElement.style.width = '100%';
+                captureCanvasCanvasElement.style.height = '100%';
+                captureCanvasCanvasElement.style.position = 'absolute';
+                captureCanvasCanvasElement.style.top = '0';
+                captureCanvasCanvasElement.style.left = '0';
+                captureCanvasCanvasElement.style.display = 'none';                
+                captureCanvasContainerElement.appendChild(captureCanvasCanvasElement);
 
-                captureCanvasContainerElement.appendChild(captureCanvasLabelElement);                
                 this.captureCanvas.appendChild(captureCanvasContainerElement);
                 captureCanvasElements = {
                     captureCanvasVideoElement,
                     captureCanvasLabelElement,
-                    captureCanvasContainerElement
+                    captureCanvasContainerElement,
+                    captureCanvasCanvasElement
                 }
                 this.videoElementToCaptureCanvasElements.set(element, captureCanvasElements);
             }
