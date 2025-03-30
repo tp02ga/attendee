@@ -21,4 +21,6 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         return 8765
 
     def get_first_buffer_timestamp_ms(self):
-        return self.media_sending_enable_timestamp_ms
+        if self.media_sending_enable_timestamp_ms is None:
+            return None
+        return self.media_sending_enable_timestamp_ms + 2000 # because we trimmed the video
