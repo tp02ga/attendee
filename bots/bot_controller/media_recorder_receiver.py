@@ -21,6 +21,7 @@ class MediaRecorderReceiver:
             "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
             "-f", "x11grab",
             "-draw_mouse", "0",
+            "-probesize", "32",
             "-i", display_var,
             "-thread_queue_size", "4096",
             "-f", "pulse",
@@ -29,6 +30,7 @@ class MediaRecorderReceiver:
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-pix_fmt", "yuv420p",
+            "-g", "30",
             "-c:a", "aac",
             "-strict", "experimental",
             "-b:a", "128k",
@@ -69,8 +71,6 @@ class MediaRecorderReceiver:
 
         self.make_file_seekable(input_path, output_path)
 
-        self.trim_file(input_path, output_path)
-
     def make_file_seekable(self, input_path, output_path):
         """Use ffmpeg to move the moov atom to the beginning of the file."""
         logger.info(f"Making file seekable: {input_path} -> {output_path}")
@@ -98,30 +98,4 @@ class MediaRecorderReceiver:
             logger.info(f"Replaced original file with seekable version: {input_path}")
         except Exception as e:
             logger.error(f"Failed to replace original file with seekable version: {e}")
-            raise RuntimeError(f"Failed to replace original file: {e}")
-
-    def trim_file(self, input_path, output_path):
-        logger.info(f"Trimming first 2 seconds from file: {input_path} -> {output_path}")
-        # log how many bytes are in the file
-        logger.info(f"File size: {os.path.getsize(input_path)} bytes")
-        command = [
-            "ffmpeg",
-            "-y",
-            "-ss", "2",          # <<< Add this: Seek to 1 second into the input file
-            "-i", str(input_path), # Input file
-            "-c", "copy",         # Copy streams without re-encoding
-            str(output_path),     # Output file
-        ]
-
-        result = subprocess.run(command, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            raise RuntimeError(f"FFmpeg failed: {result.stderr}")
-
-        # Replace the original file with the seekable version
-        try:
-            os.replace(str(output_path), str(input_path))
-            logger.info(f"Replaced original file with trimmed version: {input_path}")
-        except Exception as e:
-            logger.error(f"Failed to replace original file with trimmed version: {e}")
             raise RuntimeError(f"Failed to replace original file: {e}")

@@ -19,7 +19,7 @@ class StyleManager {
         // Using the contents of the main element, compute the layout of the frame we want to render
         let frameLayout = this.computeFrameLayout(mainElement);
 
-        // Set up a timer to update the frame layout every 500ms
+        // Set up a timer to update the frame layout every 250ms
         this.layoutUpdateInterval = setInterval(() => {
             try {
                 frameLayout = this.computeFrameLayout(mainElement);
@@ -28,7 +28,7 @@ class StyleManager {
             catch (error) {
                 console.error('Error updating frame layout', error);
             }
-        }, 500);
+        }, 250);
 
         const outerThis = this;
 
@@ -78,6 +78,9 @@ class StyleManager {
                 captureCanvasElements.captureCanvasVideoElement.style.display = 'none';
             }
             else {
+                if (captureCanvasElements.captureCanvasVideoElement.style.display !== '') {
+                    captureCanvasElements.captureCanvasCanvasElement.style.display = 'none';
+                }
                 captureCanvasElements.captureCanvasVideoElement.style.display = '';
             }
         });
@@ -167,10 +170,14 @@ class StyleManager {
                 this.videoElementToCaptureCanvasElements.set(element, captureCanvasElements);
             }
 
-            captureCanvasElements.captureCanvasContainerElement.style.left = `${dst_rect.left}px`;
-            captureCanvasElements.captureCanvasContainerElement.style.top = `${dst_rect.top}px`;
-            captureCanvasElements.captureCanvasContainerElement.style.width = `${dst_rect.width}px`;
-            captureCanvasElements.captureCanvasContainerElement.style.height = `${dst_rect.height}px`;
+            if (captureCanvasElements.captureCanvasVideoElement.srcObject !== element.srcObject) {
+                captureCanvasElements.captureCanvasVideoElement.srcObject = element.srcObject;
+            }
+
+            captureCanvasElements.captureCanvasContainerElement.style.left = `${Math.round(dst_rect.left)}px`;
+            captureCanvasElements.captureCanvasContainerElement.style.top = `${Math.round(dst_rect.top)}px`;
+            captureCanvasElements.captureCanvasContainerElement.style.width = `${Math.round(dst_rect.width)}px`;
+            captureCanvasElements.captureCanvasContainerElement.style.height = `${Math.round(dst_rect.height)}px`;
         });
 
         // For each element in videoElementToCaptureCanvasElements that was not in the frameLayout, remove it
