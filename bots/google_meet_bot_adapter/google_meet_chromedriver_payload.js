@@ -101,7 +101,7 @@ class StyleManager {
             catch (error) {
                 console.error('Error updating frame layout', error);
             }
-        }, 250);
+        }, 500);
 
         const outerThis = this;
 
@@ -128,31 +128,71 @@ class StyleManager {
     }
 
     makeSureElementsAreInSync(frameLayout) {
-        frameLayout.forEach(({ element, ssrc })  => {
-            let anyMisMatch = false;
+        frameLayout.forEach(({ element, ssrc, videoWidth }) => {
+            let captureCanvasElements = this.videoElementToCaptureCanvasElements.get(element);
+            if (!captureCanvasElements) {
+                return;
+            }
+
+            let misMatch = false;
             if (ssrc && ssrc !== this.getSSRCFromVideoElement(element)) {
-                anyMisMatch = true;
+                misMatch = true;
+            }
+            if (videoWidth && videoWidth !== element.videoWidth) {
+                misMatch = true;
             }
             if (!element.checkVisibility()) {
-                anyMisMatch = true;
+                misMatch = true;
             }
-            if (anyMisMatch) {
-                this.misMatchTracker.set(element, this.misMatchTracker.get(element) + 1);
+            if (misMatch) {
+                if (captureCanvasElements.captureCanvasVideoElement.style.display !== 'none') {
+                    // use getclientrects to get the width and height of the container and the canvas
+                    const containerRect = captureCanvasElements.captureCanvasContainerElement.getBoundingClientRect();
+                    const canvasRect = captureCanvasElements.captureCanvasCanvasElement.getBoundingClientRect();
+                    
+                    // Set canvas dimensions to match container
+                    captureCanvasElements.captureCanvasCanvasElement.width = containerRect.width;
+                    captureCanvasElements.captureCanvasCanvasElement.height = containerRect.height;
+                    
+                    const ctx = captureCanvasElements.captureCanvasCanvasElement.getContext("2d");
+                    
+                    // Calculate dimensions to maintain aspect ratio (objectFit: 'contain')
+                    const videoElement = captureCanvasElements.captureCanvasVideoElement;
+                    const videoAspect = videoElement.videoWidth / videoElement.videoHeight;
+                    const containerAspect = containerRect.width / containerRect.height;
+                    
+                    let drawWidth, drawHeight, drawX, drawY;
+                    
+                    if (videoAspect > containerAspect) {
+                        // Video is wider - fit to width
+                        drawWidth = containerRect.width;
+                        drawHeight = containerRect.width / videoAspect;
+                        drawX = 0;
+                        drawY = (containerRect.height - drawHeight) / 2;
+                    } else {
+                        // Video is taller - fit to height
+                        drawHeight = containerRect.height;
+                        drawWidth = containerRect.height * videoAspect;
+                        drawX = (containerRect.width - drawWidth) / 2;
+                        drawY = 0;
+                    }
+                    
+                    // Clear canvas and draw with proper dimensions
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, containerRect.width, containerRect.height);
+                    ctx.drawImage(videoElement, drawX, drawY, drawWidth, drawHeight);
+                    
+                    captureCanvasElements.captureCanvasCanvasElement.style.display = '';
+                }
+                captureCanvasElements.captureCanvasVideoElement.style.display = 'none';
             }
             else {
-                this.misMatchTracker.set(element, 0);
+                if (captureCanvasElements.captureCanvasVideoElement.style.display !== '') {
+                    captureCanvasElements.captureCanvasCanvasElement.style.display = 'none';
+               }
+                captureCanvasElements.captureCanvasVideoElement.style.display = '';
             }
-        });
-
-        const anyMisMatchForManyFrames = Array.from(this.misMatchTracker.values()).some(count => count > 0);
-
-        if (anyMisMatchForManyFrames) {
-            console.log('MisMatch found');
-            frameLayout = this.computeFrameLayout(this.mainElement);
-            this.syncCaptureCanvasElements(frameLayout);
-            this.misMatchTracker.clear();
-            console.log('MisMatch fixed');
-        }
+        });            
     }
 
     handleKeyDown(event) {
@@ -226,7 +266,7 @@ class StyleManager {
                 captureCanvasCanvasElement.style.position = 'absolute';
                 captureCanvasCanvasElement.style.top = '0';
                 captureCanvasCanvasElement.style.left = '0';
-                captureCanvasCanvasElement.style.border = '2px solid red';
+                captureCanvasCanvasElement.style.border = 'none';
                 captureCanvasCanvasElement.style.display = 'none';                
                 captureCanvasContainerElement.appendChild(captureCanvasCanvasElement);
 
