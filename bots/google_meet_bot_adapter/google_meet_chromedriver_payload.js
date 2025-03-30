@@ -30,10 +30,47 @@ class StyleManager {
             }
         }, 500);
 
+        const outerThis = this;
+
+        function beforeFrameRenders() {
+            outerThis.makeSureElementsAreInSync(frameLayout);
+            // Request the next frame
+            requestAnimationFrame(beforeFrameRenders);
+        }
+        
+        // Start the animation loop
+        requestAnimationFrame(beforeFrameRenders);
+
         // Add keyboard listener for toggling canvas visibility
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
 
         console.log('Started StyleManager');
+    }
+
+    makeSureElementsAreInSync(frameLayout) {
+        frameLayout.forEach(({ element, ssrc, videoWidth }) => {
+            let captureCanvasElements = this.videoElementToCaptureCanvasElements.get(element);
+            if (!captureCanvasElements) {
+                return;
+            }
+
+            let misMatch = false;
+            if (ssrc && ssrc !== this.getSSRCFromVideoElement(element)) {
+                misMatch = true;
+            }
+            if (videoWidth && videoWidth !== element.videoWidth) {
+                misMatch = true;
+            }
+            if (!element.checkVisibility()) {
+                misMatch = true;
+            }
+            if (misMatch) {
+                captureCanvasElements.captureCanvasVideoElement.style.display = 'none';
+            }
+            else {
+                captureCanvasElements.captureCanvasVideoElement.style.display = '';
+            }
+        });
     }
 
     handleKeyDown(event) {
