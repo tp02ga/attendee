@@ -5,6 +5,77 @@ class StyleManager {
         this.captureCanvasVisible = true; // Track visibility state
         this.mainElement = null;
         this.misMatchTracker = new Map();
+
+        this.audioContext = null;
+        this.audioTracks = [];
+        this.silenceThreshold = 0.0;
+        this.silenceCheckInterval = null;
+    }
+
+    addAudioTrack(audioTrack) {
+        this.audioTracks.push(audioTrack);
+    }
+
+    checkAudioActivity() {
+        // Get audio data
+        this.analyser.getByteTimeDomainData(this.audioDataArray);
+        
+        // Calculate deviation from the center value (128)
+        let sumDeviation = 0;
+        for (let i = 0; i < this.audioDataArray.length; i++) {
+            // Calculate how much each sample deviates from the center (128)
+            sumDeviation += Math.abs(this.audioDataArray[i] - 128);
+        }
+        
+        const averageDeviation = sumDeviation / this.audioDataArray.length;
+        
+        // If average deviation is above threshold, we have audio activity
+        if (averageDeviation > this.silenceThreshold) {
+            window.ws.sendJson({
+                type: 'SilenceStatus',
+                isSilent: false
+            });
+        }
+    }
+
+    startSilenceDetection() {
+         // Set up audio context and processing as before
+         this.audioContext = new AudioContext();
+
+         this.audioSources = this.audioTracks.map(track => {
+             const mediaStream = new MediaStream([track]);
+             return this.audioContext.createMediaStreamSource(mediaStream);
+         });
+ 
+         // Create a destination node
+         const destination = this.audioContext.createMediaStreamDestination();
+ 
+         // Connect all sources to the destination
+         this.audioSources.forEach(source => {
+             source.connect(destination);
+         });
+ 
+         // Create analyzer and connect it to the destination
+         this.analyser = this.audioContext.createAnalyser();
+         this.analyser.fftSize = 256;
+         const bufferLength = this.analyser.frequencyBinCount;
+         this.audioDataArray = new Uint8Array(bufferLength);
+ 
+         // Create a source from the destination's stream and connect it to the analyzer
+         const mixedSource = this.audioContext.createMediaStreamSource(destination.stream);
+         mixedSource.connect(this.analyser);
+ 
+         this.mixedAudioTrack = destination.stream.getAudioTracks()[0];
+
+        // Clear any existing interval
+        if (this.silenceCheckInterval) {
+            clearInterval(this.silenceCheckInterval);
+        }
+                
+        // Check for audio activity every second
+        this.silenceCheckInterval = setInterval(() => {
+            this.checkAudioActivity();
+        }, 1000);
     }
 
     start() {
@@ -50,6 +121,8 @@ class StyleManager {
 
         // Add keyboard listener for toggling canvas visibility
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
+
+        this.startSilenceDetection();
 
         console.log('Started StyleManager');
     }
@@ -2205,9 +2278,9 @@ new RTCInterceptor({
             });
             // We need to capture every audio track in the meeting,
             // but we don't need to do anything with the video tracks
-            //if (event.track.kind === 'audio') {
-            //    window.fullCaptureManager.addAudioTrack(event.track);
-            //}
+            if (event.track.kind === 'audio') {
+                window.styleManager.addAudioTrack(event.track);
+            }
             if (event.track.kind === 'video') {
                 window.styleManager.addVideoTrack(event);
             }
