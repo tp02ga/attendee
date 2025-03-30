@@ -418,7 +418,6 @@ class WebBotAdapter(BotAdapter):
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
         if self.start_recording_screen_callback:
-            sleep(1)
             self.start_recording_screen_callback(self.display_var_for_debug_recording)
 
     def leave(self):
