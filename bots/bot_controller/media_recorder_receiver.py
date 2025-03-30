@@ -13,30 +13,8 @@ class MediaRecorderReceiver:
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-y",
-            "-thread_queue_size", "4096",
-            "-framerate", "30",
-            "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}",
-            "-f", "x11grab",
-            "-draw_mouse", "0",
-            "-probesize", "32",
-            "-i", display_var,
-            "-thread_queue_size", "4096",
-            "-f", "pulse",
-            "-i", "default",
-            "-vf", "crop=1920:1080:10:10",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-pix_fmt", "yuv420p",
-            "-g", "30",
-            "-c:a", "aac",
-            "-strict", "experimental",
-            "-b:a", "128k",
-            self.file_location
-        ]
-        
+        ffmpeg_cmd = ["ffmpeg", "-y", "-thread_queue_size", "4096", "-framerate", "30", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-f", "x11grab", "-draw_mouse", "0", "-probesize", "32", "-i", display_var, "-thread_queue_size", "4096", "-f", "pulse", "-i", "default", "-vf", "crop=1920:1080:10:10", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-g", "30", "-c:a", "aac", "-strict", "experimental", "-b:a", "128k", self.file_location]
+
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
         self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
@@ -78,13 +56,18 @@ class MediaRecorderReceiver:
         logger.info(f"File size: {os.path.getsize(input_path)} bytes")
         command = [
             "ffmpeg",
-            "-ss", "5",          # <<< Add this: Seek to 1 second into the input file
-            "-i", str(input_path), # Input file
-            "-c", "copy",         # Copy streams without re-encoding
-            "-avoid_negative_ts", "make_zero", # Optional: Helps ensure timestamps start at or after 0
-            "-movflags", "+faststart", # Optimize for web playback
-            "-y",                 # Overwrite output file without asking
-            str(output_path),     # Output file
+            "-ss",
+            "5",  # <<< Add this: Seek to 1 second into the input file
+            "-i",
+            str(input_path),  # Input file
+            "-c",
+            "copy",  # Copy streams without re-encoding
+            "-avoid_negative_ts",
+            "make_zero",  # Optional: Helps ensure timestamps start at or after 0
+            "-movflags",
+            "+faststart",  # Optimize for web playback
+            "-y",  # Overwrite output file without asking
+            str(output_path),  # Output file
         ]
 
         result = subprocess.run(command, capture_output=True, text=True)

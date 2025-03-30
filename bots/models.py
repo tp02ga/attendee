@@ -205,10 +205,10 @@ class Bot(models.Model):
     def recording_format(self):
         # This is always mp4 for now
         return RecordingFormats.MP4
-        #recording_settings = self.settings.get("recording_settings", {})
-        #if recording_settings is None:
+        # recording_settings = self.settings.get("recording_settings", {})
+        # if recording_settings is None:
         #    recording_settings = {}
-        #return recording_settings.get("format", RecordingFormats.WEBM)
+        # return recording_settings.get("format", RecordingFormats.WEBM)
 
     def recording_view(self):
         recording_settings = self.settings.get("recording_settings", {})

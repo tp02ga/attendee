@@ -297,7 +297,7 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        
+
         if self.driver:
             # Simulate closing browser window
             try:
@@ -419,7 +419,7 @@ class WebBotAdapter(BotAdapter):
         if self.start_recording_screen_callback:
             sleep(2)
             self.start_recording_screen_callback(self.display_var_for_debug_recording)
-        
+
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
     def leave(self):
