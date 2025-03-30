@@ -348,7 +348,7 @@ class WebBotAdapter(BotAdapter):
         self.display_var_for_debug_recording = os.environ.get("DISPLAY")
         if os.environ.get("DISPLAY") is None:
             # Create virtual display only if no real display is available
-            self.display = Display(visible=0, size=(1920, 1080))
+            self.display = Display(visible=0, size=(1930, 1090))
             self.display.start()
             self.display_var_for_debug_recording = self.display.new_display_var
 

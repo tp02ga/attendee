@@ -9,7 +9,7 @@ class MediaRecorderReceiver:
     def __init__(self, file_location):
         self.file_location = file_location
         self.ffmpeg_proc = None
-        self.screen_dimensions = (1920, 1080)
+        self.screen_dimensions = (1930, 1090)
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
@@ -25,6 +25,7 @@ class MediaRecorderReceiver:
             "-thread_queue_size", "4096",
             "-f", "pulse",
             "-i", "default",
+            "-vf", "crop=1920:1080:10:10",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-pix_fmt", "yuv420p",
