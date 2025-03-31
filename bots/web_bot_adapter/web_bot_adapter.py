@@ -386,10 +386,16 @@ class WebBotAdapter(BotAdapter):
                 return
 
             except UiRetryableExpectedException as e:
+                if num_retries >= max_retries:
+                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit and there were {num_expected_exceptions} expected exceptions, so returning")
+                     self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
+                     return
+
                 num_expected_exceptions += 1
                 if num_expected_exceptions % 3 == 0:
                     num_retries += 1
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected and {num_expected_exceptions} expected exceptions have occurred, so incrementing num_retries")
+                    sleep(10)
                 else:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected so not incrementing num_retries, but {num_expected_exceptions} expected exceptions have occurred")
 
