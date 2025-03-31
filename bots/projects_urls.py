@@ -65,6 +65,16 @@ urlpatterns = [
         projects_views.ProjectBillingView.as_view(),
         name="project-billing",
     ),
+    path(
+        "<str:object_id>/billing/checkout/",
+        projects_views.CreateCheckoutSessionView.as_view(),
+        name="create-checkout-session",
+    ),
+    path(
+        "<str:object_id>/billing/checkout/success/",
+        projects_views.CheckoutSuccessView.as_view(),
+        name="checkout-success",
+    ),    
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",
