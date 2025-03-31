@@ -47,7 +47,8 @@ class MediaRecorderReceiver:
                 pass  # Create empty file
             return
 
-        self.make_file_seekable(input_path, output_path)
+        # the file is seekable, so we don't need to make it seekable
+        # self.make_file_seekable(input_path, output_path)
 
     def make_file_seekable(self, input_path, output_path):
         """Use ffmpeg to move the moov atom to the beginning of the file."""
