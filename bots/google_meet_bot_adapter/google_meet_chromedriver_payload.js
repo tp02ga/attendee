@@ -78,6 +78,10 @@ class StyleManager {
         }, 1000);
     }
 
+    stop() {
+        this.toggleCaptureCanvasVisibility();
+    }
+
     start() {
         // Find the main element that contains all the video elements
         this.mainElement = document.querySelector('main');
@@ -1543,6 +1547,7 @@ class WebSocketClient {
   }
 
   async disableMediaSending() {
+    window.styleManager.stop();
     //window.fullCaptureManager.stop();
     // Give the media recorder a bit of time to send the final data
     await new Promise(resolve => setTimeout(resolve, 2000));
