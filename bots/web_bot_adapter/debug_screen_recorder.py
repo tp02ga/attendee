@@ -13,10 +13,7 @@ class DebugScreenRecorder:
 
     def start(self):
         logger.info(f"Starting debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
-        ffmpeg_cmd = ["ffmpeg", "-y", "-thread_queue_size", "4096", "-framerate", "30", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-f", "x11grab", "-draw_mouse", "0", "-i", self.display_var, "-thread_queue_size", "4096", "-f", "pulse", "-i", "default", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-strict", "experimental", "-b:a", "128k", self.output_file_path]
-
-        logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
-        self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        self.ffmpeg_proc = subprocess.Popen(["ffmpeg", "-y", "-f", "x11grab", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-i", self.display_var, "-pix_fmt", "yuv420p", self.output_file_path], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
     def stop(self):
         if not self.ffmpeg_proc:
@@ -24,3 +21,4 @@ class DebugScreenRecorder:
         self.ffmpeg_proc.terminate()
         self.ffmpeg_proc.wait()
         logger.info(f"Stopped debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
+        self.ffmpeg_proc = None
