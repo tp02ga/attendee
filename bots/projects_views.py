@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic.list import ListView
 from django.urls import reverse
+from django.conf import settings
 
 from .models import (
     ApiKey,
@@ -36,6 +37,7 @@ class ProjectUrlContextMixin:
     def get_project_context(self, object_id, project):
         return {
             "project": project,
+            "charge_credits_for_bots_setting": settings.CHARGE_CREDITS_FOR_BOTS,
         }
 
 

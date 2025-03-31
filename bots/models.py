@@ -653,7 +653,7 @@ class BotEventManager:
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
-                        if os.getenv("CHARGE_CREDITS_FOR_BOTS") == "true":
+                        if settings.CHARGE_CREDITS_FOR_BOTS:
                             centicredits_consumed = bot.centicredits_consumed()
                             if centicredits_consumed > 0:
                                 CreditTransactionManager.create_transaction(

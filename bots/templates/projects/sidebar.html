@@ -67,6 +67,7 @@
                                 <i class="bi bi-link"></i> Webhooks
                             </a>
                             {% endif %}
+                            {% if charge_credits_for_bots_setting %}
                             <a class="nav-link ps-4"
                                hx-get="{% url 'projects:project-billing' project.object_id %}"
                                hx-select="#content"
@@ -76,6 +77,7 @@
                                onclick="setActiveLink(this)">
                                 <i class="bi bi-credit-card"></i> Billing
                             </a>
+                            {% endif %}
                         </div>
                     </div>
 
