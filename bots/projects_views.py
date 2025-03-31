@@ -6,6 +6,7 @@ from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
+from django.views.generic.list import ListView
 
 from .models import (
     ApiKey,
@@ -20,6 +21,7 @@ from .models import (
     WebhookSecret,
     WebhookSubscription,
     WebhookTriggerTypes,
+    CreditTransaction,
 )
 from .utils import generate_recordings_json_for_bot_detail_view
 
@@ -299,3 +301,23 @@ class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         context["webhooks"] = WebhookSubscription.objects.filter(project=webhook.project).order_by("-created_at")
         context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
         return render(request, "projects/project_webhooks.html", context)
+
+
+class ProjectBillingView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_billing.html"
+    context_object_name = "transactions"
+    paginate_by = 20
+    
+    def get_queryset(self):
+        project = get_object_or_404(Project, object_id=self.kwargs['object_id'], 
+                                     organization=self.request.user.organization)
+        return CreditTransaction.objects.filter(
+            organization=project.organization
+        ).order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = get_object_or_404(Project, object_id=self.kwargs['object_id'],
+                                    organization=self.request.user.organization)
+        context.update(self.get_project_context(self.kwargs['object_id'], project))
+        return context

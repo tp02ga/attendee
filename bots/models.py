@@ -257,6 +257,15 @@ class CreditTransaction(models.Model):
     def __str__(self):
         return f"{self.organization.name} - {self.centicredits_delta}"
 
+    def credits_delta(self):
+        return self.centicredits_delta / 100
+
+    def credits_after(self):
+        return self.centicredits_after / 100
+
+    def credits_before(self):
+        return self.centicredits_before / 100
+
 
 class CreditTransactionManager:
     @classmethod

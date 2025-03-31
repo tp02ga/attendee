@@ -60,6 +60,11 @@ urlpatterns = [
         projects_views.DeleteWebhookView.as_view(),
         name="delete-webhook",
     ),
+    path(
+        "<str:object_id>/billing/",
+        projects_views.ProjectBillingView.as_view(),
+        name="project-billing",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",

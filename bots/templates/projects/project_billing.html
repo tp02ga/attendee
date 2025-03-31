@@ -1,0 +1,98 @@
+{% extends 'projects/sidebar.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Billing</h2>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="mb-1">Credit Balance</p>
+            <h3 class="{% if project.organization.credits < 0 %}text-danger{% elif project.organization.credits > 0 %}text-success{% endif %}">
+                {{ project.organization.credits|floatformat:2|default:"0.00" }} credits
+            </h3>
+            <p class="text-muted small">1 credit = 1 hour of bot usage</p>
+        </div>
+    </div>
+
+    <h4>Transaction History</h4>
+    
+    {% if transactions %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Bot</th>
+                    <th>Amount</th>
+                    <th>Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"M d, Y H:i" }}</td>
+                    <td>{{ transaction.description|default:"--" }}</td>
+                    <td>
+                        {% if transaction.bot %}
+                        <a href="{% url 'projects:project-bot-detail' project.object_id transaction.bot.object_id %}">
+                            {{ transaction.bot.name }}
+                        </a>
+                        {% else %}
+                        --
+                        {% endif %}
+                    </td>
+                    <td class="{% if transaction.credits_delta < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ transaction.credits_delta|floatformat:2 }}
+                    </td>
+                    <td>{{ transaction.credits_after|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Transaction history pagination">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">&laquo; First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for i in paginator.page_range %}
+                {% if page_obj.number == i %}
+                <li class="page-item active">
+                    <span class="page-link">{{ i }}</span>
+                </li>
+                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ paginator.num_pages }}">Last &raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    {% else %}
+    <div class="alert alert-info">
+        No transaction history available.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
