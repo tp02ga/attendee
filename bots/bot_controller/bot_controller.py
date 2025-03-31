@@ -83,6 +83,8 @@ class BotController:
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
+            start_recording_screen_callback=None,
+            stop_recording_screen_callback=None,
         )
 
     def get_zoom_bot_adapter(self):
