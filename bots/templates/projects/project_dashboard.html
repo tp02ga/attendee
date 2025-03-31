@@ -23,7 +23,7 @@
                         1. Add credentials
                         {% if not quick_start.has_credentials %}
                             <div class="mt-2">
-                                <a href="{% url 'projects:project-settings' project.object_id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'projects:project-credentials' project.object_id %}" class="btn btn-sm btn-primary">
                                     Go to Settings
                                 </a>
                             </div>

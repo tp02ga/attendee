@@ -21,9 +21,9 @@ urlpatterns = [
         name="project-bot-detail",
     ),
     path(
-        "<str:object_id>/settings",
-        projects_views.ProjectSettingsView.as_view(),
-        name="project-settings",
+        "<str:object_id>/credentials",
+        projects_views.ProjectCredentialsView.as_view(),
+        name="project-credentials",
     ),
     path(
         "<str:object_id>/keys",

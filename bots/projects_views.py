@@ -162,7 +162,7 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             return HttpResponse(str(e), status=400)
 
 
-class ProjectSettingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
@@ -185,7 +185,7 @@ class ProjectSettingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             }
         )
 
-        return render(request, "projects/project_settings.html", context)
+        return render(request, "projects/project_credentials.html", context)
 
 
 class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
