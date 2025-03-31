@@ -231,6 +231,7 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
                 "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
+                "credits_consumed": -sum([t.credits_delta() for t in bot.credit_transactions.all()]) if bot.credit_transactions.exists() else None,
             }
         )
 
