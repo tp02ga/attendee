@@ -18,7 +18,6 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 from accounts.models import Organization
-from bots.utils import meeting_type_from_url
 from bots.webhook_utils import trigger_webhook
 
 # Create your models here.
@@ -218,6 +217,8 @@ class Bot(models.Model):
         return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
     def create_debug_recording(self):
+        from bots.utils import meeting_type_from_url
+
         # Temporarily enabling this for all google meet meetings
         if meeting_type_from_url(self.meeting_url) == MeetingTypes.GOOGLE_MEET:
             return True
