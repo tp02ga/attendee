@@ -38,7 +38,7 @@ class MediaRecorderReceiver:
 
     def make_file_seekable_and_trimmed(self):
         input_path = self.file_location
-        output_path = self.get_seekable_path(self.file_location)
+        #output_path = self.get_seekable_path(self.file_location)
 
         # Check if input file exists
         if not os.path.exists(input_path):
