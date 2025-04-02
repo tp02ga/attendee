@@ -1,6 +1,6 @@
 import logging
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -98,6 +98,13 @@ class GoogleMeetUIMethods:
                 if last_check_timed_out:
                     logger.info("Could not find name input. Timed out. Raising UiCouldNotLocateElementException")
                     raise UiCouldNotLocateElementException("Could not find name input. Timed out.", "name_input", e)
+
+            except ElementNotInteractableException as e:
+                logger.info("Name input is not interactable. Going to try again.")
+                last_check_non_interactable = attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1
+                if last_check_non_interactable:
+                    logger.info("Could not find name input. Non interactable. Raising UiCouldNotLocateElementException")
+                    raise UiCouldNotLocateElementException("Could not find name input. Non interactable.", "name_input", e)
 
             except Exception as e:
                 logger.info(f"Could not find name input. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")
