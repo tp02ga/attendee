@@ -229,7 +229,7 @@ class GoogleMeetUIMethods:
             logger.info("Waiting for the 'Tiled' label element")
             tiled_label = self.locate_element(
                 step="tiled_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Tiled"]]')),
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[@class="xo15nd" and contains(text(), "Tiled")]]')),
                 wait_time_seconds=6,
             )
             logger.info("Clicking the 'Tiled' label element")
