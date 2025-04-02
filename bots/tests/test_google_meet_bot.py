@@ -98,6 +98,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_ALWAYS_EAGER = True
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
@@ -106,6 +107,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         MockFileUploader,
         MockChromeDriver,
         MockDisplay,
+        mock_create_debug_recording,
     ):
         # Configure the mock uploader
         mock_uploader = create_mock_file_uploader()
