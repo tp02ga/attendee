@@ -47,7 +47,15 @@ class GoogleMeetUIMethods:
     def click_this_meeting_is_being_recorded_join_now_button(self, step):
         this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
         if this_meeting_is_being_recorded_join_now_button:
+            logger.info("Clicking this_meeting_is_being_recorded_join_now_button")
             this_meeting_is_being_recorded_join_now_button.click()
+
+    # Some modal that google put up
+    def click_others_may_see_your_meeting_differently_button(self, step):
+        others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
+        if others_may_see_your_meeting_differently_button:
+            logger.info("Clicking others_may_see_your_meeting_differently_button")
+            others_may_see_your_meeting_differently_button.click()
 
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
@@ -110,6 +118,7 @@ class GoogleMeetUIMethods:
                 self.look_for_blocked_element("click_captions_button")
                 self.look_for_denied_your_request_element("click_captions_button")
                 self.click_this_meeting_is_being_recorded_join_now_button("click_captions_button")
+                self.click_others_may_see_your_meeting_differently_button("click_captions_button")
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
