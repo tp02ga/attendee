@@ -205,7 +205,7 @@ class Bot(models.Model):
     def recording_format(self):
         recording_settings = self.settings.get("recording_settings", {})
         if recording_settings is None:
-           recording_settings = {}
+            recording_settings = {}
         return recording_settings.get("format", RecordingFormats.MP4)
 
     def recording_view(self):
