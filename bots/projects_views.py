@@ -1,24 +1,23 @@
 import base64
 import logging
-import stripe
 import os
 
+import stripe
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
-from django.urls import reverse
-from django.conf import settings
-
-from .stripe_utils import process_checkout_session_completed
 
 from .models import (
     ApiKey,
     Bot,
     BotStates,
     Credentials,
+    CreditTransaction,
     Project,
     RecordingStates,
     Utterance,
@@ -27,9 +26,8 @@ from .models import (
     WebhookSecret,
     WebhookSubscription,
     WebhookTriggerTypes,
-    CreditTransaction,
-    CreditTransactionManager,
 )
+from .stripe_utils import process_checkout_session_completed
 from .utils import generate_recordings_json_for_bot_detail_view
 
 logger = logging.getLogger(__name__)
@@ -316,69 +314,69 @@ class ProjectBillingView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
     template_name = "projects/project_billing.html"
     context_object_name = "transactions"
     paginate_by = 20
-    
+
     def get_queryset(self):
-        project = get_object_or_404(Project, object_id=self.kwargs['object_id'], 
-                                     organization=self.request.user.organization)
-        return CreditTransaction.objects.filter(
-            organization=project.organization
-        ).order_by('-created_at')
-    
+        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        return CreditTransaction.objects.filter(organization=project.organization).order_by("-created_at")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        project = get_object_or_404(Project, object_id=self.kwargs['object_id'],
-                                    organization=self.request.user.organization)
-        context.update(self.get_project_context(self.kwargs['object_id'], project))
+        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
         return context
+
 
 class CheckoutSuccessView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        session_id = request.GET.get('session_id')
+        session_id = request.GET.get("session_id")
         if not session_id:
             return HttpResponse("No session ID provided", status=400)
-        
+
         # Retrieve the session details
         try:
             checkout_session = stripe.checkout.Session.retrieve(session_id, api_key=os.getenv("STRIPE_SECRET_KEY"))
         except Exception as e:
             return HttpResponse(f"Error retrieving session details: {e}", status=400)
-        
+
         process_checkout_session_completed(checkout_session)
-        
-        return redirect(reverse('bots:project-billing', kwargs={'object_id': object_id}))
+
+        return redirect(reverse("bots:project-billing", kwargs={"object_id": object_id}))
+
 
 class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
-    def post(self, request, object_id):        
+    def post(self, request, object_id):
         # Get the credit package from the request
         credit_amount = 100
-                
+
         # Calculate price (e.g., $50 per 100 credits)
         unit_amount = 5000  # $50.00 in cents
-        
+
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': f'{credit_amount} Attendee Credits',
-                        'description': f'Purchase {credit_amount} attendee credits for your account',
+            payment_method_types=["card"],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": f"{credit_amount} Attendee Credits",
+                            "description": f"Purchase {credit_amount} attendee credits for your account",
+                        },
+                        "unit_amount": unit_amount,
                     },
-                    'unit_amount': unit_amount,
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url=request.build_absolute_uri(reverse('bots:checkout-success', kwargs={'object_id': object_id})) + "?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=request.build_absolute_uri(reverse('bots:project-billing', kwargs={'object_id': object_id})),
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
+            success_url=request.build_absolute_uri(reverse("bots:checkout-success", kwargs={"object_id": object_id})) + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.build_absolute_uri(reverse("bots:project-billing", kwargs={"object_id": object_id})),
             metadata={
-                'organization_id': str(request.user.organization.id),
-                'user_id': str(request.user.id),
-                'credit_amount': str(credit_amount),
+                "organization_id": str(request.user.organization.id),
+                "user_id": str(request.user.id),
+                "credit_amount": str(credit_amount),
             },
             api_key=os.getenv("STRIPE_SECRET_KEY"),
         )
-        
+
         # Redirect directly to the Stripe checkout page
         return redirect(checkout_session.url)
