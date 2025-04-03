@@ -626,6 +626,16 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.MEETING_NOT_FOUND:
+            logger.info("Received message that meeting not found")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND,
+            )
+            self.cleanup()
+            return
+
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
             logger.info(f"Received message that UI element not found at {message.get('current_time')}")
 
