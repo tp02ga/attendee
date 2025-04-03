@@ -12,6 +12,8 @@ from django.views.generic.list import ListView
 from django.urls import reverse
 from django.conf import settings
 
+from .stripe_utils import process_checkout_session_completed
+
 from .models import (
     ApiKey,
     Bot,
@@ -341,32 +343,7 @@ class CheckoutSuccessView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         except Exception as e:
             return HttpResponse(f"Error retrieving session details: {e}", status=400)
         
-        # Get the organization ID from the metadata
-        organization_id = checkout_session.metadata.get('organization_id')
-        if not organization_id or organization_id != str(request.user.organization.id):
-            return HttpResponse("Invalid organization ID", status=400)
-
-        user_id = checkout_session.metadata.get('user_id')
-        if not user_id or user_id != str(request.user.id):
-            return HttpResponse("Invalid user ID", status=400)
-        
-        # Get the credit amount from the metadata
-        credit_amount = checkout_session.metadata.get('credit_amount')
-        if not credit_amount:
-            return HttpResponse("No credit amount provided", status=400)
-        
-        try:
-            centicredits_delta = int(credit_amount) * 100
-        except ValueError:
-            return HttpResponse("Invalid credit amount format", status=400)
-
-        CreditTransactionManager.create_transaction(
-            organization=request.user.organization,
-            centicredits_delta=centicredits_delta,
-            bot=None,
-            stripe_payment_intent_id=checkout_session.payment_intent,
-            description=f"For stripe payment",
-        )
+        process_checkout_session_completed(checkout_session)
         
         return redirect(reverse('bots:project-billing', kwargs={'object_id': object_id}))
 
