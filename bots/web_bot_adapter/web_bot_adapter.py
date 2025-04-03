@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
+from .ui_methods import UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +248,9 @@ class WebBotAdapter(BotAdapter):
     def send_request_to_join_denied_message(self):
         self.send_message_callback({"message": self.Messages.REQUEST_TO_JOIN_DENIED})
 
+    def send_meeting_not_found_message(self):
+        self.send_message_callback({"message": self.Messages.MEETING_NOT_FOUND})
+
     def send_debug_screenshot_message(self, step, exception, inner_exception):
         current_time = datetime.datetime.now()
         timestamp = current_time.strftime("%Y%m%d_%H%M%S")
@@ -385,6 +388,10 @@ class WebBotAdapter(BotAdapter):
                 self.send_request_to_join_denied_message()
                 return
 
+            except UiMeetingNotFoundException:
+                self.send_meeting_not_found_message()
+                return
+
             except UiRetryableExpectedException as e:
                 if num_retries >= max_retries:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit and there were {num_expected_exceptions} expected exceptions, so returning")
@@ -394,8 +401,8 @@ class WebBotAdapter(BotAdapter):
                 num_expected_exceptions += 1
                 if num_expected_exceptions % 3 == 0:
                     num_retries += 1
-                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected and {num_expected_exceptions} expected exceptions have occurred, so incrementing num_retries")
-                    sleep(10)
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected and {num_expected_exceptions} expected exceptions have occurred, so incrementing num_retries. This usually indicates that the meeting has not started yet, so we will wait for the configured amount of time which is {self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds} seconds before retrying")
+                    sleep(self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds)
                 else:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected so not incrementing num_retries, but {num_expected_exceptions} expected exceptions have occurred")
 
