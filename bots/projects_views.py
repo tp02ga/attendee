@@ -347,7 +347,7 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
     def post(self, request, object_id):
         # Get the credit amount from the form submission
         try:
-            credit_amount = int(request.POST.get('credit_amount', 10))
+            credit_amount = int(request.POST.get("credit_amount", 10))
             if credit_amount < 1:
                 credit_amount = 1
         except (ValueError, TypeError):
