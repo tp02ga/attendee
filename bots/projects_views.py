@@ -345,11 +345,19 @@ class CheckoutSuccessView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        # Get the credit package from the request
-        credit_amount = 100
+        # Get the credit amount from the form submission
+        try:
+            credit_amount = int(request.POST.get('credit_amount', 10))
+            if credit_amount < 1:
+                credit_amount = 1
+        except (ValueError, TypeError):
+            credit_amount = 10  # Default fallback
 
-        # Calculate price (e.g., $50 per 100 credits)
-        unit_amount = 5000  # $50.00 in cents
+        # Calculate price (50¢ per credit)
+        unit_amount = int(credit_amount * 50)  # in cents
+
+        if unit_amount > 10000:
+            return HttpResponse("You are trying to purchase too many credits at once.", status=400)
 
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(

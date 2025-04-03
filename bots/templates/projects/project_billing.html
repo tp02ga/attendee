@@ -12,12 +12,45 @@
             </h3>
             <p class="text-muted small">1 credit = 1 hour of bot usage</p>
             
-            <form action="{% url 'projects:create-checkout-session' project.object_id %}" method="post" class="mt-3">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary">
-                    Purchase Credits
-                </button>
-            </form>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#purchaseCreditsModal">
+                Purchase Credits
+            </button>
+            
+            <div class="modal fade" id="purchaseCreditsModal" tabindex="-1" aria-labelledby="purchaseCreditsModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="purchaseCreditsModalLabel">Purchase Credits</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="purchaseCreditsForm" action="{% url 'projects:create-checkout-session' project.object_id %}" method="post">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="creditAmount" class="form-label">Number of Credits</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="creditAmount" name="credit_amount" 
+                                               min="1" value="10" required>
+                                        <span class="input-group-text">credits</span>
+                                    </div>
+                                    <div class="form-text">1 credit = 1 hour of bot usage</div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Price:</span>
+                                        <span id="calculatedPrice">$5.00</span>
+                                    </div>
+                                    <div class="small text-muted">50¢ per credit</div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" form="purchaseCreditsForm" class="btn btn-primary">Proceed to Checkout</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -102,4 +135,25 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const creditAmountInput = document.getElementById('creditAmount');
+        const calculatedPrice = document.getElementById('calculatedPrice');
+        
+        // Function to update the price based on credit amount
+        function updatePrice() {
+            const credits = parseFloat(creditAmountInput.value) || 0;
+            const price = (credits * 0.5).toFixed(2);
+            calculatedPrice.textContent = '$' + price;
+        }
+        
+        // Update price on input change
+        creditAmountInput.addEventListener('input', updatePrice);
+        
+        // Initialize with default value
+        updatePrice();
+    });
+</script>
+
 {% endblock %}
