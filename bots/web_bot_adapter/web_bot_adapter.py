@@ -39,6 +39,8 @@ class WebBotAdapter(BotAdapter):
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         recording_view: RecordingViews,
         should_create_debug_recording: bool,
+        start_recording_screen_callback,
+        stop_recording_screen_callback,
     ):
         self.display_name = display_name
         self.send_message_callback = send_message_callback
@@ -47,6 +49,8 @@ class WebBotAdapter(BotAdapter):
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
         self.add_encoded_mp4_chunk_callback = add_encoded_mp4_chunk_callback
         self.upsert_caption_callback = upsert_caption_callback
+        self.start_recording_screen_callback = start_recording_screen_callback
+        self.stop_recording_screen_callback = stop_recording_screen_callback
         self.recording_view = recording_view
 
         self.meeting_url = meeting_url
@@ -282,8 +286,9 @@ class WebBotAdapter(BotAdapter):
         options = webdriver.ChromeOptions()
 
         options.add_argument("--use-fake-ui-for-media-stream")
-        options.add_argument("--start-maximized")
+        options.add_argument(f"--window-size={self.video_frame_size[0]},{self.video_frame_size[1]}")
         options.add_argument("--no-sandbox")
+        options.add_argument("--start-fullscreen")
         # options.add_argument('--headless=new')
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-extensions")
@@ -291,6 +296,7 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-setuid-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
         if self.driver:
             # Simulate closing browser window
@@ -339,15 +345,15 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": combined_code})
 
     def init(self):
-        display_var_for_debug_recording = os.environ.get("DISPLAY")
+        self.display_var_for_debug_recording = os.environ.get("DISPLAY")
         if os.environ.get("DISPLAY") is None:
             # Create virtual display only if no real display is available
-            display = Display(visible=0, size=(1920, 1080))
-            display.start()
-            display_var_for_debug_recording = display.new_display_var
+            self.display = Display(visible=0, size=(1930, 1090))
+            self.display.start()
+            self.display_var_for_debug_recording = self.display.new_display_var
 
         if self.should_create_debug_recording:
-            self.debug_screen_recorder = DebugScreenRecorder(display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
+            self.debug_screen_recorder = DebugScreenRecorder(self.display_var_for_debug_recording, self.video_frame_size, BotAdapter.DEBUG_RECORDING_FILE_PATH)
             self.debug_screen_recorder.start()
 
         # Start websocket server in a separate thread
@@ -380,10 +386,16 @@ class WebBotAdapter(BotAdapter):
                 return
 
             except UiRetryableExpectedException as e:
+                if num_retries >= max_retries:
+                    logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is retryable but the number of retries exceeded the limit and there were {num_expected_exceptions} expected exceptions, so returning")
+                    self.send_debug_screenshot_message(step=e.step, exception=e, inner_exception=e.inner_exception)
+                    return
+
                 num_expected_exceptions += 1
                 if num_expected_exceptions % 3 == 0:
                     num_retries += 1
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected and {num_expected_exceptions} expected exceptions have occurred, so incrementing num_retries")
+                    sleep(10)
                 else:
                     logger.info(f"Failed to join meeting and the {e.__class__.__name__} exception is expected so not incrementing num_retries, but {num_expected_exceptions} expected exceptions have occurred")
 
@@ -409,6 +421,13 @@ class WebBotAdapter(BotAdapter):
         self.send_frames = True
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
+
+        if self.start_recording_screen_callback:
+            sleep(2)
+            if self.debug_screen_recorder:
+                self.debug_screen_recorder.stop()
+            self.start_recording_screen_callback(self.display_var_for_debug_recording)
+
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
     def leave(self):
@@ -429,6 +448,9 @@ class WebBotAdapter(BotAdapter):
             self.left_meeting = True
 
     def cleanup(self):
+        if self.stop_recording_screen_callback:
+            self.stop_recording_screen_callback()
+
         try:
             logger.info("disable media sending")
             self.driver.execute_script("window.ws?.disableMediaSending();")

@@ -21,3 +21,4 @@ class DebugScreenRecorder:
         self.ffmpeg_proc.terminate()
         self.ffmpeg_proc.wait()
         logger.info(f"Stopped debug screen recorder for display {self.display_var} with dimensions {self.screen_dimensions} and output file path {self.output_file_path}")
+        self.ffmpeg_proc = None

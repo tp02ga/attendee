@@ -80,7 +80,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
         "properties": {
             "format": {
                 "type": "string",
-                "description": "The format of the recording to save. The supported formats are 'webm' and 'mp4'.",
+                "description": "The format of the recording to save. The supported formats are 'mp4'.",
             },
             "view": {
                 "type": "string",
@@ -212,9 +212,9 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     recording_settings = RecordingSettingsJSONField(
-        help_text="The settings for the bot's recording. Either {'format': 'webm'} or {'format': 'mp4'}, with optional 'view': 'speaker_view' or 'gallery_view'.",
+        help_text="The settings for the bot's recording. Currently the only setting is 'view' which can be 'speaker_view' or 'gallery_view'.",
         required=False,
-        default={"format": RecordingFormats.WEBM, "view": RecordingViews.SPEAKER_VIEW},
+        default={"format": RecordingFormats.MP4, "view": RecordingViews.SPEAKER_VIEW},
     )
 
     RECORDING_SETTINGS_SCHEMA = {
@@ -237,8 +237,8 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate format if provided
         format = value.get("format")
-        if format not in [RecordingFormats.MP4, RecordingFormats.WEBM, None]:
-            raise serializers.ValidationError({"format": "Format must be mp4 or webm"})
+        if format not in [RecordingFormats.MP4, None]:
+            raise serializers.ValidationError({"format": "Format must be mp4"})
 
         # Validate view if provided
         view = value.get("view")

@@ -1,6 +1,6 @@
 import logging
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -47,7 +47,15 @@ class GoogleMeetUIMethods:
     def click_this_meeting_is_being_recorded_join_now_button(self, step):
         this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
         if this_meeting_is_being_recorded_join_now_button:
+            logger.info("Clicking this_meeting_is_being_recorded_join_now_button")
             this_meeting_is_being_recorded_join_now_button.click()
+
+    # Some modal that google put up
+    def click_others_may_see_your_meeting_differently_button(self, step):
+        others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
+        if others_may_see_your_meeting_differently_button:
+            logger.info("Clicking others_may_see_your_meeting_differently_button")
+            others_may_see_your_meeting_differently_button.click()
 
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
@@ -91,6 +99,13 @@ class GoogleMeetUIMethods:
                     logger.info("Could not find name input. Timed out. Raising UiCouldNotLocateElementException")
                     raise UiCouldNotLocateElementException("Could not find name input. Timed out.", "name_input", e)
 
+            except ElementNotInteractableException as e:
+                logger.info("Name input is not interactable. Going to try again.")
+                last_check_non_interactable = attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1
+                if last_check_non_interactable:
+                    logger.info("Could not find name input. Non interactable. Raising UiCouldNotLocateElementException")
+                    raise UiCouldNotLocateElementException("Could not find name input. Non interactable.", "name_input", e)
+
             except Exception as e:
                 logger.info(f"Could not find name input. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
@@ -110,6 +125,7 @@ class GoogleMeetUIMethods:
                 self.look_for_blocked_element("click_captions_button")
                 self.look_for_denied_your_request_element("click_captions_button")
                 self.click_this_meeting_is_being_recorded_join_now_button("click_captions_button")
+                self.click_others_may_see_your_meeting_differently_button("click_captions_button")
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
@@ -213,7 +229,7 @@ class GoogleMeetUIMethods:
             logger.info("Waiting for the 'Tiled' label element")
             tiled_label = self.locate_element(
                 step="tiled_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Tiled"]]')),
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[@class="xo15nd" and contains(text(), "Tiled")]]')),
                 wait_time_seconds=6,
             )
             logger.info("Clicking the 'Tiled' label element")

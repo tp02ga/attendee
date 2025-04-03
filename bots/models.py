@@ -206,7 +206,7 @@ class Bot(models.Model):
         recording_settings = self.settings.get("recording_settings", {})
         if recording_settings is None:
             recording_settings = {}
-        return recording_settings.get("format", RecordingFormats.WEBM)
+        return recording_settings.get("format", RecordingFormats.MP4)
 
     def recording_view(self):
         recording_settings = self.settings.get("recording_settings", {})
@@ -215,6 +215,12 @@ class Bot(models.Model):
         return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
     def create_debug_recording(self):
+        from bots.utils import meeting_type_from_url
+
+        # Temporarily enabling this for all google meet meetings
+        if meeting_type_from_url(self.meeting_url) == MeetingTypes.GOOGLE_MEET:
+            return True
+
         debug_settings = self.settings.get("debug_settings", {})
         if debug_settings is None:
             debug_settings = {}
