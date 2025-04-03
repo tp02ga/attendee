@@ -2333,7 +2333,7 @@ new RTCInterceptor({
 
         /*
         We are no longer setting up per-frame MediaStreamTrackProcessor's because it taxes the CPU too much
-        For now, we are just using the MediaRecorderReceiver to record the video stream
+        For now, we are just using the ScreenAndAudioRecorder to record the video stream
         but we're keeping this code around for reference
         peerConnection.addEventListener('track', (event) => {
             // Log the track and its associated streams

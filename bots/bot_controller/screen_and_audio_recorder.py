@@ -5,7 +5,7 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-class MediaRecorderReceiver:
+class ScreenAndAudioRecorder:
     def __init__(self, file_location):
         self.file_location = file_location
         self.ffmpeg_proc = None
@@ -25,9 +25,6 @@ class MediaRecorderReceiver:
         self.ffmpeg_proc.wait()
         logger.info(f"Stopped debug screen recorder for display with dimensions {self.screen_dimensions} and file location {self.file_location}")
 
-    def cleanup(self):
-        self.make_file_seekable_and_trimmed()
-
     def get_seekable_path(self, path):
         """
         Transform a file path to include '.seekable' before the extension.
@@ -36,9 +33,8 @@ class MediaRecorderReceiver:
         base, ext = os.path.splitext(path)
         return f"{base}.seekable{ext}"
 
-    def make_file_seekable_and_trimmed(self):
+    def cleanup(self):
         input_path = self.file_location
-        # output_path = self.get_seekable_path(self.file_location)
 
         # Check if input file exists
         if not os.path.exists(input_path):
@@ -47,18 +43,22 @@ class MediaRecorderReceiver:
                 pass  # Create empty file
             return
 
-        # the file is seekable, so we don't need to make it seekable
-        # self.make_file_seekable(input_path, output_path)
+        # if input file is greater than 3 GB, we will skip seekability
+        if os.path.getsize(input_path) > 3 * 1024 * 1024 * 1024:
+            logger.info(f"Input file is greater than 3 GB, skipping seekability")
+            return
 
-    def make_file_seekable(self, input_path, output_path):
+        output_path = self.get_seekable_path(self.file_location)
+        # the file is seekable, so we don't need to make it seekable
+        self.make_file_seekable(input_path, output_path)
+
+    def make_file_seekable(self, input_path, tempfile_path):
         """Use ffmpeg to move the moov atom to the beginning of the file."""
-        logger.info(f"Making file seekable: {input_path} -> {output_path}")
+        logger.info(f"Making file seekable: {input_path} -> {tempfile_path}")
         # log how many bytes are in the file
         logger.info(f"File size: {os.path.getsize(input_path)} bytes")
         command = [
             "ffmpeg",
-            "-ss",
-            "5",  # <<< Add this: Seek to 1 second into the input file
             "-i",
             str(input_path),  # Input file
             "-c",
@@ -68,7 +68,7 @@ class MediaRecorderReceiver:
             "-movflags",
             "+faststart",  # Optimize for web playback
             "-y",  # Overwrite output file without asking
-            str(output_path),  # Output file
+            str(tempfile_path),  # Output file
         ]
 
         result = subprocess.run(command, capture_output=True, text=True)
@@ -78,7 +78,7 @@ class MediaRecorderReceiver:
 
         # Replace the original file with the seekable version
         try:
-            os.replace(str(output_path), str(input_path))
+            os.replace(str(tempfile_path), str(input_path))
             logger.info(f"Replaced original file with seekable version: {input_path}")
         except Exception as e:
             logger.error(f"Failed to replace original file with seekable version: {e}")

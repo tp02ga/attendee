@@ -37,7 +37,7 @@ from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
-from .media_recorder_receiver import MediaRecorderReceiver
+from .screen_and_audio_recorder import ScreenAndAudioRecorder
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 
@@ -64,8 +64,8 @@ class BotController:
             recording_view=self.bot_in_db.recording_view(),
             google_meet_closed_captions_language=self.bot_in_db.google_meet_closed_captions_language(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
-            start_recording_screen_callback=self.media_recorder_receiver.start_recording,
-            stop_recording_screen_callback=self.media_recorder_receiver.stop_recording,
+            start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
+            stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
         )
 
     def get_teams_bot_adapter(self):
@@ -148,7 +148,7 @@ class BotController:
             return self.get_teams_bot_adapter()
 
     def get_first_buffer_timestamp_ms(self):
-        if self.media_recorder_receiver:
+        if self.screen_and_audio_recorder:
             return self.adapter.get_first_buffer_timestamp_ms()
 
         if self.gstreamer_pipeline:
@@ -224,9 +224,9 @@ class BotController:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
-        if self.media_recorder_receiver:
+        if self.screen_and_audio_recorder:
             logger.info("Telling media recorder receiver to cleanup...")
-            self.media_recorder_receiver.cleanup()
+            self.screen_and_audio_recorder.cleanup()
 
         if self.get_recording_file_location():
             logger.info("Telling file uploader to upload recording file...")
@@ -293,7 +293,7 @@ class BotController:
         elif meeting_type == MeetingTypes.TEAMS:
             return True
 
-    def should_create_media_recorder_receiver(self):
+    def should_create_screen_and_audio_recorder(self):
         return not self.should_create_gstreamer_pipeline()
 
     def run(self):
@@ -338,9 +338,9 @@ class BotController:
             )
             self.gstreamer_pipeline.setup()
 
-        self.media_recorder_receiver = None
-        if self.should_create_media_recorder_receiver():
-            self.media_recorder_receiver = MediaRecorderReceiver(
+        self.screen_and_audio_recorder = None
+        if self.should_create_screen_and_audio_recorder():
+            self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
             )
 
