@@ -45,7 +45,7 @@ class ScreenAndAudioRecorder:
 
         # if input file is greater than 3 GB, we will skip seekability
         if os.path.getsize(input_path) > 3 * 1024 * 1024 * 1024:
-            logger.info(f"Input file is greater than 3 GB, skipping seekability")
+            logger.info("Input file is greater than 3 GB, skipping seekability")
             return
 
         output_path = self.get_seekable_path(self.file_location)
