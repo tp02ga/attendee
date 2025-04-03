@@ -12,4 +12,4 @@ class AutomaticLeaveConfiguration:
 
     silence_threshold_seconds: int = 300
     only_participant_in_meeting_threshold_seconds: int = 60
-    wait_for_host_to_start_meeting_timeout_seconds: int = 120
+    wait_for_host_to_start_meeting_timeout_seconds: int = 600

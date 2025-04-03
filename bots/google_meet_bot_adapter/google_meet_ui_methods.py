@@ -146,6 +146,14 @@ class GoogleMeetUIMethods:
                     e,
                 )
 
+    def wait_for_host_if_needed(self):
+        host_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')
+        if host_element:
+            # Wait for up to n seconds for the host to join
+            wait_time_seconds = self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds
+            logger.info(f"We must wait for the host to join before we can join the meeting. Waiting for {wait_time_seconds} seconds...")
+            WebDriverWait(self.driver, wait_time_seconds).until(EC.invisibility_of_element_located((By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')))
+
     def get_layout_to_select(self):
         if self.recording_view == RecordingViews.SPEAKER_VIEW:
             return "sidebar"
@@ -185,6 +193,8 @@ class GoogleMeetUIMethods:
         self.click_element(join_button, "join_button")
 
         self.click_captions_button()
+
+        self.wait_for_host_if_needed()
 
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
