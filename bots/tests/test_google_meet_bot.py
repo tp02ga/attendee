@@ -1,4 +1,3 @@
-import base64
 import os
 import threading
 import time
@@ -99,14 +98,20 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_ALWAYS_EAGER = True
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
+        mock_wait_for_host_if_needed,
+        mock_check_if_meeting_is_found,
         MockFileUploader,
         MockChromeDriver,
         MockDisplay,
+        mock_create_debug_recording,
     ):
         # Configure the mock uploader
         mock_uploader = create_mock_file_uploader()
@@ -134,18 +139,6 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Add participants - simulate websocket message processing
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
-
-            # Simulate encoded MP4 chunk arrival
-            # Create a mock MP4 message in the format expected by process_encoded_mp4_chunk
-            mock_mp4_message = bytearray()
-            # Add message type (4 for ENCODED_MP4_CHUNK) as first 4 bytes
-            mock_mp4_message.extend((4).to_bytes(4, byteorder="little"))
-            # Add sample MP4 data (just a small dummy chunk for testing)
-            tiny_mp4_base64 = "GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA="
-            mock_mp4_data = base64.b64decode(tiny_mp4_base64)
-            mock_mp4_message.extend(mock_mp4_data)
-
-            controller.adapter.process_encoded_mp4_chunk(mock_mp4_message)
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption"}

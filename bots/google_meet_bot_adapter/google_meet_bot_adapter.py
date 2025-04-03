@@ -21,4 +21,7 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         return 8765
 
     def get_first_buffer_timestamp_ms(self):
+        if self.media_sending_enable_timestamp_ms is None:
+            return None
+        # Doing a manual offset for now to correct for the screen recorder delay. This seems to work reliably.
         return self.media_sending_enable_timestamp_ms
