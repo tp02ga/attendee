@@ -27,20 +27,27 @@
                             <form id="purchaseCreditsForm" action="{% url 'projects:create-checkout-session' project.object_id %}" method="post">
                                 {% csrf_token %}
                                 <div class="mb-3">
-                                    <label for="creditAmount" class="form-label">Number of Credits</label>
+                                    <label for="purchaseAmount" class="form-label">Purchase Amount ($)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control" id="creditAmount" name="credit_amount" 
-                                               min="1" value="10" required>
-                                        <span class="input-group-text">credits</span>
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="purchaseAmount" name="purchase_amount" 
+                                               min="1" value="50" required>
                                     </div>
-                                    <div class="form-text">1 credit = 1 hour of bot usage</div>
                                 </div>
                                 <div class="alert alert-info">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Price:</span>
-                                        <span id="calculatedPrice">$5.00</span>
+                                    <div>
+                                        You'll receive <span id="calculatedCredits">100</span> credits
                                     </div>
-                                    <div class="small text-muted">50¢ per credit</div>
+                                    <div class="small text-muted mb-2">1 credit = 1 hour of bot usage</div>
+                                    
+                                    <div class="small">
+                                        <strong>Volume Discounts:</strong>
+                                        <ul class="mb-0 ps-3 mt-1">
+                                            <li>$0-$200: $0.50 per credit</li>
+                                            <li>$200-$1000: $0.40 per credit</li>
+                                            <li>$1000+: $0.35 per credit</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -138,21 +145,39 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const creditAmountInput = document.getElementById('creditAmount');
-        const calculatedPrice = document.getElementById('calculatedPrice');
+        const purchaseAmountInput = document.getElementById('purchaseAmount');
+        const calculatedCredits = document.getElementById('calculatedCredits');
         
-        // Function to update the price based on credit amount
-        function updatePrice() {
-            const credits = parseFloat(creditAmountInput.value) || 0;
-            const price = (credits * 0.5).toFixed(2);
-            calculatedPrice.textContent = '$' + price;
+        // Function to calculate credits based on tiered pricing
+        function calculateCredits(amount) {
+            let credits = 0;
+            
+            if (amount <= 200) {
+                // Tier 1: $0.50 per credit
+                credits = amount / 0.5;
+            } else if (amount <= 1000) {
+                // Tier 2: $0.40 per credit
+                credits = amount / 0.4;
+            } else {
+                // Tier 3: $0.35 per credit
+                credits = amount / 0.35;
+            }
+            
+            return credits;
         }
         
-        // Update price on input change
-        creditAmountInput.addEventListener('input', updatePrice);
+        // Function to update the credits based on purchase amount
+        function updateCredits() {
+            const amount = parseFloat(purchaseAmountInput.value) || 0;
+            const credits = calculateCredits(amount);
+            calculatedCredits.textContent = Math.floor(credits);
+        }
+        
+        // Update credits on input change
+        purchaseAmountInput.addEventListener('input', updateCredits);
         
         // Initialize with default value
-        updatePrice();
+        updateCredits();
     });
 </script>
 

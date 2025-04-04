@@ -1,5 +1,6 @@
 import base64
 import logging
+import math
 import os
 
 import stripe
@@ -345,19 +346,37 @@ class CheckoutSuccessView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        # Get the credit amount from the form submission
+        # Get the purchase amount from the form submission
         try:
-            credit_amount = int(request.POST.get("credit_amount", 10))
-            if credit_amount < 1:
-                credit_amount = 1
+            purchase_amount = float(request.POST.get("purchase_amount", 50.0))
+            if purchase_amount < 1:
+                purchase_amount = 1.0
         except (ValueError, TypeError):
-            credit_amount = 10  # Default fallback
+            purchase_amount = 50.0  # Default fallback
 
-        # Calculate price (50¢ per credit)
-        unit_amount = int(credit_amount * 50)  # in cents
+        # Calculate credits based on tiered pricing
+        if purchase_amount <= 200:
+            # Tier 1: $0.50 per credit
+            credit_amount = purchase_amount / 0.5
+        elif purchase_amount <= 1000:
+            # Tier 2: $0.40 per credit
+            credit_amount = purchase_amount / 0.4
+        else:
+            # Tier 3: $0.35 per credit
+            credit_amount = purchase_amount / 0.35
+            
+        # Floor the credit amount to ensure whole credits
+        credit_amount = math.floor(credit_amount)
+        
+        # Ensure at least 1 credit
+        if credit_amount < 1:
+            credit_amount = 1
 
-        if unit_amount > 10000:
-            return HttpResponse("You are trying to purchase too many credits at once.", status=400)
+        # Convert purchase amount to cents for Stripe
+        unit_amount = int(purchase_amount * 100)  # in cents
+
+        if unit_amount > 1000000:  # $10000 limit
+            return HttpResponse("The maximum purchase amount is $10000.", status=400)
 
         # Create checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -368,7 +387,7 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
                         "currency": "usd",
                         "product_data": {
                             "name": f"{credit_amount} Attendee Credits",
-                            "description": f"Purchase {credit_amount} attendee credits for your account",
+                            "description": f"Purchase {credit_amount} Attendee credits for your account",
                         },
                         "unit_amount": unit_amount,
                     },
