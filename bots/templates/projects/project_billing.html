@@ -144,9 +144,13 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    // Function that contains all your billing logic
+    function initializeBillingForm() {
         const purchaseAmountInput = document.getElementById('purchaseAmount');
         const calculatedCredits = document.getElementById('calculatedCredits');
+        
+        // Don't proceed if elements aren't found (prevents errors)
+        if (!purchaseAmountInput || !calculatedCredits) return;
         
         // Function to calculate credits based on tiered pricing
         function calculateCredits(amount) {
@@ -178,7 +182,13 @@
         
         // Initialize with default value
         updateCredits();
-    });
+    }
+
+    // Call on regular page load
+    document.addEventListener('DOMContentLoaded', initializeBillingForm);
+    
+    // Call when HTMX content is loaded
+    document.addEventListener('htmx:afterSwap', initializeBillingForm);
 </script>
 
 {% endblock %}
