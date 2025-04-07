@@ -364,10 +364,10 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
         else:
             # Tier 3: $0.35 per credit
             credit_amount = purchase_amount / 0.35
-            
+
         # Floor the credit amount to ensure whole credits
         credit_amount = math.floor(credit_amount)
-        
+
         # Ensure at least 1 credit
         if credit_amount < 1:
             credit_amount = 1
