@@ -1,9 +1,9 @@
 import logging
+import os
 import threading
 from pathlib import Path
 
 import boto3
-import os
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
