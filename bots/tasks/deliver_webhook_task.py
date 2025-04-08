@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
     bind=True,
     retry_backoff=True,  # Enable exponential backoff
     max_retries=5,
-    autoretry_for=(Exception,)
+    autoretry_for=(Exception,),
 )
 def deliver_webhook(self, delivery_id):
     """
