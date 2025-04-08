@@ -50,6 +50,12 @@ class WebhookSubscriptionTest(TransactionTestCase):
         self.create_webhook_view = CreateWebhookView()
         self.delete_webhook_view = DeleteWebhookView()
 
+        # Configure Celery to run tasks eagerly (synchronously)
+        from django.conf import settings
+
+        settings.CELERY_TASK_ALWAYS_EAGER = True
+        settings.CELERY_TASK_EAGER_PROPAGATES = True
+
     def _get_request(self, user=None, method="GET", post_data=None):
         """Helper method to create a request object"""
         request = HttpRequest()
@@ -273,6 +279,12 @@ class WebhookDeliveryTest(TransactionTestCase):
             meeting_url="https://zoom.us/j/123",
             state=BotStates.READY,
         )
+
+        # Configure Celery to run tasks eagerly (synchronously)
+        from django.conf import settings
+
+        settings.CELERY_TASK_ALWAYS_EAGER = True
+        settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     @patch("bots.tasks.deliver_webhook_task.requests.post")
     def test_webhook_delivery_success(self, mock_post):
