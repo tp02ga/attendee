@@ -170,8 +170,7 @@ class StripeBillingTestCase(TestCase):
         self.assertEqual(CreditTransaction.objects.count(), initial_transaction_count)
 
     @patch("stripe.Webhook.construct_event")
-    @patch("bots.external_webhooks_views.process_checkout_session_completed")
-    def test_stripe_webhook(self, mock_process, mock_construct_event):
+    def test_stripe_webhook(self, mock_construct_event):
         # Create a webhook client without CSRF protection
         webhook_client = Client(enforce_csrf_checks=False)
 
@@ -187,6 +186,9 @@ class StripeBillingTestCase(TestCase):
 
         mock_construct_event.return_value = mock_event
 
+        # Record initial credit balance
+        initial_credits = self.org.centicredits
+
         # Test the webhook endpoint
         response = webhook_client.post(
             reverse("external-webhook-stripe"),
@@ -199,8 +201,14 @@ class StripeBillingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         mock_construct_event.assert_called_once()
 
-        # Check process_checkout_session_completed was called with the mock session
-        mock_process.assert_called_once_with(mock_session)
+        # Check that a credit transaction was created with the correct values
+        self.org.refresh_from_db()
+        transaction = CreditTransaction.objects.filter(organization=self.org, stripe_payment_intent_id="pi_test_webhook").first()
+
+        self.assertIsNotNone(transaction, "Credit transaction should be created")
+        self.assertEqual(transaction.centicredits_delta, 10000, "Transaction should add 100 credits (10000 centicredits)")
+        self.assertEqual(transaction.centicredits_before, initial_credits, "Before credits should match initial balance")
+        self.assertEqual(transaction.centicredits_after, initial_credits + 10000, "After credits should be initial + 10000")
 
     @patch("stripe.Webhook.construct_event")
     def test_stripe_webhook_error_handling(self, mock_construct_event):
