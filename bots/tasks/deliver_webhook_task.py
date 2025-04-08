@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @shared_task(
     bind=True,
     retry_backoff=True,  # Enable exponential backoff
-    max_retries=5,
+    max_retries=3,
     autoretry_for=(Exception,),
 )
 def deliver_webhook(self, delivery_id):
@@ -100,6 +100,10 @@ def deliver_webhook(self, delivery_id):
 
     delivery.save()
 
-    # Check if this was the last retry attempt
-    if delivery.attempt_count >= self.max_retries and delivery.status == WebhookDeliveryAttemptStatus.FAILURE:
-        logger.error(f"Webhook delivery failed after {delivery.attempt_count} attempts. " + f"Webhook ID: {delivery.id}, URL: {subscription.url}, " + f"Event: {delivery.webhook_trigger_type}, Status: {delivery.status}")
+    if delivery.status == WebhookDeliveryAttemptStatus.FAILURE:
+        # Check if this was the last retry attempt
+        if delivery.attempt_count >= self.max_retries:
+            logger.error(f"Webhook delivery failed after {delivery.attempt_count} attempts. " + f"Webhook ID: {delivery.id}, URL: {subscription.url}, " + f"Event: {delivery.webhook_trigger_type}, Status: {delivery.status}")
+        else:
+            logger.info(f"Retrying webhook delivery {delivery.id} (attempt {delivery.attempt_count}/{self.max_retries})")
+            raise Exception("Retry due to failure")
