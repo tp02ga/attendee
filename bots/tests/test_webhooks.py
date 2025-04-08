@@ -316,8 +316,13 @@ class WebhookDeliveryTest(TransactionTestCase):
             payload={"test": "data"},
         )
 
-        # Call delivery task
-        deliver_webhook.apply(args=[attempt.id])
+        # Call delivery task - manually simulate the retries
+        for _ in range(3):
+            try:
+                deliver_webhook.apply(args=[attempt.id])
+            except:
+                # Ignore the retry exception
+                pass
 
         # Refresh the attempt object from the db
         attempt.refresh_from_db()
