@@ -324,9 +324,9 @@ class WebhookDeliveryTest(TransactionTestCase):
 
         self.assertTrue(isinstance(attempt.status, int))
         self.assertEqual(attempt.status, WebhookDeliveryAttemptStatus.FAILURE)
-        self.assertEqual(len(attempt.response_body_list), 1)
+        self.assertEqual(len(attempt.response_body_list), 3)
         self.assertIsNone(attempt.succeeded_at)
-        self.assertEqual(attempt.attempt_count, 1)
+        self.assertEqual(attempt.attempt_count, 3)
 
     @patch("bots.tasks.deliver_webhook_task.requests.post")
     def test_webhook_delivery_inactive(self, mock_post):
