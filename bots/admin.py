@@ -173,3 +173,67 @@ class WebhookSubscriptionAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return True
+
+@admin.register(Utterance)
+class UtteranceAdmin(admin.ModelAdmin):
+    list_display = ('recording', 'participant', 'timestamp_ms', 'duration_ms', 'source', 'created_at', 'updated_at')
+    list_filter = ('source', 'audio_format')
+    search_fields = ('participant__full_name', 'recording__bot__object_id')
+    readonly_fields = ('recording', 'participant', 'audio_blob', 'audio_format', 'timestamp_ms', 'duration_ms', 
+                      'transcription', 'source_uuid', 'sample_rate', 'source')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        # Get latency statistics for the last 12 hours
+        twelve_hours_ago = timezone.now() - datetime.timedelta(hours=12)
+        
+        # Query successfully transcribed utterances in the last 12 hours
+        # Exclude closed captions (source = 2 is CLOSED_CAPTION_FROM_PLATFORM)
+        recent_utterances = Utterance.objects.filter(
+            created_at__gte=twelve_hours_ago,
+            transcription__isnull=False,
+            source=Utterance.Sources.PER_PARTICIPANT_AUDIO
+        ).annotate(
+            latency_seconds=ExpressionWrapper(
+                Extract(F('updated_at') - F('created_at'), 'epoch'),
+                output_field=FloatField()
+            )
+        )
+        
+        # Calculate latency statistics
+        latency_stats = recent_utterances.aggregate(
+            recent_count=Count('id'),
+            avg_latency=models.Avg('latency_seconds'),
+            min_latency=models.Min('latency_seconds'),
+            max_latency=models.Max('latency_seconds')
+        )
+        
+        # Round latency values to 2 decimal places if they exist
+        if latency_stats['avg_latency'] is not None:
+            latency_stats['avg_latency'] = round(latency_stats['avg_latency'], 2)
+        if latency_stats['min_latency'] is not None:
+            latency_stats['min_latency'] = round(latency_stats['min_latency'], 2)
+        if latency_stats['max_latency'] is not None:
+            latency_stats['max_latency'] = round(latency_stats['max_latency'], 2)
+        
+        if not extra_context:
+            extra_context = {}
+            
+        extra_context.update({
+            'utterance_stats': {
+                'recent_count': latency_stats['recent_count'],
+                'avg_latency': latency_stats['avg_latency'],
+                'min_latency': latency_stats['min_latency'],
+                'max_latency': latency_stats['max_latency'],
+            }
+        })
+        
+        return super().changelist_view(request, extra_context=extra_context)
