@@ -165,7 +165,7 @@ class UtteranceAdmin(admin.ModelAdmin):
     list_display = ("recording", "participant", "timestamp_ms", "duration_ms", "source", "created_at", "updated_at")
     list_filter = ("source", "audio_format")
     search_fields = ("participant__full_name", "recording__bot__object_id")
-    readonly_fields = ("recording", "participant", "audio_blob", "audio_format", "timestamp_ms", "duration_ms", "transcription", "source_uuid", "sample_rate", "source")
+    readonly_fields = ("recording", "participant", "audio_blob", "audio_format", "timestamp_ms", "duration_ms", "source_uuid", "sample_rate", "source")
 
     def has_add_permission(self, request):
         return False
