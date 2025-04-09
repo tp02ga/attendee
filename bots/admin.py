@@ -6,6 +6,11 @@ from django.db.models.functions import Cast
 from django.contrib.admin.views.main import ChangeList
 from django.db.models.expressions import Window
 from django.db.models.functions import RowNumber
+from django.db import models
+from django.utils import timezone
+import datetime
+from django.db.models.functions import Extract
+from django.db.models import ExpressionWrapper
 
 from .models import Bot, BotEvent, Utterance, WebhookDeliveryAttempt, WebhookSubscription
 
@@ -99,6 +104,38 @@ class WebhookDeliveryAttemptAdmin(admin.ModelAdmin):
         failure_pct = round((failure / total) * 100, 2) if total > 0 else 0
         pending_pct = round((pending / total) * 100, 2) if total > 0 else 0
         
+        # Get latency statistics for the last 12 hours
+        twelve_hours_ago = timezone.now() - datetime.timedelta(hours=12)
+        
+        # Query successful deliveries in the last 12 hours
+        # Use extract('epoch') for PostgreSQL compatibility
+        
+        recent_deliveries = WebhookDeliveryAttempt.objects.filter(
+            succeeded_at__isnull=False,
+            created_at__gte=twelve_hours_ago
+        ).annotate(
+            latency_seconds=ExpressionWrapper(
+                Extract(F('succeeded_at') - F('created_at'), 'epoch'),
+                output_field=FloatField()
+            )
+        )
+        
+        # Calculate latency statistics
+        latency_stats = recent_deliveries.aggregate(
+            recent_success_count=Count('id'),
+            avg_latency=models.Avg('latency_seconds'),
+            min_latency=models.Min('latency_seconds'),
+            max_latency=models.Max('latency_seconds')
+        )
+        
+        # Round latency values to 2 decimal places if they exist
+        if latency_stats['avg_latency'] is not None:
+            latency_stats['avg_latency'] = round(latency_stats['avg_latency'], 2)
+        if latency_stats['min_latency'] is not None:
+            latency_stats['min_latency'] = round(latency_stats['min_latency'], 2)
+        if latency_stats['max_latency'] is not None:
+            latency_stats['max_latency'] = round(latency_stats['max_latency'], 2)
+        
         if not extra_context:
             extra_context = {}
             
@@ -111,6 +148,10 @@ class WebhookDeliveryAttemptAdmin(admin.ModelAdmin):
                 'success_pct': success_pct,
                 'failure_pct': failure_pct,
                 'pending_pct': pending_pct,
+                'recent_success_count': latency_stats['recent_success_count'],
+                'avg_latency': latency_stats['avg_latency'],
+                'min_latency': latency_stats['min_latency'],
+                'max_latency': latency_stats['max_latency'],
             }
         })
         

@@ -13,6 +13,17 @@
                 <p><strong>Failure:</strong> {{ webhook_stats.failure }} ({{ webhook_stats.failure_pct }}%)</p>
                 <p><strong>Pending:</strong> {{ webhook_stats.pending }} ({{ webhook_stats.pending_pct }}%)</p>
             </div>
+            <div style="flex: 1; min-width: 200px;">
+                <h3>Latency (Last 12 Hours)</h3>
+                <p><strong>Successful Deliveries:</strong> {{ webhook_stats.recent_success_count }}</p>
+                {% if webhook_stats.avg_latency is not None %}
+                    <p><strong>Average Latency:</strong> {{ webhook_stats.avg_latency }} seconds</p>
+                    <p><strong>Minimum Latency:</strong> {{ webhook_stats.min_latency }} seconds</p>
+                    <p><strong>Maximum Latency:</strong> {{ webhook_stats.max_latency }} seconds</p>
+                {% else %}
+                    <p><em>No successful webhooks in the last 12 hours</em></p>
+                {% endif %}
+            </div>
         </div>
     </div>
 {% endblock %}
