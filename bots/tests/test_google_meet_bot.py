@@ -308,7 +308,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.bot.save()
 
         # Import and run the command
-        from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+        from bots.management.commands.terminate_bots_with_heartbeat_timeout_or_that_never_launched import Command
 
         command = Command()
         command.handle()
