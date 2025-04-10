@@ -87,34 +87,30 @@ class Command(BaseCommand):
 
     def terminate_bots_that_never_launched(self):
         logger.info("Terminating bots that never launched...")
-        
+
         try:
             # Calculate timestamps for 7 days ago and 1 hour ago
             seven_days_ago = timezone.now() - timezone.timedelta(days=7)
             one_hour_ago = timezone.now() - timezone.timedelta(hours=1)
-            
+
             # Find non-terminal bots where:
             # - created between 7 days and 1 hour ago
             # - first heartbeat is null (never launched)
-            never_launched_q_filter = models.Q(
-                created_at__gt=seven_days_ago,
-                created_at__lt=one_hour_ago,
-                first_heartbeat_timestamp__isnull=True
-            )
+            never_launched_q_filter = models.Q(created_at__gt=seven_days_ago, created_at__lt=one_hour_ago, first_heartbeat_timestamp__isnull=True)
             problem_bots = Bot.objects.filter(~BotEventManager.get_terminal_states_q_filter() & never_launched_q_filter)
-            
+
             logger.info(f"Found {problem_bots.count()} bots that never launched")
-            
+
             # Create fatal error events for each bot
             for bot in problem_bots:
                 try:
                     logger.info(f"Terminating bot {bot.object_id} that never launched")
                     self.terminate_bot(bot, BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED)
-                    
+
                 except Exception as e:
                     logger.error(f"Failed to terminate bot {bot.object_id}: {str(e)}")
-                    
+
             logger.info("Finished terminating bots that never launched")
-            
+
         except Exception as e:
             logger.error(f"Failed to terminate bots that never launched: {str(e)}")
