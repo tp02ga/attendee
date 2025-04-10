@@ -94,7 +94,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return True  # Allow viewing but fields will be read-only
+        return False  # Allow viewing but fields will be read-only
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -123,7 +123,7 @@ class UserAdmin(BaseUserAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return True  # Allow viewing but fields will be read-only
+        return False  # Allow viewing but fields will be read-only
 
     def has_delete_permission(self, request, obj=None):
         return False
