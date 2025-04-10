@@ -102,7 +102,25 @@ class BotPodCreator:
                         name="regcred"
                     )
                 ],
-                termination_grace_period_seconds=60
+                termination_grace_period_seconds=60,
+                # Add scheduling configuration to handle pod scheduling during node scaling
+                scheduler_name="default-scheduler",
+                # Add tolerations to allow pods to be scheduled on nodes with specific taints
+                # This can help with scheduling during autoscaling events
+                tolerations=[
+                    client.V1Toleration(
+                        key="node.kubernetes.io/not-ready",
+                        operator="Exists",
+                        effect="NoExecute",
+                        toleration_seconds=900  # Tolerate not-ready nodes for 15 minutes
+                    ),
+                    client.V1Toleration(
+                        key="node.kubernetes.io/unreachable",
+                        operator="Exists",
+                        effect="NoExecute",
+                        toleration_seconds=900  # Tolerate unreachable nodes for 15 minutes
+                    )
+                ]
             )
         )
 
