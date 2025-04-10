@@ -36,5 +36,5 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         # The JavaScript side can convert it to appropriate format
         self.driver.execute_script("""
             const bytes = new Uint8Array(arguments[0]);
-            window.botOutputImage(bytes);
+            window.botOutputManager.displayImage(bytes);
         """, list(image_bytes))

@@ -2512,131 +2512,97 @@ function turnOffMicAndCamera() {
 }
 
 const _getUserMedia = navigator.mediaDevices.getUserMedia;
-let botOutputCanvas = null;
-let drawPatternInterval = null;
-let botOutputVideoElement = null;
-let videoSource = null;
-let botOutputVideoElementCaptureStream = null;
 
-let audioContextForBotOutput = null;
-let gainNode = null;
-let destination = null;
-let videoToPlayThroughBot = null;
-let botOutputAudioTrack = null;
-
-let botOutputCanvasElement = null;
-let botOutputCanvasElementCaptureStream = null;
-
-function addBotOutputCanvasElement(imageBytes) {
-    // Create a new canvas element
-    botOutputCanvasElement = document.createElement('canvas');
-    botOutputCanvasElement.width = 640; // Example width
-    botOutputCanvasElement.height = 480; // Example height
-    
-    return new Promise((resolve, reject) => {
-        // Create an Image object to load the PNG
-        const img = new Image();
+class BotOutputManager {
+    constructor() {
         
-        // Convert the image bytes to a data URL
-        const blob = new Blob([imageBytes], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
-        
-        // Draw the image on the canvas when it loads
-        img.onload = () => {
-            // Resize canvas to match image dimensions
-            botOutputCanvasElement.width = img.width;
-            botOutputCanvasElement.height = img.height;
-            
-            // Get the 2D context and draw the image
-            const ctx = botOutputCanvasElement.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            
-            // Clean up the object URL
-            URL.revokeObjectURL(url);
-            
-            // Resolve the promise now that image is loaded
-            resolve();
-        };
-        
-        // Handle image loading errors
-        img.onerror = (error) => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Failed to load image'));
-        };
-        
-        // Set the image source to start loading
-        img.src = url;
-    });
-}
+        // For outputting video
+        this.botOutputVideoElement = null;
+        this.videoSource = null;
+        this.botOutputVideoElementCaptureStream = null;
 
-function showImageThroughBot(imageBytes) {
-    // Wait for the image to be loaded onto the canvas
-    return addBotOutputCanvasElement(imageBytes)
-        .then(() => {
-            // Now that the image is loaded, capture the stream and turn on camera
-            botOutputCanvasElementCaptureStream = botOutputCanvasElement.captureStream();
-            turnOnCamera();
-        })
-        .catch(error => {
-            console.error('Error showing image through bot:', error);
-        });
-}
-
-function addBotOutputVideoElement(url) {
-    // Disconnect previous video source if it exists
-    if (videoSource) {
-        videoSource.disconnect();
-        videoSource = null;
+        // For outputting image
+        this.botOutputCanvasElement = null;
+        this.botOutputCanvasElementCaptureStream = null;
+        
+        // For outputting audio
+        this.audioContextForBotOutput = null;
+        this.gainNode = null;
+        this.destination = null;
+        this.botOutputAudioTrack = null;
     }
 
-    // Remove any existing video element
-    if (botOutputVideoElement) {
-        botOutputVideoElement.remove();
-    }
+    displayImage(imageBytes) {
+        try {
+            // Wait for the image to be loaded onto the canvas
+            return this.writeImageToBotOutputCanvas(imageBytes)
+                .then(() => {
+                // If the stream is already broadcasting, don't do anything
+                if (this.botOutputCanvasElementCaptureStream)
+                {
+                    console.log("Stream already broadcasting, skipping");
+                    return;
+                }
 
-    // Create new video element
-    botOutputVideoElement = document.createElement('video');
-    botOutputVideoElement.style.display = 'none';
-    botOutputVideoElement.src = url;
-    botOutputVideoElement.crossOrigin = 'anonymous';
-    botOutputVideoElement.loop = false;
-    botOutputVideoElement.autoplay = true;
-    botOutputVideoElement.muted = false;
-    // Clean up when video ends
-    botOutputVideoElement.addEventListener('ended', () => {
-        turnOffMicAndCamera();
-        if (videoSource) {
-            videoSource.disconnect();
-            videoSource = null;
+                // Now that the image is loaded, capture the stream and turn on camera
+                this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream();
+                turnOnCamera();
+            })
+            .catch(error => {
+                console.error('Error in botOutputManager.displayImage:', error);
+            });
+        } catch (error) {
+            console.error('Error in botOutputManager.displayImage:', error);
         }
-        botOutputVideoElement.remove();
-        botOutputVideoElement = null;
-        botOutputVideoElementCaptureStream = null;
-    });
-
-    document.body.appendChild(botOutputVideoElement);
-}
-
-let numruns = 0;
-function playVideoThroughBot() {
-    if (numruns % 2 == 0) {
-        videoUrl = 'https://attendee-public-assets.s3.us-east-1.amazonaws.com/amsdkadklamdamkasd.mp4';
-    } else {
-        videoUrl = 'https://attendee-public-assets.s3.us-east-1.amazonaws.com/testfudge_high_res.mp4';
     }
-    numruns++;
 
-    addBotOutputVideoElement(videoUrl);
-    
-    // Add event listener to wait until the video starts playing
-    botOutputVideoElement.addEventListener('playing', () => {
-        console.log("Video has started playing, turning on mic and camera");
-
-        botOutputVideoElementCaptureStream = botOutputVideoElement.captureStream();
+    writeImageToBotOutputCanvas(imageBytes) {
+        if (!this.botOutputCanvasElement) {
+            // Create a new canvas element
+            this.botOutputCanvasElement = document.createElement('canvas');
+            this.botOutputCanvasElement.width = 640; // Example width
+            this.botOutputCanvasElement.height = 480; // Example height
+        }
         
-        turnOnMicAndCamera();
-    }, { once: true }); // Use {once: true} to ensure the event only fires once
+        return new Promise((resolve, reject) => {
+            // Create an Image object to load the PNG
+            const img = new Image();
+            
+            // Convert the image bytes to a data URL
+            const blob = new Blob([imageBytes], { type: 'image/png' });
+            const url = URL.createObjectURL(blob);
+            
+            // Draw the image on the canvas when it loads
+            img.onload = () => {
+                // Resize canvas to match image dimensions
+                this.botOutputCanvasElement.width = img.width;
+                this.botOutputCanvasElement.height = img.height;
+                
+                // Get the 2D context and draw the image
+                const ctx = this.botOutputCanvasElement.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                // Clean up the object URL
+                URL.revokeObjectURL(url);
+                
+                // Resolve the promise now that image is loaded
+                resolve();
+            };
+            
+            // Handle image loading errors
+            img.onerror = (error) => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Failed to load image'));
+            };
+            
+            // Set the image source to start loading
+            img.src = url;
+        });
+    }
 }
+
+const botOutputManager = new BotOutputManager();
+window.botOutputManager = botOutputManager;
 
 navigator.mediaDevices.getUserMedia = function(constraints) {
     return _getUserMedia.call(navigator.mediaDevices, constraints)
@@ -2649,16 +2615,21 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
         // Create a new MediaStream to return
         const newStream = new MediaStream();
   
+        // Video sending not supported yet
+        /* 
         if (constraints.video && botOutputVideoElementCaptureStream) {
             console.log("Adding video track", botOutputVideoElementCaptureStream.getVideoTracks()[0]);
             newStream.addTrack(botOutputVideoElementCaptureStream.getVideoTracks()[0]);
         }
+        */
 
-        if (constraints.video && botOutputCanvasElementCaptureStream) {
-            console.log("Adding canvas track", botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
-            newStream.addTrack(botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+        if (constraints.video && botOutputManager.botOutputCanvasElementCaptureStream) {
+            console.log("Adding canvas track", botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+            newStream.addTrack(botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
         }
 
+        // Audio sending not supported yet
+        /*
         // If audio is requested, add our fake audio track
         if (constraints.audio) {  // Only create once
             if (!audioContextForBotOutput) {
@@ -2678,11 +2649,15 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
             }
             newStream.addTrack(botOutputAudioTrack);
         }
+        */
 
+        // Video sending not supported yet
+        /*
         if (botOutputVideoElement && audioContextForBotOutput && !videoSource) {
             videoSource = audioContextForBotOutput.createMediaElementSource(botOutputVideoElement);
             videoSource.connect(gainNode);
         }
+        */
   
         return newStream;
       })
@@ -2691,7 +2666,3 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
         throw err;
       });
   };
-
-window.botOutputImage = function(imageBytes) {
-    showImageThroughBot(imageBytes);
-}
