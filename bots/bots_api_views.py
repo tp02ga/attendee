@@ -40,6 +40,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .tasks import run_bot
+from .utils import is_valid_png
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -447,6 +448,13 @@ class OutputImageView(APIView):
             except Exception:
                 return Response(
                     {"error": "Invalid base64 encoded data"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # PNG is the only supported image type for now, so no need to check content_type
+            if not is_valid_png(image_data):
+                return Response(
+                    {"error": "Data is not a valid PNG image. This site can generate base64 encoded PNG images to test with: https://png-pixel.com"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

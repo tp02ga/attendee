@@ -2459,3 +2459,239 @@ function clickLanguageOption(languageCode) {
         return false;
     }
 }
+
+function turnOnCamera() {
+    // Click camera button to turn it on
+    const cameraButton = document.querySelector('button[aria-label="Turn on camera"]');
+    if (cameraButton) {
+        console.log("Clicking the camera button to turn it on");
+        cameraButton.click();
+    } else {
+        console.log("Camera button not found");
+    }
+}
+
+function turnOnMicAndCamera() {
+    // Click microphone button to turn it on
+    const microphoneButton = document.querySelector('button[aria-label="Turn on microphone"]');
+    if (microphoneButton) {
+        console.log("Clicking the microphone button to turn it on");
+        microphoneButton.click();
+    } else {
+        console.log("Microphone button not found");
+    }
+
+    // Click camera button to turn it on
+    const cameraButton = document.querySelector('button[aria-label="Turn on camera"]');
+    if (cameraButton) {
+        console.log("Clicking the camera button to turn it on");
+        cameraButton.click();
+    } else {
+        console.log("Camera button not found");
+    }
+}
+
+function turnOffMicAndCamera() {
+    // Click microphone button to turn it on
+    const microphoneButton = document.querySelector('button[aria-label="Turn off microphone"]');
+    if (microphoneButton) {
+        console.log("Clicking the microphone button to turn it off");
+        microphoneButton.click();
+    } else {
+        console.log("Microphone off button not found");
+    }
+
+    // Click camera button to turn it on
+    const cameraButton = document.querySelector('button[aria-label="Turn off camera"]');
+    if (cameraButton) {
+        console.log("Clicking the camera button to turn it off");
+        cameraButton.click();
+    } else {
+        console.log("Camera off button not found");
+    }
+}
+
+const _getUserMedia = navigator.mediaDevices.getUserMedia;
+let botOutputCanvas = null;
+let drawPatternInterval = null;
+let botOutputVideoElement = null;
+let videoSource = null;
+let botOutputVideoElementCaptureStream = null;
+
+let audioContextForBotOutput = null;
+let gainNode = null;
+let destination = null;
+let videoToPlayThroughBot = null;
+let botOutputAudioTrack = null;
+
+let botOutputCanvasElement = null;
+let botOutputCanvasElementCaptureStream = null;
+
+function addBotOutputCanvasElement(imageBytes) {
+    // Create a new canvas element
+    botOutputCanvasElement = document.createElement('canvas');
+    botOutputCanvasElement.width = 640; // Example width
+    botOutputCanvasElement.height = 480; // Example height
+    
+    return new Promise((resolve, reject) => {
+        // Create an Image object to load the PNG
+        const img = new Image();
+        
+        // Convert the image bytes to a data URL
+        const blob = new Blob([imageBytes], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+        
+        // Draw the image on the canvas when it loads
+        img.onload = () => {
+            // Resize canvas to match image dimensions
+            botOutputCanvasElement.width = img.width;
+            botOutputCanvasElement.height = img.height;
+            
+            // Get the 2D context and draw the image
+            const ctx = botOutputCanvasElement.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            // Clean up the object URL
+            URL.revokeObjectURL(url);
+            
+            // Resolve the promise now that image is loaded
+            resolve();
+        };
+        
+        // Handle image loading errors
+        img.onerror = (error) => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image'));
+        };
+        
+        // Set the image source to start loading
+        img.src = url;
+    });
+}
+
+function showImageThroughBot(imageBytes) {
+    // Wait for the image to be loaded onto the canvas
+    return addBotOutputCanvasElement(imageBytes)
+        .then(() => {
+            // Now that the image is loaded, capture the stream and turn on camera
+            botOutputCanvasElementCaptureStream = botOutputCanvasElement.captureStream();
+            turnOnCamera();
+        })
+        .catch(error => {
+            console.error('Error showing image through bot:', error);
+        });
+}
+
+function addBotOutputVideoElement(url) {
+    // Disconnect previous video source if it exists
+    if (videoSource) {
+        videoSource.disconnect();
+        videoSource = null;
+    }
+
+    // Remove any existing video element
+    if (botOutputVideoElement) {
+        botOutputVideoElement.remove();
+    }
+
+    // Create new video element
+    botOutputVideoElement = document.createElement('video');
+    botOutputVideoElement.style.display = 'none';
+    botOutputVideoElement.src = url;
+    botOutputVideoElement.crossOrigin = 'anonymous';
+    botOutputVideoElement.loop = false;
+    botOutputVideoElement.autoplay = true;
+    botOutputVideoElement.muted = false;
+    // Clean up when video ends
+    botOutputVideoElement.addEventListener('ended', () => {
+        turnOffMicAndCamera();
+        if (videoSource) {
+            videoSource.disconnect();
+            videoSource = null;
+        }
+        botOutputVideoElement.remove();
+        botOutputVideoElement = null;
+        botOutputVideoElementCaptureStream = null;
+    });
+
+    document.body.appendChild(botOutputVideoElement);
+}
+
+let numruns = 0;
+function playVideoThroughBot() {
+    if (numruns % 2 == 0) {
+        videoUrl = 'https://attendee-public-assets.s3.us-east-1.amazonaws.com/amsdkadklamdamkasd.mp4';
+    } else {
+        videoUrl = 'https://attendee-public-assets.s3.us-east-1.amazonaws.com/testfudge_high_res.mp4';
+    }
+    numruns++;
+
+    addBotOutputVideoElement(videoUrl);
+    
+    // Add event listener to wait until the video starts playing
+    botOutputVideoElement.addEventListener('playing', () => {
+        console.log("Video has started playing, turning on mic and camera");
+
+        botOutputVideoElementCaptureStream = botOutputVideoElement.captureStream();
+        
+        turnOnMicAndCamera();
+    }, { once: true }); // Use {once: true} to ensure the event only fires once
+}
+
+navigator.mediaDevices.getUserMedia = function(constraints) {
+    return _getUserMedia.call(navigator.mediaDevices, constraints)
+      .then(originalStream => {
+        console.log("Intercepted getUserMedia:", constraints);
+  
+        // Stop any original tracks so we don't actually capture real mic/cam
+        originalStream.getTracks().forEach(t => t.stop());
+  
+        // Create a new MediaStream to return
+        const newStream = new MediaStream();
+  
+        if (constraints.video && botOutputVideoElementCaptureStream) {
+            console.log("Adding video track", botOutputVideoElementCaptureStream.getVideoTracks()[0]);
+            newStream.addTrack(botOutputVideoElementCaptureStream.getVideoTracks()[0]);
+        }
+
+        if (constraints.video && botOutputCanvasElementCaptureStream) {
+            console.log("Adding canvas track", botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+            newStream.addTrack(botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+        }
+
+        // If audio is requested, add our fake audio track
+        if (constraints.audio) {  // Only create once
+            if (!audioContextForBotOutput) {
+                // Create AudioContext and nodes
+                audioContextForBotOutput = new AudioContext();
+                gainNode = audioContextForBotOutput.createGain();
+                destination = audioContextForBotOutput.createMediaStreamDestination();
+
+                // Set initial gain
+                gainNode.gain.value = 1.0;
+
+                // Connect gain node to both destinations
+                gainNode.connect(destination);
+                gainNode.connect(audioContextForBotOutput.destination);  // For local monitoring
+
+                botOutputAudioTrack = destination.stream.getAudioTracks()[0];
+            }
+            newStream.addTrack(botOutputAudioTrack);
+        }
+
+        if (botOutputVideoElement && audioContextForBotOutput && !videoSource) {
+            videoSource = audioContextForBotOutput.createMediaElementSource(botOutputVideoElement);
+            videoSource.connect(gainNode);
+        }
+  
+        return newStream;
+      })
+      .catch(err => {
+        console.error("Error in custom getUserMedia override:", err);
+        throw err;
+      });
+  };
+
+window.botOutputImage = function(imageBytes) {
+    showImageThroughBot(imageBytes);
+}
