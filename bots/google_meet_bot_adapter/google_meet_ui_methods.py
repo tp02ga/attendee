@@ -58,7 +58,7 @@ class GoogleMeetUIMethods:
             others_may_see_your_meeting_differently_button.click()
 
     def look_for_blocked_element(self, step):
-        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
+        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
         if cannot_join_element:
             # This means google is blocking us for whatever reason, but we can retry
             logger.info("Google is blocking us for whatever reason, but we can retry. Raising UiGoogleBlockingUsException")
@@ -120,7 +120,11 @@ class GoogleMeetUIMethods:
                 self.click_element(captions_button, "click_captions_button")
                 return
             except UiCouldNotClickElementException as e:
-                raise e
+                self.click_others_may_see_your_meeting_differently_button("click_captions_button")
+                last_check_could_not_click_element = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
+                if last_check_could_not_click_element:
+                    logger.info("Could not click captions button. Raising UiCouldNotClickElementException")
+                    raise e
             except TimeoutException as e:
                 self.look_for_blocked_element("click_captions_button")
                 self.look_for_denied_your_request_element("click_captions_button")
@@ -147,7 +151,7 @@ class GoogleMeetUIMethods:
                 )
 
     def check_if_meeting_is_found(self):
-        meeting_not_found_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Check your meeting code") or contains(text(), "Invalid video call name")]')
+        meeting_not_found_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Check your meeting code") or contains(text(), "Invalid video call name") or contains(text(), "Your meeting code has expired")]')
         if meeting_not_found_element:
             logger.info("Meeting not found. Raising UiMeetingNotFoundException")
             raise UiMeetingNotFoundException("Meeting not found", "check_if_meeting_is_found")
