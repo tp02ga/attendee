@@ -16,6 +16,9 @@ from django.views.generic.list import ListView
 from .models import (
     ApiKey,
     Bot,
+    BotEvent,
+    BotEventSubTypes,
+    BotEventTypes,
     BotStates,
     Credentials,
     CreditTransaction,
@@ -201,7 +204,19 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
-        bots = Bot.objects.filter(project=project).order_by("-created_at")
+        # Get the latest bot event type and subtype for each bot using subquery annotations
+        latest_event_subquery_base = BotEvent.objects.filter(bot=models.OuterRef("pk")).order_by("-created_at")
+
+        latest_event_type = latest_event_subquery_base.values("event_type")[:1]
+        latest_event_sub_type = latest_event_subquery_base.values("event_sub_type")[:1]
+
+        bots = Bot.objects.filter(project=project).annotate(last_event_type=models.Subquery(latest_event_type), last_event_sub_type=models.Subquery(latest_event_sub_type)).order_by("-created_at")
+
+        for bot in bots:
+            if bot.last_event_type:
+                bot.last_event_type_display = dict(BotEventTypes.choices).get(bot.last_event_type, str(bot.last_event_type))
+            if bot.last_event_sub_type:
+                bot.last_event_sub_type_display = dict(BotEventSubTypes.choices).get(bot.last_event_sub_type, str(bot.last_event_sub_type))
 
         context = self.get_project_context(object_id, project)
         context.update(
