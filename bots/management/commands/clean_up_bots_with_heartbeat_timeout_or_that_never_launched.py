@@ -90,15 +90,15 @@ class Command(BaseCommand):
         
         try:
             # Calculate timestamps for 7 days ago and 1 hour ago
-            seven_days_ago_timestamp = int(timezone.now().timestamp() - (7 * 24 * 60 * 60))
-            one_hour_ago_timestamp = int(timezone.now().timestamp() - (60 * 60))
+            seven_days_ago = timezone.now() - timezone.timedelta(days=7)
+            one_hour_ago = timezone.now() - timezone.timedelta(hours=1)
             
             # Find non-terminal bots where:
             # - created between 7 days and 1 hour ago
             # - first heartbeat is null (never launched)
             never_launched_q_filter = models.Q(
-                created_timestamp__gt=seven_days_ago_timestamp,
-                created_timestamp__lt=one_hour_ago_timestamp,
+                created_at__gt=seven_days_ago,
+                created_at__lt=one_hour_ago,
                 first_heartbeat_timestamp__isnull=True
             )
             problem_bots = Bot.objects.filter(~BotEventManager.get_terminal_states_q_filter() & never_launched_q_filter)
