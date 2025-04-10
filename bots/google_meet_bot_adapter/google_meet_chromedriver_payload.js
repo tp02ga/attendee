@@ -2558,10 +2558,10 @@ class BotOutputManager {
 
     writeImageToBotOutputCanvas(imageBytes) {
         if (!this.botOutputCanvasElement) {
-            // Create a new canvas element
+            // Create a new canvas element with fixed dimensions
             this.botOutputCanvasElement = document.createElement('canvas');
-            this.botOutputCanvasElement.width = 640; // Example width
-            this.botOutputCanvasElement.height = 480; // Example height
+            this.botOutputCanvasElement.width = 640; // Fixed width
+            this.botOutputCanvasElement.height = 320; // Fixed height
         }
         
         return new Promise((resolve, reject) => {
@@ -2574,13 +2574,36 @@ class BotOutputManager {
             
             // Draw the image on the canvas when it loads
             img.onload = () => {
-                // Resize canvas to match image dimensions
-                this.botOutputCanvasElement.width = img.width;
-                this.botOutputCanvasElement.height = img.height;
+                const canvas = this.botOutputCanvasElement;
+                const ctx = canvas.getContext('2d');
                 
-                // Get the 2D context and draw the image
-                const ctx = this.botOutputCanvasElement.getContext('2d');
-                ctx.drawImage(img, 0, 0);
+                // Clear the canvas
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Calculate aspect ratios
+                const imgAspect = img.width / img.height;
+                const canvasAspect = canvas.width / canvas.height;
+                
+                // Calculate dimensions to fit image within canvas with letterboxing
+                let renderWidth, renderHeight, offsetX, offsetY;
+                
+                if (imgAspect > canvasAspect) {
+                    // Image is wider than canvas (horizontal letterboxing)
+                    renderWidth = canvas.width;
+                    renderHeight = canvas.width / imgAspect;
+                    offsetX = 0;
+                    offsetY = (canvas.height - renderHeight) / 2;
+                } else {
+                    // Image is taller than canvas (vertical letterboxing)
+                    renderHeight = canvas.height;
+                    renderWidth = canvas.height * imgAspect;
+                    offsetX = (canvas.width - renderWidth) / 2;
+                    offsetY = 0;
+                }
+                
+                // Draw the image centered with letterboxing
+                ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
                 
                 // Clean up the object URL
                 URL.revokeObjectURL(url);

@@ -3,7 +3,7 @@ from bots.google_meet_bot_adapter.google_meet_ui_methods import (
 )
 from bots.web_bot_adapter import WebBotAdapter
 import base64
-
+import time
 
 class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
     def __init__(
@@ -34,6 +34,14 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         
         # Pass the raw bytes directly to JavaScript
         # The JavaScript side can convert it to appropriate format
+        self.driver.execute_script("""
+            const bytes = new Uint8Array(arguments[0]);
+            window.botOutputManager.displayImage(bytes);
+        """, list(image_bytes))
+
+        # Sending it twice seems necessary for full reliability.
+        time.sleep(0.25)
+
         self.driver.execute_script("""
             const bytes = new Uint8Array(arguments[0]);
             window.botOutputManager.displayImage(bytes);
