@@ -58,10 +58,7 @@ class GoogleMeetUIMethods:
             others_may_see_your_meeting_differently_button.click()
 
     def look_for_blocked_element(self, step):
-        cannot_join_element = self.find_element_by_selector(
-            By.XPATH, 
-            '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]'
-        )
+        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
         if cannot_join_element:
             # This means google is blocking us for whatever reason, but we can retry
             logger.info("Google is blocking us for whatever reason, but we can retry. Raising UiGoogleBlockingUsException")
