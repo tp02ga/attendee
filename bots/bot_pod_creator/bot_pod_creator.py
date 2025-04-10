@@ -103,8 +103,6 @@ class BotPodCreator:
                     )
                 ],
                 termination_grace_period_seconds=60,
-                # Add scheduling configuration to handle pod scheduling during node scaling
-                scheduler_name="default-scheduler",
                 # Add tolerations to allow pods to be scheduled on nodes with specific taints
                 # This can help with scheduling during autoscaling events
                 tolerations=[
