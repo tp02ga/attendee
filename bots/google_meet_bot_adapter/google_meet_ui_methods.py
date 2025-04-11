@@ -1,5 +1,4 @@
 import logging
-
 from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -230,6 +229,8 @@ class GoogleMeetUIMethods:
         self.click_captions_button()
 
         self.wait_for_host_if_needed()
+
+        self.ready_to_show_bot_image()
 
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'

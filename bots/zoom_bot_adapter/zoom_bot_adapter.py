@@ -599,6 +599,7 @@ class ZoomBotAdapter(BotAdapter):
 
         if status == zoom.MEETING_STATUS_INMEETING:
             self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
+            self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
 
         if status == zoom.MEETING_STATUS_ENDED:
             # We get the MEETING_STATUS_ENDED regardless of whether we initiated the leave or not

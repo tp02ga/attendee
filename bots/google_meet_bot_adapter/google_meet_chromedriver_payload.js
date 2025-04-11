@@ -2462,7 +2462,7 @@ function clickLanguageOption(languageCode) {
 
 function turnOnCamera() {
     // Click camera button to turn it on
-    const cameraButton = document.querySelector('button[aria-label="Turn on camera"]');
+    const cameraButton = document.querySelector('button[aria-label="Turn on camera"]') || document.querySelector('div[aria-label="Turn on camera"]');
     if (cameraButton) {
         console.log("Clicking the camera button to turn it on");
         cameraButton.click();

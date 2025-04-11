@@ -522,6 +522,9 @@ class WebBotAdapter(BotAdapter):
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
 
+    def ready_to_show_bot_image(self):
+        self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
+
     def send_raw_audio(self, bytes, sample_rate):
         logger.info("send_raw_audio not supported in google meet bots")
 
