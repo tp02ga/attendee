@@ -144,7 +144,7 @@ def create_bot_media_request_for_image(bot, image):
     except Exception as e:
         error_message_first_line = str(e).split("\n")[0]
         logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
-        raise ValidationError(f"Error creating the image blob: {error_message_first_line}. Are you sure it's a valid {content_type} file?")
+        raise ValidationError(f"Error creating the image blob: {error_message_first_line}.")
 
     # Create BotMediaRequest
     BotMediaRequest.objects.create(
