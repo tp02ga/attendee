@@ -4,6 +4,7 @@ import os
 
 import redis
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.urls import reverse
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -14,7 +15,6 @@ from drf_spectacular.utils import (
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db import transaction
 
 from .authentication import ApiKeyAuthentication
 from .models import (
@@ -34,15 +34,14 @@ from .models import (
     Utterance,
 )
 from .serializers import (
+    BotImageSerializer,
     BotSerializer,
     CreateBotSerializer,
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
-    BotImageSerializer,
 )
 from .tasks import run_bot
-from .utils import is_valid_png
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -135,6 +134,7 @@ def launch_bot(bot):
         # Default to launching bot via celery
         run_bot.delay(bot.id)
 
+
 def create_bot_media_request_for_image(bot, image):
     content_type = image["type"]
     image_data = image["decoded_data"]
@@ -152,6 +152,7 @@ def create_bot_media_request_for_image(bot, image):
         media_blob=media_blob,
         media_type=BotMediaRequestMediaTypes.IMAGE,
     )
+
 
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
@@ -234,7 +235,7 @@ class BotCreateView(APIView):
                 try:
                     create_bot_media_request_for_image(bot, bot_image)
                 except ValidationError as e:
-                    return Response({'error': e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # Try to transition the state from READY to JOINING
         BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
@@ -446,7 +447,7 @@ class OutputImageView(APIView):
                     {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Validate request data
             bot_image = BotImageSerializer(data=request.data)
             if not bot_image.is_valid():
@@ -455,7 +456,7 @@ class OutputImageView(APIView):
             try:
                 create_bot_media_request_for_image(bot, bot_image.validated_data)
             except ValidationError as e:
-                return Response({'error': e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
             # Send sync command
             send_sync_command(bot, "sync_media_requests")

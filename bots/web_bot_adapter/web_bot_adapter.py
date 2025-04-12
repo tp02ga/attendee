@@ -287,7 +287,7 @@ class WebBotAdapter(BotAdapter):
 
     def init_driver(self):
         options = webdriver.ChromeOptions()
-        
+
         options.add_argument("--autoplay-policy=no-user-gesture-required")
         options.add_argument("--use-fake-device-for-media-stream")
         options.add_argument("--use-fake-ui-for-media-stream")
