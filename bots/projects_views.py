@@ -200,33 +200,39 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_credentials.html", context)
 
 
-class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
-    def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_bots.html"
+    context_object_name = "bots"
+    paginate_by = 50
 
+    def get_queryset(self):
+        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        
         # Get the latest bot event type and subtype for each bot using subquery annotations
         latest_event_subquery_base = BotEvent.objects.filter(bot=models.OuterRef("pk")).order_by("-created_at")
-
         latest_event_type = latest_event_subquery_base.values("event_type")[:1]
         latest_event_sub_type = latest_event_subquery_base.values("event_sub_type")[:1]
 
-        bots = Bot.objects.filter(project=project).annotate(last_event_type=models.Subquery(latest_event_type), last_event_sub_type=models.Subquery(latest_event_sub_type)).order_by("-created_at")
+        bots = Bot.objects.filter(project=project).annotate(
+            last_event_type=models.Subquery(latest_event_type), 
+            last_event_sub_type=models.Subquery(latest_event_sub_type)
+        ).order_by("-created_at")
 
+        # Add display names for the event types
         for bot in bots:
             if bot.last_event_type:
                 bot.last_event_type_display = dict(BotEventTypes.choices).get(bot.last_event_type, str(bot.last_event_type))
             if bot.last_event_sub_type:
                 bot.last_event_sub_type_display = dict(BotEventSubTypes.choices).get(bot.last_event_sub_type, str(bot.last_event_sub_type))
+        
+        return bots
 
-        context = self.get_project_context(object_id, project)
-        context.update(
-            {
-                "bots": bots,
-                "BotStates": BotStates,
-            }
-        )
-
-        return render(request, "projects/project_bots.html", context)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
+        context["BotStates"] = BotStates
+        return context
 
 
 class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
