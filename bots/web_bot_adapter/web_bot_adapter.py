@@ -288,6 +288,8 @@ class WebBotAdapter(BotAdapter):
     def init_driver(self):
         options = webdriver.ChromeOptions()
 
+        options.add_argument("--autoplay-policy=no-user-gesture-required")
+        options.add_argument("--use-fake-device-for-media-stream")
         options.add_argument("--use-fake-ui-for-media-stream")
         options.add_argument(f"--window-size={self.video_frame_size[0]},{self.video_frame_size[1]}")
         options.add_argument("--no-sandbox")
@@ -519,6 +521,9 @@ class WebBotAdapter(BotAdapter):
                 logger.info(f"Auto-leaving meeting because there was no audio for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
+
+    def ready_to_show_bot_image(self):
+        self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
 
     def send_raw_audio(self, bytes, sample_rate):
         logger.info("send_raw_audio not supported in google meet bots")

@@ -1,3 +1,5 @@
+import base64
+
 import jsonschema
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -11,13 +13,73 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    MediaBlob,
     Recording,
     RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
     RecordingViews,
 )
-from .utils import meeting_type_from_url
+from .utils import is_valid_png, meeting_type_from_url
+
+# Define the schema once
+BOT_IMAGE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "enum": ["image/png"]},
+        "data": {
+            "type": "string",
+        },
+    },
+    "required": ["type", "data"],
+    "additionalProperties": False,
+}
+
+
+@extend_schema_field(BOT_IMAGE_SCHEMA)
+class ImageJSONField(serializers.JSONField):
+    """Field for images with validation"""
+
+    pass
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Valid image",
+            value={
+                "type": "image/png",
+                "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+            },
+            description="An image of a red pixel encoded in base64 in PNG format",
+        )
+    ]
+)
+class BotImageSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=[ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES], help_text="Image content type. Currently only PNG is supported.")  # image/png
+    data = serializers.CharField(help_text="Base64 encoded image data. Simple example of a red pixel encoded in PNG format: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")  # base64 encoded image data
+
+    def validate_type(self, value):
+        """Validate the content type"""
+        if value not in [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES]:
+            raise serializers.ValidationError("Invalid image content type")
+        return value
+
+    def validate(self, data):
+        """Validate the entire image data"""
+        try:
+            # Decode base64 data
+            image_data = base64.b64decode(data.get("data", ""))
+        except Exception:
+            raise serializers.ValidationError("Invalid base64 encoded data")
+
+        # Validate that it's a proper PNG image
+        if not is_valid_png(image_data):
+            raise serializers.ValidationError("Data is not a valid PNG image. This site can generate base64 encoded PNG images to test with: https://png-pixel.com")
+
+        # Add the decoded data to the validated data
+        data["decoded_data"] = image_data
+        return data
 
 
 @extend_schema_field(
@@ -125,6 +187,7 @@ class DebugSettingsJSONField(serializers.JSONField):
 class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
+    bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",

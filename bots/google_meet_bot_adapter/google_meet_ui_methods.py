@@ -82,6 +82,27 @@ class GoogleMeetUIMethods:
             logger.info("Bot was not let in after waiting period expired. Raising UiRequestToJoinDeniedException")
             raise UiRequestToJoinDeniedException("Bot was not let in after waiting period expired", step)
 
+    def turn_off_media_inputs(self):
+        logger.info("Waiting for the microphone button...")
+        MICROPHONE_BUTTON_SELECTOR = 'div[aria-label="Turn off microphone"]'
+        microphone_button = self.locate_element(
+            step="turn_off_microphone_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, MICROPHONE_BUTTON_SELECTOR)),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the microphone button...")
+        self.click_element(microphone_button, "turn_off_microphone_button")
+
+        logger.info("Waiting for the camera button...")
+        CAMERA_BUTTON_SELECTOR = 'div[aria-label="Turn off camera"]'
+        camera_button = self.locate_element(
+            step="turn_off_camera_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, CAMERA_BUTTON_SELECTOR)),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the camera button...")
+        self.click_element(camera_button, "turn_off_camera_button")
+
     def fill_out_name_input(self):
         num_attempts_to_look_for_name_input = 30
         logger.info("Waiting for the name input field...")
@@ -195,6 +216,8 @@ class GoogleMeetUIMethods:
 
         self.fill_out_name_input()
 
+        self.turn_off_media_inputs()
+
         logger.info("Waiting for the 'Ask to join' or 'Join now' button...")
         join_button = self.locate_element(
             step="join_button",
@@ -207,6 +230,8 @@ class GoogleMeetUIMethods:
         self.click_captions_button()
 
         self.wait_for_host_if_needed()
+
+        self.ready_to_show_bot_image()
 
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'

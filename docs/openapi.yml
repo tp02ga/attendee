@@ -275,19 +275,15 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum:
-                  - image/png
-                data:
-                  type: string
-                  format: binary
-                  description: Base64 encoded image data
-              required:
-              - type
-              - data
+              $ref: '#/components/schemas/BotImageRequest'
+            examples:
+              ValidImage:
+                value:
+                  type: image/png
+                  data: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==
+                summary: Valid image
+                description: An image of a red pixel encoded in base64 in PNG format
+        required: true
       security:
       - {}
       responses:
@@ -490,6 +486,24 @@ components:
       - recording_state
       - state
       - transcription_state
+    BotImageRequest:
+      type: object
+      properties:
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          description: |-
+            Image content type. Currently only PNG is supported.
+
+            * `image/png` - image/png
+        data:
+          type: string
+          minLength: 1
+          description: 'Base64 encoded image data. Simple example of a red pixel encoded
+            in PNG format: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+      required:
+      - data
+      - type
     CreateBotRequest:
       type: object
       properties:
@@ -501,6 +515,10 @@ components:
           type: string
           minLength: 1
           description: The name of the bot to create, e.g. 'My Bot'
+        bot_image:
+          allOf:
+          - $ref: '#/components/schemas/BotImageRequest'
+          description: The image for the bot
         transcription_settings:
           type: object
           properties:
@@ -657,6 +675,11 @@ components:
       - in_progress
       - complete
       - failed
+    TypeEnum:
+      enum:
+      - image/png
+      type: string
+      description: '* `image/png` - image/png'
 servers:
 - url: https://app.attendee.dev
   description: Production server

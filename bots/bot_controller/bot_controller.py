@@ -772,6 +772,13 @@ class BotController:
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
             return
 
+        if message.get("message") == BotAdapter.Messages.READY_TO_SHOW_BOT_IMAGE:
+            logger.info("Received message that bot is ready to show image")
+            # If there are any image media requests, this will start playing them
+            # For now the only type of media request is an image, so this will start showing the bot's image
+            self.take_action_based_on_image_media_requests_in_db()
+            return
+
         if message.get("message") == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
             logger.info("Received message that bot recording permission granted")
             BotEventManager.create_event(

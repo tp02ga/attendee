@@ -4,6 +4,7 @@ import os
 
 import redis
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.urls import reverse
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -33,6 +34,7 @@ from .models import (
     Utterance,
 )
 from .serializers import (
+    BotImageSerializer,
     BotSerializer,
     CreateBotSerializer,
     RecordingSerializer,
@@ -133,6 +135,25 @@ def launch_bot(bot):
         run_bot.delay(bot.id)
 
 
+def create_bot_media_request_for_image(bot, image):
+    content_type = image["type"]
+    image_data = image["decoded_data"]
+    try:
+        # Create or get existing MediaBlob
+        media_blob = MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
+    except Exception as e:
+        error_message_first_line = str(e).split("\n")[0]
+        logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
+        raise ValidationError(f"Error creating the image blob: {error_message_first_line}.")
+
+    # Create BotMediaRequest
+    BotMediaRequest.objects.create(
+        bot=bot,
+        media_blob=media_blob,
+        media_type=BotMediaRequestMediaTypes.IMAGE,
+    )
+
+
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -185,26 +206,36 @@ class BotCreateView(APIView):
         rtmp_settings = serializer.validated_data["rtmp_settings"]
         recording_settings = serializer.validated_data["recording_settings"]
         debug_settings = serializer.validated_data["debug_settings"]
+        bot_image = serializer.validated_data["bot_image"]
+
         settings = {
             "transcription_settings": transcription_settings,
             "rtmp_settings": rtmp_settings,
             "recording_settings": recording_settings,
             "debug_settings": debug_settings,
         }
-        bot = Bot.objects.create(
-            project=project,
-            meeting_url=meeting_url,
-            name=bot_name,
-            settings=settings,
-        )
 
-        Recording.objects.create(
-            bot=bot,
-            recording_type=RecordingTypes.AUDIO_AND_VIDEO,
-            transcription_type=TranscriptionTypes.NON_REALTIME,
-            transcription_provider=TranscriptionProviders.DEEPGRAM,
-            is_default_recording=True,
-        )
+        with transaction.atomic():
+            bot = Bot.objects.create(
+                project=project,
+                meeting_url=meeting_url,
+                name=bot_name,
+                settings=settings,
+            )
+
+            Recording.objects.create(
+                bot=bot,
+                recording_type=RecordingTypes.AUDIO_AND_VIDEO,
+                transcription_type=TranscriptionTypes.NON_REALTIME,
+                transcription_provider=TranscriptionProviders.DEEPGRAM,
+                is_default_recording=True,
+            )
+
+            if bot_image:
+                try:
+                    create_bot_media_request_for_image(bot, bot_image)
+                except ValidationError as e:
+                    return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # Try to transition the state from READY to JOINING
         BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
@@ -389,23 +420,7 @@ class OutputImageView(APIView):
         operation_id="Output Image",
         summary="Output image",
         description="Causes the bot to output an image in the meeting.",
-        request={
-            "application/json": {
-                "type": "object",
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "enum": [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES],
-                    },
-                    "data": {
-                        "type": "string",
-                        "format": "binary",
-                        "description": "Base64 encoded image data",
-                    },
-                },
-                "required": ["type", "data"],
-            }
-        },
+        request=BotImageSerializer,
         responses={
             200: OpenApiResponse(description="Image request created successfully"),
             400: OpenApiResponse(description="Invalid input"),
@@ -425,31 +440,6 @@ class OutputImageView(APIView):
     )
     def post(self, request, object_id):
         try:
-            # Validate request data
-            if "type" not in request.data or "data" not in request.data:
-                return Response(
-                    {"error": "Both type and data are required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            content_type = request.data["type"]
-            if content_type not in [ct[0] for ct in MediaBlob.VALID_IMAGE_CONTENT_TYPES]:
-                return Response(
-                    {"error": "Invalid image content type"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            try:
-                # Decode base64 data
-                import base64
-
-                image_data = base64.b64decode(request.data["data"])
-            except Exception:
-                return Response(
-                    {"error": "Invalid base64 encoded data"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             # Get the bot
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             if not BotEventManager.is_state_that_can_play_media(bot.state):
@@ -458,20 +448,15 @@ class OutputImageView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            try:
-                # Create or get existing MediaBlob
-                media_blob = MediaBlob.get_or_create_from_blob(project=request.auth.project, blob=image_data, content_type=content_type)
-            except Exception as e:
-                error_message_first_line = str(e).split("\n")[0]
-                logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type}, bot_id={object_id})")
-                return Response({"error": f"Error creating the image blob. Are you sure it's a valid {content_type} file?", "debug_message": error_message_first_line}, status=status.HTTP_400_BAD_REQUEST)
+            # Validate request data
+            bot_image = BotImageSerializer(data=request.data)
+            if not bot_image.is_valid():
+                return Response(bot_image.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create BotMediaRequest
-            BotMediaRequest.objects.create(
-                bot=bot,
-                media_blob=media_blob,
-                media_type=BotMediaRequestMediaTypes.IMAGE,
-            )
+            try:
+                create_bot_media_request_for_image(bot, bot_image.validated_data)
+            except ValidationError as e:
+                return Response({"error": e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
             # Send sync command
             send_sync_command(bot, "sync_media_requests")
