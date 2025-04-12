@@ -19,10 +19,68 @@
     table tbody tr.clickable-row:hover td {
         background-color: #f8f9fa;  /* Using Bootstrap's light gray */
     }
+    
+    /* Filter styles */
+    .filter-container {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .filter-item {
+        margin-bottom: 10px;
+    }
+    .state-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .state-checkbox {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 10px;
+    }
 </style>
 
 <div class="container mt-4">
     <h2 class="mb-4">Bots</h2>
+    
+    <!-- Filters -->
+    <div class="filter-container">
+        <form method="get" class="row g-3">
+            <div class="col-md-12">
+                <h5>Filter Bots</h5>
+            </div>
+            
+            <div class="col-md-5 filter-item">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_params.start_date }}">
+            </div>
+            
+            <div class="col-md-5 filter-item">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filter_params.end_date }}">
+            </div>
+            
+            <div class="col-md-10 filter-item">
+                <label class="form-label">Bot States</label>
+                <div class="state-checkboxes">
+                    {% for state_value, state_label in BotStates.choices %}
+                    <div class="state-checkbox">
+                        <input type="checkbox" id="state_{{ state_value }}" name="states" value="{{ state_value }}"
+                               {% if state_value|stringformat:"i" in filter_params.states %}checked{% endif %}>
+                        <label for="state_{{ state_value }}" class="ms-1">{{ state_label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end filter-item">
+                <button type="submit" class="btn btn-primary me-2">Apply Filters</button>
+                <a href="{% url 'bots:project-bots' project.object_id %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
     
     <div class="table-responsive">
         {% if bots %}
@@ -73,21 +131,25 @@
         {% else %}
             <div class="alert alert-info" role="alert">
                 <i class="bi bi-info-circle me-2"></i>
-                No bots found. Use the API to create bots.
+                {% if filter_params.start_date or filter_params.end_date or filter_params.states %}
+                    No bots found matching the current filters.
+                {% else %}
+                    No bots found. Use the API to create bots for this project.
+                {% endif %}
             </div>
         {% endif %}
     </div>
 
-    <!-- Pagination -->
+    <!-- Pagination with filter parameters -->
     {% if is_paginated %}
     <nav aria-label="Bot list pagination">
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page=1">&laquo; First</a>
+                <a class="page-link" href="?page=1{% for key, value in filter_params.items %}{% if key != 'page' %}{% if key == 'states' %}{% for state in value %}&states={{ state }}{% endfor %}{% else %}&{{ key }}={{ value }}{% endif %}{% endif %}{% endfor %}">&laquo; First</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in filter_params.items %}{% if key != 'page' %}{% if key == 'states' %}{% for state in value %}&states={{ state }}{% endfor %}{% else %}&{{ key }}={{ value }}{% endif %}{% endif %}{% endfor %}">Previous</a>
             </li>
             {% endif %}
 
@@ -98,17 +160,17 @@
                 </li>
                 {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                    <a class="page-link" href="?page={{ i }}{% for key, value in filter_params.items %}{% if key != 'page' %}{% if key == 'states' %}{% for state in value %}&states={{ state }}{% endfor %}{% else %}&{{ key }}={{ value }}{% endif %}{% endif %}{% endfor %}">{{ i }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in filter_params.items %}{% if key != 'page' %}{% if key == 'states' %}{% for state in value %}&states={{ state }}{% endfor %}{% else %}&{{ key }}={{ value }}{% endif %}{% endif %}{% endfor %}">Next</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ paginator.num_pages }}">Last &raquo;</a>
+                <a class="page-link" href="?page={{ paginator.num_pages }}{% for key, value in filter_params.items %}{% if key != 'page' %}{% if key == 'states' %}{% for state in value %}&states={{ state }}{% endfor %}{% else %}&{{ key }}={{ value }}{% endif %}{% endif %}{% endfor %}">Last &raquo;</a>
             </li>
             {% endif %}
         </ul>

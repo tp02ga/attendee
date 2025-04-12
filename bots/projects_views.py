@@ -208,30 +208,73 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
     def get_queryset(self):
         project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
         
+        # Start with the base queryset
+        queryset = Bot.objects.filter(project=project)
+        
+        # Apply date filters if provided
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+        
+        if start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        if end_date:
+            # Add 1 day to include the end date fully
+            from datetime import datetime, timedelta
+            try:
+                end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                end_date_obj = end_date_obj + timedelta(days=1)
+                queryset = queryset.filter(created_at__lt=end_date_obj)
+            except (ValueError, TypeError):
+                # Handle invalid date format
+                pass
+        
+        # Apply state filters if provided
+        states = self.request.GET.getlist('states')
+        if states:
+            # Convert string values to integers
+            try:
+                state_values = [int(state) for state in states if state.isdigit()]
+                if state_values:
+                    queryset = queryset.filter(state__in=state_values)
+            except (ValueError, TypeError):
+                # Handle invalid state values
+                pass
+        
         # Get the latest bot event type and subtype for each bot using subquery annotations
         latest_event_subquery_base = BotEvent.objects.filter(bot=models.OuterRef("pk")).order_by("-created_at")
         latest_event_type = latest_event_subquery_base.values("event_type")[:1]
         latest_event_sub_type = latest_event_subquery_base.values("event_sub_type")[:1]
 
-        bots = Bot.objects.filter(project=project).annotate(
+        # Apply annotations and ordering
+        queryset = queryset.annotate(
             last_event_type=models.Subquery(latest_event_type), 
             last_event_sub_type=models.Subquery(latest_event_sub_type)
         ).order_by("-created_at")
 
         # Add display names for the event types
-        for bot in bots:
+        for bot in queryset:
             if bot.last_event_type:
                 bot.last_event_type_display = dict(BotEventTypes.choices).get(bot.last_event_type, str(bot.last_event_type))
             if bot.last_event_sub_type:
                 bot.last_event_sub_type_display = dict(BotEventSubTypes.choices).get(bot.last_event_sub_type, str(bot.last_event_sub_type))
         
-        return bots
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
         context.update(self.get_project_context(self.kwargs["object_id"], project))
+        
+        # Add BotStates for the template
         context["BotStates"] = BotStates
+        
+        # Add filter parameters to context for maintaining state
+        context["filter_params"] = {
+            "start_date": self.request.GET.get('start_date', ''),
+            "end_date": self.request.GET.get('end_date', ''),
+            "states": self.request.GET.getlist('states')
+        }
+        
         return context
 
 
