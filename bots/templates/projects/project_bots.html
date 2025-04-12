@@ -33,12 +33,12 @@
     .state-checkboxes {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 5px;
     }
     .state-checkbox {
         display: inline-flex;
         align-items: center;
-        margin-right: 10px;
+        margin-right: 5px;
     }
 </style>
 
@@ -46,42 +46,41 @@
     <h2 class="mb-4">Bots</h2>
     
     <!-- Filters -->
+    {% if filter_params.start_date or filter_params.end_date or filter_params.states or bots %}
     <div class="filter-container">
         <form method="get" class="row g-3">
-            <div class="col-md-12">
-                <h5>Filter Bots</h5>
-            </div>
-            
-            <div class="col-md-5 filter-item">
-                <label for="start_date" class="form-label">Start Date</label>
-                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_params.start_date }}">
-            </div>
-            
-            <div class="col-md-5 filter-item">
-                <label for="end_date" class="form-label">End Date</label>
-                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filter_params.end_date }}">
+            <!-- Compact date filters in a single row -->
+            <div class="col-md-10 d-flex filter-item">
+                <div class="me-3" style="display: inline-flex; white-space: nowrap; align-items: center;">
+                    <label for="start_date" class="form-label me-2 mb-0" style="flex-shrink: 0;">Created</label>
+                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ filter_params.start_date }}">
+                </div>
+                
+                <div style="display: inline-flex; white-space: nowrap; align-items: center;">
+                    <label for="end_date" class="form-label me-3 mb-1" style="flex-shrink: 0;">→</label>
+                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ filter_params.end_date }}">
+                </div>
             </div>
             
             <div class="col-md-10 filter-item">
-                <label class="form-label">Bot States</label>
                 <div class="state-checkboxes">
                     {% for state_value, state_label in BotStates.choices %}
                     <div class="state-checkbox">
-                        <input type="checkbox" id="state_{{ state_value }}" name="states" value="{{ state_value }}"
+                        <input type="checkbox" class="btn-check" id="state_{{ state_value }}" name="states" value="{{ state_value }}"
                                {% if state_value|stringformat:"i" in filter_params.states %}checked{% endif %}>
-                        <label for="state_{{ state_value }}" class="ms-1">{{ state_label }}</label>
+                        <label class="btn btn-outline-secondary btn-sm" for="state_{{ state_value }}">{{ state_label }}</label>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             
             <div class="col-md-2 d-flex align-items-end filter-item">
-                <button type="submit" class="btn btn-primary me-2">Apply Filters</button>
-                <a href="{% url 'bots:project-bots' project.object_id %}" class="btn btn-outline-secondary">Clear</a>
+                <button type="submit" class="btn btn-sm btn-primary me-2">Apply Filters</button>
+                <a href="{% url 'bots:project-bots' project.object_id %}" class="btn btn-sm btn-outline-secondary">Clear</a>
             </div>
         </form>
     </div>
-    
+    {% endif %}
     <div class="table-responsive">
         {% if bots %}
             <table class="table">
