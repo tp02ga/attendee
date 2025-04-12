@@ -404,6 +404,9 @@ class ZoomBotAdapter(BotAdapter):
             logger.info(f"initial_send_video_frame_response = {initial_send_video_frame_response}")
         self.on_virtual_camera_start_send_callback_called = True
 
+        # At this point, we can show the bot image if there is one
+        self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
+
     def on_virtual_camera_initialize_callback(self, video_sender, support_cap_list, suggest_cap):
         logger.info(f"on_virtual_camera_initialize_callback called with support_cap_list = {list(map(lambda x: f'{x.width}x{x.height}x{x.frame}', support_cap_list))} suggest_cap = {suggest_cap.width}x{suggest_cap.height}x{suggest_cap.frame}")
         self.video_sender = video_sender
@@ -599,7 +602,6 @@ class ZoomBotAdapter(BotAdapter):
 
         if status == zoom.MEETING_STATUS_INMEETING:
             self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
-            self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
 
         if status == zoom.MEETING_STATUS_ENDED:
             # We get the MEETING_STATUS_ENDED regardless of whether we initiated the leave or not
