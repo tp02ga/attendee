@@ -1,7 +1,6 @@
 import hashlib
 import json
 import math
-import os
 import random
 import secrets
 import string
@@ -206,7 +205,7 @@ class Bot(models.Model):
         recording_settings = self.settings.get("recording_settings", {})
         if recording_settings is None:
             recording_settings = {}
-        return recording_settings.get("format", RecordingFormats.WEBM)
+        return recording_settings.get("format", RecordingFormats.MP4)
 
     def recording_view(self):
         recording_settings = self.settings.get("recording_settings", {})
@@ -215,6 +214,12 @@ class Bot(models.Model):
         return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
     def create_debug_recording(self):
+        from bots.utils import meeting_type_from_url
+
+        # Temporarily enabling this for all google meet meetings
+        if meeting_type_from_url(self.meeting_url) == MeetingTypes.GOOGLE_MEET:
+            return True
+
         debug_settings = self.settings.get("debug_settings", {})
         if debug_settings is None:
             debug_settings = {}
@@ -245,6 +250,7 @@ class CreditTransaction(models.Model):
     centicredits_delta = models.IntegerField(null=False)
     parent_transaction = models.ForeignKey("self", on_delete=models.PROTECT, null=True, related_name="child_transactions")
     bot = models.ForeignKey(Bot, on_delete=models.PROTECT, null=True, related_name="credit_transactions")
+    stripe_payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
 
     class Meta:
@@ -252,15 +258,25 @@ class CreditTransaction(models.Model):
             models.UniqueConstraint(fields=["parent_transaction"], name="unique_child_transaction", condition=models.Q(parent_transaction__isnull=False)),
             models.UniqueConstraint(fields=["organization"], name="unique_root_transaction", condition=models.Q(parent_transaction__isnull=True)),
             models.UniqueConstraint(fields=["bot"], name="unique_bot_transaction", condition=models.Q(bot__isnull=False)),
+            models.UniqueConstraint(fields=["stripe_payment_intent_id"], name="unique_stripe_payment_intent_id", condition=models.Q(stripe_payment_intent_id__isnull=False)),
         ]
 
     def __str__(self):
         return f"{self.organization.name} - {self.centicredits_delta}"
 
+    def credits_delta(self):
+        return self.centicredits_delta / 100
+
+    def credits_after(self):
+        return self.centicredits_after / 100
+
+    def credits_before(self):
+        return self.centicredits_before / 100
+
 
 class CreditTransactionManager:
     @classmethod
-    def create_transaction(cls, organization: Organization, centicredits_delta: int, bot: Bot = None, description: str = None) -> CreditTransaction:
+    def create_transaction(cls, organization: Organization, centicredits_delta: int, bot: Bot = None, stripe_payment_intent_id: str = None, description: str = None) -> CreditTransaction:
         """
         Creates a credit transaction for an organization. If no root transaction exists,
         creates one first. Otherwise creates a child transaction.
@@ -297,6 +313,7 @@ class CreditTransactionManager:
                         centicredits_delta=centicredits_delta,
                         parent_transaction=leaf_transaction,
                         bot=bot,
+                        stripe_payment_intent_id=stripe_payment_intent_id,
                         description=description,
                     )
 
@@ -375,6 +392,8 @@ class BotEventSubTypes(models.IntegerChoices):
     LEAVE_REQUESTED_AUTO_LEAVE_SILENCE = 11, "Leave requested - Auto leave silence"
     LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING = 12, "Leave requested - Auto leave only participant in meeting"
     FATAL_ERROR_HEARTBEAT_TIMEOUT = 13, "Fatal error - Heartbeat timeout"
+    COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND = 14, "Bot could not join meeting - Meeting not found"
+    FATAL_ERROR_BOT_NOT_LAUNCHED = 15, "Fatal error - Bot not launched"
 
     @classmethod
     def sub_type_to_api_code(cls, value):
@@ -393,6 +412,8 @@ class BotEventSubTypes(models.IntegerChoices):
             cls.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE: "auto_leave_silence",
             cls.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING: "auto_leave_only_participant_in_meeting",
             cls.FATAL_ERROR_HEARTBEAT_TIMEOUT: "heartbeat_timeout",
+            cls.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND: "meeting_not_found",
+            cls.FATAL_ERROR_BOT_NOT_LAUNCHED: "bot_not_launched",
         }
         return mapping.get(value)
 
@@ -433,10 +454,10 @@ class BotEvent(models.Model):
             models.CheckConstraint(
                 check=(
                     # For FATAL_ERROR event type, must have one of the valid event subtypes
-                    (Q(event_type=BotEventTypes.FATAL_ERROR) & (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT)))
+                    (Q(event_type=BotEventTypes.FATAL_ERROR) & (Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_PROCESS_TERMINATED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_HEARTBEAT_TIMEOUT) | Q(event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED)))
                     |
                     # For COULD_NOT_JOIN event type, must have one of the valid event subtypes
-                    (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED)))
+                    (Q(event_type=BotEventTypes.COULD_NOT_JOIN) & (Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_AUTHORIZATION_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_REQUEST_TO_JOIN_DENIED) | Q(event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND)))
                     |
                     # For LEAVE_REQUESTED event type, must have one of the valid event subtypes or be null (for backwards compatibility, this will eventually be removed)
                     (Q(event_type=BotEventTypes.LEAVE_REQUESTED) & (Q(event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_USER_REQUESTED) | Q(event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE) | Q(event_sub_type=BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING) | Q(event_sub_type__isnull=True)))
@@ -469,6 +490,7 @@ class BotEventManager:
                 BotStates.JOINED_NOT_RECORDING,
                 BotStates.WAITING_ROOM,
                 BotStates.LEAVING,
+                BotStates.POST_PROCESSING,
             ],
             "to": BotStates.FATAL_ERROR,
         },
@@ -641,7 +663,7 @@ class BotEventManager:
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
-                        if os.getenv("CHARGE_CREDITS_FOR_BOTS") == "true":
+                        if settings.CHARGE_CREDITS_FOR_BOTS:
                             centicredits_consumed = bot.centicredits_consumed()
                             if centicredits_consumed > 0:
                                 CreditTransactionManager.create_transaction(

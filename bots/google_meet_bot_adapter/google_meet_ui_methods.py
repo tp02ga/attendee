@@ -1,13 +1,13 @@
 import logging
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from bots.models import RecordingViews
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +47,18 @@ class GoogleMeetUIMethods:
     def click_this_meeting_is_being_recorded_join_now_button(self, step):
         this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
         if this_meeting_is_being_recorded_join_now_button:
+            logger.info("Clicking this_meeting_is_being_recorded_join_now_button")
             this_meeting_is_being_recorded_join_now_button.click()
 
+    # Some modal that google put up
+    def click_others_may_see_your_meeting_differently_button(self, step):
+        others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
+        if others_may_see_your_meeting_differently_button:
+            logger.info("Clicking others_may_see_your_meeting_differently_button")
+            others_may_see_your_meeting_differently_button.click()
+
     def look_for_blocked_element(self, step):
-        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call")]')
+        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
         if cannot_join_element:
             # This means google is blocking us for whatever reason, but we can retry
             logger.info("Google is blocking us for whatever reason, but we can retry. Raising UiGoogleBlockingUsException")
@@ -74,6 +82,27 @@ class GoogleMeetUIMethods:
             logger.info("Bot was not let in after waiting period expired. Raising UiRequestToJoinDeniedException")
             raise UiRequestToJoinDeniedException("Bot was not let in after waiting period expired", step)
 
+    def turn_off_media_inputs(self):
+        logger.info("Waiting for the microphone button...")
+        MICROPHONE_BUTTON_SELECTOR = 'div[aria-label="Turn off microphone"]'
+        microphone_button = self.locate_element(
+            step="turn_off_microphone_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, MICROPHONE_BUTTON_SELECTOR)),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the microphone button...")
+        self.click_element(microphone_button, "turn_off_microphone_button")
+
+        logger.info("Waiting for the camera button...")
+        CAMERA_BUTTON_SELECTOR = 'div[aria-label="Turn off camera"]'
+        camera_button = self.locate_element(
+            step="turn_off_camera_button",
+            condition=EC.presence_of_element_located((By.CSS_SELECTOR, CAMERA_BUTTON_SELECTOR)),
+            wait_time_seconds=6,
+        )
+        logger.info("Clicking the camera button...")
+        self.click_element(camera_button, "turn_off_camera_button")
+
     def fill_out_name_input(self):
         num_attempts_to_look_for_name_input = 30
         logger.info("Waiting for the name input field...")
@@ -91,6 +120,13 @@ class GoogleMeetUIMethods:
                     logger.info("Could not find name input. Timed out. Raising UiCouldNotLocateElementException")
                     raise UiCouldNotLocateElementException("Could not find name input. Timed out.", "name_input", e)
 
+            except ElementNotInteractableException as e:
+                logger.info("Name input is not interactable. Going to try again.")
+                last_check_non_interactable = attempt_to_look_for_name_input_index == num_attempts_to_look_for_name_input - 1
+                if last_check_non_interactable:
+                    logger.info("Could not find name input. Non interactable. Raising UiCouldNotLocateElementException")
+                    raise UiCouldNotLocateElementException("Could not find name input. Non interactable.", "name_input", e)
+
             except Exception as e:
                 logger.info(f"Could not find name input. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
@@ -105,11 +141,16 @@ class GoogleMeetUIMethods:
                 self.click_element(captions_button, "click_captions_button")
                 return
             except UiCouldNotClickElementException as e:
-                raise e
+                self.click_others_may_see_your_meeting_differently_button("click_captions_button")
+                last_check_could_not_click_element = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
+                if last_check_could_not_click_element:
+                    logger.info("Could not click captions button. Raising UiCouldNotClickElementException")
+                    raise e
             except TimeoutException as e:
                 self.look_for_blocked_element("click_captions_button")
                 self.look_for_denied_your_request_element("click_captions_button")
                 self.click_this_meeting_is_being_recorded_join_now_button("click_captions_button")
+                self.click_others_may_see_your_meeting_differently_button("click_captions_button")
 
                 last_check_timed_out = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_timed_out:
@@ -129,6 +170,20 @@ class GoogleMeetUIMethods:
                     "click_captions_button",
                     e,
                 )
+
+    def check_if_meeting_is_found(self):
+        meeting_not_found_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Check your meeting code") or contains(text(), "Invalid video call name") or contains(text(), "Your meeting code has expired")]')
+        if meeting_not_found_element:
+            logger.info("Meeting not found. Raising UiMeetingNotFoundException")
+            raise UiMeetingNotFoundException("Meeting not found", "check_if_meeting_is_found")
+
+    def wait_for_host_if_needed(self):
+        host_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')
+        if host_element:
+            # Wait for up to n seconds for the host to join
+            wait_time_seconds = self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds
+            logger.info(f"We must wait for the host to join before we can join the meeting. Waiting for {wait_time_seconds} seconds...")
+            WebDriverWait(self.driver, wait_time_seconds).until(EC.invisibility_of_element_located((By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')))
 
     def get_layout_to_select(self):
         if self.recording_view == RecordingViews.SPEAKER_VIEW:
@@ -157,7 +212,11 @@ class GoogleMeetUIMethods:
             },
         )
 
+        self.check_if_meeting_is_found()
+
         self.fill_out_name_input()
+
+        self.turn_off_media_inputs()
 
         logger.info("Waiting for the 'Ask to join' or 'Join now' button...")
         join_button = self.locate_element(
@@ -169,6 +228,10 @@ class GoogleMeetUIMethods:
         self.click_element(join_button, "join_button")
 
         self.click_captions_button()
+
+        self.wait_for_host_if_needed()
+
+        self.ready_to_show_bot_image()
 
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
@@ -213,7 +276,7 @@ class GoogleMeetUIMethods:
             logger.info("Waiting for the 'Tiled' label element")
             tiled_label = self.locate_element(
                 step="tiled_label",
-                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[text()="Tiled"]]')),
+                condition=EC.presence_of_element_located((By.XPATH, '//label[.//span[@class="xo15nd" and contains(text(), "Tiled")]]')),
                 wait_time_seconds=6,
             )
             logger.info("Clicking the 'Tiled' label element")

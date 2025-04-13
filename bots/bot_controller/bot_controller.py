@@ -37,9 +37,9 @@ from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
 from .individual_audio_input_manager import IndividualAudioInputManager
-from .media_recorder_receiver import MediaRecorderReceiver
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
+from .screen_and_audio_recorder import ScreenAndAudioRecorder
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -60,10 +60,12 @@ class BotController:
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             automatic_leave_configuration=self.automatic_leave_configuration,
-            add_encoded_mp4_chunk_callback=self.media_recorder_receiver.on_encoded_mp4_chunk,
+            add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
             google_meet_closed_captions_language=self.bot_in_db.google_meet_closed_captions_language(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
+            start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
+            stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
         )
 
     def get_teams_bot_adapter(self):
@@ -81,6 +83,8 @@ class BotController:
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
+            start_recording_screen_callback=None,
+            stop_recording_screen_callback=None,
         )
 
     def get_zoom_bot_adapter(self):
@@ -144,7 +148,7 @@ class BotController:
             return self.get_teams_bot_adapter()
 
     def get_first_buffer_timestamp_ms(self):
-        if self.media_recorder_receiver:
+        if self.screen_and_audio_recorder:
             return self.adapter.get_first_buffer_timestamp_ms()
 
         if self.gstreamer_pipeline:
@@ -220,9 +224,9 @@ class BotController:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
 
-        if self.media_recorder_receiver:
+        if self.screen_and_audio_recorder:
             logger.info("Telling media recorder receiver to cleanup...")
-            self.media_recorder_receiver.cleanup()
+            self.screen_and_audio_recorder.cleanup()
 
         if self.get_recording_file_location():
             logger.info("Telling file uploader to upload recording file...")
@@ -289,7 +293,7 @@ class BotController:
         elif meeting_type == MeetingTypes.TEAMS:
             return True
 
-    def should_create_media_recorder_receiver(self):
+    def should_create_screen_and_audio_recorder(self):
         return not self.should_create_gstreamer_pipeline()
 
     def run(self):
@@ -334,9 +338,9 @@ class BotController:
             )
             self.gstreamer_pipeline.setup()
 
-        self.media_recorder_receiver = None
-        if self.should_create_media_recorder_receiver():
-            self.media_recorder_receiver = MediaRecorderReceiver(
+        self.screen_and_audio_recorder = None
+        if self.should_create_screen_and_audio_recorder():
+            self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
             )
 
@@ -622,6 +626,16 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.MEETING_NOT_FOUND:
+            logger.info("Received message that meeting not found")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND,
+            )
+            self.cleanup()
+            return
+
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
             logger.info(f"Received message that UI element not found at {message.get('current_time')}")
 
@@ -756,6 +770,13 @@ class BotController:
         if message.get("message") == BotAdapter.Messages.BOT_JOINED_MEETING:
             logger.info("Received message that bot joined meeting")
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
+            return
+
+        if message.get("message") == BotAdapter.Messages.READY_TO_SHOW_BOT_IMAGE:
+            logger.info("Received message that bot is ready to show image")
+            # If there are any image media requests, this will start playing them
+            # For now the only type of media request is an image, so this will start showing the bot's image
+            self.take_action_based_on_image_media_requests_in_db()
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:

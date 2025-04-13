@@ -1,4 +1,3 @@
-import base64
 import os
 import threading
 import time
@@ -99,14 +98,20 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_ALWAYS_EAGER = True
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
+        mock_wait_for_host_if_needed,
+        mock_check_if_meeting_is_found,
         MockFileUploader,
         MockChromeDriver,
         MockDisplay,
+        mock_create_debug_recording,
     ):
         # Configure the mock uploader
         mock_uploader = create_mock_file_uploader()
@@ -134,18 +139,6 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Add participants - simulate websocket message processing
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
-
-            # Simulate encoded MP4 chunk arrival
-            # Create a mock MP4 message in the format expected by process_encoded_mp4_chunk
-            mock_mp4_message = bytearray()
-            # Add message type (4 for ENCODED_MP4_CHUNK) as first 4 bytes
-            mock_mp4_message.extend((4).to_bytes(4, byteorder="little"))
-            # Add sample MP4 data (just a small dummy chunk for testing)
-            tiny_mp4_base64 = "GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA="
-            mock_mp4_data = base64.b64decode(tiny_mp4_base64)
-            mock_mp4_message.extend(mock_mp4_data)
-
-            controller.adapter.process_encoded_mp4_chunk(mock_mp4_message)
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption"}
@@ -282,7 +275,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Set bot launch method to kubernetes
         with patch.dict(os.environ, {"LAUNCH_BOT_METHOD": "kubernetes"}):
             # Import and run the command
-            from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+            from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
 
             command = Command()
             command.handle()
@@ -315,7 +308,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.bot.save()
 
         # Import and run the command
-        from bots.management.commands.terminate_bots_with_heartbeat_timeout import Command
+        from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
 
         command = Command()
         command.handle()
@@ -387,6 +380,74 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Close the database connection since we're in a thread
             connection.close()
+
+    @patch("kubernetes.client.CoreV1Api")
+    @patch("kubernetes.config.load_incluster_config")
+    @patch("kubernetes.config.load_kube_config")
+    def test_terminate_bots_that_never_launched(self, mock_load_kube_config, mock_load_incluster_config, MockCoreV1Api):
+        # Set up mock Kubernetes API
+        mock_k8s_api = MagicMock()
+        MockCoreV1Api.return_value = mock_k8s_api
+
+        # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
+        mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
+
+        # Create a bot that was created 2 days ago but never launched
+        two_days_ago = timezone.now() - timezone.timedelta(days=2)
+        self.bot.first_heartbeat_timestamp = None
+        self.bot.last_heartbeat_timestamp = None
+        self.bot.state = BotStates.JOINING  # Set to a non-terminal state
+        self.bot.created_at = two_days_ago
+        self.bot.save()
+
+        # Set bot launch method to kubernetes
+        with patch.dict(os.environ, {"LAUNCH_BOT_METHOD": "kubernetes"}):
+            # Import and run the command
+            from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
+
+            command = Command()
+            command.handle()
+
+        # Refresh the bot state from the database
+        self.bot.refresh_from_db()
+
+        # Verify the bot was moved to FATAL_ERROR state
+        self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
+
+        # Verify that a FATAL_ERROR event was created with the correct sub type
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED).first()
+        self.assertIsNotNone(fatal_error_event)
+        self.assertEqual(fatal_error_event.old_state, BotStates.JOINING)
+        self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
+
+        # Verify Kubernetes pod deletion was attempted with the correct pod name
+        pod_name = self.bot.k8s_pod_name()
+        mock_k8s_api.delete_namespaced_pod.assert_called_once_with(name=pod_name, namespace="attendee", grace_period_seconds=0)
+
+    def test_recent_bots_with_no_heartbeat_not_terminated(self):
+        # Create a bot that was created 30 minutes ago but never launched
+        thirty_minutes_ago = timezone.now() - timezone.timedelta(minutes=30)
+        self.bot.first_heartbeat_timestamp = None
+        self.bot.last_heartbeat_timestamp = None
+        self.bot.state = BotStates.JOINING  # Set to a non-terminal state
+        self.bot.created_at = thirty_minutes_ago
+        self.bot.save()
+
+        # Import and run the command
+        from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
+
+        command = Command()
+        command.handle()
+
+        # Refresh the bot state from the database
+        self.bot.refresh_from_db()
+
+        # Verify the bot was NOT moved to FATAL_ERROR state since it's too recent
+        self.assertEqual(self.bot.state, BotStates.JOINING)
+
+        # Verify that no FATAL_ERROR event was created for a bot that never launched
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED).first()
+        self.assertIsNone(fatal_error_event)
 
 
 # Simulate video data arrival
