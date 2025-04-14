@@ -142,6 +142,7 @@ class Bot(models.Model):
     state = models.IntegerField(choices=BotStates.choices, default=BotStates.READY, null=False)
 
     settings = models.JSONField(null=False, default=dict)
+    metadata = models.JSONField(null=True, blank=True)
 
     first_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
     last_heartbeat_timestamp = models.IntegerField(null=True, blank=True)

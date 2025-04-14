@@ -519,6 +519,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/BotImageRequest'
           description: The image for the bot
+        metadata:
+          type: object
+          description: JSON object containing metadata to associate with the bot
+          example:
+            client_id: abc123
+            user: john_doe
+            purpose: Weekly team meeting
         transcription_settings:
           type: object
           properties:
