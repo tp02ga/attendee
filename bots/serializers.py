@@ -173,6 +173,11 @@ class DebugSettingsJSONField(serializers.JSONField):
     pass
 
 
+@extend_schema_field({"type": "object", "description": "JSON object containing metadata to associate with the bot", "example": {"client_id": "abc123", "user": "john_doe", "purpose": "Weekly team meeting"}})
+class MetadataJSONField(serializers.JSONField):
+    pass
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -189,7 +194,7 @@ class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
     bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
-    metadata = serializers.JSONField(help_text="Custom metadata for the bot", required=False, default=None)
+    metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
