@@ -203,7 +203,7 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
     template_name = "projects/project_bots.html"
     context_object_name = "bots"
-    paginate_by = 50
+    paginate_by = 20
 
     def get_queryset(self):
         project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
