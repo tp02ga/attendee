@@ -35,14 +35,10 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
 
         # Pass the raw bytes directly to JavaScript
         # The JavaScript side can convert it to appropriate format
-        for i in range(4):
-            self.driver.execute_script(
-                """
-                const bytes = new Uint8Array(arguments[0]);
-                window.botOutputManager.displayImage(bytes);
-            """,
-                list(image_bytes),
-            )
-
-            # Sending it several times seems necessary for full reliability.
-            time.sleep(0.25)
+        self.driver.execute_script(
+            """
+            const bytes = new Uint8Array(arguments[0]);
+            window.botOutputManager.displayImage(bytes);
+        """,
+            list(image_bytes),
+        )

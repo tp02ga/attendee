@@ -2546,6 +2546,7 @@ class BotOutputManager {
 
                 // Now that the image is loaded, capture the stream and turn on camera
                 this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
+                // MAYBE WAIT TO TURN ON CAMERA?
                 turnOnCamera();
             })
             .catch(error => {
@@ -2601,12 +2602,34 @@ class BotOutputManager {
                     offsetX = (canvas.width - renderWidth) / 2;
                     offsetY = 0;
                 }
-                
+                // TRY DRAWING THE IMAGE REPEATEDLY.
                 // Draw the image centered with letterboxing
                 ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
                 
-                // Clean up the object URL
-                URL.revokeObjectURL(url);
+                // Store the image parameters for repeated drawing
+                this.imageDrawParams = {
+                    img: img,
+                    offsetX: offsetX,
+                    offsetY: offsetY,
+                    width: renderWidth,
+                    height: renderHeight
+                };
+                
+                // Clear any existing draw interval
+                if (this.drawInterval) {
+                    clearInterval(this.drawInterval);
+                }
+                
+                // Set up interval to redraw the image every 1 second
+                this.drawInterval = setInterval(() => {
+                    ctx.drawImage(
+                        this.imageDrawParams.img,
+                        this.imageDrawParams.offsetX,
+                        this.imageDrawParams.offsetY,
+                        this.imageDrawParams.width,
+                        this.imageDrawParams.height
+                    );
+                }, 1000);
                 
                 // Resolve the promise now that image is loaded
                 resolve();
