@@ -443,12 +443,12 @@ class BotSerializer(serializers.ModelSerializer):
         model = Bot
         fields = [
             "id",
+            "metadata",
             "meeting_url",
             "state",
             "events",
             "transcription_state",
             "recording_state",
-            "metadata",
         ]
         read_only_fields = fields
 
