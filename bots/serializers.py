@@ -349,7 +349,7 @@ class CreateBotSerializer(serializers.Serializer):
         # Make sure there is at least one key
         if not value:
             raise serializers.ValidationError("Metadata must have at least one key")
-            
+
         # Check if all values are strings
         for key, val in value.items():
             if not isinstance(val, str):
@@ -363,8 +363,9 @@ class CreateBotSerializer(serializers.Serializer):
         # Make sure the total length of the stringified metadata is less than 1000 characters
         if len(json.dumps(value)) > 10000:
             raise serializers.ValidationError("Metadata must be less than 10000 characters")
-                
+
         return value
+
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
