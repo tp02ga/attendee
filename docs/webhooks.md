@@ -18,7 +18,7 @@ To create a webhook:
 
 When a webhook is delivered, Attendee will send an HTTP POST request to your webhook URL with the following structure:
 
-```json
+```
 {
   "idempotency_key": < UUID that uniquely identifies this webhook delivery >,
   "bot_id": < Id of the bot associated with the webhook delivery >,
@@ -32,7 +32,7 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
 
 For webhooks triggered by `bot.state_change`, the `data` field contains:
 
-```json
+```
 {
   "new_state": < The current state of the bot >,
   "old_state": < The previous state of the bot >,
