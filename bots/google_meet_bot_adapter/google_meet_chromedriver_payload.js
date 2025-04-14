@@ -2560,8 +2560,8 @@ class BotOutputManager {
         if (!this.botOutputCanvasElement) {
             // Create a new canvas element with fixed dimensions
             this.botOutputCanvasElement = document.createElement('canvas');
-            this.botOutputCanvasElement.width = 640; // Fixed width
-            this.botOutputCanvasElement.height = 320; // Fixed height
+            this.botOutputCanvasElement.width = 1280; // Fixed width
+            this.botOutputCanvasElement.height = 640; // Fixed height
         }
         
         return new Promise((resolve, reject) => {
