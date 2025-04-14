@@ -1,4 +1,5 @@
 import base64
+import json
 
 import jsonschema
 from drf_spectacular.utils import (
@@ -172,6 +173,11 @@ class DebugSettingsJSONField(serializers.JSONField):
     pass
 
 
+@extend_schema_field({"type": "object", "description": "JSON object containing metadata to associate with the bot", "example": {"client_id": "abc123", "user": "john_doe", "purpose": "Weekly team meeting"}})
+class MetadataJSONField(serializers.JSONField):
+    pass
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -188,6 +194,7 @@ class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
     bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
+    metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
@@ -336,6 +343,34 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
+    def validate_metadata(self, value):
+        if value is None:
+            return value
+
+        # Check if it's a dict
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Metadata must be an object not an array or other type")
+
+        # Make sure there is at least one key
+        if not value:
+            raise serializers.ValidationError("Metadata must have at least one key")
+
+        # Check if all values are strings
+        for key, val in value.items():
+            if not isinstance(val, str):
+                raise serializers.ValidationError(f"Value for key '{key}' must be a string")
+
+        # Check if all keys are strings
+        for key in value.keys():
+            if not isinstance(key, str):
+                raise serializers.ValidationError("All keys in metadata must be strings")
+
+        # Make sure the total length of the stringified metadata is less than 1000 characters
+        if len(json.dumps(value)) > 1000:
+            raise serializers.ValidationError("Metadata must be less than 1000 characters")
+
+        return value
+
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
@@ -408,6 +443,7 @@ class BotSerializer(serializers.ModelSerializer):
         model = Bot
         fields = [
             "id",
+            "metadata",
             "meeting_url",
             "state",
             "events",

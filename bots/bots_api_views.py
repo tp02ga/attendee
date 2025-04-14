@@ -207,6 +207,7 @@ class BotCreateView(APIView):
         recording_settings = serializer.validated_data["recording_settings"]
         debug_settings = serializer.validated_data["debug_settings"]
         bot_image = serializer.validated_data["bot_image"]
+        metadata = serializer.validated_data["metadata"]
 
         settings = {
             "transcription_settings": transcription_settings,
@@ -221,6 +222,7 @@ class BotCreateView(APIView):
                 meeting_url=meeting_url,
                 name=bot_name,
                 settings=settings,
+                metadata=metadata,
             )
 
             Recording.objects.create(
