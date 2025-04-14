@@ -2545,8 +2545,7 @@ class BotOutputManager {
                 }
 
                 // Now that the image is loaded, capture the stream and turn on camera
-                this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
-                // MAYBE WAIT TO TURN ON CAMERA?
+                this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream();
                 turnOnCamera();
             })
             .catch(error => {
@@ -2561,8 +2560,8 @@ class BotOutputManager {
         if (!this.botOutputCanvasElement) {
             // Create a new canvas element with fixed dimensions
             this.botOutputCanvasElement = document.createElement('canvas');
-            this.botOutputCanvasElement.width = 1280; // Fixed width
-            this.botOutputCanvasElement.height = 640; // Fixed height
+            this.botOutputCanvasElement.width = 640; // Fixed width
+            this.botOutputCanvasElement.height = 320; // Fixed height
         }
         
         return new Promise((resolve, reject) => {
@@ -2602,34 +2601,12 @@ class BotOutputManager {
                     offsetX = (canvas.width - renderWidth) / 2;
                     offsetY = 0;
                 }
-                // TRY DRAWING THE IMAGE REPEATEDLY.
+                
                 // Draw the image centered with letterboxing
                 ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
                 
-                // Store the image parameters for repeated drawing
-                this.imageDrawParams = {
-                    img: img,
-                    offsetX: offsetX,
-                    offsetY: offsetY,
-                    width: renderWidth,
-                    height: renderHeight
-                };
-                
-                // Clear any existing draw interval
-                if (this.drawInterval) {
-                    clearInterval(this.drawInterval);
-                }
-                
-                // Set up interval to redraw the image every 1 second
-                this.drawInterval = setInterval(() => {
-                    ctx.drawImage(
-                        this.imageDrawParams.img,
-                        this.imageDrawParams.offsetX,
-                        this.imageDrawParams.offsetY,
-                        this.imageDrawParams.width,
-                        this.imageDrawParams.height
-                    );
-                }, 1000);
+                // Clean up the object URL
+                URL.revokeObjectURL(url);
                 
                 // Resolve the promise now that image is loaded
                 resolve();
