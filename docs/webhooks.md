@@ -1,38 +1,30 @@
 # Webhooks
 
-Attendee provides a webhook system that allows you to receive real-time notifications about important events in your Attendee bots and meetings.
+Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll Attendee's API.
 
-## Overview
-
-Webhooks allow your application to receive notifications when events occur in Attendee. Instead of constantly polling Attendee's API for updates, webhooks deliver information to your application in real-time as events occur.
-
-## Key Benefits
-
-- **Real-time updates**: Get notified immediately when an event occurs
-- **Reduced API calls**: No need to poll for status changes
-- **Automation**: Trigger workflows based on Attendee events
+Currently, webhooks are only supported for one type of event: when a bot changes its state. This can be used to alert your server when a bot joins a meeting, starts recording or when a recording is available.
 
 ## Creating a Webhook
 
 To create a webhook:
 
-1. Navigate to your project and click on the "Webhooks" section in the sidebar
+1. Click on "Settings -> Webhooks" in the sidebar
 2. Click "Create Webhook" 
 3. Provide an HTTPS URL that will receive webhook events
-4. Select the events you want to receive notifications for (we currently have one event type: `bot.state_change`)
+4. Select the triggers you want to receive notifications for (we currently have one trigger: `bot.state_change`)
 5. Click "Create" to save your subscription
 
-## Webhook Payloads
+## Webhook Payload
 
 When a webhook is delivered, Attendee will send an HTTP POST request to your webhook URL with the following structure:
 
 ```json
 {
-  "idempotency_key": { /* UUID that uniquely identifies this webhook delivery */ },
-  "bot_id": { /* Id of the bot associated with the webhook delivery */ },
-  "bot_metadata": { /* Any metadata associated with the bot */ },
-  "trigger": {/* Trigger for the webhook. Currently, the only trigger is bot.state_change, which is fired whenever the bot changes its state. */},
-  "data": { /* Event-specific data */ }
+  "idempotency_key": { <UUID that uniquely identifies this webhook delivery> },
+  "bot_id": { <Id of the bot associated with the webhook delivery> },
+  "bot_metadata": { <Any metadata associated with the bot> },
+  "trigger": {<Trigger for the webhook. Currently, the only trigger is bot.state_change, which is fired whenever the bot changes its state.>},
+  "data": { <Event-specific data> }
 }
 ```
 
@@ -40,20 +32,19 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
 
 For webhooks triggered by `bot.state_change`, the `data` field contains:
 
-
 ```json
 {
-  "new_state": { /* The current state of the bot */ },
-  "old_state": { /* The previous state of the bot */ },
-  "created_at": { /* The timestamp when the state change occurred */ },
-  "event_type": { /* The type of event that triggered the state change */ },
-  "event_sub_type": { /* The sub-type of event that triggered the state change */ },
+  "new_state": { <The current state of the bot> },
+  "old_state": { <The previous state of the bot> },
+  "created_at": { <The timestamp when the state change occurred> },
+  "event_type": { <The type of event that triggered the state change> },
+  "event_sub_type": { <The sub-type of event that triggered the state change> },
 }
 ```
 
 ### Using webhooks to know when the recording is available
 
-The most common use case for webhooks is to know when the meeting has ended and the recording is available. You can do this by listening for the `post_processing_completed` event type.
+The most common use case for webhooks is to be notified when the meeting has ended and the recording is available. You can do this by listening for the `post_processing_completed` event type.
 
 The data field will look like this
 
