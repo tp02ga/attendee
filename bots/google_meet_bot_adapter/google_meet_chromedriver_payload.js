@@ -2545,7 +2545,7 @@ class BotOutputManager {
                 }
 
                 // Now that the image is loaded, capture the stream and turn on camera
-                this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
+                this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream();
                 turnOnCamera();
             })
             .catch(error => {
