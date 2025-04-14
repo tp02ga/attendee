@@ -1,6 +1,6 @@
 # Webhooks
 
-Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll Attendee's API.
+Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll the API.
 
 Currently, webhooks are only supported for one type of event: when a bot changes its state. This can be used to alert your server when a bot joins a meeting, starts recording or when a recording is available.
 
@@ -20,11 +20,11 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
 
 ```json
 {
-  "idempotency_key": { UUID that uniquely identifies this webhook delivery },
-  "bot_id": { Id of the bot associated with the webhook delivery },
-  "bot_metadata": { Any metadata associated with the bot },
-  "trigger": { Trigger for the webhook. Currently, the only trigger is bot.state_change, which is fired whenever the bot changes its state. },
-  "data": { Event-specific data }
+  "idempotency_key": < UUID that uniquely identifies this webhook delivery >,
+  "bot_id": < Id of the bot associated with the webhook delivery >,
+  "bot_metadata": < Any metadata associated with the bot >,
+  "trigger": < Trigger for the webhook. Currently, the only trigger is bot.state_change, which is fired whenever the bot changes its state. >,
+  "data": < Event-specific data >
 }
 ```
 
@@ -34,11 +34,11 @@ For webhooks triggered by `bot.state_change`, the `data` field contains:
 
 ```json
 {
-  "new_state": { The current state of the bot },
-  "old_state": { The previous state of the bot },
-  "created_at": { The timestamp when the state change occurred },
-  "event_type": { The type of event that triggered the state change },
-  "event_sub_type": { The sub-type of event that triggered the state change },
+  "new_state": < The current state of the bot >,
+  "old_state": < The previous state of the bot >,
+  "created_at": < The timestamp when the state change occurred >,
+  "event_type": < The type of event that triggered the state change >,
+  "event_sub_type": < The sub-type of event that triggered the state change >,
 }
 ```
 
