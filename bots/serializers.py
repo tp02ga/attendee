@@ -1,4 +1,5 @@
 import base64
+import json
 
 import jsonschema
 from drf_spectacular.utils import (
@@ -344,6 +345,10 @@ class CreateBotSerializer(serializers.Serializer):
         # Check if it's a dict
         if not isinstance(value, dict):
             raise serializers.ValidationError("Metadata must be an object not an array or other type")
+
+        # Make sure there is at least one key
+        if not value:
+            raise serializers.ValidationError("Metadata must have at least one key")
             
         # Check if all values are strings
         for key, val in value.items():
