@@ -44,7 +44,7 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         )
 
         # Sending it twice seems necessary for full reliability.
-        time.sleep(0.25)
+        time.sleep(0.5)
 
         self.driver.execute_script(
             """
