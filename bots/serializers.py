@@ -366,8 +366,8 @@ class CreateBotSerializer(serializers.Serializer):
                 raise serializers.ValidationError("All keys in metadata must be strings")
 
         # Make sure the total length of the stringified metadata is less than 1000 characters
-        if len(json.dumps(value)) > 10000:
-            raise serializers.ValidationError("Metadata must be less than 10000 characters")
+        if len(json.dumps(value)) > 1000:
+            raise serializers.ValidationError("Metadata must be less than 1000 characters")
 
         return value
 
@@ -448,6 +448,7 @@ class BotSerializer(serializers.ModelSerializer):
             "events",
             "transcription_state",
             "recording_state",
+            "metadata",
         ]
         read_only_fields = fields
 

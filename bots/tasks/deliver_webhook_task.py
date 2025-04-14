@@ -45,6 +45,7 @@ def deliver_webhook(self, delivery_id):
     webhook_data = {
         "idempotency_key": str(delivery.idempotency_key),
         "bot_id": delivery.bot.object_id if delivery.bot else None,
+        "bot_metadata": delivery.bot.metadata if delivery.bot else None,
         "trigger": WebhookTriggerTypes.trigger_type_to_api_code(delivery.webhook_trigger_type),
         "data": delivery.payload,
     }
