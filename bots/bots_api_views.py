@@ -614,7 +614,11 @@ class TranscriptView(APIView):
             # Apply updated_after filter if provided
             updated_after = request.query_params.get("updated_after")
             if updated_after:
-                updated_after_datetime = parse_datetime(str(updated_after))
+                try:
+                    updated_after_datetime = parse_datetime(str(updated_after))
+                except Exception:
+                    updated_after_datetime = None
+
                 if not updated_after_datetime:
                     return Response(
                         {"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2024-01-18T12:34:56Z)"},
