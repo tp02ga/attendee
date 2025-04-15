@@ -374,6 +374,7 @@ class CreateBotSerializer(serializers.Serializer):
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
+    metadata = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
     events = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
@@ -387,6 +388,10 @@ class BotSerializer(serializers.ModelSerializer):
     )
     def get_state(self, obj):
         return BotStates.state_to_api_code(obj.state)
+
+    @extend_schema_field({"type": "object", "description": "Metadata associated with the bot"})
+    def get_metadata(self, obj):
+        return obj.metadata
 
     @extend_schema_field(
         {

@@ -450,6 +450,10 @@ components:
       properties:
         id:
           type: string
+        metadata:
+          type: object
+          description: Metadata associated with the bot
+          readOnly: true
         meeting_url:
           type: string
           readOnly: true
@@ -483,6 +487,7 @@ components:
       - events
       - id
       - meeting_url
+      - metadata
       - recording_state
       - state
       - transcription_state
