@@ -6,6 +6,7 @@ import redis
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
@@ -16,7 +17,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.utils.dateparse import parse_datetime
 from .authentication import ApiKeyAuthentication
 from .models import (
     Bot,
@@ -609,13 +609,10 @@ class TranscriptView(APIView):
                 )
 
             # Get all utterances with transcriptions, sorted by timeline
-            utterances_query = Utterance.objects.select_related("participant").filter(
-                recording=recording, 
-                transcription__isnull=False
-            )
-            
+            utterances_query = Utterance.objects.select_related("participant").filter(recording=recording, transcription__isnull=False)
+
             # Apply updated_after filter if provided
-            updated_after = request.query_params.get('updated_after')
+            updated_after = request.query_params.get("updated_after")
             if updated_after:
                 updated_after_datetime = parse_datetime(str(updated_after))
                 if not updated_after_datetime:
@@ -624,8 +621,7 @@ class TranscriptView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 utterances_query = utterances_query.filter(updated_at__gt=updated_after_datetime)
-                
-            
+
             # Apply ordering
             utterances = utterances_query.order_by("timestamp_ms")
 
