@@ -2574,6 +2574,9 @@ class BotOutputManager {
             
             // Draw the image on the canvas when it loads
             img.onload = () => {
+                // Revoke the URL immediately after image is loaded
+                URL.revokeObjectURL(url);
+                
                 const canvas = this.botOutputCanvasElement;
                 const ctx = canvas.getContext('2d');
                 
