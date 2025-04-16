@@ -303,6 +303,12 @@ class BotController:
         return not self.should_create_gstreamer_pipeline()
 
     def connect_to_redis(self):
+        # Close both pubsub and client if they exist
+        if self.pubsub:
+            self.pubsub.close()
+        if self.redis_client:
+            self.redis_client.close()
+
         redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
         self.redis_client = redis.from_url(redis_url)
         self.pubsub = self.redis_client.pubsub()
@@ -367,8 +373,7 @@ class BotController:
             reconnect_delay_seconds = 1
             num_attempts = 0
             while True:
-                try:
-                    self.pubsub.close()
+                try:                    
                     self.connect_to_redis()
                     break
                 except Exception as e:
