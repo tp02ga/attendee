@@ -258,7 +258,7 @@ class BotController:
 
         self.redis_client = None
         self.pubsub = None
-        self.channel = f"bot_{self.bot_in_db.id}"
+        self.pubsub_channel = f"bot_{self.bot_in_db.id}"
 
         self.automatic_leave_configuration = AutomaticLeaveConfiguration()
 
@@ -306,7 +306,7 @@ class BotController:
         redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
         self.redis_client = redis.from_url(redis_url)
         self.pubsub = self.redis_client.pubsub()
-        self.pubsub.subscribe(self.channel)
+        self.pubsub.subscribe(self.pubsub_channel)
         logger.info(f"Redis connection established for bot {self.bot_in_db.id}")
 
     def run(self):
@@ -415,7 +415,7 @@ class BotController:
             self.cleanup()
         finally:
             # Clean up Redis subscription
-            self.pubsub.unsubscribe(self.channel)
+            self.pubsub.unsubscribe(self.pubsub_channel)
             self.pubsub.close()
 
     def take_action_based_on_bot_in_db(self):
