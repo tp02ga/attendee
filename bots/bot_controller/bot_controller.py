@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import signal
+import threading
+import time
 import traceback
 
 import gi
@@ -30,7 +32,7 @@ from bots.models import (
     Utterance,
 )
 from bots.utils import meeting_type_from_url
-import threading
+
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
@@ -40,7 +42,6 @@ from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
-import time
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -385,13 +386,12 @@ class BotController:
                         # Schedule Redis message handling in the main GLib loop
                         GLib.idle_add(lambda: self.handle_redis_message(message))
                 except Exception as e:
-
                     # If this is a certain type of exception, we can attempt to reconnect
                     if type(e) == redis.exceptions.ConnectionError and "Connection closed by server." in str(e):
-                        logger.info(f"Redis connection closed by server. Attempting to reconnect...")
+                        logger.info("Redis connection closed by server. Attempting to reconnect...")
                         repeatedly_try_to_reconnect_to_redis()
 
-                    else:                        
+                    else:
                         # log the type of exception
                         logger.info(f"Error in Redis listener: {type(e)} {e}")
                         break
