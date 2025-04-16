@@ -373,7 +373,7 @@ class BotController:
             reconnect_delay_seconds = 1
             num_attempts = 0
             while True:
-                try:                    
+                try:
                     self.connect_to_redis()
                     break
                 except Exception as e:
