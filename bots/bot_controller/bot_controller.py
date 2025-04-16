@@ -392,7 +392,7 @@ class BotController:
                         GLib.idle_add(lambda: self.handle_redis_message(message))
                 except Exception as e:
                     # If this is a certain type of exception, we can attempt to reconnect
-                    if type(e) == redis.exceptions.ConnectionError and "Connection closed by server." in str(e):
+                    if isinstance(e, redis.exceptions.ConnectionError) and "Connection closed by server." in str(e):
                         logger.info("Redis connection closed by server. Attempting to reconnect...")
                         repeatedly_try_to_reconnect_to_redis()
 
