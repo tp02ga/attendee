@@ -30,7 +30,7 @@ from bots.models import (
     Utterance,
 )
 from bots.utils import meeting_type_from_url
-
+import threading
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
@@ -40,6 +40,7 @@ from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
+import time
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -254,6 +255,10 @@ class BotController:
         self.cleanup_called = False
         self.run_called = False
 
+        self.redis_client = None
+        self.pubsub = None
+        self.channel = f"bot_{self.bot_in_db.id}"
+
         self.automatic_leave_configuration = AutomaticLeaveConfiguration()
 
         if self.bot_in_db.rtmp_destination_url():
@@ -296,16 +301,19 @@ class BotController:
     def should_create_screen_and_audio_recorder(self):
         return not self.should_create_gstreamer_pipeline()
 
+    def connect_to_redis(self):
+        redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
+        self.redis_client = redis.from_url(redis_url)
+        self.pubsub = self.redis_client.pubsub()
+        self.pubsub.subscribe(self.channel)
+        logger.info(f"Redis connection established for bot {self.bot_in_db.id}")
+
     def run(self):
         if self.run_called:
             raise Exception("Run already called, exiting")
         self.run_called = True
 
-        redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
-        redis_client = redis.from_url(redis_url)
-        pubsub = redis_client.pubsub()
-        channel = f"bot_{self.bot_in_db.id}"
-        pubsub.subscribe(channel)
+        self.connect_to_redis()
 
         # Initialize core objects
         # Only used for adapters that can provide per-participant audio
@@ -354,19 +362,39 @@ class BotController:
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()
 
-        # Set up Redis listener in a separate thread
-        import threading
+        def repeatedly_try_to_reconnect_to_redis():
+            reconnect_delay_seconds = 1
+            num_attempts = 0
+            while True:
+                try:
+                    self.pubsub.close()
+                    self.connect_to_redis()
+                    break
+                except Exception as e:
+                    logger.info(f"Error reconnecting to Redis: {e} Attempt {num_attempts} / 30.")
+                    time.sleep(reconnect_delay_seconds)
+                    num_attempts += 1
+                    if num_attempts > 30:
+                        raise Exception("Failed to reconnect to Redis after 30 attempts")
 
         def redis_listener():
             while True:
                 try:
-                    message = pubsub.get_message(timeout=1.0)
+                    message = self.pubsub.get_message(timeout=1.0)
                     if message:
                         # Schedule Redis message handling in the main GLib loop
                         GLib.idle_add(lambda: self.handle_redis_message(message))
                 except Exception as e:
-                    logger.info(f"Error in Redis listener: {e}")
-                    break
+
+                    # If this is a certain type of exception, we can attempt to reconnect
+                    if type(e) == redis.exceptions.ConnectionError and "Connection closed by server." in str(e):
+                        logger.info(f"Redis connection closed by server. Attempting to reconnect...")
+                        repeatedly_try_to_reconnect_to_redis()
+
+                    else:                        
+                        # log the type of exception
+                        logger.info(f"Error in Redis listener: {type(e)} {e}")
+                        break
 
         redis_thread = threading.Thread(target=redis_listener, daemon=True)
         redis_thread.start()
@@ -387,8 +415,8 @@ class BotController:
             self.cleanup()
         finally:
             # Clean up Redis subscription
-            pubsub.unsubscribe(channel)
-            pubsub.close()
+            self.pubsub.unsubscribe(self.channel)
+            self.pubsub.close()
 
     def take_action_based_on_bot_in_db(self):
         if self.bot_in_db.state == BotStates.JOINING:
