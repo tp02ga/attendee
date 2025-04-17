@@ -2713,9 +2713,19 @@ class BotOutputManager {
             this.numChannels = numChannels;
         }
         
-        // Convert PCM data to the right format if needed
-        const audioData = (pcmData instanceof Float32Array) ? 
-            pcmData : new Float32Array(pcmData.buffer || pcmData);
+        // Convert Int16 PCM data to Float32 with proper scaling
+        let audioData;
+        if (pcmData instanceof Float32Array) {
+            audioData = pcmData;
+        } else {
+            // Create a Float32Array of the same length
+            audioData = new Float32Array(pcmData.length);
+            // Scale Int16 values (-32768 to 32767) to Float32 range (-1.0 to 1.0)
+            for (let i = 0; i < pcmData.length; i++) {
+                // Division by 32768.0 scales the range correctly
+                audioData[i] = pcmData[i] / 32768.0;
+            }
+        }
         
         // Add to queue with timing information
         const chunk = {
