@@ -245,8 +245,6 @@ class GoogleMeetUIMethods:
 
         self.wait_for_host_if_needed()
 
-        self.ready_to_show_bot_image()
-
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
         more_options_button = self.locate_element(
@@ -324,6 +322,8 @@ class GoogleMeetUIMethods:
 
         if self.google_meet_closed_captions_language:
             self.select_language(self.google_meet_closed_captions_language)
+
+        self.ready_to_show_bot_image()
 
     def scroll_element_into_view(self, element, step):
         try:
