@@ -36,11 +36,25 @@ class GoogleMeetUIMethods:
             logger.info(f"Unknown error occurred in find_element_by_selector. Exception type = {type(e)}")
             return None
 
+    def click_element_and_handle_blocking_elements(self, element, step):
+        num_attempts = 30
+
+        for attempt_index in range(num_attempts):
+            try:
+                self.click_element(element, step)
+                return
+            except UiCouldNotClickElementException as e:
+                logger.info(f"Error occurred when clicking element for step {step}, will click any blocking elements and retry the click")
+                self.click_others_may_see_your_meeting_differently_button(step)
+                last_attempt = attempt_index == num_attempts - 1
+                if last_attempt:
+                    raise e
+
     def click_element(self, element, step):
         try:
             element.click()
         except Exception as e:
-            logger.info(f"Error occurred when clicking element {step}, will retry")
+            logger.info(f"Error occurred when clicking element for step {step}, will retry")
             raise UiCouldNotClickElementException("Error occurred when clicking element", step, e)
 
     # If the meeting you're about to join is being recorded, gmeet makes you click an additional button after you're admitted to the meeting
@@ -231,8 +245,6 @@ class GoogleMeetUIMethods:
 
         self.wait_for_host_if_needed()
 
-        self.ready_to_show_bot_image()
-
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
         more_options_button = self.locate_element(
@@ -240,8 +252,8 @@ class GoogleMeetUIMethods:
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, MORE_OPTIONS_BUTTON_SELECTOR)),
             wait_time_seconds=6,
         )
-        logger.info("Clicking the more options button...")
-        self.click_element(more_options_button, "more_options_button")
+        logger.info("Clicking the more options button....")
+        self.click_element_and_handle_blocking_elements(more_options_button, "more_options_button")
 
         logger.info("Waiting for the 'Change layout' list item...")
         change_layout_list_item = self.locate_element(
@@ -249,8 +261,8 @@ class GoogleMeetUIMethods:
             condition=EC.presence_of_element_located((By.XPATH, '//li[.//span[text()="Change layout"]]')),
             wait_time_seconds=6,
         )
-        logger.info("Clicking the 'Change layout' list item...")
-        self.click_element(change_layout_list_item, "change_layout_list_item")
+        logger.info("Clicking the 'Change layout' list item....")
+        self.click_element_and_handle_blocking_elements(change_layout_list_item, "change_layout_list_item")
 
         if layout_to_select == "spotlight":
             logger.info("Waiting for the 'Spotlight' label element")
@@ -310,6 +322,8 @@ class GoogleMeetUIMethods:
 
         if self.google_meet_closed_captions_language:
             self.select_language(self.google_meet_closed_captions_language)
+
+        self.ready_to_show_bot_image()
 
     def scroll_element_into_view(self, element, step):
         try:
