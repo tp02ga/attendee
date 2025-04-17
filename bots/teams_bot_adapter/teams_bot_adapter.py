@@ -10,7 +10,7 @@ class TeamsBotAdapter(WebBotAdapter, TeamsUIMethods):
 
     def get_websocket_port(self):
         return 8097
-        
+
     def send_raw_image(self, image_bytes):
         # If we have a memoryview, convert it to bytes
         if isinstance(image_bytes, memoryview):
