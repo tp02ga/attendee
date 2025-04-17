@@ -590,12 +590,18 @@ class TestZoomBot(TransactionTestCase):
                 2,  # Simulated participant ID that's not the bot
             )
 
-            # Advance time past silence threshold (300 seconds)
+            # Advance time past silence activation threshold (1200 seconds)
             nonlocal current_time
-            current_time += 301
+            current_time += 1201
             mock_time.return_value = current_time
 
-            # Trigger check of auto-leave conditions
+            # Trigger check of auto-leave conditions which should activate silence detection
+            adapter.check_auto_leave_conditions()
+
+            current_time += 601
+            mock_time.return_value = current_time
+
+            # Trigger check of auto-leave conditions which should trigger auto-leave
             adapter.check_auto_leave_conditions()
 
             # Sleep to allow for event processing
@@ -628,6 +634,10 @@ class TestZoomBot(TransactionTestCase):
 
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
+
+        # Assert that silence detection was activated
+        self.assertTrue(controller.adapter.silence_detection_activated)
+        self.assertIsNotNone(controller.adapter.joined_at)
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
