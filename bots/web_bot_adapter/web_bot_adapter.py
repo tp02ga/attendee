@@ -433,6 +433,7 @@ class WebBotAdapter(BotAdapter):
         self.send_frames = True
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
+        self.joined_at = time.time()
 
         if self.start_recording_screen_callback:
             sleep(2)
