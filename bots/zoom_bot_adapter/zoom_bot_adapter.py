@@ -141,6 +141,7 @@ class ZoomBotAdapter(BotAdapter):
         self.cleaned_up = False
         self.requested_leave = False
         self.joined_at = None
+
         if self.use_video:
             self.video_input_manager = VideoInputManager(
                 new_frame_callback=self.add_video_frame_callback,
