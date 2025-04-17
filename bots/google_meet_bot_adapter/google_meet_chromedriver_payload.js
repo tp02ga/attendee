@@ -2744,7 +2744,14 @@ class BotOutputManager {
     processAudioQueue() {
         if (this.audioQueue.length === 0) {
             this.isPlaying = false;
-            turnOffMic();
+            
+            // Delay turning off the mic by 1 second and check if queue is still empty
+            setTimeout(() => {
+                // Only turn off mic if the queue is still empty
+                if (this.audioQueue.length === 0)
+                    turnOffMic();
+            }, 1000);
+            
             return;
         }
         
