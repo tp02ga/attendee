@@ -147,6 +147,9 @@ class TeamsUIMethods:
         # Select speaker view
         self.select_speaker_view()
 
+        self.ready_to_show_bot_image()
+
+
     def click_leave_button(self):
         logger.info("Waiting for the leave button")
         leave_button = WebDriverWait(self.driver, 6).until(
