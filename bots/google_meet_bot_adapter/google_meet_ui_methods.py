@@ -38,7 +38,7 @@ class GoogleMeetUIMethods:
 
     def click_element_and_handle_blocking_elements(self, element, step):
         num_attempts = 30
-        
+
         for attempt_index in range(num_attempts):
             try:
                 self.click_element(element, step)
