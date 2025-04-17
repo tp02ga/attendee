@@ -170,6 +170,9 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
         self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
+        # Assert that joined at is not none
+        self.assertIsNotNone(controller.adapter.joined_at)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 

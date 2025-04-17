@@ -637,6 +637,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Assert that silence detection was activated
         self.assertTrue(controller.adapter.silence_detection_activated)
+        self.assertIsNotNone(controller.adapter.joined_at)
 
         # Verify bot events in sequence
         bot_events = self.bot.bot_events.all()
