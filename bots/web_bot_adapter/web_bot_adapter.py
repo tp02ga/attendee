@@ -505,9 +505,6 @@ class WebBotAdapter(BotAdapter):
 
         self.cleaned_up = True
 
-    def get_first_buffer_timestamp_ms_offset(self):
-        return self.first_buffer_timestamp_ms_offset
-
     def check_auto_leave_conditions(self) -> None:
         if self.left_meeting:
             return
@@ -537,5 +534,23 @@ class WebBotAdapter(BotAdapter):
     def send_raw_audio(self, bytes, sample_rate):
         logger.info("send_raw_audio not supported in google meet bots")
 
+    def get_first_buffer_timestamp_ms(self):
+        if self.media_sending_enable_timestamp_ms is None:
+            return None
+        # Doing a manual offset for now to correct for the screen recorder delay. This seems to work reliably.
+        return self.media_sending_enable_timestamp_ms
+
     def send_raw_image(self, image_bytes):
-        logger.info("send_raw_image not supported in google meet bots")
+        # If we have a memoryview, convert it to bytes
+        if isinstance(image_bytes, memoryview):
+            image_bytes = image_bytes.tobytes()
+
+        # Pass the raw bytes directly to JavaScript
+        # The JavaScript side can convert it to appropriate format
+        self.driver.execute_script(
+            """
+            const bytes = new Uint8Array(arguments[0]);
+            window.botOutputManager.displayImage(bytes);
+        """,
+            list(image_bytes),
+        )

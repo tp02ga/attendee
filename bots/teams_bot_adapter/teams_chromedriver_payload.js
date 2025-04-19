@@ -1,3 +1,92 @@
+class StyleManager {
+    constructor() {
+        this.audioContext = null;
+        this.audioTracks = [];
+        this.silenceThreshold = 0.0;
+        this.silenceCheckInterval = null;
+    }
+
+    addAudioTrack(audioTrack) {
+        this.audioTracks.push(audioTrack);
+    }
+
+    checkAudioActivity() {
+        // Get audio data
+        this.analyser.getByteTimeDomainData(this.audioDataArray);
+        
+        // Calculate deviation from the center value (128)
+        let sumDeviation = 0;
+        for (let i = 0; i < this.audioDataArray.length; i++) {
+            // Calculate how much each sample deviates from the center (128)
+            sumDeviation += Math.abs(this.audioDataArray[i] - 128);
+        }
+        
+        const averageDeviation = sumDeviation / this.audioDataArray.length;
+        
+        // If average deviation is above threshold, we have audio activity
+        if (averageDeviation > this.silenceThreshold) {
+            window.ws.sendJson({
+                type: 'SilenceStatus',
+                isSilent: false
+            });
+        }
+    }
+
+    startSilenceDetection() {
+         // Set up audio context and processing as before
+         this.audioContext = new AudioContext();
+
+         this.audioSources = this.audioTracks.map(track => {
+             const mediaStream = new MediaStream([track]);
+             return this.audioContext.createMediaStreamSource(mediaStream);
+         });
+ 
+         // Create a destination node
+         const destination = this.audioContext.createMediaStreamDestination();
+ 
+         // Connect all sources to the destination
+         this.audioSources.forEach(source => {
+             source.connect(destination);
+         });
+ 
+         // Create analyzer and connect it to the destination
+         this.analyser = this.audioContext.createAnalyser();
+         this.analyser.fftSize = 256;
+         const bufferLength = this.analyser.frequencyBinCount;
+         this.audioDataArray = new Uint8Array(bufferLength);
+ 
+         // Create a source from the destination's stream and connect it to the analyzer
+         const mixedSource = this.audioContext.createMediaStreamSource(destination.stream);
+         mixedSource.connect(this.analyser);
+ 
+         this.mixedAudioTrack = destination.stream.getAudioTracks()[0];
+
+        // Clear any existing interval
+        if (this.silenceCheckInterval) {
+            clearInterval(this.silenceCheckInterval);
+        }
+                
+        // Check for audio activity every second
+        this.silenceCheckInterval = setInterval(() => {
+            this.checkAudioActivity();
+        }, 1000);
+    }
+
+    stop() {
+        console.log('stop', ' is currently a no-op');
+    }
+
+    start() {
+        this.startSilenceDetection();
+
+        console.log('Started StyleManager');
+    }
+    
+    addVideoTrack(trackEvent) {
+        console.log('addVideoTrack', trackEvent, ' is currently a no-op');
+    }
+}
+
 class DominantSpeakerManager {
     constructor() {
         this.dominantSpeakerStreamId = null;
@@ -590,10 +679,14 @@ class WebSocketClient {
         };
   
         this.mediaSendingEnabled = false;
+        /*
+        We no longer need this because we're not using MediaStreamTrackProcessor's
         this.lastVideoFrameTime = performance.now();
         this.blackFrameInterval = null;
+        */
     }
   
+    /*
     startBlackFrameTimer() {
       if (this.blackFrameInterval) return; // Don't start if already running
       
@@ -622,22 +715,33 @@ class WebSocketClient {
       }, 250);
     }
   
-      stopBlackFrameTimer() {
-          if (this.blackFrameInterval) {
-              clearInterval(this.blackFrameInterval);
-              this.blackFrameInterval = null;
-          }
-      }
+    stopBlackFrameTimer() {
+        if (this.blackFrameInterval) {
+            clearInterval(this.blackFrameInterval);
+            this.blackFrameInterval = null;
+        }
+    }
+    */
   
     enableMediaSending() {
-      this.mediaSendingEnabled = true;
-      this.startBlackFrameTimer();
+        this.mediaSendingEnabled = true;
+        window.styleManager.start();
+
+        // No longer need this because we're not using MediaStreamTrackProcessor's
+        //this.startBlackFrameTimer();
     }
-  
-    disableMediaSending() {
-      this.mediaSendingEnabled = false;
-      this.stopBlackFrameTimer();
+
+    async disableMediaSending() {
+        window.styleManager.stop();
+        //window.fullCaptureManager.stop();
+        // Give the media recorder a bit of time to send the final data
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        this.mediaSendingEnabled = false;
+
+        // No longer need this because we're not using MediaStreamTrackProcessor's
+        //this.stopBlackFrameTimer();
     }
+
   
     handleMessage(data) {
         const view = new DataView(data);
@@ -943,6 +1047,8 @@ window.userManager = userManager;
 const virtualStreamToPhysicalStreamMappingManager = new VirtualStreamToPhysicalStreamMappingManager();
 const dominantSpeakerManager = new DominantSpeakerManager();
 
+const styleManager = new StyleManager();
+window.styleManager = styleManager;
 if (!realConsole) {
     if (document.readyState === 'complete') {
         createIframe();
@@ -1353,6 +1459,26 @@ new RTCInterceptor({
         });
 
         peerConnection.addEventListener('track', (event) => {
+            console.log('New track:', {
+                trackId: event.track.id,
+                trackKind: event.track.kind,
+                streams: event.streams,
+            });
+            // We need to capture every audio track in the meeting,
+            // but we don't need to do anything with the video tracks
+            if (event.track.kind === 'audio') {
+                window.styleManager.addAudioTrack(event.track);
+            }
+            if (event.track.kind === 'video') {
+                window.styleManager.addVideoTrack(event);
+            }
+        });
+
+        /*
+        We are no longer setting up per-frame MediaStreamTrackProcessor's because it taxes the CPU too much
+        For now, we are just using the ScreenAndAudioRecorder to record the video stream
+        but we're keeping this code around for reference
+        peerConnection.addEventListener('track', (event) => {
             // Log the track and its associated streams
 
             if (event.track.kind === 'audio') {
@@ -1374,6 +1500,7 @@ new RTCInterceptor({
                 }
             }
         });
+        */
 
         peerConnection.addEventListener('connectionstatechange', (event) => {
             realConsole?.log('connectionstatechange', event);
@@ -1589,7 +1716,8 @@ class BotOutputManager {
 
                 // Now that the image is loaded, capture the stream and turn on camera
                 this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
-                turnOnCamera();
+                // Wait for 3 seconds before turning on camera, this is necessary for teams only
+                setTimeout(turnOnCamera, 3000);
             })
             .catch(error => {
                 console.error('Error in botOutputManager.displayImage:', error);
