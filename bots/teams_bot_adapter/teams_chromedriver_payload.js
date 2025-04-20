@@ -4,6 +4,8 @@ class StyleManager {
         this.audioTracks = [];
         this.silenceThreshold = 0.0;
         this.silenceCheckInterval = null;
+        this.frameStyleElement = null;
+        this.frameAdjustInterval = null;
     }
 
     addAudioTrack(audioTrack) {
@@ -72,12 +74,104 @@ class StyleManager {
         }, 1000);
     }
 
+    makeMainVideoFillFrame() {
+        // Create a style element
+        const style = document.createElement('style');
+        
+        // Define the CSS rules
+        style.textContent = `
+            /* First, hide all elements */
+            body * {
+            display: none !important;
+            }
+            
+            /* Make the target element visible */
+            [data-test-segment-type="central"] {
+            display: block !important;
+            }
+            
+            /* Make all parents of the target element visible - this works because an element must be displayed for its children to be visible */
+            [data-test-segment-type="central"] ancestor {
+            display: block !important;
+            }
+            
+            /* Make all ancestors visible using :has() selector (modern browsers) */
+            *:has([data-test-segment-type="central"]) {
+            display: block !important;
+            }
+            
+            /* Make all children visible */
+            [data-test-segment-type="central"] * {
+            display: inherit !important;
+            }
+        `;
+        
+        // Add the style element to the document head
+        document.head.appendChild(style);
+        
+        // Store reference to the style element
+        this.frameStyleElement = style;
+        
+        // Initial adjustment
+        this.adjustCentralElement();
+        
+        // Set up interval to readjust the central element regularly
+        this.frameAdjustInterval = setInterval(() => {
+            this.adjustCentralElement();
+        }, 250);
+    }
+    
+    adjustCentralElement() {
+        // Get the central element
+        const centralElement = document.querySelector('[data-test-segment-type="central"]');
+        
+        // Function to remove width and height from inline styles
+        function adjustCentralElementSize(element) {
+            if (element.style) {
+                element.style.width = '1920px';
+                element.style.height = '1080px';
+            }
+        }
+        
+        if (centralElement) {
+            // Remove styles from the central element
+            adjustCentralElementSize(centralElement.children[0].children[0].children[0]);
+            adjustCentralElementSize(centralElement.children[0]);
+            adjustCentralElementSize(centralElement);
+        }
+    }
+
+    restoreOriginalFrame() {
+        // If we have a reference to the style element, remove it
+        if (this.frameStyleElement) {
+            this.frameStyleElement.remove();
+            this.frameStyleElement = null;
+            console.log('Removed video frame style element');
+        }
+        
+        // Clear the adjustment interval if it exists
+        if (this.frameAdjustInterval) {
+            clearInterval(this.frameAdjustInterval);
+            this.frameAdjustInterval = null;
+        }
+    }
+
     stop() {
-        console.log('stop', ' is currently a no-op');
+        // Clear any existing interval
+        if (this.silenceCheckInterval) {
+            clearInterval(this.silenceCheckInterval);
+            this.silenceCheckInterval = null;
+        }
+        
+        // Restore original frame layout
+        this.restoreOriginalFrame();
+        
+        console.log('Stopped StyleManager');
     }
 
     start() {
         this.startSilenceDetection();
+        this.makeMainVideoFillFrame();
 
         console.log('Started StyleManager');
     }
