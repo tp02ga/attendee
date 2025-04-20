@@ -1,8 +1,9 @@
+import numpy as np
+
 from bots.google_meet_bot_adapter.google_meet_ui_methods import (
     GoogleMeetUIMethods,
 )
 from bots.web_bot_adapter import WebBotAdapter
-import numpy as np
 
 
 class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
@@ -22,10 +23,9 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         return 8765
 
     def send_raw_audio(self, bytes, sample_rate):
-        #print("send_raw_audio not supported in google meet bots")
         """
         Sends raw audio bytes to the Google Meet call.
-        
+
         :param bytes: Raw audio bytes in PCM format
         :param sample_rate: Sample rate of the audio in Hz
         """

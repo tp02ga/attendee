@@ -2697,11 +2697,12 @@ class BotOutputManager {
         this.audioQueue = [];
         this.nextPlayTime = 0;
         this.isPlaying = false;
-        this.sampleRate = 48000; // Default sample rate
+        this.sampleRate = 44100; // Default sample rate
         this.numChannels = 1;    // Default channels
+        this.turnOffMicTimeout = null;
     }
 
-    playPCMAudio(pcmData, sampleRate = 48000, numChannels = 1) {
+    playPCMAudio(pcmData, sampleRate = 44100, numChannels = 1) {
         turnOnMic();
 
         // Make sure audio context is initialized
@@ -2744,13 +2745,18 @@ class BotOutputManager {
     processAudioQueue() {
         if (this.audioQueue.length === 0) {
             this.isPlaying = false;
+
+            if (this.turnOffMicTimeout) {
+                clearTimeout(this.turnOffMicTimeout);
+                this.turnOffMicTimeout = null;
+            }
             
-            // Delay turning off the mic by 1 second and check if queue is still empty
-            setTimeout(() => {
+            // Delay turning off the mic by 2 second and check if queue is still empty
+            this.turnOffMicTimeout = setTimeout(() => {
                 // Only turn off mic if the queue is still empty
                 if (this.audioQueue.length === 0)
                     turnOffMic();
-            }, 1000);
+            }, 2000);
             
             return;
         }
