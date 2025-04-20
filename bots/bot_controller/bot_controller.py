@@ -77,16 +77,16 @@ class BotController:
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
             meeting_url=self.bot_in_db.meeting_url,
-            add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
-            wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
-            add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            add_video_frame_callback=None,
+            wants_any_video_frames_callback=None,
+            add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
-            start_recording_screen_callback=None,
-            stop_recording_screen_callback=None,
+            start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
+            stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
         )
 
     def get_zoom_bot_adapter(self):
@@ -289,7 +289,7 @@ class BotController:
             return os.path.join("/tmp", self.get_recording_filename())
 
     def should_create_gstreamer_pipeline(self):
-        # For google meet, we're doing a media recorder based recording technique that does the video processing in the browser
+        # For google meet / teams, we're doing a media recorder based recording technique that does the video processing in the browser
         # so we don't need to create a gstreamer pipeline here
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
@@ -297,7 +297,7 @@ class BotController:
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return False
         elif meeting_type == MeetingTypes.TEAMS:
-            return True
+            return False
 
     def should_create_screen_and_audio_recorder(self):
         return not self.should_create_gstreamer_pipeline()

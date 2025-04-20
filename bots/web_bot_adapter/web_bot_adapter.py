@@ -83,6 +83,9 @@ class WebBotAdapter(BotAdapter):
         self.should_create_debug_recording = should_create_debug_recording
         self.debug_screen_recorder = None
 
+        self.silence_detection_activated = False
+        self.joined_at = None
+
     def process_encoded_mp4_chunk(self, message):
         self.last_media_message_processed_time = time.time()
         if len(message) > 4:
@@ -430,6 +433,7 @@ class WebBotAdapter(BotAdapter):
         self.send_frames = True
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
+        self.joined_at = time.time()
 
         if self.start_recording_screen_callback:
             sleep(2)
@@ -501,9 +505,6 @@ class WebBotAdapter(BotAdapter):
 
         self.cleaned_up = True
 
-    def get_first_buffer_timestamp_ms_offset(self):
-        return self.first_buffer_timestamp_ms_offset
-
     def check_auto_leave_conditions(self) -> None:
         if self.left_meeting:
             return
@@ -516,7 +517,12 @@ class WebBotAdapter(BotAdapter):
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
-        if self.last_audio_message_processed_time is not None:
+        if not self.silence_detection_activated and self.joined_at is not None and time.time() - self.joined_at > self.automatic_leave_configuration.silence_activate_after_seconds:
+            self.silence_detection_activated = True
+            self.last_audio_message_processed_time = time.time()
+            logger.info(f"Silence detection activated after {self.automatic_leave_configuration.silence_activate_after_seconds} seconds")
+
+        if self.last_audio_message_processed_time is not None and self.silence_detection_activated:
             if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
                 logger.info(f"Auto-leaving meeting because there was no audio for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
@@ -528,5 +534,23 @@ class WebBotAdapter(BotAdapter):
     def send_raw_audio(self, bytes, sample_rate):
         logger.info("send_raw_audio not supported in google meet bots")
 
+    def get_first_buffer_timestamp_ms(self):
+        if self.media_sending_enable_timestamp_ms is None:
+            return None
+        # Doing a manual offset for now to correct for the screen recorder delay. This seems to work reliably.
+        return self.media_sending_enable_timestamp_ms
+
     def send_raw_image(self, image_bytes):
-        logger.info("send_raw_image not supported in google meet bots")
+        # If we have a memoryview, convert it to bytes
+        if isinstance(image_bytes, memoryview):
+            image_bytes = image_bytes.tobytes()
+
+        # Pass the raw bytes directly to JavaScript
+        # The JavaScript side can convert it to appropriate format
+        self.driver.execute_script(
+            """
+            const bytes = new Uint8Array(arguments[0]);
+            window.botOutputManager.displayImage(bytes);
+        """,
+            list(image_bytes),
+        )

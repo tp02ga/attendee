@@ -104,6 +104,159 @@ class TestGoogleMeetBot(TransactionTestCase):
     @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
+    @patch("time.time")
+    def test_bot_auto_leaves_meeting_after_silence_threshold(
+        self,
+        mock_time,
+        mock_wait_for_host_if_needed,
+        mock_check_if_meeting_is_found,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+        mock_create_debug_recording,
+    ):
+        # Set initial time
+        current_time = 1000.0
+        mock_time.return_value = current_time
+
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def simulate_join_flow():
+            nonlocal current_time
+            # Sleep to allow initialization
+            time.sleep(2)
+
+            # Add participants - simulate websocket message processing
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+
+            # Simulate receiving audio by updating the last audio message processed time
+            controller.adapter.last_audio_message_processed_time = current_time
+
+            # Sleep to allow processing
+            time.sleep(2)
+
+            # Advance time past silence activation threshold (1200 seconds)
+            current_time += 1201
+            mock_time.return_value = current_time
+
+            # Trigger check of auto-leave conditions which should activate silence detection
+            controller.adapter.check_auto_leave_conditions()
+
+            # Verify silence detection was activated
+            self.assertTrue(controller.adapter.silence_detection_activated)
+
+            # Advance time past silence threshold (600 seconds)
+            current_time += 601
+            mock_time.return_value = current_time
+
+            # Trigger check of auto-leave conditions which should trigger auto-leave
+            controller.adapter.check_auto_leave_conditions()
+
+            # Sleep to allow for event processing
+            time.sleep(2)
+
+            # Clean up connections in thread
+            connection.close()
+
+        # Run join flow simulation after a short delay
+        threading.Timer(2, simulate_join_flow).start()
+
+        # Give the bot some time to process
+        bot_thread.join(timeout=10)
+
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
+        # Assert that the bot is in the ENDED state
+        self.assertEqual(self.bot.state, BotStates.ENDED)
+
+        # Assert that silence detection was activated
+        self.assertTrue(controller.adapter.silence_detection_activated)
+        self.assertIsNotNone(controller.adapter.joined_at)
+
+        # Verify bot events in sequence
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 6)  # We expect 6 events in total
+
+        # Verify join_requested_event (Event 1)
+        join_requested_event = bot_events[0]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.READY)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+
+        # Verify bot_joined_meeting_event (Event 2)
+        bot_joined_meeting_event = bot_events[1]
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
+        self.assertEqual(bot_joined_meeting_event.old_state, BotStates.JOINING)
+        self.assertEqual(bot_joined_meeting_event.new_state, BotStates.JOINED_NOT_RECORDING)
+
+        # Verify recording_permission_granted_event (Event 3)
+        recording_permission_granted_event = bot_events[2]
+        self.assertEqual(
+            recording_permission_granted_event.event_type,
+            BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
+        )
+        self.assertEqual(recording_permission_granted_event.old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_permission_granted_event.new_state, BotStates.JOINED_RECORDING)
+
+        # Verify leave_requested_event (Event 4)
+        leave_requested_event = bot_events[3]
+        self.assertEqual(leave_requested_event.event_type, BotEventTypes.LEAVE_REQUESTED)
+        self.assertEqual(leave_requested_event.old_state, BotStates.JOINED_RECORDING)
+        self.assertEqual(leave_requested_event.new_state, BotStates.LEAVING)
+        self.assertEqual(
+            leave_requested_event.event_sub_type,
+            BotEventSubTypes.LEAVE_REQUESTED_AUTO_LEAVE_SILENCE,
+        )
+
+        # Verify bot_left_meeting_event (Event 5)
+        bot_left_meeting_event = bot_events[4]
+        self.assertEqual(bot_left_meeting_event.event_type, BotEventTypes.BOT_LEFT_MEETING)
+        self.assertEqual(bot_left_meeting_event.old_state, BotStates.LEAVING)
+        self.assertEqual(bot_left_meeting_event.new_state, BotStates.POST_PROCESSING)
+        self.assertIsNone(bot_left_meeting_event.event_sub_type)
+
+        # Verify post_processing_completed_event (Event 6)
+        post_processing_completed_event = bot_events[5]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        self.assertEqual(post_processing_completed_event.old_state, BotStates.POST_PROCESSING)
+        self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
+
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+
+        # Close the database connection since we're in a thread
+        connection.close()
+
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     def test_google_meet_bot_can_join_meeting_and_record_audio_and_video(
         self,
         mock_wait_for_host_if_needed,
@@ -170,6 +323,9 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
         self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
 
+        # Assert that joined at is not none
+        self.assertIsNotNone(controller.adapter.joined_at)
+
         # Assert that the bot is in the ENDED state
         self.assertEqual(self.bot.state, BotStates.ENDED)
 
@@ -231,9 +387,6 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
-
-        # Verify first_buffer_timestamp_ms_offset was set correctly
-        self.assertEqual(controller.adapter.get_first_buffer_timestamp_ms_offset(), 12345)
 
         # Verify that no charge was created (since the env var is not set in this test suite)
         credit_transaction = CreditTransaction.objects.filter(bot=self.bot).first()
