@@ -532,7 +532,7 @@ class WebBotAdapter(BotAdapter):
         self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
 
     def send_raw_audio(self, bytes, sample_rate):
-        logger.info("send_raw_audio not supported in google meet bots")
+        logger.info("send_raw_audio not supported in web bots")
 
     def get_first_buffer_timestamp_ms(self):
         if self.media_sending_enable_timestamp_ms is None:

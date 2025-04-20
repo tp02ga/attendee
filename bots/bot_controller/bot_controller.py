@@ -131,6 +131,12 @@ class BotController:
         elif meeting_type == MeetingTypes.TEAMS:
             return GstreamerPipeline.AUDIO_FORMAT_FLOAT
 
+    def get_sleep_time_between_audio_output_chunks_seconds(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == MeetingTypes.ZOOM:
+            return 0.9
+        return 0.1
+
     def get_num_audio_sources(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
@@ -364,6 +370,7 @@ class BotController:
         self.audio_output_manager = AudioOutputManager(
             currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished,
             play_raw_audio_callback=self.adapter.send_raw_audio,
+            sleep_time_between_chunks_seconds=self.get_sleep_time_between_audio_output_chunks_seconds(),
         )
 
         # Create GLib main loop
