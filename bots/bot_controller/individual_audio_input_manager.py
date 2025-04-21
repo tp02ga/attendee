@@ -89,7 +89,7 @@ class IndividualAudioInputManager:
         else:
             self.last_nonsilent_audio_time[speaker_id] = chunk_time
 
-            print(f"Speaker {speaker_id} is speaking")
+            logger.debug(f"Speaker {speaker_id} is speaking")
 
         # Flush buffer if needed
         if should_flush and len(self.utterances[speaker_id]) > 0:
