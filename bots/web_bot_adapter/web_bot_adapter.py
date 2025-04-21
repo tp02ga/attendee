@@ -5,8 +5,8 @@ import logging
 import os
 import threading
 import time
-from time import sleep
 from datetime import datetime
+from time import sleep
 
 import numpy as np
 import requests
@@ -167,7 +167,7 @@ class WebBotAdapter(BotAdapter):
             participant_id = message[5 : 5 + participant_id_length].decode("utf-8")
 
             # Convert the float32 audio data to numpy array
-            audio_data = np.frombuffer(message[(5 + participant_id_length):], dtype=np.float32)
+            audio_data = np.frombuffer(message[(5 + participant_id_length) :], dtype=np.float32)
 
             # Convert float32 to PCM 16-bit by multiplying by 32768.0
             audio_data = (audio_data * 32768.0).astype(np.int16)

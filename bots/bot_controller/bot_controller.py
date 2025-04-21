@@ -29,8 +29,8 @@ from bots.models import (
     RecordingFormats,
     RecordingManager,
     RecordingStates,
-    Utterance,
     TranscriptionProviders,
+    Utterance,
 )
 from bots.utils import meeting_type_from_url
 
