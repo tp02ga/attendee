@@ -1692,7 +1692,7 @@ class WebSocketClient {
         const message = new Uint8Array(4 + 1 + participantIdBytes.length + audioData.buffer.byteLength);
         const dataView = new DataView(message.buffer);
         
-        // Set message type (3 for AUDIO)
+        // Set message type (5 for PER_PARTICIPANT_AUDIO)
         dataView.setInt32(0, WebSocketClient.MESSAGE_TYPES.PER_PARTICIPANT_AUDIO, true);
         
         // Set participantId length as uint8 (1 byte)

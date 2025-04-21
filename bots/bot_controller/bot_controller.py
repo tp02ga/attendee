@@ -54,7 +54,10 @@ class BotController:
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
 
-        add_audio_chunk_callback = self.individual_audio_input_manager.add_chunk if self.get_recording_transcription_provider() == TranscriptionProviders.DEEPGRAM else None
+        if self.get_recording_transcription_provider() == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+            add_audio_chunk_callback = None
+        else:
+            add_audio_chunk_callback = self.individual_audio_input_manager.add_chunk
 
         return GoogleMeetBotAdapter(
             display_name=self.bot_in_db.name,
