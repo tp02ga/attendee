@@ -30,6 +30,7 @@ from bots.models import (
     RecordingManager,
     RecordingStates,
     Utterance,
+    TranscriptionProviders,
 )
 from bots.utils import meeting_type_from_url
 
@@ -53,9 +54,12 @@ class BotController:
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
 
+        add_audio_chunk_callback = self.individual_audio_input_manager.add_chunk if self.get_recording_transcription_provider() == TranscriptionProviders.DEEPGRAM else None
+
         return GoogleMeetBotAdapter(
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
+            add_audio_chunk_callback=add_audio_chunk_callback,
             meeting_url=self.bot_in_db.meeting_url,
             add_video_frame_callback=None,
             wants_any_video_frames_callback=None,
@@ -122,6 +126,15 @@ class BotController:
             raise Exception(f"Could not determine meeting type for meeting url {self.bot_in_db.meeting_url}")
         return meeting_type
 
+    def get_per_participant_audio_sample_rate(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == MeetingTypes.ZOOM:
+            return 32000
+        elif meeting_type == MeetingTypes.GOOGLE_MEET:
+            return 48000
+        elif meeting_type == MeetingTypes.TEAMS:
+            return 48000
+
     def get_audio_format(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
@@ -169,6 +182,10 @@ class BotController:
         recording.file = s3_storage_key
         recording.first_buffer_timestamp_ms = self.get_first_buffer_timestamp_ms()
         recording.save()
+
+    def get_recording_transcription_provider(self):
+        recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
+        return recording.transcription_provider
 
     def get_recording_filename(self):
         recording = Recording.objects.get(bot=self.bot_in_db, is_default_recording=True)
@@ -333,6 +350,7 @@ class BotController:
         self.individual_audio_input_manager = IndividualAudioInputManager(
             save_utterance_callback=self.save_individual_audio_utterance,
             get_participant_callback=self.get_participant,
+            sample_rate=self.get_per_participant_audio_sample_rate(),
         )
 
         # Only used for adapters that can provide closed captions

@@ -403,9 +403,9 @@ def meeting_type_from_url(url):
 
 
 def transcription_provider_from_meeting_url_and_transcription_settings(url, settings):
-    if "deepgram" in settings.get("transcription_settings", {}):
+    if "deepgram" in settings:
         return TranscriptionProviders.DEEPGRAM
-    elif "meeting_closed_captions" in settings.get("transcription_settings", {}):
+    elif "meeting_closed_captions" in settings:
         return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
 
     # Return default provider. Which is deepgram for Zoom, and meeting_closed_captions for Google Meet / Teams
