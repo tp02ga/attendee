@@ -1753,6 +1753,10 @@ class TestZoomBot(TransactionTestCase):
             {"rtmp_destination_url": "rtmp://example.com/live/stream/1234"},
         )
 
+        # Verify that the bot did not incur charges
+        credit_transaction = CreditTransaction.objects.filter(bot=self.bot).first()
+        self.assertIsNone(credit_transaction, "A credit transaction was created for the bot")
+
     @patch(
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
