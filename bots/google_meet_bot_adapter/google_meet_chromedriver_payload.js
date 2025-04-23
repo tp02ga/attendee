@@ -43,7 +43,11 @@ class StyleManager {
         // Useful for debugging memory usage
         window.ws.sendJson({
             type: 'MemoryUsage',
-            memoryUsage: performance.memory
+            memoryUsage: {
+                jsHeapSizeLimit: performance.memory?.jsHeapSizeLimit,
+                totalJSHeapSize: performance.memory?.totalJSHeapSize,
+                usedJSHeapSize: performance.memory?.usedJSHeapSize
+            }
         });
     }
 
