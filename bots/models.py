@@ -569,6 +569,12 @@ class BotEventManager:
         return state in cls.TERMINAL_STATES
 
     @classmethod
+    def bot_event_should_incur_charges(cls, event: BotEvent):
+        if event.event_type == BotEventTypes.FATAL_ERROR:
+            return False
+        return True
+
+    @classmethod
     def get_terminal_states_q_filter(cls):
         """Returns a Q object to filter for terminal states"""
         q_filter = models.Q()
@@ -664,7 +670,7 @@ class BotEventManager:
                         for recording in in_progress_recordings:
                             RecordingManager.set_recording_complete(recording)
 
-                        if settings.CHARGE_CREDITS_FOR_BOTS:
+                        if settings.CHARGE_CREDITS_FOR_BOTS and cls.bot_event_should_incur_charges(event):
                             centicredits_consumed = bot.centicredits_consumed()
                             if centicredits_consumed > 0:
                                 CreditTransactionManager.create_transaction(
