@@ -1,9 +1,9 @@
+import datetime
+import json
 import os
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
-import json
-import datetime
 
 import kubernetes
 import numpy as np
@@ -17,8 +17,8 @@ from bots.models import (
     BotEventManager,
     BotEventSubTypes,
     BotEventTypes,
-    Credentials,
     BotStates,
+    Credentials,
     CreditTransaction,
     Organization,
     Project,
@@ -104,7 +104,6 @@ class TestGoogleMeetBot(TransactionTestCase):
         settings.CELERY_TASK_ALWAYS_EAGER = True
         settings.CELERY_TASK_EAGER_PROPAGATES = True
 
-
     @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
@@ -135,19 +134,15 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Configure the mock deepgram client
         mock_deepgram = MagicMock()
         mock_response = MagicMock()
-        
+
         # Create a mock transcription result that Deepgram would return
         mock_result = MagicMock()
-        mock_result.to_json.return_value = json.dumps({
-            "transcript": "This is a test transcription from Deepgram",
-            "confidence": 0.95,
-            "words": [{"word": "This", "start": 0.0, "end": 0.2}, {"word": "is", "start": 0.2, "end": 0.3}]
-        })
-        
+        mock_result.to_json.return_value = json.dumps({"transcript": "This is a test transcription from Deepgram", "confidence": 0.95, "words": [{"word": "This", "start": 0.0, "end": 0.2}, {"word": "is", "start": 0.2, "end": 0.3}]})
+
         # Set up the mock response structure
         mock_response.results.channels = [MagicMock()]
         mock_response.results.channels[0].alternatives = [mock_result]
-        
+
         # Make the deepgram client return our mock response
         mock_deepgram.listen.rest.v.return_value.transcribe_file.return_value = mock_response
         MockDeepgramClient.return_value = mock_deepgram
@@ -182,38 +177,34 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
-            
+
             # Simulate audio frame from participant
             sample_rate = 48000  # 48kHz sample rate
             duration_ms = 10  # 10 milliseconds
             num_samples = int(sample_rate * duration_ms / 1000)  # Calculate number of samples
-            
+
             # Create buffer with the right number of samples
             audio_data = np.zeros(num_samples, dtype=np.float32)
-            
+
             # Generate a sine wave (440Hz = A note) for 10ms
-            t = np.arange(0, duration_ms/1000, 1/sample_rate)
+            t = np.arange(0, duration_ms / 1000, 1 / sample_rate)
             sine_wave = 0.5 * np.sin(2 * np.pi * 440 * t)
-            
+
             # Place the sine wave in the buffer
-            audio_data[:len(sine_wave)] = sine_wave
-            
+            audio_data[: len(sine_wave)] = sine_wave
+
             # Convert float to PCM int16
             pcm_data = (audio_data * 32768.0).astype(np.int16).tobytes()
-            
+
             # Send audio chunk as if it came from the participant
-            controller.individual_audio_input_manager.add_chunk(
-                "user1", 
-                datetime.datetime.utcnow(), 
-                pcm_data
-            )
-            
+            controller.individual_audio_input_manager.add_chunk("user1", datetime.datetime.utcnow(), pcm_data)
+
             # Process the chunks
             controller.individual_audio_input_manager.process_chunks()
-            
+
             # Sleep to allow audio processing
             time.sleep(3)
-            
+
             # Trigger only one participant in meeting auto leave
             controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
             time.sleep(4)
@@ -307,7 +298,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertGreater(mock_uploader.upload_file.call_count, 0)
         mock_uploader.wait_for_upload.assert_called_once()
         mock_uploader.delete_file.assert_called_once()
-        
+
         # Cleanup
         controller.cleanup()
         bot_thread.join(timeout=5)
