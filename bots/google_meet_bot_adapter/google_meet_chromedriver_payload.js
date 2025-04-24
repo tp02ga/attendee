@@ -1490,9 +1490,12 @@ const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
 const styleManager = new StyleManager();
 const receiverManager = new ReceiverManager();
-const rtpReceiverInterceptor = new RTCRtpReceiverInterceptor((receiver, result, ...args) => {
-    receiverManager.updateContributingSources(receiver, result);
-});
+const rtpReceiverInterceptor = null;
+if (window.initialData.sendPerParticipantAudio) {
+    rtpReceiverInterceptor = new RTCRtpReceiverInterceptor((receiver, result, ...args) => {
+        receiverManager.updateContributingSources(receiver, result);
+    });
+}
 
 window.videoTrackManager = videoTrackManager;
 window.userManager = userManager;
@@ -1856,7 +1859,9 @@ new RTCInterceptor({
             // but we don't need to do anything with the video tracks
             if (event.track.kind === 'audio') {
                 window.styleManager.addAudioTrack(event.track);
-                handleAudioTrack(event);
+                if (window.initialData.sendPerParticipantAudio) {
+                    handleAudioTrack(event);
+                }
             }
             if (event.track.kind === 'video') {
                 window.styleManager.addVideoTrack(event);
