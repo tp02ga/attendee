@@ -251,7 +251,7 @@ class CreateBotSerializer(serializers.Serializer):
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
                 value = {"meeting_closed_captions": {"google_meet_language": "en-US"}}
             elif meeting_type == MeetingTypes.TEAMS:
-                value = {"meeting_closed_captions": None}
+                value = {"meeting_closed_captions": {}}
             else:
                 raise serializers.ValidationError({"transcription_settings": "Invalid meeting type"})
 
