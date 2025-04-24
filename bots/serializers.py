@@ -261,8 +261,8 @@ class CreateBotSerializer(serializers.Serializer):
             raise serializers.ValidationError(e.message)
 
         if meeting_type == MeetingTypes.TEAMS:
-            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.DEEPGRAM:
-                raise serializers.ValidationError({"transcription_settings": "Deepgram transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
+            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+                raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
 
         if meeting_type == MeetingTypes.ZOOM:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
