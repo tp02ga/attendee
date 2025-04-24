@@ -14,7 +14,7 @@ class CaptionEntry:
         self.modified_at = datetime.utcnow()
 
     def should_upsert_to_db(self, should_flush=False) -> bool:
-        # If never upserted to db, then upsert immediately
+        # If never upserted to db, and it's been at least a second since creation
         if not self.last_upsert_to_db_at:
             return ((datetime.utcnow() - self.created_at) > timedelta(seconds=1)) or should_flush
 
