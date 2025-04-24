@@ -5,7 +5,6 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime
 from time import sleep
 
 import numpy as np
@@ -172,7 +171,7 @@ class WebBotAdapter(BotAdapter):
             # Convert float32 to PCM 16-bit by multiplying by 32768.0
             audio_data = (audio_data * 32768.0).astype(np.int16)
 
-            self.add_audio_chunk_callback(participant_id, datetime.utcnow(), audio_data.tobytes())
+            self.add_audio_chunk_callback(participant_id, datetime.datetime.utcnow(), audio_data.tobytes())
 
     def handle_websocket(self, websocket):
         audio_format = None
