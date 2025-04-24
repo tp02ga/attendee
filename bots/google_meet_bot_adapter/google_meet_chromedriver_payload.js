@@ -1490,7 +1490,7 @@ const captionManager = new CaptionManager(ws);
 const videoTrackManager = new VideoTrackManager(ws);
 const styleManager = new StyleManager();
 const receiverManager = new ReceiverManager();
-const rtpReceiverInterceptor = null;
+let rtpReceiverInterceptor = null;
 if (window.initialData.sendPerParticipantAudio) {
     rtpReceiverInterceptor = new RTCRtpReceiverInterceptor((receiver, result, ...args) => {
         receiverManager.updateContributingSources(receiver, result);
