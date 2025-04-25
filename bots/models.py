@@ -769,6 +769,7 @@ class TranscriptionTypes(models.IntegerChoices):
 class TranscriptionProviders(models.IntegerChoices):
     DEEPGRAM = 1, "Deepgram"
     CLOSED_CAPTION_FROM_PLATFORM = 2, "Closed Caption From Platform"
+    GLADIA = 3, "Gladia"
 
 
 from storages.backends.s3boto3 import S3Boto3Storage
