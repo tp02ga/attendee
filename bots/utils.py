@@ -7,6 +7,7 @@ from pydub import AudioSegment
 from .models import (
     MeetingTypes,
     RecordingStates,
+    TranscriptionProviders,
 )
 
 
@@ -399,6 +400,18 @@ def meeting_type_from_url(url):
         return MeetingTypes.TEAMS
     else:
         return None
+
+
+def transcription_provider_from_meeting_url_and_transcription_settings(url, settings):
+    if "deepgram" in settings:
+        return TranscriptionProviders.DEEPGRAM
+    elif "meeting_closed_captions" in settings:
+        return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
+
+    # Return default provider. Which is deepgram for Zoom, and meeting_closed_captions for Google Meet / Teams
+    if meeting_type_from_url(url) == MeetingTypes.ZOOM:
+        return TranscriptionProviders.DEEPGRAM
+    return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
 
 
 def generate_recordings_json_for_bot_detail_view(bot):

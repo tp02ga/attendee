@@ -225,7 +225,6 @@ paths:
                   - audio/mp3
                 data:
                   type: string
-                  format: binary
                   description: Base64 encoded audio data
               required:
               - type
@@ -564,9 +563,6 @@ components:
                     (e.g. ''en-US''). See here for available languages and codes:
                     https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE'
           required: []
-          default:
-            deepgram:
-              language: en
           description: 'The transcription settings for the bot, e.g. {''deepgram'':
             {''language'': ''en''}}'
         rtmp_settings:

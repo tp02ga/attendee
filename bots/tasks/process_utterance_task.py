@@ -41,6 +41,10 @@ def process_utterance(self, utterance_id):
         else:
             deepgram_model = "nova-3"
 
+        # Special case: we can use nova-3 for language=multi
+        if recording.bot.deepgram_language() == "multi":
+            deepgram_model = "nova-3"
+
         options = PrerecordedOptions(
             model=deepgram_model,
             smart_format=True,

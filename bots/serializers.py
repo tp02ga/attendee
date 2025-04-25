@@ -15,13 +15,15 @@ from .models import (
     BotEventTypes,
     BotStates,
     MediaBlob,
+    MeetingTypes,
     Recording,
     RecordingFormats,
     RecordingStates,
     RecordingTranscriptionStates,
     RecordingViews,
+    TranscriptionProviders,
 )
-from .utils import is_valid_png, meeting_type_from_url
+from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 # Define the schema once
 BOT_IMAGE_SCHEMA = {
@@ -199,7 +201,7 @@ class CreateBotSerializer(serializers.Serializer):
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
         required=False,
-        default={"deepgram": {"language": "en"}},
+        default=None,
     )
 
     TRANSCRIPTION_SETTINGS_SCHEMA = {
@@ -240,13 +242,31 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     def validate_transcription_settings(self, value):
+        meeting_url = self.initial_data.get("meeting_url")
+        meeting_type = meeting_type_from_url(meeting_url)
+
         if value is None:
-            return value
+            if meeting_type == MeetingTypes.ZOOM:
+                value = {"deepgram": {"language": "en"}}
+            elif meeting_type == MeetingTypes.GOOGLE_MEET:
+                value = {"meeting_closed_captions": {}}
+            elif meeting_type == MeetingTypes.TEAMS:
+                value = {"meeting_closed_captions": {}}
+            else:
+                raise serializers.ValidationError({"transcription_settings": "Invalid meeting type"})
 
         try:
             jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
+
+        if meeting_type == MeetingTypes.TEAMS:
+            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+                raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
+
+        if meeting_type == MeetingTypes.ZOOM:
+            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+                raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
 
         return value
 
