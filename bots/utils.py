@@ -352,7 +352,7 @@ def generate_utterance_json_for_bot_detail_view(recording):
         for i, word in enumerate(relative_words_data):
             relative_words_data_with_spaces.append(
                 {
-                    "word": word["punctuated_word"],
+                    "word": word["punctuated_word"] or word["word"],
                     "start": word["start"],
                     "end": word["end"],
                     "utterance_id": utterance.id,
@@ -405,6 +405,8 @@ def meeting_type_from_url(url):
 def transcription_provider_from_meeting_url_and_transcription_settings(url, settings):
     if "deepgram" in settings:
         return TranscriptionProviders.DEEPGRAM
+    elif "gladia" in settings:
+        return TranscriptionProviders.GLADIA
     elif "meeting_closed_captions" in settings:
         return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
 

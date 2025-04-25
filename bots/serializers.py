@@ -102,6 +102,12 @@ class BotImageSerializer(serializers.Serializer):
                     },
                 },
             },
+            "gladia": {
+                "type": "object",
+                "properties": {
+                    "language": {"type": "string"},
+                },
+            },
             "meeting_closed_captions": {
                 "type": "object",
                 "properties": {
@@ -220,6 +226,13 @@ class CreateBotSerializer(serializers.Serializer):
                     {"required": ["detect_language"]},
                 ],
                 "additionalProperties": False,
+            },
+            "gladia": {
+                "type": "object",
+                "properties": {
+                    "language": {"type": "string"},
+                },
+                "required": [],
             },
             "meeting_closed_captions": {
                 "type": "object",
