@@ -959,6 +959,7 @@ class Credentials(models.Model):
         DEEPGRAM = 1, "Deepgram"
         ZOOM_OAUTH = 2, "Zoom OAuth"
         GOOGLE_TTS = 3, "Google Text To Speech"
+        GLADIA = 4, "Gladia"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
