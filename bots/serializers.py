@@ -249,7 +249,7 @@ class CreateBotSerializer(serializers.Serializer):
             if meeting_type == MeetingTypes.ZOOM:
                 value = {"deepgram": {"language": "en"}}
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
-                value = {"meeting_closed_captions": {"google_meet_language": "en-US"}}
+                value = {"meeting_closed_captions": {}}
             elif meeting_type == MeetingTypes.TEAMS:
                 value = {"meeting_closed_captions": {}}
             else:

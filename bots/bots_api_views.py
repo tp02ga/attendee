@@ -333,7 +333,6 @@ class OutputAudioView(APIView):
                     },
                     "data": {
                         "type": "string",
-                        "format": "binary",
                         "description": "Base64 encoded audio data",
                     },
                 },
