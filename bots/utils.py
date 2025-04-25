@@ -352,7 +352,7 @@ def generate_utterance_json_for_bot_detail_view(recording):
         for i, word in enumerate(relative_words_data):
             relative_words_data_with_spaces.append(
                 {
-                    "word": word["punctuated_word"] or word["word"],
+                    "word": word.get("punctuated_word") or word.get("word"),
                     "start": word["start"],
                     "end": word["end"],
                     "utterance_id": utterance.id,
