@@ -552,13 +552,12 @@ class ZoomBotAdapter(BotAdapter):
         param.meetingNumber = meeting_number
         param.userName = self.display_name
         param.psw = self.meeting_password if self.meeting_password is not None else ""
-        param.vanityID = ""
-        param.customer_key = ""
-        param.webinarToken = ""
-        param.onBehalfToken = ""
         param.isVideoOff = False
         param.isAudioOff = False
-
+        param.isAudioRawDataStereo = False
+        param.isMyVoiceInMix = False
+        param.eAudioRawdataSamplingRate = zoom.AudioRawdataSamplingRate.AudioRawdataSamplingRate_32K
+        
         join_result = self.meeting_service.Join(join_param)
         logger.info(f"join_result = {join_result}")
 
