@@ -1,26 +1,24 @@
-import logging
 import json
-import requests
+import logging
 import time
 
+import requests
 from celery import shared_task
-from django.db import DatabaseError
 
 logger = logging.getLogger(__name__)
 
-from bots.models import Credentials, RecordingManager, Utterance, TranscriptionProviders
+from bots.models import Credentials, RecordingManager, TranscriptionProviders, Utterance
 from bots.utils import pcm_to_mp3
+
 
 @shared_task(
     bind=True,
     soft_time_limit=3600,
-    autoretry_for=(DatabaseError,),
+    autoretry_for=(Exception,),
     retry_backoff=True,  # Enable exponential backoff
     max_retries=5,
 )
 def process_utterance(self, utterance_id):
-
-
     utterance = Utterance.objects.get(id=utterance_id)
     logger.info(f"Processing utterance {utterance_id}")
 
@@ -28,7 +26,6 @@ def process_utterance(self, utterance_id):
     RecordingManager.set_recording_transcription_in_progress(recording)
 
     if utterance.transcription is None:
-
         if recording.transcription_provider == TranscriptionProviders.DEEPGRAM:
             utterance.transcription = get_transcription_via_deepgram(utterance)
         elif recording.transcription_provider == TranscriptionProviders.GLADIA:
@@ -41,6 +38,7 @@ def process_utterance(self, utterance_id):
     # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
     if RecordingManager.is_terminal_state(utterance.recording.state) and Utterance.objects.filter(recording=utterance.recording, transcription__isnull=True).count() == 0:
         RecordingManager.set_recording_transcription_complete(utterance.recording)
+
 
 def get_transcription_via_gladia(utterance):
     recording = utterance.recording
@@ -58,7 +56,7 @@ def get_transcription_via_gladia(utterance):
     headers = {
         "x-gladia-key": gladia_credentials["api_key"],
     }
-    files = {'audio': ('file.mp3', payload_mp3, 'audio/mpeg')}
+    files = {"audio": ("file.mp3", payload_mp3, "audio/mpeg")}
     upload_response = requests.request("POST", upload_url, headers=headers, files=files)
 
     if upload_response.status_code != 200 and upload_response.status_code != 201:
@@ -79,62 +77,62 @@ def get_transcription_via_gladia(utterance):
     # Poll the result_url until we get a completed transcription
     max_retries = 120  # Maximum number of retries (2 minutes with 1s sleep)
     retry_count = 0
-    
+
     while retry_count < max_retries:
         result_response = requests.get(result_url, headers=headers)
-        
+
         if result_response.status_code != 200:
             logger.error(f"Gladia result fetch failed with status code {result_response.status_code}")
             time.sleep(10)
             retry_count += 1
             continue
-            
+
         result_data = result_response.json()
         status = result_data.get("status")
-        
+
         if status == "done":
             # Transcription is complete
             transcription = result_data.get("result", {}).get("transcription", "")
-            logger.info(f"Gladia transcription completed successfully, now deleting audio file from Gladia")
+            logger.info("Gladia transcription completed successfully, now deleting audio file from Gladia")
             # Delete the audio file from Gladia
             delete_response = requests.request("DELETE", result_url, headers=headers)
             if delete_response.status_code != 200 and delete_response.status_code != 202:
                 logger.error(f"Gladia delete failed with status code {delete_response.status_code}")
             else:
-                logger.info(f"Gladia delete successful")
+                logger.info("Gladia delete successful")
 
-            transcription['transcript'] = transcription['full_transcript']
-            del transcription['full_transcript']
-            
+            transcription["transcript"] = transcription["full_transcript"]
+            del transcription["full_transcript"]
+
             # Extract all words from all utterances into a flat list
             all_words = []
-            for utterance in transcription['utterances']:
-                if 'words' in utterance:
-                    all_words.extend(utterance['words'])
-            transcription['words'] = all_words
-            del transcription['utterances']
-            
+            for utterance in transcription["utterances"]:
+                if "words" in utterance:
+                    all_words.extend(utterance["words"])
+            transcription["words"] = all_words
+            del transcription["utterances"]
+
             return transcription
-            
+
         elif status == "error":
             error_code = result_data.get("error_code")
             raise Exception(f"Gladia transcription failed with error code: {error_code}")
-            
+
         elif status in ["queued", "processing"]:
             # Still processing, wait and retry
             logger.info(f"Gladia transcription status: {status}, waiting...")
             time.sleep(1)
             retry_count += 1
-            
+
         else:
             # Unknown status
             raise Exception(f"Gladia transcription returned unknown status: {status}")
-    
+
     # If we've reached here, we've timed out
     raise Exception("Gladia transcription timed out after maximum retries")
 
-def get_transcription_via_deepgram(utterance):
 
+def get_transcription_via_deepgram(utterance):
     from deepgram import (
         DeepgramClient,
         FileSource,
