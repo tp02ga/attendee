@@ -50,7 +50,11 @@ class ScreenAndAudioRecorder:
 
         output_path = self.get_seekable_path(self.file_location)
         # the file is seekable, so we don't need to make it seekable
-        self.make_file_seekable(input_path, output_path)
+        try:
+            self.make_file_seekable(input_path, output_path)
+        except Exception as e:
+            logger.error(f"Failed to make file seekable: {e}")
+            return
 
     def make_file_seekable(self, input_path, tempfile_path):
         """Use ffmpeg to move the moov atom to the beginning of the file."""
@@ -74,8 +78,7 @@ class ScreenAndAudioRecorder:
         result = subprocess.run(command, capture_output=True, text=True)
 
         if result.returncode != 0:
-            logger.error(f"FFmpeg failed to make file seekable: {result.stderr}")
-            return
+            raise RuntimeError(f"FFmpeg failed to make file seekable: {result.stderr}")
 
         # Replace the original file with the seekable version
         try:
@@ -83,4 +86,4 @@ class ScreenAndAudioRecorder:
             logger.info(f"Replaced original file with seekable version: {input_path}")
         except Exception as e:
             logger.error(f"Failed to replace original file with seekable version: {e}")
-            return
+            raise RuntimeError(f"Failed to replace original file: {e}")
