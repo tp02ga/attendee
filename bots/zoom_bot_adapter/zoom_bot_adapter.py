@@ -561,7 +561,7 @@ class ZoomBotAdapter(BotAdapter):
         param.isAudioRawDataStereo = False
         param.isMyVoiceInMix = False
         param.eAudioRawdataSamplingRate = zoom.AudioRawdataSamplingRate.AudioRawdataSamplingRate_32K
-        
+
         join_result = self.meeting_service.Join(join_param)
         logger.info(f"join_result = {join_result}")
 
