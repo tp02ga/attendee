@@ -74,7 +74,8 @@ class ScreenAndAudioRecorder:
         result = subprocess.run(command, capture_output=True, text=True)
 
         if result.returncode != 0:
-            raise RuntimeError(f"FFmpeg failed: {result.stderr}")
+            logger.error(f"FFmpeg failed to make file seekable: {result.stderr}")
+            return
 
         # Replace the original file with the seekable version
         try:
@@ -82,4 +83,4 @@ class ScreenAndAudioRecorder:
             logger.info(f"Replaced original file with seekable version: {input_path}")
         except Exception as e:
             logger.error(f"Failed to replace original file with seekable version: {e}")
-            raise RuntimeError(f"Failed to replace original file: {e}")
+            return
