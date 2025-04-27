@@ -510,8 +510,7 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         try:
             # Create bot settings with default values
             settings = {
-                "transcription_settings": {"deepgram": {"tier": "nova", "language": "en", "model": "general"}},
-                "rtmp_settings": {},
+                "transcription_settings": {"deepgram": {"language": "en"}},
                 "recording_settings": {"format": "webm"}
             }
             
