@@ -1,7 +1,22 @@
+from unittest.mock import patch
+
 from django.core.files.base import ContentFile
 from django.test import TestCase
 
 from bots.models import Bot, BotEventTypes, BotStates, Organization, Participant, Project, Recording, RecordingStates, Utterance
+
+
+def mock_file_field_delete_sets_name_to_none(instance, save=True):
+    """
+    A side_effect function for mocking FieldFile.delete.
+    Sets the FieldFile's name to None and saves the parent model instance.
+    """
+    # 'instance' here is the FieldFile instance being deleted
+    instance.name = None
+    if save:
+        # instance.instance refers to the model instance (e.g., Recording)
+        # that owns this FieldFile.
+        instance.instance.save()
 
 
 class TestBotDataDeletion(TestCase):
@@ -36,7 +51,8 @@ class TestBotDataDeletion(TestCase):
 
         self.utterance2 = Utterance.objects.create(recording=self.recording2, participant=self.participant2, audio_blob=b"test audio 2", timestamp_ms=1000, duration_ms=500)
 
-    def test_delete_data_deletes_specific_bot_data_only(self):
+    @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
+    def test_delete_data_deletes_specific_bot_data_only(self, mock_delete):
         """Test that deleting data for one bot doesn't affect other bots"""
         # Verify initial state
         self.assertEqual(Bot.objects.count(), 2)
@@ -70,7 +86,8 @@ class TestBotDataDeletion(TestCase):
         self.assertEqual(event.old_state, BotStates.ENDED)
         self.assertEqual(event.new_state, BotStates.DATA_DELETED)
 
-    def test_delete_data_invalid_state(self):
+    @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
+    def test_delete_data_invalid_state(self, mock_delete):
         """Test that delete_data raises an error if bot is not in a valid state"""
         # Change bot state to one that's not valid for data deletion
         self.bot1.state = BotStates.JOINED_RECORDING
@@ -84,7 +101,10 @@ class TestBotDataDeletion(TestCase):
         self.assertEqual(Participant.objects.filter(bot=self.bot1).count(), 1)
         self.assertEqual(Utterance.objects.filter(recording__bot=self.bot1).count(), 1)
 
-    def test_delete_data_multiple_recordings(self):
+    @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
+    def test_delete_data_multiple_recordings(self, mock_delete):
+        mock_delete.side_effect = mock_file_field_delete_sets_name_to_none
+
         """Test that delete_data deletes data from multiple recordings"""
         # Create another recording for bot1
         recording1b = Recording.objects.create(bot=self.bot1, recording_type=1, transcription_type=1, state=RecordingStates.COMPLETE)
@@ -111,7 +131,8 @@ class TestBotDataDeletion(TestCase):
         for recording in Recording.objects.filter(bot=self.bot1):
             self.assertFalse(recording.file)
 
-    def test_fatal_error_to_data_deleted_transition(self):
+    @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
+    def test_fatal_error_to_data_deleted_transition(self, mock_delete):
         """Test that a bot in FATAL_ERROR state can transition to DATA_DELETED"""
         # Change bot state to FATAL_ERROR
         self.bot1.state = BotStates.FATAL_ERROR
