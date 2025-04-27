@@ -129,7 +129,11 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "string",
                         "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
                         "description": "The OpenAI model to use for transcription",
-                    }
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional prompt to use for the OpenAI transcription",
+                    },
                 },
                 "required": ["model"],
                 "additionalProperties": False,
@@ -260,7 +264,11 @@ class CreateBotSerializer(serializers.Serializer):
                         "type": "string",
                         "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
                         "description": "The OpenAI model to use for transcription",
-                    }
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional prompt to use for the OpenAI transcription",
+                    },
                 },
                 "required": ["model"],
                 "additionalProperties": False,

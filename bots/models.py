@@ -180,6 +180,9 @@ class Bot(models.Model):
         centicredits_active = hours_active * 100
         return math.ceil(centicredits_active)
 
+    def openai_transcription_prompt(self):
+        return self.settings.get("transcription_settings", {}).get("openai", {}).get("prompt", None)
+
     def openai_transcription_model(self):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("model", "gpt-4o-transcribe")
 
