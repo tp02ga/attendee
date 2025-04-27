@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
 from django.core.files.base import ContentFile
-from django.test import TestCase
+from django.test import TransactionTestCase
+from django.test.utils import override_settings
 
 from bots.models import Bot, BotEventTypes, BotStates, Organization, Participant, Project, Recording, RecordingStates, Utterance
 
