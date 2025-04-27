@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-import io
 
 import requests
 from celery import shared_task
@@ -202,25 +201,23 @@ def get_transcription_via_openai(utterance):
 
     # Convert PCM audio to MP3
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
-    
+
     # Prepare the request for OpenAI's transcription API
     url = "https://api.openai.com/v1/audio/transcriptions"
     headers = {
         "Authorization": f"Bearer {openai_credentials['api_key']}",
     }
-    files = {"file": ("file.mp3", payload_mp3, "audio/mpeg"),"model": (None, recording.bot.openai_transcription_model())}
+    files = {"file": ("file.mp3", payload_mp3, "audio/mpeg"), "model": (None, recording.bot.openai_transcription_model())}
     response = requests.post(url, headers=headers, files=files)
-    
+
     if response.status_code != 200:
         logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
         raise Exception(f"OpenAI transcription failed with status code {response.status_code}")
-    
+
     result = response.json()
     logger.info("OpenAI transcription completed successfully")
-    
+
     # Format the response to match our expected schema
-    transcription = {
-        "transcript": result.get("text", "")
-    }
-        
+    transcription = {"transcript": result.get("text", "")}
+
     return transcription

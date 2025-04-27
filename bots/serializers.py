@@ -128,11 +128,11 @@ class BotImageSerializer(serializers.Serializer):
                     "model": {
                         "type": "string",
                         "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
-                        "description": "The OpenAI model to use for transcription"
+                        "description": "The OpenAI model to use for transcription",
                     }
                 },
                 "required": ["model"],
-                "additionalProperties": False
+                "additionalProperties": False,
             },
         },
         "required": [],
@@ -259,11 +259,11 @@ class CreateBotSerializer(serializers.Serializer):
                     "model": {
                         "type": "string",
                         "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
-                        "description": "The OpenAI model to use for transcription"
+                        "description": "The OpenAI model to use for transcription",
                     }
                 },
                 "required": ["model"],
-                "additionalProperties": False
+                "additionalProperties": False,
             },
             "meeting_closed_captions": {
                 "type": "object",
