@@ -180,6 +180,12 @@ class Bot(models.Model):
         centicredits_active = hours_active * 100
         return math.ceil(centicredits_active)
 
+    def gladia_code_switching_languages(self):
+        return self.settings.get("transcription_settings", {}).get("gladia", {}).get("code_switching_languages", None)
+
+    def gladia_enable_code_switching(self):
+        return self.settings.get("transcription_settings", {}).get("gladia", {}).get("enable_code_switching", False)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 

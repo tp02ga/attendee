@@ -66,7 +66,15 @@ def get_transcription_via_gladia(utterance):
     audio_url = upload_response_json["audio_url"]
 
     transcribe_url = "https://api.gladia.io/v2/pre-recorded"
-    transcribe_response = requests.request("POST", transcribe_url, headers=headers, json={"audio_url": audio_url})
+    transcribe_request_body = {
+        "audio_url": audio_url
+    }
+    if recording.bot.gladia_enable_code_switching():
+        transcribe_request_body["enable_code_switching"] = True
+        transcribe_request_body["code_switching_config"] = {
+            "languages": recording.bot.gladia_code_switching_languages(),
+        }
+    transcribe_response = requests.request("POST", transcribe_url, headers=headers, json=transcribe_request_body)
 
     if transcribe_response.status_code != 200 and transcribe_response.status_code != 201:
         raise Exception(f"Gladia transcription failed with status code {transcribe_response.status_code}")
