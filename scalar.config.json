@@ -3,7 +3,7 @@
     "title": "Attendee Documentation",
     "description": "Documentation for Attendee - the universal meeting bot API."
   },
-  "subdomain": "docs",
+  "subdomain": "attendee",
   "customDomain": "docs.attendee.dev",
   "guides": [
     {
