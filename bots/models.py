@@ -96,6 +96,7 @@ class BotStates(models.IntegerChoices):
     FATAL_ERROR = 7, "Fatal Error"
     WAITING_ROOM = 8, "Waiting Room"
     ENDED = 9, "Ended"
+    DATA_DELETED = 10, "Data Deleted"
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -110,6 +111,7 @@ class BotStates(models.IntegerChoices):
             cls.FATAL_ERROR: "fatal_error",
             cls.WAITING_ROOM: "waiting_room",
             cls.ENDED: "ended",
+            cls.DATA_DELETED: "data_deleted",
         }
         return mapping.get(value)
 
@@ -146,6 +148,26 @@ class Bot(models.Model):
 
     first_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
     last_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
+
+    def delete_data(self):
+        # Check if bot is in a state where the data deleted event can be created
+        if not BotEventManager.event_can_be_created_for_state(BotEventTypes.DATA_DELETED, self.state):
+            raise ValueError("Bot is not in a state where the data deleted event can be created")
+
+        with transaction.atomic():
+            # Delete all utterances and recording files for each recording
+            for recording in self.recordings.all():
+                # Delete all utterances first
+                recording.utterances.all().delete()
+
+                # Delete the actual recording file if it exists
+                if recording.file and recording.file.name:
+                    recording.file.delete()
+
+            # Delete all participants
+            self.participants.all().delete()
+
+            BotEventManager.create_event(bot=self, event_type=BotEventTypes.DATA_DELETED)
 
     def set_heartbeat(self):
         retry_count = 0
@@ -354,6 +376,7 @@ class BotEventTypes(models.IntegerChoices):
     LEAVE_REQUESTED = 8, "Bot requested to leave meeting"
     COULD_NOT_JOIN = 9, "Bot could not join meeting"
     POST_PROCESSING_COMPLETED = 10, "Post Processing Completed"
+    DATA_DELETED = 11, "Data Deleted"
 
     @classmethod
     def type_to_api_code(cls, value):
@@ -369,6 +392,7 @@ class BotEventTypes(models.IntegerChoices):
             cls.LEAVE_REQUESTED: "leave_requested",
             cls.COULD_NOT_JOIN: "could_not_join_meeting",
             cls.POST_PROCESSING_COMPLETED: "post_processing_completed",
+            cls.DATA_DELETED: "data_deleted",
         }
         return mapping.get(value)
 
@@ -484,7 +508,7 @@ class BotEvent(models.Model):
 
 
 class BotEventManager:
-    TERMINAL_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED]
+    POST_MEETING_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED, BotStates.DATA_DELETED]
 
     # Define valid state transitions for each event type
     VALID_TRANSITIONS = {
@@ -546,7 +570,15 @@ class BotEventManager:
             "from": BotStates.POST_PROCESSING,
             "to": BotStates.ENDED,
         },
+        BotEventTypes.DATA_DELETED: {
+            "from": [BotStates.FATAL_ERROR, BotStates.ENDED],
+            "to": BotStates.DATA_DELETED,
+        },
     }
+
+    @classmethod
+    def event_can_be_created_for_state(cls, event_type: BotEventTypes, state: BotStates):
+        return state in cls.VALID_TRANSITIONS[event_type]["from"]
 
     @classmethod
     def set_requested_bot_action_taken_at(cls, bot: Bot):
@@ -577,8 +609,8 @@ class BotEventManager:
         return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING
 
     @classmethod
-    def is_terminal_state(cls, state: int):
-        return state in cls.TERMINAL_STATES
+    def is_post_meeting_state(cls, state: int):
+        return state in cls.POST_MEETING_STATES
 
     @classmethod
     def bot_event_should_incur_charges(cls, event: BotEvent):
@@ -587,10 +619,10 @@ class BotEventManager:
         return True
 
     @classmethod
-    def get_terminal_states_q_filter(cls):
-        """Returns a Q object to filter for terminal states"""
+    def get_post_meeting_states_q_filter(cls):
+        """Returns a Q object to filter for post meeting states"""
         q_filter = models.Q()
-        for state in cls.TERMINAL_STATES:
+        for state in cls.POST_MEETING_STATES:
             q_filter |= models.Q(state=state)
         return q_filter
 
@@ -673,8 +705,9 @@ class BotEventManager:
                         pending_recording = pending_recordings.first()
                         RecordingManager.set_recording_in_progress(pending_recording)
 
-                    # If we're in a terminal state
-                    if cls.is_terminal_state(new_state):
+                    # If we transitioned to a post meeting state
+                    transitioned_to_post_meeting_state = cls.is_post_meeting_state(new_state) and not cls.is_post_meeting_state(old_state)
+                    if transitioned_to_post_meeting_state:
                         # If there is an in progress recording, set it to complete
                         in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
                         if in_progress_recordings.count() > 1:
