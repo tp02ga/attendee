@@ -106,7 +106,7 @@ class BotImageSerializer(serializers.Serializer):
                 "type": "object",
                 "properties": {
                     "code_switching_languages": {
-                        "type": "array", 
+                        "type": "array",
                         "items": {"type": "string"},
                         "description": "The languages to transcribe the meeting in when using code switching. See here for available languages: https://docs.gladia.io/chapters/limits-and-specifications/languages",
                     },
