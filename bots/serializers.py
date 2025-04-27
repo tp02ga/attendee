@@ -102,6 +102,17 @@ class BotImageSerializer(serializers.Serializer):
                     },
                 },
             },
+            "gladia": {
+                "type": "object",
+                "properties": {
+                    "code_switching_languages": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The languages to transcribe the meeting in when using code switching. See here for available languages: https://docs.gladia.io/chapters/limits-and-specifications/languages",
+                    },
+                    "enable_code_switching": {"type": "boolean", "description": "Whether to use code switching to transcribe the meeting in multiple languages."},
+                },
+            },
             "meeting_closed_captions": {
                 "type": "object",
                 "properties": {
@@ -219,6 +230,15 @@ class CreateBotSerializer(serializers.Serializer):
                     {"required": ["language"]},
                     {"required": ["detect_language"]},
                 ],
+                "additionalProperties": False,
+            },
+            "gladia": {
+                "type": "object",
+                "properties": {
+                    "code_switching_languages": {"type": "array", "items": {"type": "string"}},
+                    "enable_code_switching": {"type": "boolean"},
+                },
+                "required": [],
                 "additionalProperties": False,
             },
             "meeting_closed_captions": {

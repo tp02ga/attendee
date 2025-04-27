@@ -180,6 +180,12 @@ class Bot(models.Model):
         centicredits_active = hours_active * 100
         return math.ceil(centicredits_active)
 
+    def gladia_code_switching_languages(self):
+        return self.settings.get("transcription_settings", {}).get("gladia", {}).get("code_switching_languages", None)
+
+    def gladia_enable_code_switching(self):
+        return self.settings.get("transcription_settings", {}).get("gladia", {}).get("enable_code_switching", False)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
@@ -959,6 +965,7 @@ class Credentials(models.Model):
         DEEPGRAM = 1, "Deepgram"
         ZOOM_OAUTH = 2, "Zoom OAuth"
         GOOGLE_TTS = 3, "Google Text To Speech"
+        GLADIA = 4, "Gladia"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
