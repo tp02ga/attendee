@@ -357,6 +357,7 @@ class BotEventTypes(models.IntegerChoices):
     COULD_NOT_JOIN = 9, "Bot could not join meeting"
     POST_PROCESSING_COMPLETED = 10, "Post Processing Completed"
     DATA_DELETED = 11, "Data Deleted"
+
     @classmethod
     def type_to_api_code(cls, value):
         """Returns the API code for a given type value"""
