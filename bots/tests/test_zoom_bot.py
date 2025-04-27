@@ -1020,6 +1020,33 @@ class TestZoomBot(TransactionTestCase):
         # Close the database connection since we're in a thread
         connection.close()
 
+        # Verify that the bot has participants
+        self.assertEqual(self.bot.participants.count(), 1)
+
+        # Delete the bot data
+        self.bot.delete_data()
+
+        # Verify data was properly deleted
+        # Refresh bot from database to get latest state
+        self.bot.refresh_from_db()
+
+        # 1. Verify all participants were deleted
+        self.assertEqual(self.bot.participants.count(), 0, "Participants were not deleted")
+
+        # 2. Verify all utterances for all recordings were deleted
+        for recording in self.bot.recordings.all():
+            self.assertEqual(recording.utterances.count(), 0, f"Utterances for recording {recording.id} were not deleted")
+
+        # 3. Verify recording files were deleted (if they existed)
+        for recording in self.bot.recordings.all():
+            self.assertFalse(recording.file.name, f"Recording file for recording {recording.id} was not deleted")
+
+        # 4. Verify a DATA_DELETED event was created
+        self.assertTrue(self.bot.bot_events.filter(event_type=BotEventTypes.DATA_DELETED).exists(), "DATA_DELETED event was not created")
+
+        # 5. Verify that the bot is in the DATA_DELETED state
+        self.assertEqual(self.bot.state, BotStates.DATA_DELETED)
+
     @patch(
         "bots.zoom_bot_adapter.video_input_manager.zoom",
         new_callable=create_mock_zoom_sdk,
