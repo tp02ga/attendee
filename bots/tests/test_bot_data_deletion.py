@@ -1,8 +1,9 @@
-from unittest.mock import patch, PropertyMock
+from unittest.mock import PropertyMock, patch
 
 from django.core.files.base import ContentFile
 from django.test import TransactionTestCase
 from django.test.utils import override_settings
+
 from bots.models import Bot, BotEventTypes, BotStates, Organization, Participant, Project, Recording, RecordingStates, Utterance
 
 
@@ -44,16 +45,16 @@ class TestBotDataDeletion(TransactionTestCase):
         self.bucket_mock_patch = patch("storages.backends.s3boto3.S3Boto3Storage.bucket", new_callable=PropertyMock)
         self.delete_patch = patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
         self.save_patch = patch("django.db.models.fields.files.FieldFile.save", autospec=True)
-        
+
         # Start patches
         self.bucket_mock = self.bucket_mock_patch.start()
         self.delete_mock = self.delete_patch.start()
         self.save_mock = self.save_patch.start()
-        
+
         # Set side effects
         self.delete_mock.side_effect = mock_file_field_delete_sets_name_to_none
         self.save_mock.side_effect = mock_file_field_save
-        
+
         # Create test organization
         self.organization = Organization.objects.create(name="Test Org")
 
