@@ -146,7 +146,7 @@ class TestBotDataDeletion(TransactionTestCase):
         recording1b.file.save("test1b.mp4", ContentFile(b"test content 1b"))
 
         # Create utterance for the new recording
-        utterance1b = Utterance.objects.create(recording=recording1b, participant=self.participant1, audio_blob=b"test audio 1b", timestamp_ms=2000, duration_ms=500)
+        Utterance.objects.create(recording=recording1b, participant=self.participant1, audio_blob=b"test audio 1b", timestamp_ms=2000, duration_ms=500)
 
         # Initial count
         self.assertEqual(Recording.objects.filter(bot=self.bot1).count(), 2)
