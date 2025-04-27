@@ -19,7 +19,7 @@ def mock_file_field_delete_sets_name_to_none(instance, save=True):
         instance.instance.save()
 
 
-class TestBotDataDeletion(TestCase):
+class TestBotDataDeletion(TransactionTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
