@@ -20,6 +20,12 @@ def mock_file_field_delete_sets_name_to_none(instance, save=True):
 
 
 class TestBotDataDeletion(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.settings_override = override_settings(AWS_RECORDING_STORAGE_BUCKET_NAME="test-bucket", CHARGE_CREDITS_FOR_BOTS=True)
+        cls.settings_override.enable()
+
     def setUp(self):
         # Create test organization
         self.organization = Organization.objects.create(name="Test Org")
