@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import io
 
 import requests
 from celery import shared_task
@@ -30,6 +31,11 @@ def process_utterance(self, utterance_id):
             utterance.transcription = get_transcription_via_deepgram(utterance)
         elif recording.transcription_provider == TranscriptionProviders.GLADIA:
             utterance.transcription = get_transcription_via_gladia(utterance)
+        elif recording.transcription_provider == TranscriptionProviders.OPENAI:
+            utterance.transcription = get_transcription_via_openai(utterance)
+        else:
+            raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
+
         utterance.audio_blob = b""  # set the binary field to empty byte string
         utterance.save()
 
@@ -182,3 +188,39 @@ def get_transcription_via_deepgram(utterance):
     response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
     logger.info(f"Deepgram transcription complete with model {deepgram_model}")
     return json.loads(response.results.channels[0].alternatives[0].to_json())
+
+
+def get_transcription_via_openai(utterance):
+    recording = utterance.recording
+    openai_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.OPENAI).first()
+    if not openai_credentials_record:
+        raise Exception("OpenAI credentials record not found")
+
+    openai_credentials = openai_credentials_record.get_credentials()
+    if not openai_credentials:
+        raise Exception("OpenAI credentials not found")
+
+    # Convert PCM audio to MP3
+    payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
+    
+    # Prepare the request for OpenAI's transcription API
+    url = "https://api.openai.com/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {openai_credentials['api_key']}",
+    }
+    files = {"file": ("file.mp3", payload_mp3, "audio/mpeg"),"model": (None, recording.bot.openai_transcription_model())}
+    response = requests.post(url, headers=headers, files=files)
+    
+    if response.status_code != 200:
+        logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
+        raise Exception(f"OpenAI transcription failed with status code {response.status_code}")
+    
+    result = response.json()
+    logger.info("OpenAI transcription completed successfully")
+    
+    # Format the response to match our expected schema
+    transcription = {
+        "transcript": result.get("text", "")
+    }
+        
+    return transcription
