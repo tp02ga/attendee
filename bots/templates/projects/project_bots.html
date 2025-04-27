@@ -40,6 +40,15 @@
         align-items: center;
         margin-right: 5px;
     }
+    
+    /* cURL Example styles */
+    #apiCodeExample {
+        font-family: monospace;
+        white-space: pre;
+        word-wrap: normal;
+        display: block;
+        line-height: 1.5;
+    }
 </style>
 
 <div class="container mt-4">
@@ -228,16 +237,20 @@
                         <h6 class="mb-0">cURL Example</h6>
                     </div>
                     <div class="card-body">
-                        <h6 class="mt-2 small">POST /api/v1/bots</h6>
-                        <div class="bg-light p-2 mt-1 rounded">
-                            <pre class="mb-0 small"><code id="apiCodeExample">curl {{ request.scheme }}://{{ request.get_host }}/api/v1/bots \
---request POST \
---header 'Authorization: Token YOUR_API_KEY_HERE' \
---header 'Content-Type: application/json' \
---data '{
-  "meeting_url": "https://zoom.us/j/123?pwd=456",
-  "bot_name": "My Bot"
-}'</code></pre>
+                        <div class="bg-light p-2 mt-1 rounded position-relative">
+                            <button type="button" class="btn btn-sm btn-outline-secondary position-absolute" 
+                                    style="top: 5px; right: 5px;" 
+                                    onclick="copyToClipboard()">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                            <pre class="mb-0 small" style="padding-right: 70px;"><code id="apiCodeExample">curl {{ request.scheme }}://{{ request.get_host }}/api/v1/bots \
+  --request POST \
+  --header 'Authorization: Token YOUR_API_KEY_HERE' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "meeting_url": "https://zoom.us/j/123?pwd=456",
+    "bot_name": "My Bot"
+  }'</code></pre>
                         </div>
                     </div>
                 </div>
@@ -279,23 +292,52 @@
                 const botName = botNameField.value || 'My Bot';
                 const currentHost = window.location.origin;
                 
-                const curlCommand = `curl ${currentHost}/api/v1/bots \
---request POST \
---header 'Authorization: Token YOUR_API_KEY_HERE' \
---header 'Content-Type: application/json' \
---data '{
-  "meeting_url": "${meetingUrl}",
-  "bot_name": "${botName}"
-}'`;
+                // Create properly formatted curl command  
+                const lines = [
+                    `curl ${currentHost}/api/v1/bots \\`,
+                    `  --request POST \\`,
+                    `  --header 'Authorization: Token YOUR_API_KEY_HERE' \\`,
+                    `  --header 'Content-Type: application/json' \\`,
+                    `  --data '{`,
+                    `    "meeting_url": "${meetingUrl}",`,
+                    `    "bot_name": "${botName}"`,
+                    `  }'`
+                ];
                 
+                const curlCommand = lines.join('\n');
+                
+                // Ensure proper formatting is maintained
                 codeBlock.textContent = curlCommand;
             }
             
             // Add event listeners to form fields
             meetingUrlField.addEventListener('input', updateCurlCommand);
             botNameField.addEventListener('input', updateCurlCommand);
+            
+            // Set initial value with proper formatting
+            updateCurlCommand();
         }
     });
+    
+    // Copy to clipboard function
+    function copyToClipboard() {
+        const codeBlock = document.getElementById('apiCodeExample');
+        const text = codeBlock.textContent;
+        
+        navigator.clipboard.writeText(text).then(function() {
+            // Change button text temporarily
+            const copyButton = document.querySelector('[onclick="copyToClipboard()"]');
+            const originalHTML = copyButton.innerHTML;
+            copyButton.innerHTML = '<i class="bi bi-check"></i> Copied!';
+            
+            // Reset button text after 2 seconds
+            setTimeout(function() {
+                copyButton.innerHTML = originalHTML;
+            }, 2000);
+        }).catch(function(err) {
+            console.error('Failed to copy text: ', err);
+        });
+    }
 </script>
 
 {% endblock %} 
