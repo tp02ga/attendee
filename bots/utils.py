@@ -407,6 +407,8 @@ def transcription_provider_from_meeting_url_and_transcription_settings(url, sett
         return TranscriptionProviders.DEEPGRAM
     elif "gladia" in settings:
         return TranscriptionProviders.GLADIA
+    elif "openai" in settings:
+        return TranscriptionProviders.OPENAI
     elif "meeting_closed_captions" in settings:
         return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
 

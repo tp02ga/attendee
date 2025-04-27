@@ -122,6 +122,22 @@ class BotImageSerializer(serializers.Serializer):
                     },
                 },
             },
+            "openai": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "description": "The OpenAI model to use for transcription",
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional prompt to use for the OpenAI transcription",
+                    },
+                },
+                "required": ["model"],
+                "additionalProperties": False,
+            },
         },
         "required": [],
     }
@@ -239,6 +255,22 @@ class CreateBotSerializer(serializers.Serializer):
                     "enable_code_switching": {"type": "boolean"},
                 },
                 "required": [],
+                "additionalProperties": False,
+            },
+            "openai": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "description": "The OpenAI model to use for transcription",
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Optional prompt to use for the OpenAI transcription",
+                    },
+                },
+                "required": ["model"],
                 "additionalProperties": False,
             },
             "meeting_closed_captions": {
