@@ -468,6 +468,7 @@ class OutputImageView(APIView):
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
+
 class DeleteDataView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -501,7 +502,7 @@ class DeleteDataView(APIView):
             logging.info(f"Deleting data for bot {bot.object_id}")
             bot.delete_data()
             logging.info(f"Data deleted for bot {bot.object_id}")
-            return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)     
+            return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -510,6 +511,7 @@ class DeleteDataView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 class BotLeaveView(APIView):
     authentication_classes = [ApiKeyAuthentication]

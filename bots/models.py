@@ -155,23 +155,19 @@ class Bot(models.Model):
             raise ValueError("Bot is not in a state where the data deleted event can be created")
 
         with transaction.atomic():
-
             # Delete all utterances and recording files for each recording
             for recording in self.recordings.all():
                 # Delete all utterances first
                 recording.utterances.all().delete()
-                
+
                 # Delete the actual recording file if it exists
                 if recording.file and recording.file.name:
                     recording.file.delete()
-            
+
             # Delete all participants
             self.participants.all().delete()
-        
-            BotEventManager.create_event(
-                bot=self,
-                event_type=BotEventTypes.DATA_DELETED
-            )
+
+            BotEventManager.create_event(bot=self, event_type=BotEventTypes.DATA_DELETED)
 
     def set_heartbeat(self):
         retry_count = 0
