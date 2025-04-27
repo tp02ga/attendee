@@ -475,7 +475,7 @@ class DeleteDataView(APIView):
     @extend_schema(
         operation_id="Delete Bot Data",
         summary="Delete bot data",
-        description="Permanently deletes all data associated with this bot, including recordings, transcripts, and participant information. This cannot be undone.",
+        description="Permanently deletes all data associated with this bot, including recordings, transcripts, and participant information. Metadata is not deleted. This cannot be undone.",
         responses={
             200: OpenApiResponse(
                 response=BotSerializer,

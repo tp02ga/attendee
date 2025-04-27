@@ -119,6 +119,53 @@ paths:
           description: Bot details
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/delete_data:
+    post:
+      operationId: Delete Bot Data
+      description: Permanently deletes all data associated with this bot, including
+        recordings, transcripts, and participant information. Metadata is not deleted.
+        This cannot be undone.
+      summary: Delete bot data
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Data successfully deleted
+        '400':
+          description: Bot is not in a valid state for data deletion
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/leave:
     post:
       operationId: Leave Meeting
@@ -693,6 +740,7 @@ components:
       - fatal_error
       - waiting_room
       - ended
+      - data_deleted
     TranscriptUtterance:
       type: object
       properties:
