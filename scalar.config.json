@@ -5,21 +5,6 @@
   },
   "subdomain": "attendee2",
   "customDomain": "docs.attendee.dev",
-  "guides": [
-    {
-      "name": "Guides",
-      "sidebar": [
-        {
-          "path": "docs/basics.md",
-          "type": "page"
-        },
-        {
-          "path": "docs/webhooks.md",
-          "type": "page"
-        }
-      ]
-    }
-  ],
   "references": [
     {
       "name": "API Reference",
