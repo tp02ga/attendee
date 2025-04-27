@@ -1,8 +1,7 @@
 from unittest.mock import patch
 
 from django.core.files.base import ContentFile
-from django.test import TransactionTestCase
-from django.test.utils import override_settings
+from django.test import TestCase
 
 from bots.models import Bot, BotEventTypes, BotStates, Organization, Participant, Project, Recording, RecordingStates, Utterance
 
@@ -20,13 +19,20 @@ def mock_file_field_delete_sets_name_to_none(instance, save=True):
         instance.instance.save()
 
 
-class TestBotDataDeletion(TransactionTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.settings_override = override_settings(AWS_RECORDING_STORAGE_BUCKET_NAME="test-bucket", CHARGE_CREDITS_FOR_BOTS=True)
-        cls.settings_override.enable()
+def mock_file_field_save(instance, name, content, save=True):
+    """
+    A side_effect function for mocking FieldFile.save.
+    Sets the FieldFile's name to the provided name and saves the parent model instance.
+    """
+    # 'instance' here is the FieldFile instance being saved
+    instance.name = name
+    if save:
+        # instance.instance refers to the model instance (e.g., Recording)
+        # that owns this FieldFile.
+        instance.instance.save()
 
+
+class TestBotDataDeletion(TestCase):
     def setUp(self):
         # Create test organization
         self.organization = Organization.objects.create(name="Test Org")
@@ -59,7 +65,11 @@ class TestBotDataDeletion(TransactionTestCase):
         self.utterance2 = Utterance.objects.create(recording=self.recording2, participant=self.participant2, audio_blob=b"test audio 2", timestamp_ms=1000, duration_ms=500)
 
     @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
-    def test_delete_data_deletes_specific_bot_data_only(self, mock_delete):
+    @patch("django.db.models.fields.files.FieldFile.save", autospec=True)
+    def test_delete_data_deletes_specific_bot_data_only(self, mock_save, mock_delete):
+        mock_delete.side_effect = mock_file_field_delete_sets_name_to_none
+        mock_save.side_effect = mock_file_field_save
+
         """Test that deleting data for one bot doesn't affect other bots"""
         # Verify initial state
         self.assertEqual(Bot.objects.count(), 2)
@@ -94,7 +104,11 @@ class TestBotDataDeletion(TransactionTestCase):
         self.assertEqual(event.new_state, BotStates.DATA_DELETED)
 
     @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
-    def test_delete_data_invalid_state(self, mock_delete):
+    @patch("django.db.models.fields.files.FieldFile.save", autospec=True)
+    def test_delete_data_invalid_state(self, mock_save, mock_delete):
+        mock_delete.side_effect = mock_file_field_delete_sets_name_to_none
+        mock_save.side_effect = mock_file_field_save
+
         """Test that delete_data raises an error if bot is not in a valid state"""
         # Change bot state to one that's not valid for data deletion
         self.bot1.state = BotStates.JOINED_RECORDING
@@ -109,8 +123,10 @@ class TestBotDataDeletion(TransactionTestCase):
         self.assertEqual(Utterance.objects.filter(recording__bot=self.bot1).count(), 1)
 
     @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
-    def test_delete_data_multiple_recordings(self, mock_delete):
+    @patch("django.db.models.fields.files.FieldFile.save", autospec=True)
+    def test_delete_data_multiple_recordings(self, mock_save, mock_delete):
         mock_delete.side_effect = mock_file_field_delete_sets_name_to_none
+        mock_save.side_effect = mock_file_field_save
 
         """Test that delete_data deletes data from multiple recordings"""
         # Create another recording for bot1
@@ -139,7 +155,11 @@ class TestBotDataDeletion(TransactionTestCase):
             self.assertFalse(recording.file)
 
     @patch("django.db.models.fields.files.FieldFile.delete", autospec=True)
-    def test_fatal_error_to_data_deleted_transition(self, mock_delete):
+    @patch("django.db.models.fields.files.FieldFile.save", autospec=True)
+    def test_fatal_error_to_data_deleted_transition(self, mock_save, mock_delete):
+        mock_delete.side_effect = mock_file_field_delete_sets_name_to_none
+        mock_save.side_effect = mock_file_field_save
+
         """Test that a bot in FATAL_ERROR state can transition to DATA_DELETED"""
         # Change bot state to FATAL_ERROR
         self.bot1.state = BotStates.FATAL_ERROR

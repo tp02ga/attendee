@@ -151,7 +151,7 @@ class Bot(models.Model):
 
     def delete_data(self):
         # Check if bot is in a state where the data deleted event can be created
-        if self.state not in BotEventManager.VALID_TRANSITIONS[BotEventTypes.DATA_DELETED]["from"]:
+        if not BotEventManager.event_can_be_created_for_state(BotEventTypes.DATA_DELETED, self.state):
             raise ValueError("Bot is not in a state where the data deleted event can be created")
 
         with transaction.atomic():
@@ -575,6 +575,10 @@ class BotEventManager:
             "to": BotStates.DATA_DELETED,
         },
     }
+
+    @classmethod
+    def event_can_be_created_for_state(cls, event_type: BotEventTypes, state: BotStates):
+        return state in cls.VALID_TRANSITIONS[event_type]["from"]
 
     @classmethod
     def set_requested_bot_action_taken_at(cls, bot: Bot):
