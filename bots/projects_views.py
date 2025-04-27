@@ -5,6 +5,7 @@ import os
 
 import stripe
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.http import HttpResponse
@@ -13,17 +14,23 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
+from .bots_api_views import launch_bot
 from .models import (
     ApiKey,
     Bot,
     BotEvent,
+    BotEventManager,
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
     Credentials,
     CreditTransaction,
     Project,
+    Recording,
     RecordingStates,
+    RecordingTypes,
+    TranscriptionProviders,
+    TranscriptionTypes,
     Utterance,
     WebhookDeliveryAttempt,
     WebhookDeliveryAttemptStatus,
@@ -487,3 +494,53 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
 
         # Redirect directly to the Stripe checkout page
         return redirect(checkout_session.url)
+
+
+class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def post(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        
+        meeting_url = request.POST.get('meeting_url')
+        bot_name = request.POST.get('bot_name') or "Meeting Bot"
+        
+        if not meeting_url:
+            messages.error(request, "Meeting URL is required")
+            return redirect('projects:project-bots', object_id=project.object_id)
+        
+        try:
+            # Create bot settings with default values
+            settings = {
+                "transcription_settings": {"deepgram": {"tier": "nova", "language": "en", "model": "general"}},
+                "rtmp_settings": {},
+                "recording_settings": {"format": "webm"}
+            }
+            
+            # Create the Bot
+            bot = Bot.objects.create(
+                project=project,
+                meeting_url=meeting_url,
+                name=bot_name,
+                settings=settings
+            )
+            
+            # Create a recording
+            Recording.objects.create(
+                bot=bot,
+                recording_type=RecordingTypes.AUDIO_AND_VIDEO,
+                transcription_type=TranscriptionTypes.NON_REALTIME,
+                transcription_provider=TranscriptionProviders.DEEPGRAM,
+                is_default_recording=True,
+            )
+            
+            # Transition state from READY to JOINING
+            BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
+            
+            # Launch the bot
+            launch_bot(bot)
+            
+            messages.success(request, f"Bot created successfully and is joining the meeting. Bot ID: {bot.object_id}")
+            
+        except Exception as e:
+            messages.error(request, f"Error creating bot: {str(e)}")
+        
+        return redirect('projects:project-bots', object_id=project.object_id)
