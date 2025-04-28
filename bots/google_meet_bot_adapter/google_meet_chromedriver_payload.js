@@ -132,8 +132,8 @@ class StyleManager {
                 if (!botMinimizedElement)
                     return;
                 botMinimizedElement.style.display = 'none';
-            }, 100);            
-        }, 100);
+            }, 200);            
+        }, 200);
     }
 
     showAllOfGMeetUI() {
@@ -193,12 +193,64 @@ class StyleManager {
             console.log('Hidden all elements except <main> and its ancestors/descendants');
         })();
 
-        this.hideBotVideoElement();
+        // this.hideBotVideoElement();
     }
-            
 
-    start() {
-        this.onlyShowSubsetofGMeetUI();
+    unpinPinnedVideos() {
+        const participantList = document.querySelector('div[aria-label="Participants"][role="list"]');
+        // console.log('participantList', participantList);
+        if (!participantList) {
+            return;
+        }
+
+        const participantListItems = participantList.querySelectorAll('div[role="listitem"]');
+        // console.log('participantListItems', participantListItems);
+        for (const participantListItem of participantListItems) {
+            // Look for the pinned icon directly using aria-hidden and checking text content in one step
+            const pinnedElements = Array.from(participantListItem.querySelectorAll('i[aria-hidden="true"]'))
+                .filter(el => el.textContent === 'keep');
+            
+            if (pinnedElements.length === 0) {
+                continue;
+            }
+
+            const actionsButton = participantListItem.querySelector('button[aria-label="More actions"]');
+            // console.log('actionsButton', actionsButton);
+            if (!actionsButton) {
+                continue;
+            }
+
+            actionsButton.click();
+            setTimeout(() => {
+                // Updated selector to find the unpin menu item by looking for the aria-label containing "Unpin"
+                const unpinButton = document.querySelector('li[aria-label*="Unpin"][role="menuitem"]');
+                // console.log('unpinButton', unpinButton);
+                if (!unpinButton) {
+                    return;
+                }
+                // Add the missing click action
+                unpinButton.click();
+            }, 200);
+        }
+    }
+
+    async clickPeopleButton() {
+        const peopleButton = document.querySelector('button[aria-label="People"]');
+        if (peopleButton) {
+            peopleButton.click();
+            // Sleep for 250 milliseconds
+            await new Promise(resolve => setTimeout(resolve, 250));
+            peopleButton.click();
+        }
+    }
+
+    async start() {
+        await this.clickPeopleButton();
+        this.onlyShowSubsetofGMeetUI();             
+        
+        this.unpinInterval = setInterval(() => {
+            this.unpinPinnedVideos();
+        }, 1000);
 
         // Add keyboard listener for toggling canvas visibility
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -598,9 +650,9 @@ class WebSocketClient {
   }
   */
 
-  enableMediaSending() {
+  async enableMediaSending() {
     this.mediaSendingEnabled = true;
-    window.styleManager.start();
+    await window.styleManager.start();
 
     // No longer need this because we're not using MediaStreamTrackProcessor's
     //this.startFillerFrameTimer();
