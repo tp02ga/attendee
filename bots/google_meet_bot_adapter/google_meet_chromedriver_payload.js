@@ -1643,9 +1643,18 @@ function clickLanguageOption(languageCode) {
     }
 }
 
-function turnOnCamera() {
+async function turnOnCamera() {
     // Click camera button to turn it on
-    const cameraButton = document.querySelector('button[aria-label="Turn on camera"]') || document.querySelector('div[aria-label="Turn on camera"]');
+    let cameraButton = null;
+    const numAttempts = 30;
+    for (let i = 0; i < numAttempts; i++) {
+        cameraButton = document.querySelector('button[aria-label="Turn on camera"]') || document.querySelector('div[aria-label="Turn on camera"]');
+        if (cameraButton) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     if (cameraButton) {
         console.log("Clicking the camera button to turn it on");
         cameraButton.click();
@@ -1745,7 +1754,7 @@ class BotOutputManager {
         try {
             // Wait for the image to be loaded onto the canvas
             return this.writeImageToBotOutputCanvas(imageBytes)
-                .then(() => {
+                .then(async () => {
                 // If the stream is already broadcasting, don't do anything
                 if (this.botOutputCanvasElementCaptureStream)
                 {
@@ -1755,7 +1764,7 @@ class BotOutputManager {
 
                 // Now that the image is loaded, capture the stream and turn on camera
                 this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
-                turnOnCamera();
+                await turnOnCamera();
             })
             .catch(error => {
                 console.error('Error in botOutputManager.displayImage:', error);
