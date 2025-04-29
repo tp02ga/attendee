@@ -2,7 +2,6 @@ class StyleManager {
     constructor() {
         this.videoTrackIdToSSRC = new Map();
         this.videoElementToCaptureCanvasElements = new Map();
-        this.captureCanvasVisible = true; // Track visibility state
         this.mainElement = null;
         this.misMatchTracker = new Map();
 
@@ -166,32 +165,21 @@ class StyleManager {
             return;
         }
 
-        (function() {
-            const main = document.querySelector('main');
-            if (!main) {
-            console.log('No <main> element found on this page');
-            return;
-            }
-            
-            // Get all ancestors of main
-            const ancestors = [];
-            let parent = main.parentElement;
-            while (parent) {
+        const ancestors = [];
+        let parent = this.mainElement.parentElement;
+        while (parent) {
             ancestors.push(parent);
             parent = parent.parentElement;
-            }
-            
-            // Hide all elements except main, its ancestors, and its descendants
-            document.querySelectorAll('body *').forEach(element => {
-            if (element !== main && 
+        }
+        
+        // Hide all elements except main, its ancestors, and its descendants
+        document.querySelectorAll('body *').forEach(element => {
+            if (element !== this.mainElement && 
                 !ancestors.includes(element) && 
-                !main.contains(element)) {
+                !this.mainElement.contains(element)) {
                 element.style.display = 'none';
             }
-            });
-            
-            console.log('Hidden all elements except <main> and its ancestors/descendants');
-        })();
+        });
 
         // this.hideBotVideoElement();
     }
@@ -234,37 +222,65 @@ class StyleManager {
         }
     }
 
-    async clickPeopleButton() {
+    async openParticipantList() {
         const peopleButton = document.querySelector('button[aria-label="People"]');
         if (peopleButton) {
+            // Initially the participant list element does not exist. Clicking this button opens it up.
             peopleButton.click();
-            // Sleep for 250 milliseconds
-            await new Promise(resolve => setTimeout(resolve, 250));
+
+            const numAttempts = 30;
+            for (let i = 0; i < numAttempts; i++) {
+                // Sleep for 250 milliseconds
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const participantList = document.querySelector('div[aria-label="Participants"][role="list"]');
+                if (participantList) {
+                    break;
+                }
+                const wasLastAttempt = i === numAttempts - 1;
+                if (wasLastAttempt) {
+                    console.log('Failed to find participant list after', numAttempts, 'attempts');
+                    window.ws.sendJson({
+                        type: 'Error',
+                        message: 'Failed to open participant list in openParticipantList'
+                    });
+                }
+            }
+
+            // We need to click this again so that the participant list is minimized.
             peopleButton.click();
         }
     }
 
     async start() {
-        await this.clickPeopleButton();
-        this.onlyShowSubsetofGMeetUI();             
+        if (window.initialData.recordingView === 'gallery_view')
+        {
+            await this.openParticipantList();
+        }
+
+        this.onlyShowSubsetofGMeetUI();
         
-        this.unpinInterval = setInterval(() => {
-            this.unpinPinnedVideos();
-        }, 1000);
+
+        if (window.initialData.recordingView === 'gallery_view')
+        {
+            this.unpinInterval = setInterval(() => {
+                this.unpinPinnedVideos();
+            }, 1000);
+        }
 
         // Add keyboard listener for toggling canvas visibility
-        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        //document.addEventListener('keydown', this.handleKeyDown.bind(this));
 
         this.startSilenceDetection();
 
         console.log('Started StyleManager');
     }
 
+    /*
     handleKeyDown(event) {
         // Toggle canvas visibility when 's' key is pressed
         if (event.key === 's') {
         }
-    }
+    }*/
 
 
     addVideoTrack(trackEvent) {
