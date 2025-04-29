@@ -33,6 +33,7 @@ from bots.models import (
     Utterance,
 )
 from bots.utils import meeting_type_from_url
+from bots.tasks.restart_bot_pod_task import restart_bot_pod
 
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
@@ -620,7 +621,6 @@ class BotController:
 
     def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
-
         logger.info("Received message that new utterance was detected")
 
         # Create participant record if it doesn't exist
@@ -696,6 +696,16 @@ class BotController:
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND,
             )
             self.cleanup()
+            return
+
+        if message.get("message") == BotAdapter.Messages.CREATE_NEW_POD:
+            logger.info("Received message that start new pod")
+            # Run task to restart the bot pod with 1 minute delay
+            restart_bot_pod.apply_async(args=[self.bot_in_db.id], countdown=60)
+            # Don't do the normal cleanup tasks because we'll be restarting the pod
+            if self.main_loop and self.main_loop.is_running():
+                logger.info("Quitting main loop")
+                self.main_loop.quit()
             return
 
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
