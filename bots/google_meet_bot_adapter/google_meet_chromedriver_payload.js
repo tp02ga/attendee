@@ -3,7 +3,6 @@ class StyleManager {
         this.videoTrackIdToSSRC = new Map();
         this.videoElementToCaptureCanvasElements = new Map();
         this.mainElement = null;
-        this.misMatchTracker = new Map();
 
         this.audioContext = null;
         this.audioTracks = [];
@@ -1652,6 +1651,10 @@ function turnOnCamera() {
         cameraButton.click();
     } else {
         console.log("Camera button not found");
+        window.ws.sendJson({
+            type: 'Error',
+            message: 'Camera button not found in turnOnCamera'
+        });
     }
 }
 
