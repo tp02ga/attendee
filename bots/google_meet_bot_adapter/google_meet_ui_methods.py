@@ -383,7 +383,7 @@ class GoogleMeetUIMethods:
 
     def click_leave_button(self):
         logger.info("Waiting for the leave button")
-        num_attempts = 30
+        num_attempts = 5
         for attempt_index in range(num_attempts):
             leave_button = WebDriverWait(self.driver, 16).until(
                 EC.presence_of_element_located(
@@ -397,7 +397,7 @@ class GoogleMeetUIMethods:
             try:
                 leave_button.click()
                 return
-            except UiCouldNotClickElementException as e:
+            except Exception as e:
                 last_attempt = attempt_index == num_attempts - 1
                 if last_attempt:
                     raise e
