@@ -1652,6 +1652,10 @@ async function turnOnCamera() {
         if (cameraButton) {
             break;
         }
+        window.ws.sendJson({
+            type: 'Error',
+            message: 'Camera button not found in turnOnCamera, but will try again'
+        });
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
