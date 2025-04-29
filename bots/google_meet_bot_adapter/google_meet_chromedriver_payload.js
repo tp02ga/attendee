@@ -157,30 +157,42 @@ class StyleManager {
     }
 
     onlyShowSubsetofGMeetUI() {
-        // Find the main element that contains all the video elements
-        this.mainElement = document.querySelector('main');
-        if (!this.mainElement) {
-            console.error('No <main> element found in the DOM');
-            return;
-        }
-
-        const ancestors = [];
-        let parent = this.mainElement.parentElement;
-        while (parent) {
-            ancestors.push(parent);
-            parent = parent.parentElement;
-        }
-        
-        // Hide all elements except main, its ancestors, and its descendants
-        document.querySelectorAll('body *').forEach(element => {
-            if (element !== this.mainElement && 
-                !ancestors.includes(element) && 
-                !this.mainElement.contains(element)) {
-                element.style.display = 'none';
+        try {
+            // Find the main element that contains all the video elements
+            this.mainElement = document.querySelector('main');
+            if (!this.mainElement) {
+                console.error('No <main> element found in the DOM');
+                window.ws.sendJson({
+                    type: 'Error',
+                    message: 'No <main> element found in the DOM'
+                });
+                return;
             }
-        });
 
-        // this.hideBotVideoElement();
+            const ancestors = [];
+            let parent = this.mainElement.parentElement;
+            while (parent) {
+                ancestors.push(parent);
+                parent = parent.parentElement;
+            }
+            
+            // Hide all elements except main, its ancestors, and its descendants
+            document.querySelectorAll('body *').forEach(element => {
+                if (element !== this.mainElement && 
+                    !ancestors.includes(element) && 
+                    !this.mainElement.contains(element)) {
+                    element.style.display = 'none';
+                }
+            });
+
+            // this.hideBotVideoElement();
+        } catch (error) {
+            console.error('Error in onlyShowSubsetofGMeetUI:', error);
+            window.ws.sendJson({
+                type: 'Error',
+                message: 'Error in onlyShowSubsetofGMeetUI: ' + error.message
+            });
+        }
     }
 
     unpinPinnedVideos() {
