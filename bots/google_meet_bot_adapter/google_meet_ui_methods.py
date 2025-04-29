@@ -401,4 +401,4 @@ class GoogleMeetUIMethods:
                 last_attempt = attempt_index == num_attempts - 1
                 if last_attempt:
                     raise e
-                logger.info(f"Error clicking leave button. Retrying...")
+                logger.info("Error clicking leave button. Retrying...")
