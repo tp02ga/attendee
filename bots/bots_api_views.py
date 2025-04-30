@@ -141,7 +141,7 @@ def create_bot_media_request_for_image(bot, image):
     image_data = image["decoded_data"]
     try:
         # Create or get existing MediaBlob
-        media_blob = MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
+        MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
     except Exception as e:
         error_message_first_line = str(e).split("\n")[0]
         logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
@@ -172,7 +172,7 @@ def create_bot(data, project) -> (Bot, str):
         # Get the first error field and return a simple message
         error_field = next(iter(serializer.errors))
         # Convert field name to a more readable format (e.g., meeting_url -> Meeting URL)
-        field_label = error_field.replace('_', ' ').title()
+        field_label = error_field.replace("_", " ").title()
         return None, f"Invalid {field_label}"
 
     # Access the bot through the api key
@@ -246,7 +246,6 @@ class BotCreateView(APIView):
         tags=["Bots"],
     )
     def post(self, request):
-
         bot, error = create_bot(request.data, request.auth.project)
         if error:
             return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
