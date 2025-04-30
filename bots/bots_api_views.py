@@ -153,6 +153,7 @@ def create_bot_media_request_for_image(bot, image):
         media_type=BotMediaRequestMediaTypes.IMAGE,
     )
 
+
 def validate_meeting_url_and_credentials(meeting_url, project):
     """
     Validates meeting URL format and required credentials.
