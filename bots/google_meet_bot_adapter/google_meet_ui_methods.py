@@ -72,7 +72,7 @@ class GoogleMeetUIMethods:
             others_may_see_your_meeting_differently_button.click()
 
     def look_for_blocked_element(self, step):
-        cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
+        cannot_join_element = self.find_element_by_selector(By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')
         if cannot_join_element:
             # This means google is blocking us for whatever reason, but we can retry
             logger.info("Google is blocking us for whatever reason, but we can retry. Raising UiGoogleBlockingUsException")
@@ -122,7 +122,7 @@ class GoogleMeetUIMethods:
         logger.info("Waiting for the name input field...")
         for attempt_to_look_for_name_input_index in range(num_attempts_to_look_for_name_input):
             try:
-                name_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Your name"]')))
+                name_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"][aria-label="Yoasdasdur naasdasdme"]')))
                 logger.info("name input found")
                 name_input.send_keys(self.display_name)
                 return
