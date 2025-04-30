@@ -44,6 +44,7 @@ from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
+from datetime import timedelta
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
