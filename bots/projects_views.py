@@ -500,11 +500,6 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 'bot_name': request.POST.get('bot_name') or "Meeting Bot",
             }
 
-            # # Validate meeting URL first
-            # error = validate_meeting_url_and_credentials(data['meeting_url'], project)
-            # if error:
-            #     return HttpResponse(error, status=400)
-
             bot, error = create_bot(data, project)
             if error:
                 return HttpResponse(error, status=400)
