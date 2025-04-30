@@ -377,7 +377,6 @@ class BotEventTypes(models.IntegerChoices):
     COULD_NOT_JOIN = 9, "Bot could not join meeting"
     POST_PROCESSING_COMPLETED = 10, "Post Processing Completed"
     DATA_DELETED = 11, "Data Deleted"
-    NEW_POD_CREATED = 12, "New Pod Created"
 
     @classmethod
     def type_to_api_code(cls, value):
@@ -394,7 +393,6 @@ class BotEventTypes(models.IntegerChoices):
             cls.COULD_NOT_JOIN: "could_not_join_meeting",
             cls.POST_PROCESSING_COMPLETED: "post_processing_completed",
             cls.DATA_DELETED: "data_deleted",
-            cls.NEW_POD_CREATED: "new_pod_created",
         }
         return mapping.get(value)
 
@@ -517,10 +515,6 @@ class BotEventManager:
         BotEventTypes.JOIN_REQUESTED: {
             "from": BotStates.READY,
             "to": BotStates.JOINING,
-        },
-        BotEventTypes.NEW_POD_CREATED: {
-            "from": BotStates.JOINING,
-            "to": BotStates.READY,
         },
         BotEventTypes.COULD_NOT_JOIN: {
             "from": BotStates.JOINING,

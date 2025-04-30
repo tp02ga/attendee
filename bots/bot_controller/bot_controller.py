@@ -699,9 +699,9 @@ class BotController:
             self.cleanup()
             return
 
-        if message.get("message") == BotAdapter.Messages.CREATE_NEW_POD:
-            if self.bot_in_db.bot_events.filter(event_type=BotEventTypes.NEW_POD_CREATED).count() > 3:
-                logger.info("Received message to create new pod but we've already recreated the pod 3 times, so not recreating again")
+        if message.get("message") == BotAdapter.Messages.BLOCKED_BY_GOOGLE_REPEATEDLY:
+            if self.bot_in_db.created_at > timezone.now() - timedelta(minutes=12):
+                logger.info("Received message that we were blocked by google repeatedly but bot was created more than 12 minutes ago, so not recreating pod")
 
                 new_bot_event = BotEventManager.create_event(
                     bot=self.bot_in_db,
@@ -714,7 +714,7 @@ class BotController:
                 self.cleanup()
                 return
 
-            logger.info("Received message that start new pod")
+            logger.info("Received message that we were blocked by google repeatedly, so recreating pod")
             # Run task to restart the bot pod with 1 minute delay
             restart_bot_pod.apply_async(args=[self.bot_in_db.id], countdown=60)
             # Don't do the normal cleanup tasks because we'll be restarting the pod

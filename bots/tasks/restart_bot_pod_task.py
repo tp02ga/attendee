@@ -1,5 +1,5 @@
 import logging
-
+import time
 from celery import shared_task
 from kubernetes import client, config
 
@@ -18,6 +18,12 @@ def restart_bot_pod(self, bot_id):
     logger.info(f"Restarting bot pod for bot {bot_id}")
 
     bot = Bot.objects.get(id=bot_id)
+
+    last_bot_event = bot.last_bot_event()
+
+    if last_bot_event.event_type != BotEventTypes.JOIN_REQUESTED:
+        logger.info(f"Bot {bot_id} is not in JOINING state, so not restarting pod")
+        return
 
     # Initialize kubernetes client
     try:
@@ -61,9 +67,15 @@ def restart_bot_pod(self, bot_id):
             # Some other API error occurred
             logger.error(f"Error checking for existing pod: {str(e)}")
 
-    BotEventManager.create_event(bot, BotEventTypes.NEW_POD_CREATED)
-    BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
-    bot.set_heartbeat()
+    last_bot_event.requested_bot_action_taken_at = None
+    if "pod_recreations" not in last_bot_event.metadata:
+        last_bot_event.metadata["pod_recreations"] = []
+    last_bot_event.metadata["pod_recreations"].append(int(time.time()))
+    last_bot_event.save()
+
+    bot.first_heartbeat_timestamp = None
+    bot.last_heartbeat_timestamp = None
+    bot.save()
 
     bot_pod_creator = BotPodCreator()
     bot_pod_create_result = bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=bot.k8s_pod_name())
