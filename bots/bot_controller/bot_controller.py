@@ -702,7 +702,7 @@ class BotController:
         if message.get("message") == BotAdapter.Messages.CREATE_NEW_POD:
             if self.bot_in_db.bot_events.filter(event_type=BotEventTypes.NEW_POD_CREATED).count() > 3:
                 logger.info("Received message to create new pod but we've already recreated the pod 3 times, so not recreating again")
-                
+
                 new_bot_event = BotEventManager.create_event(
                     bot=self.bot_in_db,
                     event_type=BotEventTypes.FATAL_ERROR,
@@ -710,7 +710,7 @@ class BotController:
                     event_metadata={
                         "bot_restarts_exceeded_max_retries": True,
                     },
-                )            
+                )
                 self.cleanup()
                 return
 
