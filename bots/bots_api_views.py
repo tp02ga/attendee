@@ -141,12 +141,17 @@ def create_bot_media_request_for_image(bot, image):
     image_data = image["decoded_data"]
     try:
         # Create or get existing MediaBlob
-        MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
+        media_blob = MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
     except Exception as e:
         error_message_first_line = str(e).split("\n")[0]
         logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
         raise ValidationError(f"Error creating the image blob: {error_message_first_line}.")
 
+    BotMediaRequest.objects.create(
+        bot=bot,
+        media_blob=media_blob,
+        media_type=BotMediaRequestMediaTypes.IMAGE,
+    )
 
 def validate_meeting_url_and_credentials(meeting_url, project):
     """
