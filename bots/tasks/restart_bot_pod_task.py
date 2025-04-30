@@ -1,12 +1,9 @@
 import logging
 
-import requests
 from celery import shared_task
-from django.utils import timezone
 from kubernetes import client, config
 
-from bots.models import Bot, BotEventTypes, BotEventManager
-from bots.webhook_utils import sign_payload
+from bots.models import Bot, BotEventManager, BotEventTypes
 
 logger = logging.getLogger(__name__)
 from bots.bot_pod_creator import BotPodCreator
@@ -21,7 +18,7 @@ def restart_bot_pod(self, bot_id):
     logger.info(f"Restarting bot pod for bot {bot_id}")
 
     bot = Bot.objects.get(id=bot_id)
-    
+
     # Initialize kubernetes client
     try:
         config.load_incluster_config()
@@ -29,13 +26,13 @@ def restart_bot_pod(self, bot_id):
         config.load_kube_config()
     v1 = client.CoreV1Api()
     namespace = "attendee"
-    
+
     # Check if pod already exists with this name
     pod_name = bot.k8s_pod_name()
     try:
         # Directly read the specific pod by name instead of listing all pods
         existing_pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
-        
+
         # Delete the pod if it exists (we'll only get here if the pod exists)
         logger.info(f"Found existing pod {pod_name}, deleting it before creating a new one")
         v1.delete_namespaced_pod(name=pod_name, namespace=namespace, grace_period_seconds=60)

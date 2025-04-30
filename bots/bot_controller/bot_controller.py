@@ -32,8 +32,8 @@ from bots.models import (
     TranscriptionProviders,
     Utterance,
 )
-from bots.utils import meeting_type_from_url
 from bots.tasks.restart_bot_pod_task import restart_bot_pod
+from bots.utils import meeting_type_from_url
 
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
@@ -621,6 +621,7 @@ class BotController:
 
     def save_individual_audio_utterance(self, message):
         from bots.tasks.process_utterance_task import process_utterance
+
         logger.info("Received message that new utterance was detected")
 
         # Create participant record if it doesn't exist
