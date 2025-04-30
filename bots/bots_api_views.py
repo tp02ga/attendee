@@ -147,6 +147,7 @@ def create_bot_media_request_for_image(bot, image):
         logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
         raise ValidationError(f"Error creating the image blob: {error_message_first_line}.")
 
+    # Create BotMediaRequest
     BotMediaRequest.objects.create(
         bot=bot,
         media_blob=media_blob,
