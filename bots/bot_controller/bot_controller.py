@@ -701,8 +701,8 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.BLOCKED_BY_GOOGLE_REPEATEDLY:
-            if self.bot_in_db.created_at > timezone.now() - timedelta(minutes=12):
-                logger.info("Received message that we were blocked by google repeatedly but bot was created more than 12 minutes ago, so not recreating pod")
+            if self.bot_in_db.created_at < timezone.now() - timedelta(minutes=15):
+                logger.info("Received message that we were blocked by google repeatedly but bot was created more than 15 minutes ago, so not recreating pod")
 
                 new_bot_event = BotEventManager.create_event(
                     bot=self.bot_in_db,
