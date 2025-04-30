@@ -338,6 +338,59 @@
             console.error('Failed to copy text: ', err);
         });
     }
+
+    document.getElementById('createBotForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Clear any existing error messages
+        const existingError = document.getElementById('createBotError');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(text);
+                });
+            }
+            return response.text();
+        })
+        .then(html => {
+            // Success case - show the success modal
+            const resultModal = document.getElementById('botResultModal') || document.createElement('div');
+            resultModal.className = 'modal fade';
+            resultModal.id = 'botResultModal';
+            resultModal.setAttribute('tabindex', '-1');
+            resultModal.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(resultModal);
+            
+            resultModal.innerHTML = html;
+            
+            // Hide the create modal
+            const createModal = bootstrap.Modal.getInstance(document.getElementById('createBotModal'));
+            if (createModal) {
+                createModal.hide();
+            }
+        })
+        .catch(error => {
+            // Display error message in the create modal
+            const formElement = document.getElementById('createBotForm');
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'createBotError';
+            errorDiv.className = 'alert alert-danger mt-3';
+            errorDiv.innerHTML = `<strong>Error:</strong> ${error.message || 'Invalid meeting URL. Please check the URL and try again.'}`;
+            
+            formElement.insertAdjacentElement('beforeend', errorDiv);
+        });
+    });
 </script>
 
 {% endblock %} 
