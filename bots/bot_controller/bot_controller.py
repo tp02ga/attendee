@@ -700,6 +700,20 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.CREATE_NEW_POD:
+            if self.bot_in_db.bot_events.filter(event_type=BotEventTypes.CREATE_NEW_POD).count() > 3:
+                logger.info("Received message to create new pod but we've already recreated the pod 3 times, so not recreating again")
+                
+                new_bot_event = BotEventManager.create_event(
+                    bot=self.bot_in_db,
+                    event_type=BotEventTypes.FATAL_ERROR,
+                    event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
+                    event_metadata={
+                        "bot_restarts_exceeded_max_retries": True,
+                    },
+                )            
+                self.cleanup()
+                return
+
             logger.info("Received message that start new pod")
             # Run task to restart the bot pod with 1 minute delay
             restart_bot_pod.apply_async(args=[self.bot_in_db.id], countdown=60)
