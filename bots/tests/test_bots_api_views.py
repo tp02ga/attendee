@@ -1,7 +1,8 @@
 from django.test import TestCase
-from bots.models import Project, Credentials
-from bots.bots_api_views import validate_meeting_url_and_credentials
+
 from accounts.models import Organization
+from bots.bots_api_views import validate_meeting_url_and_credentials
+from bots.models import Project
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
