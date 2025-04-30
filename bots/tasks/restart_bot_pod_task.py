@@ -38,7 +38,7 @@ def restart_bot_pod(self, bot_id):
     pod_name = bot.k8s_pod_name()
     try:
         # Directly read the specific pod by name instead of listing all pods
-        existing_pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+        v1.read_namespaced_pod(name=pod_name, namespace=namespace)
 
         # Delete the pod if it exists (we'll only get here if the pod exists)
         logger.info(f"Found existing pod {pod_name}, deleting it before creating a new one")
