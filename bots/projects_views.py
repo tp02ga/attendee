@@ -5,7 +5,6 @@ import os
 
 import stripe
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.http import HttpResponse
@@ -14,23 +13,18 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
-from .bots_api_views import launch_bot, create_bot
+from .bots_api_views import create_bot, launch_bot
 from .models import (
     ApiKey,
     Bot,
     BotEvent,
-    BotEventManager,
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
     Credentials,
     CreditTransaction,
     Project,
-    Recording,
     RecordingStates,
-    RecordingTypes,
-    TranscriptionProviders,
-    TranscriptionTypes,
     Utterance,
     WebhookDeliveryAttempt,
     WebhookDeliveryAttemptStatus,
