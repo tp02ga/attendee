@@ -1,9 +1,10 @@
 import logging
 import time
+
 from celery import shared_task
 from kubernetes import client, config
 
-from bots.models import Bot, BotEventManager, BotEventTypes
+from bots.models import Bot, BotEventTypes
 
 logger = logging.getLogger(__name__)
 from bots.bot_pod_creator import BotPodCreator
