@@ -36,7 +36,6 @@ from bots.models import (
 from bots.utils import meeting_type_from_url
 
 from .audio_output_manager import AudioOutputManager
-from .video_output_manager import VideoOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
@@ -45,6 +44,7 @@ from .individual_audio_input_manager import IndividualAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
+from .video_output_manager import VideoOutputManager
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib

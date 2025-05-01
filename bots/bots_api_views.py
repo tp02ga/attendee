@@ -25,15 +25,15 @@ from .models import (
     BotEventTypes,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
+    BotMediaRequestStates,
     BotStates,
     Credentials,
     MediaBlob,
+    MeetingTypes,
     Recording,
     RecordingTypes,
     TranscriptionTypes,
     Utterance,
-    BotMediaRequestStates,
-    MeetingTypes
 )
 from .serializers import (
     BotImageSerializer,
@@ -44,7 +44,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .tasks import run_bot
-from .utils import transcription_provider_from_meeting_url_and_transcription_settings, meeting_type_from_url
+from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -317,6 +317,7 @@ class SpeechView(APIView):
 
         return Response(status=status.HTTP_200_OK)
 
+
 class OutputVideoView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -397,6 +398,7 @@ class OutputVideoView(APIView):
         send_sync_command(bot, "sync_media_requests")
 
         return Response(status=status.HTTP_200_OK)
+
 
 class OutputAudioView(APIView):
     authentication_classes = [ApiKeyAuthentication]

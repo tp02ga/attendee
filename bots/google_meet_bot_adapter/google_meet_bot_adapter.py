@@ -1,5 +1,6 @@
 import json
 import logging
+
 import numpy as np
 
 from bots.google_meet_bot_adapter.google_meet_ui_methods import (
@@ -8,6 +9,7 @@ from bots.google_meet_bot_adapter.google_meet_ui_methods import (
 from bots.web_bot_adapter import WebBotAdapter
 
 logger = logging.getLogger(__name__)
+
 
 class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
     def __init__(
