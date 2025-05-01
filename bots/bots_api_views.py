@@ -1,10 +1,6 @@
-import json
 import logging
-import os
 
-import redis
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import (
@@ -18,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
+from .bots_api_utils import create_bot, create_bot_media_request_for_image, launch_bot, send_sync_command
 from .models import (
     Bot,
     BotEventManager,
@@ -29,8 +26,6 @@ from .models import (
     Credentials,
     MediaBlob,
     Recording,
-    RecordingTypes,
-    TranscriptionTypes,
     Utterance,
 )
 from .serializers import (
@@ -41,8 +36,6 @@ from .serializers import (
     SpeechSerializer,
     TranscriptUtteranceSerializer,
 )
-from .tasks import run_bot
-from .utils import transcription_provider_from_meeting_url_and_transcription_settings
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -115,124 +108,6 @@ class NotFoundView(APIView):
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-def send_sync_command(bot, command="sync"):
-    redis_url = os.getenv("REDIS_URL") + ("?ssl_cert_reqs=none" if os.getenv("DISABLE_REDIS_SSL") else "")
-    redis_client = redis.from_url(redis_url)
-    channel = f"bot_{bot.id}"
-    message = {"command": command}
-    redis_client.publish(channel, json.dumps(message))
-
-
-def launch_bot(bot):
-    # If this instance is running in Kubernetes, use the Kubernetes pod creator
-    # which spins up a new pod for the bot
-    if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
-        from .bot_pod_creator import BotPodCreator
-
-        bot_pod_creator = BotPodCreator()
-        bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=bot.k8s_pod_name())
-    else:
-        # Default to launching bot via celery
-        run_bot.delay(bot.id)
-
-
-def create_bot_media_request_for_image(bot, image):
-    content_type = image["type"]
-    image_data = image["decoded_data"]
-    try:
-        # Create or get existing MediaBlob
-        media_blob = MediaBlob.get_or_create_from_blob(project=bot.project, blob=image_data, content_type=content_type)
-    except Exception as e:
-        error_message_first_line = str(e).split("\n")[0]
-        logging.error(f"Error creating image blob: {error_message_first_line} (content_type={content_type})")
-        raise ValidationError(f"Error creating the image blob: {error_message_first_line}.")
-
-    # Create BotMediaRequest
-    BotMediaRequest.objects.create(
-        bot=bot,
-        media_blob=media_blob,
-        media_type=BotMediaRequestMediaTypes.IMAGE,
-    )
-
-
-def validate_meeting_url_and_credentials(meeting_url, project):
-    """
-    Validates meeting URL format and required credentials.
-    Returns error message if validation fails, None if validation succeeds.
-    """
-
-    if "meet.google.com" in meeting_url:
-        if not meeting_url.startswith("https://meet.google.com/"):
-            return "Google Meet URL must start with https://meet.google.com/"
-
-    if "zoom.us" in meeting_url:
-        zoom_credentials = project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
-        if not zoom_credentials:
-            return "Zoom App credentials are required to create a Zoom bot"
-
-    return None
-
-
-def create_bot(data, project) -> (Bot, str):
-    serializer = CreateBotSerializer(data=data)
-    if not serializer.is_valid():
-        # Get the first error field and return a simple message
-        error_field = next(iter(serializer.errors))
-        # Convert field name to a more readable format (e.g., meeting_url -> Meeting URL)
-        field_label = error_field.replace("_", " ").title()
-        return None, f"Invalid {field_label}"
-
-    # Access the bot through the api key
-    meeting_url = serializer.validated_data["meeting_url"]
-
-    error = validate_meeting_url_and_credentials(meeting_url, project)
-    if error:
-        return None, error
-
-    bot_name = serializer.validated_data["bot_name"]
-    transcription_settings = serializer.validated_data["transcription_settings"]
-    rtmp_settings = serializer.validated_data["rtmp_settings"]
-    recording_settings = serializer.validated_data["recording_settings"]
-    debug_settings = serializer.validated_data["debug_settings"]
-    bot_image = serializer.validated_data["bot_image"]
-    metadata = serializer.validated_data["metadata"]
-
-    settings = {
-        "transcription_settings": transcription_settings,
-        "rtmp_settings": rtmp_settings,
-        "recording_settings": recording_settings,
-        "debug_settings": debug_settings,
-    }
-
-    with transaction.atomic():
-        bot = Bot.objects.create(
-            project=project,
-            meeting_url=meeting_url,
-            name=bot_name,
-            settings=settings,
-            metadata=metadata,
-        )
-
-        Recording.objects.create(
-            bot=bot,
-            recording_type=RecordingTypes.AUDIO_AND_VIDEO,
-            transcription_type=TranscriptionTypes.NON_REALTIME,
-            transcription_provider=transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, transcription_settings),
-            is_default_recording=True,
-        )
-
-        if bot_image:
-            try:
-                create_bot_media_request_for_image(bot, bot_image)
-            except ValidationError as e:
-                return None, "Error creating the image blob: " + e.messages[0]
-
-        # Try to transition the state from READY to JOINING
-        BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
-
-        return bot, None
-
-
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -255,7 +130,7 @@ class BotCreateView(APIView):
     def post(self, request):
         bot, error = create_bot(request.data, request.auth.project)
         if error:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
         launch_bot(bot)
 

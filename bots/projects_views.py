@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import math
 import os
@@ -13,7 +14,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
-from .bots_api_views import create_bot, launch_bot
+from .bots_api_utils import create_bot, launch_bot
 from .models import (
     ApiKey,
     Bot,
@@ -502,7 +503,7 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
             bot, error = create_bot(data, project)
             if error:
-                return HttpResponse(error, status=400)
+                return HttpResponse(json.dumps(error), status=400)
 
             launch_bot(bot)
 
