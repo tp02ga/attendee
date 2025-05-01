@@ -35,6 +35,11 @@ urlpatterns = [
         name="bot-output-image",
     ),
     path(
+        "bots/<str:object_id>/output_video",
+        bots_api_views.OutputVideoView.as_view(),
+        name="bot-output-video",
+    ),
+    path(
         "bots/<str:object_id>/speech",
         bots_api_views.SpeechView.as_view(),
         name="bot-speech",

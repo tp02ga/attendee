@@ -315,6 +315,86 @@ class SpeechView(APIView):
 
         return Response(status=status.HTTP_200_OK)
 
+class OutputVideoView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
+    @extend_schema(
+        operation_id="Output video",
+        summary="Output video",
+        description="Causes the bot to output a video in the meeting.",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the video to output. Must be a valid URL to an mp4 file.",
+                    },
+                },
+                "required": ["url"],
+                "additionalProperties": False,
+            }
+        },
+        responses={
+            200: OpenApiResponse(description="Video request created successfully"),
+            400: OpenApiResponse(description="Invalid input"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def post(self, request, object_id):
+        # Get the bot
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get which type of meeting the bot is in
+        meeting_type = meeting_type_from_url(bot.meeting_url)
+        if meeting_type != MeetingTypes.GOOGLE_MEET:
+            # Video output is not supported in this meeting type
+            return Response({"error": "Video output is not supported in this meeting type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate the request data
+        url = request.data["url"]
+        if not url:
+            return Response({"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not url.startswith("https://"):
+            return Response({"error": "URL must start with https://"}, status=status.HTTP_400_BAD_REQUEST)
+        if not url.endswith(".mp4"):
+            return Response({"error": "URL must end with .mp4"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if bot is in a state that can play media
+        if not BotEventManager.is_state_that_can_play_media(bot.state):
+            return Response(
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if bot.media_requests.filter(state=BotMediaRequestStates.PLAYING).exists():
+            return Response({"error": "Bot is already playing media. Please wait for it to finish."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the media request
+        BotMediaRequest.objects.create(
+            bot=bot,
+            media_type=BotMediaRequestMediaTypes.VIDEO,
+            media_url=url,
+        )
+
+        # Send sync command to notify bot of new media request
+        send_sync_command(bot, "sync_media_requests")
+
+        return Response(status=status.HTTP_200_OK)
 
 class OutputAudioView(APIView):
     authentication_classes = [ApiKeyAuthentication]
@@ -449,6 +529,9 @@ class OutputImageView(APIView):
                     {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot play media"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            if bot.media_requests.filter(media_type=BotMediaRequestMediaTypes.VIDEO, state=BotMediaRequestStates.PLAYING).exists():
+                return Response({"error": "Bot is already playing a video. Please wait for it to finish."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validate request data
             bot_image = BotImageSerializer(data=request.data)
