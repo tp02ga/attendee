@@ -369,7 +369,7 @@ class OutputVideoView(APIView):
             return Response({"error": "Video output is not supported in this meeting type"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate the request data
-        url = request.data["url"]
+        url = request.data.get("url")
         if not url:
             return Response({"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST)
         if not url.startswith("https://"):

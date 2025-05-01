@@ -268,7 +268,7 @@ class StyleManager {
             await this.openParticipantList();
         }
 
-        this.onlyShowSubsetofGMeetUI();
+        //this.onlyShowSubsetofGMeetUI();
         
 
         if (window.initialData.recordingView === 'gallery_view')
@@ -1758,6 +1758,7 @@ class BotOutputManager {
         // For outputting image
         this.botOutputCanvasElement = null;
         this.botOutputCanvasElementCaptureStream = null;
+        this.lastImageBytes = null;
         
         // For outputting audio
         this.audioContextForBotOutput = null;
@@ -1774,6 +1775,9 @@ class BotOutputManager {
     }
 
     playVideo(videoUrl) {
+        // If camera or mic are on, turn them off
+        turnOffMicAndCamera();
+
         this.addBotOutputVideoElement(videoUrl);
 
         // Add event listener to wait until the video starts playing
@@ -1816,6 +1820,17 @@ class BotOutputManager {
             this.botOutputVideoElement.remove();
             this.botOutputVideoElement = null;
             this.botOutputVideoElementCaptureStream = null;
+
+            // If we were displaying an image, turn the camera back on
+            if (this.botOutputCanvasElementCaptureStream) {
+                this.botOutputCanvasElementCaptureStream = null;
+                // Resend last image in 1 second
+                if (this.lastImageBytes) {
+                    setTimeout(() => {
+                        this.displayImage(this.lastImageBytes);
+                    }, 1000);
+                }
+            }
         });
     
         document.body.appendChild(this.botOutputVideoElement);
@@ -1834,6 +1849,7 @@ class BotOutputManager {
                 }
 
                 // Now that the image is loaded, capture the stream and turn on camera
+                this.lastImageBytes = imageBytes;
                 this.botOutputCanvasElementCaptureStream = this.botOutputCanvasElement.captureStream(1);
                 await turnOnCamera();
             })
