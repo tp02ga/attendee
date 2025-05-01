@@ -32,6 +32,8 @@ from .models import (
     RecordingTypes,
     TranscriptionTypes,
     Utterance,
+    BotMediaRequestStates,
+    MeetingTypes
 )
 from .serializers import (
     BotImageSerializer,
@@ -42,7 +44,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .tasks import run_bot
-from .utils import transcription_provider_from_meeting_url_and_transcription_settings
+from .utils import transcription_provider_from_meeting_url_and_transcription_settings, meeting_type_from_url
 
 TokenHeaderParameter = [
     OpenApiParameter(

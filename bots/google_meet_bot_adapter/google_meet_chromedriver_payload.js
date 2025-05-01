@@ -1752,7 +1752,7 @@ class BotOutputManager {
         
         // For outputting video
         this.botOutputVideoElement = null;
-        this.videoSource = null;
+        this.videoSoundSource = null;
         this.botOutputVideoElementCaptureStream = null;
 
         // For outputting image
@@ -1764,6 +1764,61 @@ class BotOutputManager {
         this.gainNode = null;
         this.destination = null;
         this.botOutputAudioTrack = null;
+    }
+
+    connectVideoSourceToAudioContext() {
+        if (this.botOutputVideoElement && this.audioContextForBotOutput && !this.videoSoundSource) {
+            this.videoSoundSource = this.audioContextForBotOutput.createMediaElementSource(this.botOutputVideoElement);
+            this.videoSoundSource.connect(this.gainNode);
+        }
+    }
+
+    playVideo(videoUrl) {
+        this.addBotOutputVideoElement(videoUrl);
+
+        // Add event listener to wait until the video starts playing
+        this.botOutputVideoElement.addEventListener('playing', () => {
+            console.log("Video has started playing, turning on mic and camera");
+
+            this.botOutputVideoElementCaptureStream = this.botOutputVideoElement.captureStream();
+
+            turnOnMicAndCamera();
+        }, { once: true });
+    }
+
+    addBotOutputVideoElement(url) {
+        // Disconnect previous video source if it exists
+        if (this.videoSoundSource) {
+            this.videoSoundSource.disconnect();
+            this.videoSoundSource = null;
+        }
+    
+        // Remove any existing video element
+        if (this.botOutputVideoElement) {
+            this.botOutputVideoElement.remove();
+        }
+    
+        // Create new video element
+        this.botOutputVideoElement = document.createElement('video');
+        this.botOutputVideoElement.style.display = 'none';
+        this.botOutputVideoElement.src = url;
+        this.botOutputVideoElement.crossOrigin = 'anonymous';
+        this.botOutputVideoElement.loop = false;
+        this.botOutputVideoElement.autoplay = true;
+        this.botOutputVideoElement.muted = false;
+        // Clean up when video ends
+        this.botOutputVideoElement.addEventListener('ended', () => {
+            turnOffMicAndCamera();
+            if (this.videoSoundSource) {
+                this.videoSoundSource.disconnect();
+                this.videoSoundSource = null;
+            }
+            this.botOutputVideoElement.remove();
+            this.botOutputVideoElement = null;
+            this.botOutputVideoElementCaptureStream = null;
+        });
+    
+        document.body.appendChild(this.botOutputVideoElement);
     }
 
     displayImage(imageBytes) {
@@ -2030,19 +2085,18 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
   
         // Create a new MediaStream to return
         const newStream = new MediaStream();
-  
-        // Video sending not supported yet
-        /* 
-        if (constraints.video && botOutputVideoElementCaptureStream) {
-            console.log("Adding video track", botOutputVideoElementCaptureStream.getVideoTracks()[0]);
-            newStream.addTrack(botOutputVideoElementCaptureStream.getVideoTracks()[0]);
+          
+        if (constraints.video && botOutputManager.botOutputVideoElementCaptureStream) {
+            console.log("Adding video track", botOutputManager.botOutputVideoElementCaptureStream.getVideoTracks()[0]);
+            newStream.addTrack(botOutputManager.botOutputVideoElementCaptureStream.getVideoTracks()[0]);
         }
-        */
-
-        if (constraints.video && botOutputManager.botOutputCanvasElementCaptureStream) {
-            console.log("Adding canvas track", botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
-            newStream.addTrack(botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
-        }
+        // Video is prioritized over canvas
+        else {
+            if (constraints.video && botOutputManager.botOutputCanvasElementCaptureStream) {
+                console.log("Adding canvas track", botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+                newStream.addTrack(botOutputManager.botOutputCanvasElementCaptureStream.getVideoTracks()[0]);
+            }
+         }
 
         // Audio sending not supported yet
         
@@ -2053,12 +2107,9 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
         }  
 
         // Video sending not supported yet
-        /*
-        if (botOutputVideoElement && audioContextForBotOutput && !videoSource) {
-            videoSource = audioContextForBotOutput.createMediaElementSource(botOutputVideoElement);
-            videoSource.connect(gainNode);
+        if (botOutputManager.botOutputVideoElementCaptureStream) {
+            botOutputManager.connectVideoSourceToAudioContext();
         }
-        */
   
         return newStream;
       })

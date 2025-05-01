@@ -1,3 +1,5 @@
+import json
+import logging
 import numpy as np
 
 from bots.google_meet_bot_adapter.google_meet_ui_methods import (
@@ -5,6 +7,7 @@ from bots.google_meet_bot_adapter.google_meet_ui_methods import (
 )
 from bots.web_bot_adapter import WebBotAdapter
 
+logger = logging.getLogger(__name__)
 
 class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
     def __init__(
@@ -38,3 +41,10 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
 
         # Call the JavaScript function to enqueue the PCM chunk
         self.driver.execute_script(f"window.botOutputManager.playPCMAudio({audio_data}, {sample_rate})")
+
+    def is_sent_video_still_playing(self):
+        return False
+
+    def send_video(self, video_url):
+        logger.info(f"send_video called with video_url = {video_url}")
+        self.driver.execute_script(f"window.botOutputManager.playVideo({json.dumps(video_url)})")
