@@ -268,7 +268,7 @@ class StyleManager {
             await this.openParticipantList();
         }
 
-        //this.onlyShowSubsetofGMeetUI();
+        this.onlyShowSubsetofGMeetUI();
         
 
         if (window.initialData.recordingView === 'gallery_view')
