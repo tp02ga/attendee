@@ -23,7 +23,9 @@ class ScreenAndAudioRecorder:
             return
         self.ffmpeg_proc.terminate()
         self.ffmpeg_proc.wait()
+        self.ffmpeg_proc = None
         logger.info(f"Stopped debug screen recorder for display with dimensions {self.screen_dimensions} and file location {self.file_location}")
+        
 
     def get_seekable_path(self, path):
         """
