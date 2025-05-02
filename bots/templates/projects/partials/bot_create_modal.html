@@ -61,6 +61,11 @@
         const form = document.getElementById('createBotForm');
         const formData = new FormData(form);
         const errorsContainer = document.getElementById('formErrors');
+        const createButton = document.getElementById('createBotBtn');
+        
+        // Disable button and show loading state
+        createButton.disabled = true;
+        createButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
         
         // Clear previous errors
         errorsContainer.classList.add('d-none');
@@ -87,6 +92,10 @@
                 window.location.reload();
             } else {
                 // Handle error response
+                // Reset button state
+                createButton.disabled = false;
+                createButton.innerHTML = 'Create Bot';
+                
                 return response.text().then(errorText => {
                     errorsContainer.classList.remove('d-none');
                     errorsContainer.textContent = errorText;
@@ -98,6 +107,10 @@
             console.error(error);
             errorsContainer.classList.remove('d-none');
             errorsContainer.textContent = 'An error occurred while creating the bot.';
+            
+            // Reset button state
+            createButton.disabled = false;
+            createButton.innerHTML = 'Create Bot';
         });
     });
 

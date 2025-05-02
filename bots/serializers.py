@@ -305,7 +305,8 @@ class CreateBotSerializer(serializers.Serializer):
             elif meeting_type == MeetingTypes.TEAMS:
                 value = {"meeting_closed_captions": {}}
             else:
-                raise serializers.ValidationError({"transcription_settings": "Invalid meeting type"})
+                value = {}
+                return value
 
         try:
             jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
