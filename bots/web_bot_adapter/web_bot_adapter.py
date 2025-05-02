@@ -471,6 +471,8 @@ class WebBotAdapter(BotAdapter):
             return
         if self.was_removed_from_meeting:
             return
+        if self.stop_recording_screen_callback:
+            self.stop_recording_screen_callback()
 
         try:
             logger.info("disable media sending")
