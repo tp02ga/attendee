@@ -83,7 +83,7 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     return None
 
 
-def create_bot(data, project) -> (Bot, str):
+def create_bot(data, project) -> tuple[Bot | None, dict | None]:
     serializer = CreateBotSerializer(data=data)
     if not serializer.is_valid():
         return None, serializer.errors
