@@ -5,6 +5,7 @@ import signal
 import threading
 import time
 import traceback
+from datetime import timedelta
 
 import gi
 import redis
@@ -696,6 +697,32 @@ class BotController:
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND,
             )
             self.cleanup()
+            return
+
+        if message.get("message") == BotAdapter.Messages.BLOCKED_BY_GOOGLE_REPEATEDLY:
+            from bots.tasks.restart_bot_pod_task import restart_bot_pod
+
+            if self.bot_in_db.created_at < timezone.now() - timedelta(minutes=15):
+                logger.info("Received message that we were blocked by google repeatedly but bot was created more than 15 minutes ago, so not recreating pod")
+
+                new_bot_event = BotEventManager.create_event(
+                    bot=self.bot_in_db,
+                    event_type=BotEventTypes.FATAL_ERROR,
+                    event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
+                    event_metadata={
+                        "bot_restarts_exceeded_max_retries": True,
+                    },
+                )
+                self.cleanup()
+                return
+
+            logger.info("Received message that we were blocked by google repeatedly, so recreating pod")
+            # Run task to restart the bot pod with 1 minute delay
+            restart_bot_pod.apply_async(args=[self.bot_in_db.id], countdown=60)
+            # Don't do the normal cleanup tasks because we'll be restarting the pod
+            if self.main_loop and self.main_loop.is_running():
+                logger.info("Quitting main loop")
+                self.main_loop.quit()
             return
 
         if message.get("message") == BotAdapter.Messages.UI_ELEMENT_NOT_FOUND:
