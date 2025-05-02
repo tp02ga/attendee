@@ -507,6 +507,6 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
             launch_bot(bot)
 
-            return HttpResponse({}, status=200)
+            return HttpResponse("ok", status=200)
         except Exception as e:
-            return HttpResponse(e, status=400)
+            return HttpResponse(str(e), status=400)

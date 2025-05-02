@@ -79,7 +79,8 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     if "zoom.us" in meeting_url:
         zoom_credentials = project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
         if not zoom_credentials:
-            settings_url = request.build_absolute_uri(reverse("bots:project-credentials", kwargs={"object_id": project.object_id}))
+            relative_url = reverse("bots:project-credentials", kwargs={"object_id": project.object_id})
+            settings_url = f"https://{os.getenv('SITE_DOMAIN', 'app.attendee.dev')}{relative_url}"
             return {"error": f"Zoom App credentials are required to create a Zoom bot. Please add Zoom credentials at {settings_url}"}
 
     return None

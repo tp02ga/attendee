@@ -87,10 +87,9 @@
                 window.location.reload();
             } else {
                 // Handle error response
-                return response.json().then(errorData => {
-                    // Display error message
+                return response.text().then(errorText => {
                     errorsContainer.classList.remove('d-none');
-                    errorsContainer.textContent = JSON.stringify(errorData, null, 2);
+                    errorsContainer.textContent = errorText;
                 });
             }
         })
