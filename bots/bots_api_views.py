@@ -209,12 +209,14 @@ class BotCreateView(APIView):
         debug_settings = serializer.validated_data["debug_settings"]
         bot_image = serializer.validated_data["bot_image"]
         metadata = serializer.validated_data["metadata"]
+        automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
 
         settings = {
             "transcription_settings": transcription_settings,
             "rtmp_settings": rtmp_settings,
             "recording_settings": recording_settings,
             "debug_settings": debug_settings,
+            "automatic_leave_settings": automatic_leave_settings,
         }
 
         with transaction.atomic():
