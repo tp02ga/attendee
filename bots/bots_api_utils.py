@@ -15,6 +15,7 @@ from .models import (
     BotMediaRequestMediaTypes,
     Credentials,
     MediaBlob,
+    MeetingTypes,
     Recording,
     RecordingTypes,
     TranscriptionTypes,
@@ -23,7 +24,7 @@ from .serializers import (
     CreateBotSerializer,
 )
 from .tasks import run_bot
-from .utils import transcription_provider_from_meeting_url_and_transcription_settings
+from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 
 def send_sync_command(bot, command="sync"):
@@ -72,11 +73,7 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     Returns error message if validation fails, None if validation succeeds.
     """
 
-    if "meet.google.com" in meeting_url:
-        if not meeting_url.startswith("https://meet.google.com/"):
-            return {"error": "Google Meet URL must start with https://meet.google.com/"}
-
-    if "zoom.us" in meeting_url:
+    if meeting_type_from_url(meeting_url) == MeetingTypes.ZOOM:
         zoom_credentials = project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
         if not zoom_credentials:
             relative_url = reverse("bots:project-credentials", kwargs={"object_id": project.object_id})
