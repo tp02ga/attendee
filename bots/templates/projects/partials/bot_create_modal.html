@@ -117,7 +117,7 @@
 
 
     // Dynamic API code update
-    document.addEventListener('DOMContentLoaded', function() {
+    function initializeCodeListener() {
         // Get form fields
         const meetingUrlField = document.getElementById('id_meeting_url');
         const botNameField = document.getElementById('id_bot_name');
@@ -155,7 +155,13 @@
             // Set initial value with proper formatting
             updateCurlCommand();
         }
-    });
+    }
+
+    // Call on regular page load
+    document.addEventListener('DOMContentLoaded', initializeCodeListener);
+    
+    // Call when HTMX content is loaded
+    document.addEventListener('htmx:afterSwap', initializeCodeListener);
     
     // Copy to clipboard function
     function copyToClipboard() {
