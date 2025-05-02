@@ -507,10 +507,6 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
             launch_bot(bot)
 
-            return render(
-                request,
-                "projects/partials/bot_created_modal.html",
-                {"bot": bot, "message": f"Bot created successfully and is joining the meeting. Bot ID: {bot.object_id}", "project": project},
-            )
+            return HttpResponse({}, status=200)
         except Exception as e:
-            return HttpResponse(str(e), status=400)
+            return HttpResponse(e, status=400)
