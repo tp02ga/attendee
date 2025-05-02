@@ -19,13 +19,13 @@ class TestValidateMeetingUrlAndCredentials(TestCase):
 
         # Invalid Google Meet URL format
         error = validate_meeting_url_and_credentials("http://meet.google.com/abc-defg-hij", self.project)
-        self.assertEqual(error, "Google Meet URL must start with https://meet.google.com/")
+        self.assertEqual(error, {"error": "Google Meet URL must start with https://meet.google.com/"})
 
     def test_validate_zoom_url_and_credentials(self):
         """Test Zoom URL and credentials validation"""
         # Test Zoom URL without credentials
         error = validate_meeting_url_and_credentials("https://zoom.us/j/123456789", self.project)
-        self.assertEqual(error, "Zoom App credentials are required to create a Zoom bot")
+        self.assertEqual(error, {"error": f"Zoom App credentials are required to create a Zoom bot. Please add Zoom credentials at https://app.attendee.dev/projects/{self.project.object_id}/credentials"})
 
     def test_validate_teams_url(self):
         """Test Teams URL validation"""
