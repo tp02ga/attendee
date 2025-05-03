@@ -37,14 +37,14 @@ class PerParticipantStreamingAudioInputManager:
         self.transcription_provider = transcription_provider
         self.streaming_transcriber_class = DeepgramStreamingTranscriber
         self.streaming_transcribers = {}
-        self.chunks_buffers = {}
+        self.last_nonsilent_audio_time = {}
 
         self.project = project
 
         self.deepgram_api_key = self.get_deepgram_api_key()
 
     def silence_detected(self, chunk_bytes):
-        if calculate_normalized_rms(chunk_bytes) < 0.0005:
+        if calculate_normalized_rms(chunk_bytes) < 0.005:
             return True
         return not self.vad.is_speech(chunk_bytes, self.sample_rate)
 
@@ -62,7 +62,12 @@ class PerParticipantStreamingAudioInputManager:
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
-        if self.silence_detected(chunk_bytes):
+        audio_is_silent = self.silence_detected(chunk_bytes)
+
+        if not audio_is_silent:
+            self.last_nonsilent_audio_time[speaker_id] = time.time()
+
+        if audio_is_silent and speaker_id not in self.streaming_transcribers:
             return
 
         streaming_transcriber = self.find_or_create_streaming_transcriber_for_speaker(speaker_id)
@@ -71,9 +76,10 @@ class PerParticipantStreamingAudioInputManager:
     def monitor_transcription(self):
         speakers_to_remove = []
         for speaker_id, streaming_transcriber in self.streaming_transcribers.items():
-            if time.time() - streaming_transcriber.last_send_time > self.SILENCE_DURATION_LIMIT:
+            if time.time() - self.last_nonsilent_audio_time[speaker_id] > self.SILENCE_DURATION_LIMIT:
                 streaming_transcriber.finish()
                 speakers_to_remove.append(speaker_id)
+                logger.info(f"Speaker {speaker_id} has been silent for too long, stopping transcription")
                 
         for speaker_id in speakers_to_remove:
             del self.streaming_transcribers[speaker_id]
