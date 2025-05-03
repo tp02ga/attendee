@@ -37,13 +37,14 @@ class PerParticipantStreamingAudioInputManager:
         self.transcription_provider = transcription_provider
         self.streaming_transcriber_class = DeepgramStreamingTranscriber
         self.streaming_transcribers = {}
+        self.chunks_buffers = {}
 
         self.project = project
 
         self.deepgram_api_key = self.get_deepgram_api_key()
 
     def silence_detected(self, chunk_bytes):
-        if calculate_normalized_rms(chunk_bytes) < 0.01:
+        if calculate_normalized_rms(chunk_bytes) < 0.0005:
             return True
         return not self.vad.is_speech(chunk_bytes, self.sample_rate)
 
@@ -61,8 +62,8 @@ class PerParticipantStreamingAudioInputManager:
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
-        #if self.silence_detected(chunk_bytes):
-        #    return
+        if self.silence_detected(chunk_bytes):
+            return
 
         streaming_transcriber = self.find_or_create_streaming_transcriber_for_speaker(speaker_id)
         streaming_transcriber.send(chunk_bytes)
