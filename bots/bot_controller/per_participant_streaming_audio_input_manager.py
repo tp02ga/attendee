@@ -30,7 +30,7 @@ class PerParticipantStreamingAudioInputManager:
 
         self.last_nonsilent_audio_time = {}
 
-        self.SILENCE_DURATION_LIMIT = 5  # seconds
+        self.SILENCE_DURATION_LIMIT = 10  # seconds
 
         self.vad = webrtcvad.Vad()
         self.transcription_provider = transcription_provider
@@ -57,20 +57,23 @@ class PerParticipantStreamingAudioInputManager:
     def create_streaming_transcriber(self, speaker_id, metadata):
         logger.info(f"Creating streaming transcriber for speaker {speaker_id}")
         if self.transcription_provider == TranscriptionProviders.DEEPGRAM:
+            metadata_list = [f"{key}:{value}" for key, value in metadata.items()] if metadata else None
             return DeepgramStreamingTranscriber(
                 deepgram_api_key=self.deepgram_api_key,
                 interim_results=True,
                 language=self.bot.deepgram_language(),
                 model=self.bot.deepgram_model(),
+                callback=self.bot.deepgram_callback(),
                 sample_rate=self.sample_rate,
-                metadata=metadata,
+                metadata=metadata_list,
             )
         else:
             raise Exception(f"Unsupported transcription provider: {self.transcription_provider}")
 
     def find_or_create_streaming_transcriber_for_speaker(self, speaker_id):
         if speaker_id not in self.streaming_transcribers:
-            self.streaming_transcribers[speaker_id] = self.create_streaming_transcriber(speaker_id, {"speaker_id": speaker_id})
+            # add bot id to metadata
+            self.streaming_transcribers[speaker_id] = self.create_streaming_transcriber(speaker_id, self.get_participant_callback(speaker_id))
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
