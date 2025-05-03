@@ -5,7 +5,7 @@ import time
 import numpy as np
 import webrtcvad
 
-from bots.models import Credentials
+from bots.models import Credentials, TranscriptionProviders
 from bots.transcription_providers.deepgram.deepgram_streaming_transcriber import DeepgramStreamingTranscriber
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def calculate_normalized_rms(audio_bytes):
 
 
 class PerParticipantStreamingAudioInputManager:
-    def __init__(self, *, save_utterance_callback, get_participant_callback, sample_rate, transcription_provider, project):
+    def __init__(self, *, save_utterance_callback, get_participant_callback, sample_rate, transcription_provider, bot):
         self.queue = queue.Queue()
 
         self.save_utterance_callback = save_utterance_callback
@@ -28,23 +28,21 @@ class PerParticipantStreamingAudioInputManager:
         self.utterances = {}
         self.sample_rate = sample_rate
 
-        self.first_nonsilent_audio_time = {}
         self.last_nonsilent_audio_time = {}
 
-        self.SILENCE_DURATION_LIMIT = 10  # seconds
+        self.SILENCE_DURATION_LIMIT = 5  # seconds
 
         self.vad = webrtcvad.Vad()
         self.transcription_provider = transcription_provider
-        self.streaming_transcriber_class = DeepgramStreamingTranscriber
         self.streaming_transcribers = {}
         self.last_nonsilent_audio_time = {}
 
-        self.project = project
-
+        self.project = bot.project
+        self.bot = bot
         self.deepgram_api_key = self.get_deepgram_api_key()
 
     def silence_detected(self, chunk_bytes):
-        if calculate_normalized_rms(chunk_bytes) < 0.005:
+        if calculate_normalized_rms(chunk_bytes) < 0.0025:
             return True
         return not self.vad.is_speech(chunk_bytes, self.sample_rate)
 
@@ -56,9 +54,23 @@ class PerParticipantStreamingAudioInputManager:
         deepgram_credentials = deepgram_credentials_record.get_credentials()
         return deepgram_credentials["api_key"]
 
+    def create_streaming_transcriber(self, speaker_id, metadata):
+        logger.info(f"Creating streaming transcriber for speaker {speaker_id}")
+        if self.transcription_provider == TranscriptionProviders.DEEPGRAM:
+            return DeepgramStreamingTranscriber(
+                deepgram_api_key=self.deepgram_api_key,
+                interim_results=True,
+                language=self.bot.deepgram_language(),
+                model=self.bot.deepgram_model(),
+                sample_rate=self.sample_rate,
+                metadata=metadata,
+            )
+        else:
+            raise Exception(f"Unsupported transcription provider: {self.transcription_provider}")
+
     def find_or_create_streaming_transcriber_for_speaker(self, speaker_id):
         if speaker_id not in self.streaming_transcribers:
-            self.streaming_transcribers[speaker_id] = self.streaming_transcriber_class(deepgram_api_key=self.deepgram_api_key, sample_rate=self.sample_rate)
+            self.streaming_transcribers[speaker_id] = self.create_streaming_transcriber(speaker_id, {"speaker_id": speaker_id})
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
@@ -79,7 +91,14 @@ class PerParticipantStreamingAudioInputManager:
             if time.time() - self.last_nonsilent_audio_time[speaker_id] > self.SILENCE_DURATION_LIMIT:
                 streaming_transcriber.finish()
                 speakers_to_remove.append(speaker_id)
-                logger.info(f"Speaker {speaker_id} has been silent for too long, stopping transcription")
-                
+                logger.info(f"Speaker {speaker_id} has been silent for too long, stopping streaming transcriber")
+
         for speaker_id in speakers_to_remove:
             del self.streaming_transcribers[speaker_id]
+
+        # If Number of streaming transcibers is greater than 4, then stop the oldest one
+        if len(self.streaming_transcribers) > 4:
+            oldest_transcriber = min(self.streaming_transcribers.values(), key=lambda x: x.last_send_time)
+            oldest_transcriber.finish()
+            del self.streaming_transcribers[oldest_transcriber.speaker_id]
+            logger.info(f"Stopped oldest streaming transcriber for speaker {oldest_transcriber.speaker_id}")

@@ -155,15 +155,7 @@ def get_transcription_via_deepgram(utterance):
         "buffer": utterance.audio_blob.tobytes(),
     }
 
-    # nova-3 does not have multilingual support yet, so we need to use nova-2 if we're transcribing with a non-default language
-    if (recording.bot.deepgram_language() != "en" and recording.bot.deepgram_language()) or recording.bot.deepgram_detect_language():
-        deepgram_model = "nova-2"
-    else:
-        deepgram_model = "nova-3"
-
-    # Special case: we can use nova-3 for language=multi
-    if recording.bot.deepgram_language() == "multi":
-        deepgram_model = "nova-3"
+    deepgram_model = recording.bot.deepgram_model()
 
     options = PrerecordedOptions(
         model=deepgram_model,

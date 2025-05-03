@@ -372,7 +372,7 @@ class BotController:
             get_participant_callback=self.get_participant,
             sample_rate=self.get_per_participant_audio_sample_rate(),
             transcription_provider=self.get_recording_transcription_provider(),
-            project=self.bot_in_db.project,
+            bot=self.bot_in_db,
         )
 
         # Only used for adapters that can provide closed captions
