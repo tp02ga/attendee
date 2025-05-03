@@ -220,6 +220,12 @@ class Bot(models.Model):
     def deepgram_detect_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("detect_language", None)
 
+    def deepgram_callback(self):
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("callback", None)
+
+    def deepgram_use_streaming(self):
+        return self.deepgram_callback() is not None
+
     def google_meet_closed_captions_language(self):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("google_meet_language", None)
 

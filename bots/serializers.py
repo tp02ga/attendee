@@ -100,7 +100,12 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "boolean",
                         "description": "Whether to automatically detect the spoken language",
                     },
+                    "callback": {
+                        "type": "string",
+                        "description": "The URL to send the transcriptions to. If used, the transcriptions will be sent directly from Deepgram to your server so you will not be able to access them via the Attendee API. See here for details: https://developers.deepgram.com/docs/callback",
+                    },
                 },
+                "additionalProperties": False,
             },
             "gladia": {
                 "type": "object",
@@ -112,6 +117,7 @@ class BotImageSerializer(serializers.Serializer):
                     },
                     "enable_code_switching": {"type": "boolean", "description": "Whether to use code switching to transcribe the meeting in multiple languages."},
                 },
+                "additionalProperties": False,
             },
             "meeting_closed_captions": {
                 "type": "object",
@@ -121,6 +127,7 @@ class BotImageSerializer(serializers.Serializer):
                         "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
                     },
                 },
+                "additionalProperties": False,
             },
             "openai": {
                 "type": "object",
@@ -241,11 +248,8 @@ class CreateBotSerializer(serializers.Serializer):
                         "type": "string",
                     },
                     "detect_language": {"type": "boolean"},
+                    "callback": {"type": "string"},
                 },
-                "oneOf": [
-                    {"required": ["language"]},
-                    {"required": ["detect_language"]},
-                ],
                 "additionalProperties": False,
             },
             "gladia": {
