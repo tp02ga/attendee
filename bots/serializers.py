@@ -289,7 +289,11 @@ class CreateBotSerializer(serializers.Serializer):
     def validate_meeting_url(self, value):
         meeting_type = meeting_type_from_url(value)
         if meeting_type is None:
-            raise serializers.ValidationError({"meeting_url": "Invalid meeting URL"})
+            raise serializers.ValidationError("Invalid meeting URL")
+
+        if meeting_type == MeetingTypes.GOOGLE_MEET:
+            if not value.startswith("https://meet.google.com/"):
+                raise serializers.ValidationError("Google Meet URL must start with https://meet.google.com/")
 
         return value
 
@@ -305,7 +309,7 @@ class CreateBotSerializer(serializers.Serializer):
             elif meeting_type == MeetingTypes.TEAMS:
                 value = {"meeting_closed_captions": {}}
             else:
-                raise serializers.ValidationError({"transcription_settings": "Invalid meeting type"})
+                return None
 
         try:
             jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
