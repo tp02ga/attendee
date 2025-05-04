@@ -72,8 +72,8 @@ class PerParticipantStreamingAudioInputManager:
 
     def find_or_create_streaming_transcriber_for_speaker(self, speaker_id):
         if speaker_id not in self.streaming_transcribers:
-            # add bot id to metadata
-            self.streaming_transcribers[speaker_id] = self.create_streaming_transcriber(speaker_id, self.get_participant_callback(speaker_id))
+            metadata = {"bot_id": self.bot.object_id, **(self.bot.metadata or {}), **self.get_participant_callback(speaker_id)}
+            self.streaming_transcribers[speaker_id] = self.create_streaming_transcriber(speaker_id, metadata)
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
