@@ -94,11 +94,11 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language": {
                         "type": "string",
-                        "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview. To transcribe in multiple languages, use language='multi'.",
+                        "description": "The language code for transcription. Defaults to 'multi' if not specified, which selects the language automatically and can change the detected language in the middle of the audio. See here for available languages: https://developers.deepgram.com/docs/models-languages-overview.",
                     },
                     "detect_language": {
                         "type": "boolean",
-                        "description": "Whether to automatically detect the spoken language. This is only supported for an older model and is not recommended. Please use language='multi' instead.",
+                        "description": "Whether to automatically detect the spoken language. Can only detect a single language for the entire audio. This is only supported for an older model and is not recommended. Please use language='multi' instead.",
                     },
                     "callback": {
                         "type": "string",
@@ -319,6 +319,10 @@ class CreateBotSerializer(serializers.Serializer):
             jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
+
+        # If deepgram key is specified but language is not, set to "multi"
+        if "deepgram" in value and ("language" not in value["deepgram"] or value["deepgram"]["language"] is None):
+            value["deepgram"]["language"] = "multi"
 
         if meeting_type == MeetingTypes.TEAMS:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
