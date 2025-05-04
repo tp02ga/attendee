@@ -455,7 +455,7 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate that all values are positive integers
         for param, default in defaults.items():
-            if param in value and (not isinstance(value[param], int) or value[param] < 0):
+            if param in value and (not isinstance(value[param], int) or value[param] <= 0):
                 raise serializers.ValidationError(f"{param} must be a positive integer")
             # Set default if not provided
             if param not in value:

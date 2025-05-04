@@ -100,3 +100,12 @@ class AutomaticLeaveSettingsTests(TestCase):
             self.fail("ValidationError not raised for negative values")
         except ValidationError:
             pass  # Exception was correctly raised
+
+        # Test with zero values (should raise ValidationError)
+        zero_settings = {"silence_threshold_seconds": 0}
+
+        try:
+            serializer.validate_automatic_leave_settings(zero_settings)
+            self.fail("ValidationError not raised for zero values")
+        except ValidationError:
+            pass  # Exception was correctly raised
