@@ -597,10 +597,20 @@ components:
                 language:
                   type: string
                   description: 'The language code for transcription (e.g. ''en'').
-                    See here for available languages: https://developers.deepgram.com/docs/models-languages-overview'
+                    See here for available languages: https://developers.deepgram.com/docs/models-languages-overview.
+                    To transcribe in multiple languages, use language=''multi''.'
                 detect_language:
                   type: boolean
-                  description: Whether to automatically detect the spoken language
+                  description: Whether to automatically detect the spoken language.
+                    This is only supported for an older model and is not recommended.
+                    Please use language='multi' instead.
+                callback:
+                  type: string
+                  description: 'The URL to send the transcriptions to. If used, the
+                    transcriptions will be sent directly from Deepgram to your server
+                    so you will not be able to access them via the Attendee API. See
+                    here for details: https://developers.deepgram.com/docs/callback'
+              additionalProperties: false
             gladia:
               type: object
               properties:
@@ -614,6 +624,7 @@ components:
                   type: boolean
                   description: Whether to use code switching to transcribe the meeting
                     in multiple languages.
+              additionalProperties: false
             meeting_closed_captions:
               type: object
               properties:
@@ -622,6 +633,7 @@ components:
                   description: 'The language code for Google Meet closed captions
                     (e.g. ''en-US''). See here for available languages and codes:
                     https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE'
+              additionalProperties: false
             openai:
               type: object
               properties:

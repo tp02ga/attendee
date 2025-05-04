@@ -94,11 +94,11 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language": {
                         "type": "string",
-                        "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview",
+                        "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview. To transcribe in multiple languages, use language='multi'.",
                     },
                     "detect_language": {
                         "type": "boolean",
-                        "description": "Whether to automatically detect the spoken language",
+                        "description": "Whether to automatically detect the spoken language. This is only supported for an older model and is not recommended. Please use language='multi' instead.",
                     },
                     "callback": {
                         "type": "string",
@@ -307,7 +307,7 @@ class CreateBotSerializer(serializers.Serializer):
 
         if value is None:
             if meeting_type == MeetingTypes.ZOOM:
-                value = {"deepgram": {"language": "en"}}
+                value = {"deepgram": {"language": "multi"}}
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
                 value = {"meeting_closed_captions": {}}
             elif meeting_type == MeetingTypes.TEAMS:
@@ -327,6 +327,9 @@ class CreateBotSerializer(serializers.Serializer):
         if meeting_type == MeetingTypes.ZOOM:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
+
+        if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
+            raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
 
         return value
 
