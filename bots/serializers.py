@@ -214,24 +214,24 @@ class MetadataJSONField(serializers.JSONField):
         "type": "object",
         "properties": {
             "silence_timeout_seconds": {
-                "type": "integer", 
-                "description": "Number of seconds of continuous silence after which the bot should leave", 
-                "default": 600
+                "type": "integer",
+                "description": "Number of seconds of continuous silence after which the bot should leave",
+                "default": 600,
             },
             "only_participant_in_meeting_timeout_seconds": {
                 "type": "integer",
                 "description": "Number of seconds to wait before leaving if bot is the only participant",
-                "default": 60
+                "default": 60,
             },
             "wait_for_host_to_start_meeting_timeout_seconds": {
                 "type": "integer",
                 "description": "Number of seconds to wait for the host to start the meeting",
-                "default": 600
+                "default": 600,
             },
             "silence_activate_after_seconds": {
                 "type": "integer",
                 "description": "Number of seconds to wait before activating the silence timeout",
-                "default": 1200
+                "default": 1200,
             },
         },
         "required": [],
