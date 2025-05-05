@@ -24,9 +24,9 @@ class AutomaticLeaveSettingsTests(TestCase):
         auto_leave_settings = bot.settings.get("automatic_leave_settings", {})
 
         # Assert default values are used
-        self.assertEqual(auto_leave_settings.get("silence_threshold_seconds", 600), 600)
+        self.assertEqual(auto_leave_settings.get("silence_timeout_seconds", 600), 600)
         self.assertEqual(
-            auto_leave_settings.get("only_participant_in_meeting_threshold_seconds", 60),
+            auto_leave_settings.get("only_participant_in_meeting_timeout_seconds", 60),
             60,
         )
         self.assertEqual(
@@ -42,8 +42,8 @@ class AutomaticLeaveSettingsTests(TestCase):
         # Create a bot with custom settings
         custom_settings = {
             "automatic_leave_settings": {
-                "silence_threshold_seconds": 300,
-                "only_participant_in_meeting_threshold_seconds": 30,
+                "silence_timeout_seconds": 300,
+                "only_participant_in_meeting_timeout_seconds": 30,
                 "wait_for_host_to_start_meeting_timeout_seconds": 900,
                 "silence_activate_after_seconds": 600,
             }
@@ -60,8 +60,8 @@ class AutomaticLeaveSettingsTests(TestCase):
         auto_leave_settings = bot.settings.get("automatic_leave_settings", {})
 
         # Assert custom values are used
-        self.assertEqual(auto_leave_settings.get("silence_threshold_seconds"), 300)
-        self.assertEqual(auto_leave_settings.get("only_participant_in_meeting_threshold_seconds"), 30)
+        self.assertEqual(auto_leave_settings.get("silence_timeout_seconds"), 300)
+        self.assertEqual(auto_leave_settings.get("only_participant_in_meeting_timeout_seconds"), 30)
         self.assertEqual(
             auto_leave_settings.get("wait_for_host_to_start_meeting_timeout_seconds"),
             900,
@@ -78,8 +78,8 @@ class AutomaticLeaveSettingsTests(TestCase):
 
         # Test with valid integers
         valid_settings = {
-            "silence_threshold_seconds": 300,
-            "only_participant_in_meeting_threshold_seconds": 30,
+            "silence_timeout_seconds": 300,
+            "only_participant_in_meeting_timeout_seconds": 30,
             "wait_for_host_to_start_meeting_timeout_seconds": 900,
             "silence_activate_after_seconds": 600,
         }
@@ -87,13 +87,13 @@ class AutomaticLeaveSettingsTests(TestCase):
         serializer = CreateBotSerializer()
         validated_data = serializer.validate_automatic_leave_settings(valid_settings)
 
-        self.assertEqual(validated_data["silence_threshold_seconds"], 300)
-        self.assertEqual(validated_data["only_participant_in_meeting_threshold_seconds"], 30)
+        self.assertEqual(validated_data["silence_timeout_seconds"], 300)
+        self.assertEqual(validated_data["only_participant_in_meeting_timeout_seconds"], 30)
         self.assertEqual(validated_data["wait_for_host_to_start_meeting_timeout_seconds"], 900)
         self.assertEqual(validated_data["silence_activate_after_seconds"], 600)
 
         # Test with negative values (should raise ValidationError)
-        invalid_settings = {"silence_threshold_seconds": -300}
+        invalid_settings = {"silence_timeout_seconds": -300}
 
         try:
             serializer.validate_automatic_leave_settings(invalid_settings)
@@ -102,7 +102,7 @@ class AutomaticLeaveSettingsTests(TestCase):
             pass  # Exception was correctly raised
 
         # Test with zero values (should raise ValidationError)
-        zero_settings = {"silence_threshold_seconds": 0}
+        zero_settings = {"silence_timeout_seconds": 0}
 
         try:
             serializer.validate_automatic_leave_settings(zero_settings)

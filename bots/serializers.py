@@ -451,7 +451,7 @@ class CreateBotSerializer(serializers.Serializer):
 
     def validate_automatic_leave_settings(self, value):
         # Set default values if not provided
-        defaults = {"silence_threshold_seconds": 600, "only_participant_in_meeting_threshold_seconds": 60, "wait_for_host_to_start_meeting_timeout_seconds": 600, "silence_activate_after_seconds": 1200}
+        defaults = {"silence_timeout_seconds": 600, "only_participant_in_meeting_timeout_seconds": 60, "wait_for_host_to_start_meeting_timeout_seconds": 600, "silence_activate_after_seconds": 1200}
 
         # Validate that all values are positive integers
         for param, default in defaults.items():

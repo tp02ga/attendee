@@ -686,11 +686,11 @@ components:
         automatic_leave_settings:
           type: object
           properties:
-            silence_threshold_seconds:
+            silence_timeout_seconds:
               type: integer
               description: Number of seconds of continuous silence after which the bot should leave
               default: 600
-            only_participant_in_meeting_threshold_seconds:
+            only_participant_in_meeting_timeout_seconds:
               type: integer
               description: Number of seconds to wait before leaving if bot is the only participant
               default: 60
@@ -704,8 +704,8 @@ components:
               default: 1200
           required: []
           default:
-            silence_threshold_seconds: 600
-            only_participant_in_meeting_threshold_seconds: 60
+            silence_timeout_seconds: 600
+            only_participant_in_meeting_timeout_seconds: 60
             wait_for_host_to_start_meeting_timeout_seconds: 600
             silence_activate_after_seconds: 1200
           description: 'Settings that control when the bot will automatically leave the meeting'
