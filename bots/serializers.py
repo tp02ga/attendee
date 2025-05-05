@@ -447,6 +447,22 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
+    automatic_leave_settings = serializers.DictField(default=dict, required=False)
+
+    def validate_automatic_leave_settings(self, value):
+        # Set default values if not provided
+        defaults = {"silence_threshold_seconds": 600, "only_participant_in_meeting_threshold_seconds": 60, "wait_for_host_to_start_meeting_timeout_seconds": 600, "silence_activate_after_seconds": 1200}
+
+        # Validate that all values are positive integers
+        for param, default in defaults.items():
+            if param in value and (not isinstance(value[param], int) or value[param] <= 0):
+                raise serializers.ValidationError(f"{param} must be a positive integer")
+            # Set default if not provided
+            if param not in value:
+                value[param] = default
+
+        return value
+
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
