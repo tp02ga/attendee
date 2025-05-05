@@ -1,5 +1,6 @@
 import base64
 import json
+from dataclasses import asdict
 
 import jsonschema
 from drf_spectacular.utils import (
@@ -9,6 +10,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers
 
+from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
     BotEventSubTypes,
@@ -204,6 +206,39 @@ class DebugSettingsJSONField(serializers.JSONField):
 
 @extend_schema_field({"type": "object", "description": "JSON object containing metadata to associate with the bot", "example": {"client_id": "abc123", "user": "john_doe", "purpose": "Weekly team meeting"}})
 class MetadataJSONField(serializers.JSONField):
+    pass
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "silence_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds of continuous silence after which the bot should leave",
+                "default": 600,
+            },
+            "only_participant_in_meeting_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait before leaving if bot is the only participant",
+                "default": 60,
+            },
+            "wait_for_host_to_start_meeting_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait for the host to start the meeting",
+                "default": 600,
+            },
+            "silence_activate_after_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait before activating the silence timeout",
+                "default": 1200,
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class AutomaticLeaveSettingsJSONField(serializers.JSONField):
     pass
 
 
@@ -447,11 +482,16 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
-    automatic_leave_settings = serializers.DictField(default=dict, required=False)
+    automatic_leave_settings = AutomaticLeaveSettingsJSONField(default=dict, required=False)
 
     def validate_automatic_leave_settings(self, value):
         # Set default values if not provided
-        defaults = {"silence_threshold_seconds": 600, "only_participant_in_meeting_threshold_seconds": 60, "wait_for_host_to_start_meeting_timeout_seconds": 600, "silence_activate_after_seconds": 1200}
+        defaults = asdict(AutomaticLeaveConfiguration())
+
+        # Validate that an unexpected key is not provided
+        for key in value.keys():
+            if key not in defaults.keys():
+                raise serializers.ValidationError(f"Unexpected attribute: {key}")
 
         # Validate that all values are positive integers
         for param, default in defaults.items():

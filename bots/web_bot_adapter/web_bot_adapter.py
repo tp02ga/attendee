@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
+from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +414,10 @@ class WebBotAdapter(BotAdapter):
                 self.send_request_to_join_denied_message()
                 return
 
+            except UiCouldNotJoinMeetingWaitingForHostException:
+                self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
+                return
+
             except UiMeetingNotFoundException:
                 self.send_meeting_not_found_message()
                 return
@@ -537,8 +541,8 @@ class WebBotAdapter(BotAdapter):
             return
 
         if self.only_one_participant_in_meeting_at is not None:
-            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds:
-                logger.info(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
+            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_timeout_seconds:
+                logger.info(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_timeout_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
@@ -548,8 +552,8 @@ class WebBotAdapter(BotAdapter):
             logger.info(f"Silence detection activated after {self.automatic_leave_configuration.silence_activate_after_seconds} seconds")
 
         if self.last_audio_message_processed_time is not None and self.silence_detection_activated:
-            if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_threshold_seconds:
-                logger.info(f"Auto-leaving meeting because there was no audio for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+            if time.time() - self.last_audio_message_processed_time > self.automatic_leave_configuration.silence_timeout_seconds:
+                logger.info(f"Auto-leaving meeting because there was no audio for {self.automatic_leave_configuration.silence_timeout_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
 
