@@ -1,4 +1,5 @@
 import logging
+import time
 
 from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -8,7 +9,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from bots.models import RecordingViews
 from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableExpectedException
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class GoogleMeetUIMethods:
                         "Could not find captions button. Timed out.",
                         "click_captions_button",
                         e,
-                    )               
+                    )
 
             except Exception as e:
                 logger.info(f"Could not find captions button. Unknown error {e} of type {type(e)}. Raising UiCouldNotLocateElementException")

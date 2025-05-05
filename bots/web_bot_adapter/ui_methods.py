@@ -22,6 +22,7 @@ class UiCouldNotJoinMeetingWaitingRoomTimeoutException(UiException):
     def __init__(self, message, step=None, inner_exception=None):
         super().__init__(message, step, inner_exception)
 
+
 # When this exception is raised, the bot will stop running and log that the meeting was not found
 class UiMeetingNotFoundException(UiException):
     def __init__(self, message, step=None, inner_exception=None):
