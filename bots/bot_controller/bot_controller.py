@@ -841,6 +841,16 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.LEAVE_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED:
+            logger.info("Received message to leave meeting because waiting room timeout exceeded")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED,
+            )
+            self.cleanup()
+            return
+
         if message.get("message") == BotAdapter.Messages.LEAVE_MEETING_WAITING_FOR_HOST:
             logger.info("Received message to Leave meeting because received waiting for host status")
             BotEventManager.create_event(

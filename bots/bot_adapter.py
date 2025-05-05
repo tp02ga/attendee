@@ -1,6 +1,7 @@
 class BotAdapter:
     class Messages:
         LEAVE_MEETING_WAITING_FOR_HOST = "Leave meeting because received waiting for host status"
+        LEAVE_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED = "Leave meeting because waiting room timeout exceeded"
         ZOOM_AUTHORIZATION_FAILED = "Zoom authorization failed"
         ZOOM_MEETING_STATUS_FAILED = "Zoom meeting status failed"
         ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING = "Zoom meeting status failed - unable to join external meeting"
