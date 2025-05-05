@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
+from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -412,6 +412,10 @@ class WebBotAdapter(BotAdapter):
 
             except UiRequestToJoinDeniedException:
                 self.send_request_to_join_denied_message()
+                return
+
+            except UiCouldNotJoinMeetingWaitingForHostException:
+                self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
                 return
 
             except UiMeetingNotFoundException:

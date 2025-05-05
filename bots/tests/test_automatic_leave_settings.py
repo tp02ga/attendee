@@ -109,3 +109,12 @@ class AutomaticLeaveSettingsTests(TestCase):
             self.fail("ValidationError not raised for zero values")
         except ValidationError:
             pass  # Exception was correctly raised
+
+        # Test with unexpected keys (should raise ValidationError)
+        unexpected_keys = {"unexpected_key": 123}
+
+        try:
+            serializer.validate_automatic_leave_settings(unexpected_keys)
+            self.fail("ValidationError not raised for unexpected keys")
+        except ValidationError:
+            pass  # Exception was correctly raised

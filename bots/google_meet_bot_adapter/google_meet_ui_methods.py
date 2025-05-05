@@ -7,7 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from bots.models import RecordingViews
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableExpectedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotLocateElementException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +197,11 @@ class GoogleMeetUIMethods:
             # Wait for up to n seconds for the host to join
             wait_time_seconds = self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds
             logger.info(f"We must wait for the host to join before we can join the meeting. Waiting for {wait_time_seconds} seconds...")
-            WebDriverWait(self.driver, wait_time_seconds).until(EC.invisibility_of_element_located((By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')))
+            try:
+                WebDriverWait(self.driver, wait_time_seconds).until(EC.invisibility_of_element_located((By.XPATH, '//*[contains(text(), "Waiting for the host to join")]')))
+            except TimeoutException:
+                logger.info("Host did not join the meeting in time. Raising UiCouldNotJoinMeetingWaitingForHostException")
+                raise UiCouldNotJoinMeetingWaitingForHostException("Host did not join the meeting in time", "wait_for_host_if_needed")
 
     def get_layout_to_select(self):
         if self.recording_view == RecordingViews.SPEAKER_VIEW:

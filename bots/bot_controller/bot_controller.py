@@ -288,8 +288,7 @@ class BotController:
         self.pubsub = None
         self.pubsub_channel = f"bot_{self.bot_in_db.id}"
 
-        auto_leave_settings = self.bot_in_db.settings.get("automatic_leave_settings", {})
-        self.automatic_leave_configuration = AutomaticLeaveConfiguration(silence_timeout_seconds=auto_leave_settings.get("silence_timeout_seconds", 600), only_participant_in_meeting_timeout_seconds=auto_leave_settings.get("only_participant_in_meeting_timeout_seconds", 60), wait_for_host_to_start_meeting_timeout_seconds=auto_leave_settings.get("wait_for_host_to_start_meeting_timeout_seconds", 600), silence_activate_after_seconds=auto_leave_settings.get("silence_activate_after_seconds", 1200))
+        self.automatic_leave_configuration = AutomaticLeaveConfiguration(**self.bot_in_db.automatic_leave_settings())
 
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()

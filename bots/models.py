@@ -276,6 +276,9 @@ class Bot(models.Model):
     def k8s_pod_name(self):
         return f"bot-pod-{self.id}-{self.object_id}".lower().replace("_", "-")
 
+    def automatic_leave_settings(self):
+        return self.settings.get("automatic_leave_settings", {})
+
 
 class CreditTransaction(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, null=False, related_name="credit_transactions")

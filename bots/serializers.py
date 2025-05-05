@@ -1,5 +1,6 @@
 import base64
 import json
+from dataclasses import asdict
 
 import jsonschema
 from drf_spectacular.utils import (
@@ -9,6 +10,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers
 
+from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
     BotEventSubTypes,
@@ -451,7 +453,12 @@ class CreateBotSerializer(serializers.Serializer):
 
     def validate_automatic_leave_settings(self, value):
         # Set default values if not provided
-        defaults = {"silence_timeout_seconds": 600, "only_participant_in_meeting_timeout_seconds": 60, "wait_for_host_to_start_meeting_timeout_seconds": 600, "silence_activate_after_seconds": 1200}
+        defaults = asdict(AutomaticLeaveConfiguration())
+
+        # Validate that an unexpected key is not provided
+        for key in value.keys():
+            if key not in defaults.keys():
+                raise serializers.ValidationError(f"Unexpected attribute: {key}")
 
         # Validate that all values are positive integers
         for param, default in defaults.items():
