@@ -236,7 +236,7 @@ class MetadataJSONField(serializers.JSONField):
             "waiting_room_timeout_seconds": {
                 "type": "integer",
                 "description": "Number of seconds to wait before leaving if the bot is in the waiting room",
-                "default": 600,
+                "default": 900,
             },
         },
         "required": [],
