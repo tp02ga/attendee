@@ -176,7 +176,7 @@ class WebBotAdapter(BotAdapter):
     def update_only_one_participant_in_meeting_at(self):
         if not self.joined_at:
             return
-        
+
         all_participants_in_meeting = [x for x in self.participants_info.values() if x["active"]]
         if len(all_participants_in_meeting) == 1 and all_participants_in_meeting[0]["fullName"] == self.display_name:
             if self.only_one_participant_in_meeting_at is None:
