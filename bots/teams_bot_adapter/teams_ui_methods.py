@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotLocateElementException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRequestToJoinDeniedException
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,16 @@ class TeamsUIMethods:
 
     def click_captions_button(self):
         logger.info("Waiting for the show more button...")
-        show_more_button = self.locate_element(step="show_more_button", condition=EC.presence_of_element_located((By.ID, "callingButtons-showMoreBtn")), wait_time_seconds=60)
+
+        try:
+            show_more_button = WebDriverWait(self.driver, self.automatic_leave_configuration.waiting_room_timeout_seconds).until(EC.presence_of_element_located((By.ID, "callingButtons-showMoreBtn")))
+        except TimeoutException:
+            logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
+            raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", "show_more_button")
+        except Exception as e:
+            logger.info(f"Exception raised in locate_element for show_more_button")
+            raise UiCouldNotLocateElementException(f"Exception raised in locate_element for show_more_button", "show_more_button", e)
+
         logger.info("Clicking the show more button...")
         self.click_element(show_more_button, "show_more_button")
 
