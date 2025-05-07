@@ -53,16 +53,19 @@ logger = logging.getLogger(__name__)
 
 
 class BotController:
+    def per_participant_audio_input_manager(self):
+        if self.bot_in_db.deepgram_use_streaming():
+            return self.per_participant_streaming_audio_input_manager
+        else:
+            return self.per_participant_non_streaming_audio_input_manager
+
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
 
         if self.get_recording_transcription_provider() == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
             add_audio_chunk_callback = None
         else:
-            if self.bot_in_db.deepgram_use_streaming():
-                add_audio_chunk_callback = self.per_participant_streaming_audio_input_manager.add_chunk
-            else:
-                add_audio_chunk_callback = self.per_participant_non_streaming_audio_input_manager.add_chunk
+            add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
 
         return GoogleMeetBotAdapter(
             display_name=self.bot_in_db.name,
@@ -113,10 +116,7 @@ class BotController:
         if not zoom_oauth_credentials:
             raise Exception("Zoom OAuth credentials data not found")
 
-        if self.bot_in_db.deepgram_use_streaming():
-            add_audio_chunk_callback = self.per_participant_streaming_audio_input_manager.add_chunk
-        else:
-            add_audio_chunk_callback = self.per_participant_non_streaming_audio_input_manager.add_chunk
+        add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
 
         return ZoomBotAdapter(
             use_one_way_audio=self.pipeline_configuration.transcribe_audio,
