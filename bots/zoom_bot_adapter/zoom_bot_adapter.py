@@ -591,6 +591,13 @@ class ZoomBotAdapter(BotAdapter):
         logger.info(f"Give up trying to join meeting because we've waited for the host to start it for over {self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds} seconds")
         self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
 
+    def leave_meeting_if_still_in_waiting_room(self):
+        if self.meeting_status != zoom.MEETING_STATUS_IN_WAITING_ROOM:
+            return
+
+        logger.info(f"Give up trying to join meeting because we've been in the waiting room for over {self.automatic_leave_configuration.waiting_room_timeout_seconds} seconds")
+        self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED})
+
     def wait_for_host_to_start_meeting_then_give_up(self):
         wait_time = self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds
         logger.info(f"Waiting for host to start meeting. If host doesn't start meeting in {wait_time} seconds, we'll give up")
@@ -605,6 +612,7 @@ class ZoomBotAdapter(BotAdapter):
 
         if status == zoom.MEETING_STATUS_IN_WAITING_ROOM:
             self.send_message_callback({"message": self.Messages.BOT_PUT_IN_WAITING_ROOM})
+            GLib.timeout_add_seconds(self.automatic_leave_configuration.waiting_room_timeout_seconds, self.leave_meeting_if_still_in_waiting_room)
 
         if status == zoom.MEETING_STATUS_INMEETING:
             self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
@@ -678,8 +686,8 @@ class ZoomBotAdapter(BotAdapter):
             return
 
         if self.only_one_participant_in_meeting_at is not None:
-            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds:
-                logger.info(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_threshold_seconds} seconds")
+            if time.time() - self.only_one_participant_in_meeting_at > self.automatic_leave_configuration.only_participant_in_meeting_timeout_seconds:
+                logger.info(f"Auto-leaving meeting because there was only one participant in the meeting for {self.automatic_leave_configuration.only_participant_in_meeting_timeout_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_ONLY_PARTICIPANT_IN_MEETING})
                 return
 
@@ -689,7 +697,7 @@ class ZoomBotAdapter(BotAdapter):
             logger.info(f"Silence detection activated after {self.automatic_leave_configuration.silence_activate_after_seconds} seconds")
 
         if self.last_audio_received_at is not None and self.silence_detection_activated:
-            if time.time() - self.last_audio_received_at > self.automatic_leave_configuration.silence_threshold_seconds:
-                logger.info(f"Auto-leaving meeting because there was no audio message for {self.automatic_leave_configuration.silence_threshold_seconds} seconds")
+            if time.time() - self.last_audio_received_at > self.automatic_leave_configuration.silence_timeout_seconds:
+                logger.info(f"Auto-leaving meeting because there was no audio message for {self.automatic_leave_configuration.silence_timeout_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return

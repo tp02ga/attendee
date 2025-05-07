@@ -540,7 +540,7 @@ class TestZoomBot(TransactionTestCase):
     @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("deepgram.DeepgramClient")
     @patch("time.time")
-    def test_bot_auto_leaves_meeting_after_silence_threshold(
+    def test_bot_auto_leaves_meeting_after_silence_timeout(
         self,
         mock_time,
         MockDeepgramClient,

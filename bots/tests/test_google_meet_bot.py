@@ -10,8 +10,10 @@ import numpy as np
 from django.db import connection
 from django.test.testcases import TransactionTestCase
 from django.utils import timezone
+from selenium.common.exceptions import TimeoutException
 
 from bots.bot_controller import BotController
+from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods
 from bots.models import (
     Bot,
     BotEventManager,
@@ -29,7 +31,7 @@ from bots.models import (
     TranscriptionTypes,
     Utterance,
 )
-from bots.web_bot_adapter.ui_methods import UiRetryableException
+from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRetryableException
 
 
 def create_mock_file_uploader():
@@ -310,10 +312,136 @@ class TestGoogleMeetBot(TransactionTestCase):
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.look_for_blocked_element", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.look_for_denied_your_request_element", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.click_this_meeting_is_being_recorded_join_now_button", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.click_others_may_see_your_meeting_differently_button", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.fill_out_name_input", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.turn_off_media_inputs", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.locate_element")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.click_element")
+    @patch("time.time")
+    def test_bot_stops_after_waiting_room_timeout(
+        self,
+        mock_time,
+        mock_click_element,
+        mock_locate_element,
+        mock_turn_off_media_inputs,
+        mock_fill_out_name_input,
+        mock_check_if_meeting_is_found,
+        mock_click_others_may_see_your_meeting_differently_button,
+        mock_click_this_meeting_is_being_recorded_join_now_button,
+        mock_look_for_denied_your_request_element,
+        mock_look_for_blocked_element,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+        mock_create_debug_recording,
+    ):
+        # Set initial time
+        current_time = 1000.0
+        mock_time.return_value = current_time
+
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Mock join button element
+        mock_join_button = MagicMock()
+
+        # Configure locate_element to return mock join button when called for "join_button"
+        def mock_locate_element_side_effect(step, condition, wait_time_seconds=60):
+            if step == "join_button":
+                return mock_join_button
+            return MagicMock()  # Return a generic mock for other calls
+
+        mock_locate_element.side_effect = mock_locate_element_side_effect
+
+        def mock_click_element_side_effect(element, step):
+            if step == "click_captions_button":
+                raise TimeoutException("Timed out")
+            return MagicMock()  # Return a generic mock for other calls
+
+        mock_click_element.side_effect = mock_click_element_side_effect
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Mock the check_if_waiting_room_timeout_exceeded method to raise the exception
+        # after a certain number of calls to simulate timeout
+        original_check_timeout = GoogleMeetUIMethods.check_if_waiting_room_timeout_exceeded
+        call_count = [0]
+
+        def mock_check_timeout(self, waiting_room_timeout_started_at, step):
+            print(f"Checking timeout for step: {step}")
+            call_count[0] += 1
+            if call_count[0] >= 2:  # Simulate timeout on second call
+                # Increase time to simulate timeout period passed
+                nonlocal current_time
+                current_time += 901  # Just over the 900 second default timeout
+                mock_time.return_value = current_time
+                raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", step)
+            return original_check_timeout(self, waiting_room_timeout_started_at, step)
+
+        with patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_waiting_room_timeout_exceeded", mock_check_timeout):
+            # Run the bot in a separate thread since it has an event loop
+            bot_thread = threading.Thread(target=controller.run)
+            bot_thread.daemon = True
+            bot_thread.start()
+
+            # Give the bot some time to process
+            bot_thread.join(timeout=10)
+
+            # Refresh the bot from the database
+            self.bot.refresh_from_db()
+
+            # Assert that the bot is in the FATAL_ERROR state (or the appropriate state after timeout)
+            self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
+
+            # Verify bot events in sequence
+            bot_events = self.bot.bot_events.all()
+
+            # Should have at least 2 events: JOIN_REQUESTED and COULD_NOT_JOIN
+            self.assertGreaterEqual(len(bot_events), 2)
+
+            # Verify join_requested_event (Event 1)
+            join_requested_event = bot_events[0]
+            self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+            self.assertEqual(join_requested_event.old_state, BotStates.READY)
+            self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+
+            # Find the COULD_NOT_JOIN event
+            could_not_join_events = [e for e in bot_events if e.event_type == BotEventTypes.COULD_NOT_JOIN]
+            self.assertGreaterEqual(len(could_not_join_events), 1)
+
+            # Verify the event has the correct subtype
+            could_not_join_event = could_not_join_events[0]
+            self.assertEqual(could_not_join_event.event_sub_type, BotEventSubTypes.COULD_NOT_JOIN_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED)
+
+            # Cleanup
+            controller.cleanup()
+            bot_thread.join(timeout=5)
+
+            # Close the database connection since we're in a thread
+            connection.close()
+
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     @patch("time.time")
-    def test_bot_auto_leaves_meeting_after_silence_threshold(
+    def test_bot_auto_leaves_meeting_after_silence_timeout(
         self,
         mock_time,
         mock_wait_for_host_if_needed,

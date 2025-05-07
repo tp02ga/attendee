@@ -100,6 +100,7 @@ def create_bot(data, project) -> tuple[Bot | None, dict | None]:
     rtmp_settings = serializer.validated_data["rtmp_settings"]
     recording_settings = serializer.validated_data["recording_settings"]
     debug_settings = serializer.validated_data["debug_settings"]
+    automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
     bot_image = serializer.validated_data["bot_image"]
     metadata = serializer.validated_data["metadata"]
 
@@ -108,6 +109,7 @@ def create_bot(data, project) -> tuple[Bot | None, dict | None]:
         "rtmp_settings": rtmp_settings,
         "recording_settings": recording_settings,
         "debug_settings": debug_settings,
+        "automatic_leave_settings": automatic_leave_settings,
     }
 
     with transaction.atomic():
