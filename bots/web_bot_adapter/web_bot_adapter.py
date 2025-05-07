@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
+from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +173,18 @@ class WebBotAdapter(BotAdapter):
 
             self.add_audio_chunk_callback(participant_id, datetime.datetime.utcnow(), audio_data.tobytes())
 
+    def update_only_one_participant_in_meeting_at(self):
+        if not self.joined_at:
+            return
+
+        all_participants_in_meeting = [x for x in self.participants_info.values() if x["active"]]
+        if len(all_participants_in_meeting) == 1 and all_participants_in_meeting[0]["fullName"] == self.display_name:
+            if self.only_one_participant_in_meeting_at is None:
+                self.only_one_participant_in_meeting_at = time.time()
+                logger.info(f"only_one_participant_in_meeting_at set to {self.only_one_participant_in_meeting_at}")
+        else:
+            self.only_one_participant_in_meeting_at = None
+
     def handle_websocket(self, websocket):
         audio_format = None
         output_dir = "frames"  # Add output directory
@@ -215,12 +227,7 @@ class WebBotAdapter(BotAdapter):
                                         self.was_removed_from_meeting = True
                                         self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
-                            all_participants_in_meeting = [x for x in self.participants_info.values() if x["active"]]
-                            if len(all_participants_in_meeting) == 1 and all_participants_in_meeting[0]["fullName"] == self.display_name:
-                                if self.only_one_participant_in_meeting_at is None:
-                                    self.only_one_participant_in_meeting_at = time.time()
-                            else:
-                                self.only_one_participant_in_meeting_at = None
+                            self.update_only_one_participant_in_meeting_at()
 
                         elif json_data.get("type") == "SilenceStatus":
                             if not json_data.get("isSilent"):
@@ -414,6 +421,10 @@ class WebBotAdapter(BotAdapter):
                 self.send_request_to_join_denied_message()
                 return
 
+            except UiCouldNotJoinMeetingWaitingRoomTimeoutException:
+                self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED})
+                return
+
             except UiCouldNotJoinMeetingWaitingForHostException:
                 self.send_message_callback({"message": self.Messages.LEAVE_MEETING_WAITING_FOR_HOST})
                 return
@@ -461,6 +472,7 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
         self.joined_at = time.time()
+        self.update_only_one_participant_in_meeting_at()
 
         if self.start_recording_screen_callback:
             sleep(2)
@@ -488,6 +500,12 @@ class WebBotAdapter(BotAdapter):
         finally:
             self.send_message_callback({"message": self.Messages.MEETING_ENDED})
             self.left_meeting = True
+
+    def abort_join_attempt(self):
+        try:
+            self.driver.close()
+        except Exception as e:
+            logger.info(f"Error closing driver: {e}")
 
     def cleanup(self):
         if self.stop_recording_screen_callback:
