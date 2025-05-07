@@ -501,6 +501,12 @@ class WebBotAdapter(BotAdapter):
             self.send_message_callback({"message": self.Messages.MEETING_ENDED})
             self.left_meeting = True
 
+    def abort_join_attempt(self):
+        try:
+            self.driver.close()
+        except Exception as e:
+            logger.info(f"Error closing driver: {e}")
+
     def cleanup(self):
         if self.stop_recording_screen_callback:
             self.stop_recording_screen_callback()
