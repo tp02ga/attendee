@@ -49,7 +49,7 @@ class PerParticipantStreamingAudioInputManager:
     def get_deepgram_api_key(self):
         deepgram_credentials_record = self.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
         if not deepgram_credentials_record:
-            raise Exception("Deepgram credentials record not found")
+            return None
 
         deepgram_credentials = deepgram_credentials_record.get_credentials()
         return deepgram_credentials["api_key"]
@@ -77,6 +77,9 @@ class PerParticipantStreamingAudioInputManager:
         return self.streaming_transcribers[speaker_id]
 
     def add_chunk(self, speaker_id, chunk_time, chunk_bytes):
+        if not self.deepgram_api_key:
+            return
+
         audio_is_silent = self.silence_detected(chunk_bytes)
 
         if not audio_is_silent:
