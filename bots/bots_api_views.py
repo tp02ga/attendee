@@ -38,8 +38,7 @@ from .serializers import (
     SpeechSerializer,
     TranscriptUtteranceSerializer,
 )
-from .tasks import run_bot
-from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
+from .utils import meeting_type_from_url
 
 TokenHeaderParameter = [
     OpenApiParameter(
