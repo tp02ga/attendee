@@ -9,6 +9,7 @@ class StyleManager {
         this.silenceThreshold = 0.5;
         this.silenceCheckInterval = null;
         this.memoryUsageCheckInterval = null;
+        this.neededInteractionsInterval = null;
     }
 
     addAudioTrack(audioTrack) {
@@ -50,6 +51,36 @@ class StyleManager {
         });
     }
 
+    checkNeededInteractions() {
+        // Check for recording notification dialog
+        const recordingDialog = document.querySelector('div[aria-modal="true"][role="dialog"]');
+        
+        if (recordingDialog && recordingDialog.textContent.includes('This video call is being recorded')) {           
+            // Find and click the "Join now" button (usually the confirm/OK button)
+            const joinNowButton = recordingDialog.querySelector('button[data-mdc-dialog-action="ok"]');
+            
+            if (joinNowButton) {
+                try {
+                    joinNowButton.click();
+                    window.ws.sendJson({
+                        type: 'UiInteraction',
+                        message: 'Automatically accepted recording notification'
+                    });
+                } catch (error) {
+                    window.ws.sendJson({
+                        type: 'Error',
+                        message: 'Error clicking button to accept recording notification'
+                    });
+                }                
+            } else {                
+                window.ws.sendJson({
+                    type: 'Error',
+                    message: 'Found recording dialog but could not find button to accept recording notification'
+                });
+            }
+        }
+    }
+
     startSilenceDetection() {
          // Set up audio context and processing as before
          this.audioContext = new AudioContext();
@@ -87,6 +118,10 @@ class StyleManager {
         if (this.memoryUsageCheckInterval) {
             clearInterval(this.memoryUsageCheckInterval);
         }
+
+        if (this.neededInteractionsInterval) {
+            clearInterval(this.neededInteractionsInterval);
+        }
                 
         // Check for audio activity every second
         this.silenceCheckInterval = setInterval(() => {
@@ -97,6 +132,11 @@ class StyleManager {
         this.memoryUsageCheckInterval = setInterval(() => {
             this.checkMemoryUsage();
         }, 60000);
+
+        // Check for needed interactions every 5 seconds
+        this.neededInteractionsInterval = setInterval(() => {
+            this.checkNeededInteractions();
+        }, 5000);
     }
     
 
