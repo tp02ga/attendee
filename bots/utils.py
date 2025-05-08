@@ -3,6 +3,7 @@ import io
 import cv2
 import numpy as np
 from pydub import AudioSegment
+from tldextract import tldextract
 
 from .models import (
     MeetingTypes,
@@ -388,15 +389,23 @@ def generate_utterance_json_for_bot_detail_view(recording):
     return utterances_data
 
 
+def root_domain_from_url(url):
+    if not url:
+        return None
+    return tldextract(url).registered_domain
+
+
 def meeting_type_from_url(url):
     if not url:
         return None
 
-    if "zoom.us" in url:
+    root_domain = root_domain_from_url(url)
+
+    if root_domain == "zoom.us":
         return MeetingTypes.ZOOM
-    elif "meet.google.com" in url:
+    elif root_domain == "meet.google.com":
         return MeetingTypes.GOOGLE_MEET
-    elif "teams.microsoft.com" in url or "teams.live.com" in url:
+    elif root_domain == "teams.microsoft.com" or root_domain == "teams.live.com":
         return MeetingTypes.TEAMS
     else:
         return None
