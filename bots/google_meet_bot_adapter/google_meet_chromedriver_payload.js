@@ -6,7 +6,7 @@ class StyleManager {
 
         this.audioContext = null;
         this.audioTracks = [];
-        this.silenceThreshold = 1.0;
+        this.silenceThreshold = 0.5;
         this.silenceCheckInterval = null;
         this.memoryUsageCheckInterval = null;
     }
