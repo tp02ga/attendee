@@ -51,6 +51,14 @@ class GoogleMeetUIMethods:
                 if last_attempt:
                     raise e
 
+    # Do it via javascript to avoid the element not being interactable exception
+    def click_element_forcefully(self, element, step):
+        try:
+            self.driver.execute_script("arguments[0].click();", element)
+        except Exception as e:
+            logger.info(f"Error occurred when forcefully clicking element for step {step}, will retry")
+            raise UiCouldNotClickElementException("Error occurred when forcefully clicking element", step, e)
+
     def click_element(self, element, step):
         try:
             element.click()
@@ -70,7 +78,7 @@ class GoogleMeetUIMethods:
         others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
         if others_may_see_your_meeting_differently_button:
             logger.info("Clicking others_may_see_your_meeting_differently_button")
-            self.click_element(others_may_see_your_meeting_differently_button, step)
+            self.click_element_forcefully(others_may_see_your_meeting_differently_button, step)
 
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
