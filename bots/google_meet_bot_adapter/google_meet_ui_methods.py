@@ -51,6 +51,14 @@ class GoogleMeetUIMethods:
                 if last_attempt:
                     raise e
 
+    # Do it via javascript to avoid the element not being interactable exception
+    def click_element_forcefully(self, element, step):
+        try:
+            self.driver.execute_script("arguments[0].click();", element)
+        except Exception as e:
+            logger.info(f"Error occurred when forcefully clicking element for step {step}, will retry")
+            raise UiCouldNotClickElementException("Error occurred when forcefully clicking element", step, e)
+
     def click_element(self, element, step):
         try:
             element.click()
@@ -63,14 +71,14 @@ class GoogleMeetUIMethods:
         this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
         if this_meeting_is_being_recorded_join_now_button:
             logger.info("Clicking this_meeting_is_being_recorded_join_now_button")
-            this_meeting_is_being_recorded_join_now_button.click()
+            self.click_element(this_meeting_is_being_recorded_join_now_button, step)
 
     # Some modal that google put up
     def click_others_may_see_your_meeting_differently_button(self, step):
         others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
         if others_may_see_your_meeting_differently_button:
             logger.info("Clicking others_may_see_your_meeting_differently_button")
-            others_may_see_your_meeting_differently_button.click()
+            self.click_element_forcefully(others_may_see_your_meeting_differently_button, step)
 
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
@@ -168,6 +176,7 @@ class GoogleMeetUIMethods:
                 self.click_element(captions_button, "click_captions_button")
                 return
             except UiCouldNotClickElementException as e:
+                self.click_this_meeting_is_being_recorded_join_now_button("click_captions_button")
                 self.click_others_may_see_your_meeting_differently_button("click_captions_button")
                 last_check_could_not_click_element = attempt_to_look_for_captions_button_index == num_attempts_to_look_for_captions_button - 1
                 if last_check_could_not_click_element:
@@ -225,45 +234,20 @@ class GoogleMeetUIMethods:
         else:
             return "sidebar"
 
-    # returns nothing if succeeded, raises an exception if failed
-    def attempt_to_join_meeting(self):
-        layout_to_select = self.get_layout_to_select()
+    def set_layout(self, layout_to_select):
+        num_attempts = 3
+        for attempt_index in range(num_attempts):
+            try:
+                self.attempt_to_set_layout(layout_to_select)
+                return
+            except Exception as e:
+                last_attempt = attempt_index == num_attempts - 1
+                if last_attempt:
+                    raise e
+                logger.info(f"Error setting layout: {e}. Retrying. Attempt #{attempt_index}...")
 
-        self.driver.get(self.meeting_url)
-
-        self.driver.execute_cdp_cmd(
-            "Browser.grantPermissions",
-            {
-                "origin": self.meeting_url,
-                "permissions": [
-                    "geolocation",
-                    "audioCapture",
-                    "displayCapture",
-                    "videoCapture",
-                ],
-            },
-        )
-
-        self.check_if_meeting_is_found()
-
-        self.fill_out_name_input()
-
-        self.turn_off_media_inputs()
-
-        logger.info("Waiting for the 'Ask to join' or 'Join now' button...")
-        join_button = self.locate_element(
-            step="join_button",
-            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join" or text()="Join now"]]')),
-            wait_time_seconds=60,
-        )
-        logger.info("Clicking the join button...")
-        self.click_element(join_button, "join_button")
-
-        self.click_captions_button()
-
-        self.wait_for_host_if_needed()
-
-        logger.info("Waiting for the more options button...")
+    def attempt_to_set_layout(self, layout_to_select):
+        logger.info("Begin setting layout. Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
         more_options_button = self.locate_element(
             step="more_options_button",
@@ -337,6 +321,46 @@ class GoogleMeetUIMethods:
         )
         logger.info("Clicking the close button")
         self.click_element(close_button, "close_button")
+
+    # returns nothing if succeeded, raises an exception if failed
+    def attempt_to_join_meeting(self):
+        layout_to_select = self.get_layout_to_select()
+
+        self.driver.get(self.meeting_url)
+
+        self.driver.execute_cdp_cmd(
+            "Browser.grantPermissions",
+            {
+                "origin": self.meeting_url,
+                "permissions": [
+                    "geolocation",
+                    "audioCapture",
+                    "displayCapture",
+                    "videoCapture",
+                ],
+            },
+        )
+
+        self.check_if_meeting_is_found()
+
+        self.fill_out_name_input()
+
+        self.turn_off_media_inputs()
+
+        logger.info("Waiting for the 'Ask to join' or 'Join now' button...")
+        join_button = self.locate_element(
+            step="join_button",
+            condition=EC.presence_of_element_located((By.XPATH, '//button[.//span[text()="Ask to join" or text()="Join now"]]')),
+            wait_time_seconds=60,
+        )
+        logger.info("Clicking the join button...")
+        self.click_element(join_button, "join_button")
+
+        self.click_captions_button()
+
+        self.wait_for_host_if_needed()
+
+        self.set_layout(layout_to_select)
 
         if self.google_meet_closed_captions_language:
             self.select_language(self.google_meet_closed_captions_language)
