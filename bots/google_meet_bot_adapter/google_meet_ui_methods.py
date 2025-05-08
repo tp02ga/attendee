@@ -63,14 +63,14 @@ class GoogleMeetUIMethods:
         this_meeting_is_being_recorded_join_now_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Join now"]]')
         if this_meeting_is_being_recorded_join_now_button:
             logger.info("Clicking this_meeting_is_being_recorded_join_now_button")
-            this_meeting_is_being_recorded_join_now_button.click()
+            self.click_element(this_meeting_is_being_recorded_join_now_button, step)
 
     # Some modal that google put up
     def click_others_may_see_your_meeting_differently_button(self, step):
         others_may_see_your_meeting_differently_button = self.find_element_by_selector(By.XPATH, '//button[.//span[text()="Got it"]]')
         if others_may_see_your_meeting_differently_button:
             logger.info("Clicking others_may_see_your_meeting_differently_button")
-            others_may_see_your_meeting_differently_button.click()
+            self.click_element(others_may_see_your_meeting_differently_button, step)
 
     def look_for_blocked_element(self, step):
         cannot_join_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "You can\'t join this video call") or contains(text(), "There is a problem connecting to this video call")]')
