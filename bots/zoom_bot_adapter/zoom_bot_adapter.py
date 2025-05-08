@@ -701,3 +701,10 @@ class ZoomBotAdapter(BotAdapter):
                 logger.info(f"Auto-leaving meeting because there was no audio message for {self.automatic_leave_configuration.silence_timeout_seconds} seconds")
                 self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_SILENCE})
                 return
+
+    def is_sent_video_still_playing(self):
+        return False
+
+    def send_video(self, video_url):
+        logger.info(f"send_video called with video_url = {video_url}. This is not supported for zoom")
+        return

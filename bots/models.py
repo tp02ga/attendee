@@ -1141,6 +1141,7 @@ class TextToSpeechProviders(models.IntegerChoices):
 class BotMediaRequestMediaTypes(models.IntegerChoices):
     IMAGE = 1, "Image"
     AUDIO = 2, "Audio"
+    VIDEO = 3, "Video"
 
 
 class BotMediaRequestStates(models.IntegerChoices):
@@ -1169,6 +1170,8 @@ class BotMediaRequest(models.Model):
     text_to_speak = models.TextField(null=True, blank=True)
 
     text_to_speech_settings = models.JSONField(null=True, default=None)
+
+    media_url = models.URLField(null=True, blank=True)
 
     media_blob = models.ForeignKey(
         MediaBlob,

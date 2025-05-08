@@ -45,6 +45,7 @@ from .per_participant_streaming_audio_input_manager import PerParticipantStreami
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
+from .video_output_manager import VideoOutputManager
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib
@@ -413,6 +414,12 @@ class BotController:
             sleep_time_between_chunks_seconds=self.get_sleep_time_between_audio_output_chunks_seconds(),
         )
 
+        self.video_output_manager = VideoOutputManager(
+            currently_playing_video_media_request_finished_callback=self.currently_playing_video_media_request_finished,
+            check_if_currently_playing_video_media_request_is_still_playing_callback=self.adapter.is_sent_video_still_playing,
+            play_video_callback=self.adapter.send_video,
+        )
+
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()
 
@@ -488,6 +495,11 @@ class BotController:
         BotMediaRequestManager.set_media_request_finished(audio_media_request)
         self.take_action_based_on_audio_media_requests_in_db()
 
+    def currently_playing_video_media_request_finished(self, video_media_request):
+        logger.info("currently_playing_video_media_request_finished called")
+        BotMediaRequestManager.set_media_request_finished(video_media_request)
+        self.take_action_based_on_video_media_requests_in_db()
+
     def take_action_based_on_audio_media_requests_in_db(self):
         media_type = BotMediaRequestMediaTypes.AUDIO
         oldest_enqueued_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by("created_at").first()
@@ -530,9 +542,27 @@ class BotController:
         for request in enqueued_requests.exclude(id=most_recent_request.id):
             BotMediaRequestManager.set_media_request_dropped(request)
 
+    def take_action_based_on_video_media_requests_in_db(self):
+        media_type = BotMediaRequestMediaTypes.VIDEO
+        oldest_enqueued_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.ENQUEUED, media_type=media_type).order_by("created_at").first()
+        if not oldest_enqueued_media_request:
+            return
+        currently_playing_media_request = self.bot_in_db.media_requests.filter(state=BotMediaRequestStates.PLAYING, media_type=media_type).first()
+        if currently_playing_media_request:
+            logger.info(f"Currently playing video media request {currently_playing_media_request.id} so cannot play another video media request")
+            return
+
+        try:
+            BotMediaRequestManager.set_media_request_playing(oldest_enqueued_media_request)
+            self.video_output_manager.start_playing_video_media_request(oldest_enqueued_media_request)
+        except Exception as e:
+            logger.info(f"Error playing video media request: {e}")
+            BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
+
     def take_action_based_on_media_requests_in_db(self):
         self.take_action_based_on_audio_media_requests_in_db()
         self.take_action_based_on_image_media_requests_in_db()
+        self.take_action_based_on_video_media_requests_in_db()
 
     def handle_glib_shutdown(self):
         logger.info("handle_glib_shutdown called")
@@ -594,6 +624,9 @@ class BotController:
 
             # Process audio output
             self.audio_output_manager.monitor_currently_playing_audio_media_request()
+
+            # Process video output
+            self.video_output_manager.monitor_currently_playing_video_media_request()
             return True
 
         except Exception as e:

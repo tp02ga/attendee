@@ -339,6 +339,60 @@ paths:
           description: Invalid input
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/output_video:
+    post:
+      operationId: Output video
+      description: Causes the bot to output a video in the meeting.
+      summary: Output video
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: URL of the video to output. Must be a valid URL to
+                    an mp4 file.
+              required:
+              - url
+              additionalProperties: false
+      security:
+      - {}
+      responses:
+        '200':
+          description: Video request created successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/recording:
     get:
       operationId: Get Bot Recording
