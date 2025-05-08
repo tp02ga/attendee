@@ -220,6 +220,25 @@ class Bot(models.Model):
     def deepgram_detect_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("detect_language", None)
 
+    def deepgram_callback(self):
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("callback", None)
+
+    def deepgram_use_streaming(self):
+        return self.deepgram_callback() is not None
+
+    def deepgram_model(self):
+        # nova-3 does not have multilingual support yet, so we need to use nova-2 if we're transcribing with a non-default language
+        if (self.deepgram_language() != "en" and self.deepgram_language()) or self.deepgram_detect_language():
+            deepgram_model = "nova-2"
+        else:
+            deepgram_model = "nova-3"
+
+        # Special case: we can use nova-3 for language=multi
+        if self.deepgram_language() == "multi":
+            deepgram_model = "nova-3"
+
+        return deepgram_model
+
     def google_meet_closed_captions_language(self):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("google_meet_language", None)
 

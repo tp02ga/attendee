@@ -96,13 +96,18 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language": {
                         "type": "string",
-                        "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview",
+                        "description": "The language code for transcription. Defaults to 'multi' if not specified, which selects the language automatically and can change the detected language in the middle of the audio. See here for available languages: https://developers.deepgram.com/docs/models-languages-overview.",
                     },
                     "detect_language": {
                         "type": "boolean",
-                        "description": "Whether to automatically detect the spoken language",
+                        "description": "Whether to automatically detect the spoken language. Can only detect a single language for the entire audio. This is only supported for an older model and is not recommended. Please use language='multi' instead.",
+                    },
+                    "callback": {
+                        "type": "string",
+                        "description": "The URL to send the transcriptions to. If used, the transcriptions will be sent directly from Deepgram to your server so you will not be able to access them via the Attendee API. See here for details: https://developers.deepgram.com/docs/callback",
                     },
                 },
+                "additionalProperties": False,
             },
             "gladia": {
                 "type": "object",
@@ -114,6 +119,7 @@ class BotImageSerializer(serializers.Serializer):
                     },
                     "enable_code_switching": {"type": "boolean", "description": "Whether to use code switching to transcribe the meeting in multiple languages."},
                 },
+                "additionalProperties": False,
             },
             "meeting_closed_captions": {
                 "type": "object",
@@ -123,6 +129,7 @@ class BotImageSerializer(serializers.Serializer):
                         "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
                     },
                 },
+                "additionalProperties": False,
             },
             "openai": {
                 "type": "object",
@@ -281,11 +288,8 @@ class CreateBotSerializer(serializers.Serializer):
                         "type": "string",
                     },
                     "detect_language": {"type": "boolean"},
+                    "callback": {"type": "string"},
                 },
-                "oneOf": [
-                    {"required": ["language"]},
-                    {"required": ["detect_language"]},
-                ],
                 "additionalProperties": False,
             },
             "gladia": {
@@ -343,7 +347,7 @@ class CreateBotSerializer(serializers.Serializer):
 
         if value is None:
             if meeting_type == MeetingTypes.ZOOM:
-                value = {"deepgram": {"language": "en"}}
+                value = {"deepgram": {"language": "multi"}}
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
                 value = {"meeting_closed_captions": {}}
             elif meeting_type == MeetingTypes.TEAMS:
@@ -356,6 +360,10 @@ class CreateBotSerializer(serializers.Serializer):
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
 
+        # If deepgram key is specified but language is not, set to "multi"
+        if "deepgram" in value and ("language" not in value["deepgram"] or value["deepgram"]["language"] is None):
+            value["deepgram"]["language"] = "multi"
+
         if meeting_type == MeetingTypes.TEAMS:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
@@ -363,6 +371,9 @@ class CreateBotSerializer(serializers.Serializer):
         if meeting_type == MeetingTypes.ZOOM:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
+
+        if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
+            raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
 
         return value
 

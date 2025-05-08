@@ -199,10 +199,10 @@ class TestGoogleMeetBot(TransactionTestCase):
             pcm_data = (audio_data * 32768.0).astype(np.int16).tobytes()
 
             # Send audio chunk as if it came from the participant
-            controller.individual_audio_input_manager.add_chunk("user1", datetime.datetime.utcnow(), pcm_data)
+            controller.per_participant_non_streaming_audio_input_manager.add_chunk("user1", datetime.datetime.utcnow(), pcm_data)
 
             # Process the chunks
-            controller.individual_audio_input_manager.process_chunks()
+            controller.per_participant_non_streaming_audio_input_manager.process_chunks()
 
             # Sleep to allow audio processing
             time.sleep(3)
