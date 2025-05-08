@@ -6,9 +6,10 @@ class StyleManager {
 
         this.audioContext = null;
         this.audioTracks = [];
-        this.silenceThreshold = 0.0;
+        this.silenceThreshold = 0.5;
         this.silenceCheckInterval = null;
         this.memoryUsageCheckInterval = null;
+        this.neededInteractionsInterval = null;
     }
 
     addAudioTrack(audioTrack) {
@@ -32,6 +33,7 @@ class StyleManager {
         if (averageDeviation > this.silenceThreshold) {
             window.ws.sendJson({
                 type: 'SilenceStatus',
+                volume: averageDeviation,
                 isSilent: false
             });
         }
@@ -47,6 +49,45 @@ class StyleManager {
                 usedJSHeapSize: performance.memory?.usedJSHeapSize
             }
         });
+    }
+
+    checkNeededInteractions() {
+        // Check for recording notification dialog
+        const recordingDialog = document.querySelector('div[aria-modal="true"][role="dialog"]');
+        
+        if (recordingDialog && recordingDialog.textContent.includes('This video call is being recorded')) {           
+            // Find and click the "Join now" button (usually the confirm/OK button)
+            const joinNowButton = recordingDialog.querySelector('button[data-mdc-dialog-action="ok"]');
+            
+            if (joinNowButton) {
+                try {
+                    joinNowButton.click();
+                    window.ws.sendJson({
+                        type: 'UiInteraction',
+                        message: 'Automatically accepted recording notification'
+                    });
+                } catch (error) {
+                    window.ws.sendJson({
+                        type: 'Error',
+                        message: 'Error clicking button to accept recording notification'
+                    });
+                }                
+            } else {                
+                window.ws.sendJson({
+                    type: 'Error',
+                    message: 'Found recording dialog but could not find button to accept recording notification'
+                });
+            }
+        }
+
+        // Check if bot has been removed from the meeting
+        const removedFromMeetingElement = document.querySelector('.roSPhc');
+        if (removedFromMeetingElement && removedFromMeetingElement.textContent.includes('You\'ve been removed from the meeting')) {
+            window.ws.sendJson({
+                type: 'MeetingStatusChange',
+                change: 'removed_from_meeting'
+            });
+        }
     }
 
     startSilenceDetection() {
@@ -68,7 +109,7 @@ class StyleManager {
  
          // Create analyzer and connect it to the destination
          this.analyser = this.audioContext.createAnalyser();
-         this.analyser.fftSize = 256;
+         this.analyser.fftSize = 8192;
          const bufferLength = this.analyser.frequencyBinCount;
          this.audioDataArray = new Uint8Array(bufferLength);
  
@@ -86,6 +127,10 @@ class StyleManager {
         if (this.memoryUsageCheckInterval) {
             clearInterval(this.memoryUsageCheckInterval);
         }
+
+        if (this.neededInteractionsInterval) {
+            clearInterval(this.neededInteractionsInterval);
+        }
                 
         // Check for audio activity every second
         this.silenceCheckInterval = setInterval(() => {
@@ -96,6 +141,11 @@ class StyleManager {
         this.memoryUsageCheckInterval = setInterval(() => {
             this.checkMemoryUsage();
         }, 60000);
+
+        // Check for needed interactions every 5 seconds
+        this.neededInteractionsInterval = setInterval(() => {
+            this.checkNeededInteractions();
+        }, 5000);
     }
     
 
