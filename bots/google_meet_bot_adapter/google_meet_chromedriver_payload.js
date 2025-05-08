@@ -1790,6 +1790,10 @@ class BotOutputManager {
         }, { once: true });
     }
 
+    isVideoPlaying() {
+        return !!this.botOutputVideoElement;
+    }
+
     addBotOutputVideoElement(url) {
         // Disconnect previous video source if it exists
         if (this.videoSoundSource) {
