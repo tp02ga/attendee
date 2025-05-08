@@ -1,7 +1,11 @@
+import logging
+
 from bots.teams_bot_adapter.teams_ui_methods import (
     TeamsUIMethods,
 )
 from bots.web_bot_adapter import WebBotAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class TeamsBotAdapter(WebBotAdapter, TeamsUIMethods):
