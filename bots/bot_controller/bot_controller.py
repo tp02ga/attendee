@@ -40,7 +40,8 @@ from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
-from .individual_audio_input_manager import IndividualAudioInputManager
+from .per_participant_non_streaming_audio_input_manager import PerParticipantNonStreamingAudioInputManager
+from .per_participant_streaming_audio_input_manager import PerParticipantStreamingAudioInputManager
 from .pipeline_configuration import PipelineConfiguration
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
@@ -53,13 +54,19 @@ logger = logging.getLogger(__name__)
 
 
 class BotController:
+    def per_participant_audio_input_manager(self):
+        if self.bot_in_db.deepgram_use_streaming():
+            return self.per_participant_streaming_audio_input_manager
+        else:
+            return self.per_participant_non_streaming_audio_input_manager
+
     def get_google_meet_bot_adapter(self):
         from bots.google_meet_bot_adapter import GoogleMeetBotAdapter
 
         if self.get_recording_transcription_provider() == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
             add_audio_chunk_callback = None
         else:
-            add_audio_chunk_callback = self.individual_audio_input_manager.add_chunk
+            add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
 
         return GoogleMeetBotAdapter(
             display_name=self.bot_in_db.name,
@@ -110,13 +117,15 @@ class BotController:
         if not zoom_oauth_credentials:
             raise Exception("Zoom OAuth credentials data not found")
 
+        add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
+
         return ZoomBotAdapter(
             use_one_way_audio=self.pipeline_configuration.transcribe_audio,
             use_mixed_audio=self.pipeline_configuration.record_audio or self.pipeline_configuration.rtmp_stream_audio,
             use_video=self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video,
             display_name=self.bot_in_db.name,
             send_message_callback=self.on_message_from_adapter,
-            add_audio_chunk_callback=self.individual_audio_input_manager.add_chunk,
+            add_audio_chunk_callback=add_audio_chunk_callback,
             zoom_client_id=zoom_oauth_credentials["client_id"],
             zoom_client_secret=zoom_oauth_credentials["client_secret"],
             meeting_url=self.bot_in_db.meeting_url,
@@ -289,7 +298,7 @@ class BotController:
         self.pubsub = None
         self.pubsub_channel = f"bot_{self.bot_in_db.id}"
 
-        self.automatic_leave_configuration = AutomaticLeaveConfiguration()
+        self.automatic_leave_configuration = AutomaticLeaveConfiguration(**self.bot_in_db.automatic_leave_settings())
 
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
@@ -353,10 +362,18 @@ class BotController:
 
         # Initialize core objects
         # Only used for adapters that can provide per-participant audio
-        self.individual_audio_input_manager = IndividualAudioInputManager(
+        self.per_participant_non_streaming_audio_input_manager = PerParticipantNonStreamingAudioInputManager(
             save_utterance_callback=self.save_individual_audio_utterance,
             get_participant_callback=self.get_participant,
             sample_rate=self.get_per_participant_audio_sample_rate(),
+        )
+
+        self.per_participant_streaming_audio_input_manager = PerParticipantStreamingAudioInputManager(
+            save_utterance_callback=self.save_individual_audio_utterance,
+            get_participant_callback=self.get_participant,
+            sample_rate=self.get_per_participant_audio_sample_rate(),
+            transcription_provider=self.get_recording_transcription_provider(),
+            bot=self.bot_in_db,
         )
 
         # Only used for adapters that can provide closed captions
@@ -594,7 +611,10 @@ class BotController:
             self.set_bot_heartbeat()
 
             # Process audio chunks
-            self.individual_audio_input_manager.process_chunks()
+            self.per_participant_non_streaming_audio_input_manager.process_chunks()
+
+            # Monitor transcription
+            self.per_participant_streaming_audio_input_manager.monitor_transcription()
 
             # Process captions
             self.closed_caption_manager.process_captions()
@@ -688,9 +708,9 @@ class BotController:
         GLib.idle_add(lambda: self.take_action_based_on_message_from_adapter(message))
 
     def flush_utterances(self):
-        if self.individual_audio_input_manager:
+        if self.per_participant_non_streaming_audio_input_manager:
             logger.info("Flushing utterances...")
-            self.individual_audio_input_manager.flush_utterances()
+            self.per_participant_non_streaming_audio_input_manager.flush_utterances()
         if self.closed_caption_manager:
             logger.info("Flushing captions...")
             self.closed_caption_manager.flush_captions()
@@ -870,6 +890,16 @@ class BotController:
                 event_type=BotEventTypes.COULD_NOT_JOIN,
                 event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR,
                 event_metadata={"zoom_result_code": str(message.get("zoom_result_code"))},
+            )
+            self.cleanup()
+            return
+
+        if message.get("message") == BotAdapter.Messages.LEAVE_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED:
+            logger.info("Received message to leave meeting because waiting room timeout exceeded")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED,
             )
             self.cleanup()
             return

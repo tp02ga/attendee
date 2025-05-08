@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import math
 import os
@@ -13,6 +14,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
+from .bots_api_utils import create_bot, launch_bot
 from .models import (
     ApiKey,
     Bot,
@@ -487,3 +489,24 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
 
         # Redirect directly to the Stripe checkout page
         return redirect(checkout_session.url)
+
+
+class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def post(self, request, object_id):
+        try:
+            project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+
+            data = {
+                "meeting_url": request.POST.get("meeting_url"),
+                "bot_name": request.POST.get("bot_name") or "Meeting Bot",
+            }
+
+            bot, error = create_bot(data, project)
+            if error:
+                return HttpResponse(json.dumps(error), status=400)
+
+            launch_bot(bot)
+
+            return HttpResponse("ok", status=200)
+        except Exception as e:
+            return HttpResponse(str(e), status=400)

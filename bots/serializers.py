@@ -1,5 +1,6 @@
 import base64
 import json
+from dataclasses import asdict
 
 import jsonschema
 from drf_spectacular.utils import (
@@ -9,6 +10,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers
 
+from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
     BotEventSubTypes,
@@ -94,13 +96,18 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language": {
                         "type": "string",
-                        "description": "The language code for transcription (e.g. 'en'). See here for available languages: https://developers.deepgram.com/docs/models-languages-overview",
+                        "description": "The language code for transcription. Defaults to 'multi' if not specified, which selects the language automatically and can change the detected language in the middle of the audio. See here for available languages: https://developers.deepgram.com/docs/models-languages-overview.",
                     },
                     "detect_language": {
                         "type": "boolean",
-                        "description": "Whether to automatically detect the spoken language",
+                        "description": "Whether to automatically detect the spoken language. Can only detect a single language for the entire audio. This is only supported for an older model and is not recommended. Please use language='multi' instead.",
+                    },
+                    "callback": {
+                        "type": "string",
+                        "description": "The URL to send the transcriptions to. If used, the transcriptions will be sent directly from Deepgram to your server so you will not be able to access them via the Attendee API. See here for details: https://developers.deepgram.com/docs/callback",
                     },
                 },
+                "additionalProperties": False,
             },
             "gladia": {
                 "type": "object",
@@ -112,6 +119,7 @@ class BotImageSerializer(serializers.Serializer):
                     },
                     "enable_code_switching": {"type": "boolean", "description": "Whether to use code switching to transcribe the meeting in multiple languages."},
                 },
+                "additionalProperties": False,
             },
             "meeting_closed_captions": {
                 "type": "object",
@@ -121,6 +129,7 @@ class BotImageSerializer(serializers.Serializer):
                         "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
                     },
                 },
+                "additionalProperties": False,
             },
             "openai": {
                 "type": "object",
@@ -207,6 +216,44 @@ class MetadataJSONField(serializers.JSONField):
     pass
 
 
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "silence_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds of continuous silence after which the bot should leave",
+                "default": 600,
+            },
+            "silence_activate_after_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait before activating the silence timeout",
+                "default": 1200,
+            },
+            "only_participant_in_meeting_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait before leaving if bot is the only participant",
+                "default": 60,
+            },
+            "wait_for_host_to_start_meeting_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait for the host to start the meeting",
+                "default": 600,
+            },
+            "waiting_room_timeout_seconds": {
+                "type": "integer",
+                "description": "Number of seconds to wait before leaving if the bot is in the waiting room",
+                "default": 900,
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class AutomaticLeaveSettingsJSONField(serializers.JSONField):
+    pass
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -241,11 +288,8 @@ class CreateBotSerializer(serializers.Serializer):
                         "type": "string",
                     },
                     "detect_language": {"type": "boolean"},
+                    "callback": {"type": "string"},
                 },
-                "oneOf": [
-                    {"required": ["language"]},
-                    {"required": ["detect_language"]},
-                ],
                 "additionalProperties": False,
             },
             "gladia": {
@@ -289,7 +333,11 @@ class CreateBotSerializer(serializers.Serializer):
     def validate_meeting_url(self, value):
         meeting_type = meeting_type_from_url(value)
         if meeting_type is None:
-            raise serializers.ValidationError({"meeting_url": "Invalid meeting URL"})
+            raise serializers.ValidationError("Invalid meeting URL")
+
+        if meeting_type == MeetingTypes.GOOGLE_MEET:
+            if not value.startswith("https://meet.google.com/"):
+                raise serializers.ValidationError("Google Meet URL must start with https://meet.google.com/")
 
         return value
 
@@ -299,18 +347,22 @@ class CreateBotSerializer(serializers.Serializer):
 
         if value is None:
             if meeting_type == MeetingTypes.ZOOM:
-                value = {"deepgram": {"language": "en"}}
+                value = {"deepgram": {"language": "multi"}}
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
                 value = {"meeting_closed_captions": {}}
             elif meeting_type == MeetingTypes.TEAMS:
                 value = {"meeting_closed_captions": {}}
             else:
-                raise serializers.ValidationError({"transcription_settings": "Invalid meeting type"})
+                return None
 
         try:
             jsonschema.validate(instance=value, schema=self.TRANSCRIPTION_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
+
+        # If deepgram key is specified but language is not, set to "multi"
+        if "deepgram" in value and ("language" not in value["deepgram"] or value["deepgram"]["language"] is None):
+            value["deepgram"]["language"] = "multi"
 
         if meeting_type == MeetingTypes.TEAMS:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
@@ -319,6 +371,9 @@ class CreateBotSerializer(serializers.Serializer):
         if meeting_type == MeetingTypes.ZOOM:
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
+
+        if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
+            raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
 
         return value
 
@@ -440,6 +495,27 @@ class CreateBotSerializer(serializers.Serializer):
         # Make sure the total length of the stringified metadata is less than 1000 characters
         if len(json.dumps(value)) > 1000:
             raise serializers.ValidationError("Metadata must be less than 1000 characters")
+
+        return value
+
+    automatic_leave_settings = AutomaticLeaveSettingsJSONField(default=dict, required=False)
+
+    def validate_automatic_leave_settings(self, value):
+        # Set default values if not provided
+        defaults = asdict(AutomaticLeaveConfiguration())
+
+        # Validate that an unexpected key is not provided
+        for key in value.keys():
+            if key not in defaults.keys():
+                raise serializers.ValidationError(f"Unexpected attribute: {key}")
+
+        # Validate that all values are positive integers
+        for param, default in defaults.items():
+            if param in value and (not isinstance(value[param], int) or value[param] <= 0):
+                raise serializers.ValidationError(f"{param} must be a positive integer")
+            # Set default if not provided
+            if param not in value:
+                value[param] = default
 
         return value
 

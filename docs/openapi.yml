@@ -596,11 +596,23 @@ components:
               properties:
                 language:
                   type: string
-                  description: 'The language code for transcription (e.g. ''en'').
-                    See here for available languages: https://developers.deepgram.com/docs/models-languages-overview'
+                  description: 'The language code for transcription. Defaults to ''multi''
+                    if not specified, which selects the language automatically and
+                    can change the detected language in the middle of the audio. See
+                    here for available languages: https://developers.deepgram.com/docs/models-languages-overview.'
                 detect_language:
                   type: boolean
-                  description: Whether to automatically detect the spoken language
+                  description: Whether to automatically detect the spoken language.
+                    Can only detect a single language for the entire audio. This is
+                    only supported for an older model and is not recommended. Please
+                    use language='multi' instead.
+                callback:
+                  type: string
+                  description: 'The URL to send the transcriptions to. If used, the
+                    transcriptions will be sent directly from Deepgram to your server
+                    so you will not be able to access them via the Attendee API. See
+                    here for details: https://developers.deepgram.com/docs/callback'
+              additionalProperties: false
             gladia:
               type: object
               properties:
@@ -614,6 +626,7 @@ components:
                   type: boolean
                   description: Whether to use code switching to transcribe the meeting
                     in multiple languages.
+              additionalProperties: false
             meeting_closed_captions:
               type: object
               properties:
@@ -622,6 +635,7 @@ components:
                   description: 'The language code for Google Meet closed captions
                     (e.g. ''en-US''). See here for available languages and codes:
                     https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE'
+              additionalProperties: false
             openai:
               type: object
               properties:
@@ -683,6 +697,35 @@ components:
             create_debug_recording: false
           description: 'The debug settings for the bot, e.g. {''create_debug_recording'':
             True}.'
+        automatic_leave_settings:
+          type: object
+          properties:
+            silence_timeout_seconds:
+              type: integer
+              description: Number of seconds of continuous silence after which the
+                bot should leave
+              default: 600
+            silence_activate_after_seconds:
+              type: integer
+              description: Number of seconds to wait before activating the silence
+                timeout
+              default: 1200
+            only_participant_in_meeting_timeout_seconds:
+              type: integer
+              description: Number of seconds to wait before leaving if bot is the
+                only participant
+              default: 60
+            wait_for_host_to_start_meeting_timeout_seconds:
+              type: integer
+              description: Number of seconds to wait for the host to start the meeting
+              default: 600
+            waiting_room_timeout_seconds:
+              type: integer
+              description: Number of seconds to wait before leaving if the bot is
+                in the waiting room
+              default: 900
+          required: []
+          additionalProperties: false
       required:
       - bot_name
       - meeting_url
