@@ -79,6 +79,15 @@ class StyleManager {
                 });
             }
         }
+
+        // Check if bot has been removed from the meeting
+        const removedFromMeetingElement = document.querySelector('.roSPhc');
+        if (removedFromMeetingElement && removedFromMeetingElement.textContent.includes('You\'ve been removed from the meeting')) {
+            window.ws.sendJson({
+                type: 'MeetingStatusChange',
+                change: 'removed_from_meeting'
+            });
+        }
     }
 
     startSilenceDetection() {

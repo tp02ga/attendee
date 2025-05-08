@@ -185,6 +185,10 @@ class WebBotAdapter(BotAdapter):
         else:
             self.only_one_participant_in_meeting_at = None
 
+    def handle_removed_from_meeting(self):
+        self.left_meeting = True
+        self.send_message_callback({"message": self.Messages.MEETING_ENDED})
+
     def handle_websocket(self, websocket):
         audio_format = None
         output_dir = "frames"  # Add output directory
@@ -226,14 +230,17 @@ class WebBotAdapter(BotAdapter):
                                 if user["humanized_status"] == "removed_from_meeting" and user["fullName"] == self.display_name:
                                     # if this is the only participant with that name in the meeting, then we can assume that it was us who was removed
                                     if len([x for x in self.participants_info.values() if x["fullName"] == self.display_name]) == 1:
-                                        self.was_removed_from_meeting = True
-                                        self.send_message_callback({"message": self.Messages.MEETING_ENDED})
+                                        self.handle_removed_from_meeting()
 
                             self.update_only_one_participant_in_meeting_at()
 
                         elif json_data.get("type") == "SilenceStatus":
                             if not json_data.get("isSilent"):
                                 self.last_audio_message_processed_time = time.time()
+
+                        elif json_data.get("type") == "MeetingStatusChange":
+                            if json_data.get("change") == "removed_from_meeting":
+                                self.handle_removed_from_meeting()
 
                 elif message_type == 2:  # VIDEO
                     self.process_video_frame(message)
