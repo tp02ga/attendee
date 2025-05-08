@@ -6,7 +6,7 @@ class StyleManager {
 
         this.audioContext = null;
         this.audioTracks = [];
-        this.silenceThreshold = 0.0;
+        this.silenceThreshold = 1.0;
         this.silenceCheckInterval = null;
         this.memoryUsageCheckInterval = null;
     }
@@ -32,6 +32,7 @@ class StyleManager {
         if (averageDeviation > this.silenceThreshold) {
             window.ws.sendJson({
                 type: 'SilenceStatus',
+                volume: averageDeviation,
                 isSilent: false
             });
         }
@@ -68,7 +69,7 @@ class StyleManager {
  
          // Create analyzer and connect it to the destination
          this.analyser = this.audioContext.createAnalyser();
-         this.analyser.fftSize = 256;
+         this.analyser.fftSize = 8192;
          const bufferLength = this.analyser.frequencyBinCount;
          this.audioDataArray = new Uint8Array(bufferLength);
  

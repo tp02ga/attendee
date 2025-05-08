@@ -208,6 +208,8 @@ class WebBotAdapter(BotAdapter):
                             logger.info(f"audio format {audio_format}")
 
                         elif json_data.get("type") == "CaptionUpdate":
+                            # Count a caption as audio activity
+                            self.last_audio_message_processed_time = time.time()
                             self.upsert_caption_callback(json_data["caption"])
 
                         elif json_data.get("type") == "UsersUpdate":
