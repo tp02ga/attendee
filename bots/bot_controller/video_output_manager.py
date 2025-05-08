@@ -1,5 +1,6 @@
 import time
 
+
 class VideoOutputManager:
     def __init__(
         self,
@@ -27,6 +28,6 @@ class VideoOutputManager:
         self.last_call_to_check_if_currently_playing_video_media_request_is_still_playing_at = time.time()
         if self.check_if_currently_playing_video_media_request_is_still_playing_callback():
             return
-            
+
         self.currently_playing_video_media_request_finished_callback(self.currently_playing_video_media_request)
         self.currently_playing_video_media_request = None
