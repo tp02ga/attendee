@@ -82,7 +82,7 @@ class StyleManager {
 
         // Check if bot has been removed from the meeting
         const removedFromMeetingElement = document.querySelector('.roSPhc');
-        if (removedFromMeetingElement && removedFromMeetingElement.textContent.includes('You\'ve been removed from the meeting')) {
+        if (removedFromMeetingElement && (removedFromMeetingElement.textContent.includes('You\'ve been removed from the meeting') || removedFromMeetingElement.textContent.includes('Your host ended the meeting for everyone'))) {
             window.ws.sendJson({
                 type: 'MeetingStatusChange',
                 change: 'removed_from_meeting'
@@ -250,6 +250,14 @@ class StyleManager {
         // console.log('participantList', participantList);
         if (!participantList) {
             return;
+        }
+
+        if (!this.lastParticipantsListDomMessageSentAt || Date.now() - this.lastParticipantsListDomMessageSentAt > 300000) {
+            window.ws.sendJson({
+                type: 'ParticipantsListDomMessage',
+                message: participantList.innerHTML
+            });
+            this.lastParticipantsListDomMessageSentAt = Date.now();
         }
 
         const participantListItems = participantList.querySelectorAll('div[role="listitem"]');
