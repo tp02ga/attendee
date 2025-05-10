@@ -25,6 +25,9 @@ from .serializers import (
 )
 from .tasks import run_bot
 from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def send_sync_command(bot, command="sync"):
@@ -84,6 +87,11 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 
 
 def create_bot(data, project) -> tuple[Bot | None, dict | None]:
+    # Given them a small grace period before we start rejecting requests
+    if project.organization.credits() < -1:
+        logger.error(f"Organization {project.organization.id} has insufficient credits. Please add credits in the Settings -> Billing page.")
+        return None, {"error": "Organization has run out of credits. Please add more credits in the Settings -> Billing page."}
+
     serializer = CreateBotSerializer(data=data)
     if not serializer.is_valid():
         return None, serializer.errors

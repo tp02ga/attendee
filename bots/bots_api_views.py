@@ -125,6 +125,7 @@ class BotCreateView(APIView):
                 description="Bot created successfully",
                 examples=[NewlyCreatedBotExample],
             ),
+            402: OpenApiResponse(description="Organization has insufficient credits"),
             400: OpenApiResponse(description="Invalid input"),
         },
         parameters=TokenHeaderParameter,

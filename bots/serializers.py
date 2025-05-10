@@ -519,6 +519,13 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
+    def validate_bot_name(self, value):
+        """Validate that the bot name only contains characters in the Basic Multilingual Plane (BMP)."""
+        for char in value:
+            if ord(char) > 0xFFFF:
+                raise serializers.ValidationError("Bot name cannot contain emojis or rare script characters.")
+        return value
+
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
