@@ -36,6 +36,21 @@ urlpatterns = [
         name="project-credentials",
     ),
     path(
+        "<str:object_id>/project",
+        projects_views.ProjectProjectView.as_view(),
+        name="project-project",
+    ),
+    path(
+        "<str:object_id>/edit",
+        projects_views.EditProjectView.as_view(),
+        name="project-edit",
+    ),
+    path(
+        "<str:object_id>/delete",
+        projects_views.DeleteProjectView.as_view(),
+        name="project-delete",
+    ),
+    path(
         "<str:object_id>/keys",
         projects_views.ProjectApiKeysView.as_view(),
         name="project-api-keys",

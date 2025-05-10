@@ -14,12 +14,14 @@
                 <!-- Project selector -->
                 <div class="project-selector px-3">
                     <div class="dropdown w-100">
-                        <button class="btn project-dropdown-toggle w-100 d-flex justify-content-between align-items-center" type="button" id="currentProjectDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span id="currentProjectName" class="project-name-multiline" style="font-size: 0.9rem; max-width: 100%;">{{ project.name }}</span>
-                            <i class="bi bi-chevron-down ms-2"></i>
+                        <button class="btn project-dropdown-toggle w-100 d-flex align-items-center" type="button" id="currentProjectDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="d-flex align-items-center">
+                                <span id="currentProjectName" class="project-name-multiline" style="font-size: 0.9rem; max-width: 100%;">{{ project.name }}</span>
+                                <i class="bi bi-chevron-down ms-2"></i>
+                            </div>
                         </button>
                         <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="currentProjectDropdown">
-                            {% for proj in request.user.organization.projects.all %}
+                            {% for proj in request.user.organization.projects.all|dictsort:"id" %}
                                 <li>
                                     {% if proj.object_id == project.object_id %}
                                     <a class="dropdown-item text-truncate active" style="font-size: 0.9rem; max-width: 100%; background-color: rgba(0, 0, 0, 0.09);">{{ proj.name }}</a>
@@ -85,6 +87,15 @@
                                hx-push-url="true"
                                onclick="setActiveLink(this)">
                                 <i class="bi bi-lock"></i> Credentials
+                            </a>
+                            <a class="nav-link ps-4" 
+                               hx-get="{% url 'projects:project-project' project.object_id %}" 
+                               hx-select="#content"
+                               hx-target="#content"
+                               hx-swap="outerHTML"
+                               hx-push-url="true"
+                               onclick="setActiveLink(this)">
+                                <i class="bi bi-people"></i> Project & Team
                             </a>
                             {% if project.organization.is_webhooks_enabled %}
                             <a class="nav-link ps-4"
@@ -271,11 +282,11 @@
             <form action="{% url 'projects:create-project' %}" method="post">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="projectName" class="form-label">Project Name</label>
+                    <label for="projectName" class="form-label">Project Name</label>
+                    <div class="mb-2">
                         <input type="text" class="form-control" id="projectName" name="name" required maxlength="100">
-                        <div class="form-text">Maximum 100 characters</div>
                     </div>
+                    <div class="form-text">Projects are often used to separate different environments (e.g. development,staging, production)</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

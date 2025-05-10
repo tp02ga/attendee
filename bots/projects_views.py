@@ -8,7 +8,7 @@ import stripe
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
-from django.http import HttpResponse
+from django.http import HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
@@ -340,6 +340,13 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_webhooks.html", context)
 
 
+class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        context = self.get_project_context(object_id, project)
+        return render(request, "projects/project_project.html", context)
+
+
 class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
@@ -531,3 +538,42 @@ class CreateProjectView(LoginRequiredMixin, View):
 
         # Redirect to the new project's dashboard
         return redirect("bots:project-dashboard", object_id=project.object_id)
+
+
+class EditProjectView(LoginRequiredMixin, View):
+    def put(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        
+        # Parse the request body properly for PUT requests
+        put_data = QueryDict(request.body)
+        name = put_data.get("name")
+        
+        if not name:
+            return HttpResponse("Project name is required", status=400)
+        
+        if len(name) > 100:
+            return HttpResponse("Project name must be less than 100 characters", status=400)
+        
+        # Update the project name
+        project.name = name
+        project.save()
+        
+        # Re-render the entire project page
+        context = self.get_project_context(object_id, project) if hasattr(self, 'get_project_context') else {"project": project}
+        return HttpResponse("ok", status=200)
+
+
+class DeleteProjectView(LoginRequiredMixin, View):
+    def post(self, request, object_id):
+        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        
+        # Find the first project of the user's organization that is not the one being deleted
+        first_project = Project.objects.filter(organization=request.user.organization).exclude(object_id=object_id).first()
+        if not first_project:
+            return HttpResponse("You must have at least one project", status=400)
+        
+        # Delete the project
+        project.delete()
+        
+        return redirect("bots:project-dashboard", object_id=first_project.object_id)
+       
