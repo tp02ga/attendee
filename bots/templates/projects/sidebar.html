@@ -109,9 +109,16 @@
         <div class="col-md-3 col-lg-2"></div>
 
         <!-- Main Content -->
-        <div class="col-md-9 col-lg-10 py-3" id="content">
-            {% block content %}
-            {% endblock %}
+        <div class="col-md-9 col-lg-10 py-3">
+            {% if project.organization.credits < 0 %}
+            <div class="alert alert-danger mb-3" role="alert">
+                <strong>Your account has a negative credit balance.</strong> Please <a href="{% url 'projects:project-billing' project.object_id %}" class="alert-link">top up your credits</a> to continue creating bots.
+            </div>
+            {% endif %}
+            <div id="content">
+                {% block content %}
+                {% endblock %}
+            </div>
         </div>
     </div>
 </div>
