@@ -639,7 +639,6 @@ class BotController:
     def get_recording_in_progress(self):
         recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
         if recordings_in_progress.count() == 0:
-            logger.warning(f"Warning: No recording in progress found in get_recording_in_progress for bot {self.bot_in_db.object_id}")
             return None
         if recordings_in_progress.count() > 1:
             raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
@@ -658,6 +657,7 @@ class BotController:
         # Create new utterance record
         recording_in_progress = self.get_recording_in_progress()
         if recording_in_progress is None:
+            logger.warning(f"Warning: No recording in progress found so cannot save closed caption utterance. Message: {message}")
             return
         source_uuid = f"{recording_in_progress.object_id}-{message['source_uuid_suffix']}"
         utterance, _ = Utterance.objects.update_or_create(
@@ -693,6 +693,7 @@ class BotController:
         # Create new utterance record
         recording_in_progress = self.get_recording_in_progress()
         if recording_in_progress is None:
+            logger.warning(f"Warning: No recording in progress found so cannot save individual audio utterance.")
             return
         utterance = Utterance.objects.create(
             source=Utterance.Sources.PER_PARTICIPANT_AUDIO,
