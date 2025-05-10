@@ -693,7 +693,7 @@ class BotController:
         # Create new utterance record
         recording_in_progress = self.get_recording_in_progress()
         if recording_in_progress is None:
-            logger.warning(f"Warning: No recording in progress found so cannot save individual audio utterance.")
+            logger.warning("Warning: No recording in progress found so cannot save individual audio utterance.")
             return
         utterance = Utterance.objects.create(
             source=Utterance.Sources.PER_PARTICIPANT_AUDIO,

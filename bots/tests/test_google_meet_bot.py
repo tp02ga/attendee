@@ -12,8 +12,8 @@ from django.test.testcases import TransactionTestCase
 from django.utils import timezone
 from selenium.common.exceptions import TimeoutException
 
-from bots.bot_controller import BotController
 from bots.bot_adapter import BotAdapter
+from bots.bot_controller import BotController
 from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods
 from bots.models import (
     Bot,
@@ -978,15 +978,15 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Create bot controller
         controller = BotController(self.bot.id)
-        
+
         # Patch the controller's on_message_from_adapter method to add debugging
         original_on_message_from_adapter = controller.on_message_from_adapter
-        
+
         def debug_on_message_from_adapter(message):
             original_on_message_from_adapter(message)
             if message.get("message") == BotAdapter.Messages.BOT_JOINED_MEETING:
                 simulate_caption_data_arrival()
-        
+
         controller.on_message_from_adapter = debug_on_message_from_adapter
 
         # Run the bot in a separate thread since it has an event loop
@@ -1009,7 +1009,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             nonlocal current_time
 
             simulate_caption_data_arrival()
-            
+
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
 
