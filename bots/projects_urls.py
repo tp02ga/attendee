@@ -6,6 +6,11 @@ app_name = "bots"
 
 urlpatterns = [
     path(
+        "create/",
+        projects_views.CreateProjectView.as_view(),
+        name="create-project",
+    ),
+    path(
         "<str:object_id>",
         projects_views.ProjectDashboardView.as_view(),
         name="project-dashboard",

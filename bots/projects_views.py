@@ -300,7 +300,11 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id, bot_object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
 
-        bot = get_object_or_404(Bot, object_id=bot_object_id, project=project)
+        try:
+            bot = Bot.objects.get(object_id=bot_object_id, project=project)
+        except Bot.DoesNotExist:
+            # Redirect to bots list if bot not found
+            return redirect("bots:project-bots", object_id=object_id)
 
         # Prefetch recordings with their utterances and participants
         bot.recordings.all().prefetch_related(models.Prefetch("utterances", queryset=Utterance.objects.select_related("participant")))
@@ -510,3 +514,20 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             return HttpResponse("ok", status=200)
         except Exception as e:
             return HttpResponse(str(e), status=400)
+
+
+class CreateProjectView(LoginRequiredMixin, View):
+    def post(self, request):
+        name = request.POST.get("name")
+
+        if not name:
+            return HttpResponse("Project name is required", status=400)
+
+        if len(name) > 100:
+            return HttpResponse("Project name must be less than 100 characters", status=400)
+
+        # Create a new project for the user's organization
+        project = Project.objects.create(name=name, organization=request.user.organization)
+
+        # Redirect to the new project's dashboard
+        return redirect("bots:project-dashboard", object_id=project.object_id)
