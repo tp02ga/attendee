@@ -25,7 +25,6 @@ from .serializers import (
 )
 from .tasks import run_bot
 from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
-import logging
 
 logger = logging.getLogger(__name__)
 
