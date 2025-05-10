@@ -340,11 +340,11 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_webhooks.html", context)
 
 
-class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class ProjectProjectAndTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         context = self.get_project_context(object_id, project)
-        return render(request, "projects/project_project.html", context)
+        return render(request, "projects/project_project_and_team.html", context)
 
 
 class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
@@ -559,18 +559,3 @@ class EditProjectView(LoginRequiredMixin, View):
         project.save()
 
         return HttpResponse("ok", status=200)
-
-
-class DeleteProjectView(LoginRequiredMixin, View):
-    def post(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
-
-        # Find the first project of the user's organization that is not the one being deleted
-        first_project = Project.objects.filter(organization=request.user.organization).exclude(object_id=object_id).first()
-        if not first_project:
-            return HttpResponse("You must have at least one project", status=400)
-
-        # Delete the project
-        project.delete()
-
-        return redirect("bots:project-dashboard", object_id=first_project.object_id)

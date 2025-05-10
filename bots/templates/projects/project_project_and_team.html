@@ -1,0 +1,40 @@
+{% extends 'projects/sidebar.html' %} {% load bot_filters %} {% block content %}
+
+<div class="container mt-4">
+  <h2>Project & Team</h2>
+  
+  <div class="card mt-4">
+    <div class="card-header">
+      <h5 class="mb-0">Project Details</h5>
+    </div>
+    <div class="card-body">
+      <form id="edit-project-form" 
+            hx-put="{% url 'projects:project-edit' project.object_id %}"
+            hx-trigger="submit"
+            hx-swap="none"
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+            hx-indicator="#form-indicator"
+            hx-disabled-elt="#submitButton"
+            hx-on::after-request="window.location.reload()">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="projectName" class="form-label">Project Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="projectName"
+            name="name"
+            value="{{ project.name }}"
+            maxlength="100"
+            required
+          />
+        </div>
+        <button type="submit" id="submitButton" class="btn btn-primary">
+          Save
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

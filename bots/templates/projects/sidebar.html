@@ -88,15 +88,6 @@
                                onclick="setActiveLink(this)">
                                 <i class="bi bi-lock"></i> Credentials
                             </a>
-                            <a class="nav-link ps-4" 
-                               hx-get="{% url 'projects:project-project' project.object_id %}" 
-                               hx-select="#content"
-                               hx-target="#content"
-                               hx-swap="outerHTML"
-                               hx-push-url="true"
-                               onclick="setActiveLink(this)">
-                                <i class="bi bi-people"></i> Project & Team
-                            </a>
                             {% if project.organization.is_webhooks_enabled %}
                             <a class="nav-link ps-4"
                                hx-get="{% url 'projects:project-webhooks' project.object_id %}"
@@ -108,6 +99,15 @@
                                 <i class="bi bi-link"></i> Webhooks
                             </a>
                             {% endif %}
+                            <a class="nav-link ps-4" 
+                               hx-get="{% url 'projects:project-project-and-team' project.object_id %}" 
+                               hx-select="#content"
+                               hx-target="#content"
+                               hx-swap="outerHTML"
+                               hx-push-url="true"
+                               onclick="setActiveLink(this)">
+                                <i class="bi bi-people"></i> Project & Team
+                            </a>
                             {% if charge_credits_for_bots_setting %}
                             <a class="nav-link ps-4"
                                hx-get="{% url 'projects:project-billing' project.object_id %}"
