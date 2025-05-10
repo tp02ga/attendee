@@ -543,37 +543,34 @@ class CreateProjectView(LoginRequiredMixin, View):
 class EditProjectView(LoginRequiredMixin, View):
     def put(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
-        
+
         # Parse the request body properly for PUT requests
         put_data = QueryDict(request.body)
         name = put_data.get("name")
-        
+
         if not name:
             return HttpResponse("Project name is required", status=400)
-        
+
         if len(name) > 100:
             return HttpResponse("Project name must be less than 100 characters", status=400)
-        
+
         # Update the project name
         project.name = name
         project.save()
-        
-        # Re-render the entire project page
-        context = self.get_project_context(object_id, project) if hasattr(self, 'get_project_context') else {"project": project}
+
         return HttpResponse("ok", status=200)
 
 
 class DeleteProjectView(LoginRequiredMixin, View):
     def post(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
-        
+
         # Find the first project of the user's organization that is not the one being deleted
         first_project = Project.objects.filter(organization=request.user.organization).exclude(object_id=object_id).first()
         if not first_project:
             return HttpResponse("You must have at least one project", status=400)
-        
+
         # Delete the project
         project.delete()
-        
+
         return redirect("bots:project-dashboard", object_id=first_project.object_id)
-       
