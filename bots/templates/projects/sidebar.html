@@ -32,8 +32,8 @@
                             {% endfor %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <a class="dropdown-item d-flex align-items-center" onclick="createNewProject()">
-                                    <i class="bi bi-plus-lg me-2"></i> Create New Project
+                                <a class="dropdown-item d-flex align-items-center" style="font-size: 0.9rem; max-width: 100%;" onclick="createNewProject()">
+                                    <i class="bi bi-plus-lg me-2"></i> Create new project
                                 </a>
                             </li>
                         </ul>
@@ -293,7 +293,7 @@
                     <div class="mb-2">
                         <input type="text" class="form-control" id="projectName" name="name" required maxlength="100">
                     </div>
-                    <div class="form-text">Projects are often used to separate different environments (e.g. development,staging, production)</div>
+                    <div class="form-text">Projects are used to organize API keys, webhooks and credentials. Create a separate project for each environment - development, staging, production to keep them separated.</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
