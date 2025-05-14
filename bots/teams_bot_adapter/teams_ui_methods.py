@@ -65,7 +65,7 @@ class TeamsUIMethods:
         self.click_element(camera_button, "turn_off_camera_button")
 
     def fill_out_name_input(self):
-        num_attempts = 30
+        num_attempts = 60
         logger.info("Waiting for the name input field...")
         for attempt_index in range(num_attempts):
             try:
@@ -74,6 +74,7 @@ class TeamsUIMethods:
                 name_input.send_keys(self.display_name)
                 return
             except TimeoutException as e:
+                logger.info(f"Could not find name input, retrying index = {attempt_index}")
                 last_check_timed_out = attempt_index == num_attempts - 1
                 if last_check_timed_out:
                     logger.info("Could not find name input. Timed out. Raising UiCouldNotLocateElementException")
@@ -83,29 +84,51 @@ class TeamsUIMethods:
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
+        num_attempts = 600
         logger.info("Waiting for the show more button...")
+        for attempt_index in range(num_attempts):
+            try:
+                show_more_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.ID, "callingButtons-showMoreBtn")))
+                logger.info("Clicking the show more button...")
+                self.click_element(show_more_button, "show_more_button")
 
-        try:
-            show_more_button = WebDriverWait(self.driver, self.automatic_leave_configuration.waiting_room_timeout_seconds).until(EC.presence_of_element_located((By.ID, "callingButtons-showMoreBtn")))
-        except TimeoutException:
-            logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
-            raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", "show_more_button")
-        except Exception as e:
-            logger.info("Exception raised in locate_element for show_more_button")
-            raise UiCouldNotLocateElementException("Exception raised in locate_element for show_more_button", "show_more_button", e)
+                logger.info("Waiting for the Language and Speech button...")
+                language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
+                logger.info("Clicking the language and speech button...")
+                self.click_element(language_and_speech_button, "language_and_speech_button")
 
-        logger.info("Clicking the show more button...")
-        self.click_element(show_more_button, "show_more_button")
+                logger.info("Waiting for the closed captions button...")
+                closed_captions_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.ID, "closed-captions-button")), wait_time_seconds=10)
+                logger.info("Clicking the closed captions button...")
+                self.click_element(closed_captions_button, "closed_captions_button")
+                return
+            except TimeoutException:
+                logger.info(f"Timeout waiting for element, attempt {attempt_index + 1} of {num_attempts}")
+                self.look_for_denied_your_request_element("click_captions_button")
 
-        logger.info("Waiting for the Language and Speech button...")
-        language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
-        logger.info("Clicking the language and speech button...")
-        self.click_element(language_and_speech_button, "language_and_speech_button")
+                last_check_timed_out = attempt_index == num_attempts - 1
+                if last_check_timed_out:
+                    logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
+                    raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", "show_more_button")
 
-        logger.info("Waiting for the closed captions button...")
-        closed_captions_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.ID, "closed-captions-button")), wait_time_seconds=10)
-        logger.info("Clicking the closed captions button...")
-        self.click_element(closed_captions_button, "closed_captions_button")
+            except Exception as e:
+                logger.info("Exception raised in locate_element for show_more_button")
+                raise UiCouldNotLocateElementException("Exception raised in locate_element for show_more_button", "show_more_button", e)
+            
+    def look_for_denied_your_request_element(self, step):
+        denied_your_request_element = self.find_element_by_selector(
+            By.XPATH,
+            '//*[contains(text(), "but you were denied access to the meeting")]',
+        )
+        if denied_your_request_element:
+            logger.info("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
+            dismiss_button = self.locate_element(step="closed_captions_button", 
+                                                 condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="calling-retry-cancelbutton"]')), 
+                                                 wait_time_seconds=2)
+            if dismiss_button:
+                logger.info("Clicking the dismiss button...")
+                self.click_element(dismiss_button, "dismiss_button")
+            raise UiRequestToJoinDeniedException("Someone in the call denied your request to join", step)
 
     def select_speaker_view(self):
         logger.info("Waiting for the view button...")
