@@ -65,7 +65,7 @@ class TeamsUIMethods:
         self.click_element(camera_button, "turn_off_camera_button")
 
     def fill_out_name_input(self):
-        num_attempts = 60
+        num_attempts = 30
         logger.info("Waiting for the name input field...")
         for attempt_index in range(num_attempts):
             try:
@@ -74,7 +74,6 @@ class TeamsUIMethods:
                 name_input.send_keys(self.display_name)
                 return
             except TimeoutException as e:
-                logger.info(f"Could not find name input, retrying index = {attempt_index}")
                 last_check_timed_out = attempt_index == num_attempts - 1
                 if last_check_timed_out:
                     logger.info("Could not find name input. Timed out. Raising UiCouldNotLocateElementException")
