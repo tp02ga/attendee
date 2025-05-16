@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
@@ -241,7 +242,7 @@ class GoogleMeetUIMethods:
             logger.info(f"Error turning off reactions: {e}")
 
     def attempt_to_turn_off_reactions(self):
-        logger.info(f"Attempting to turn off reactions")
+        logger.info("Attempting to turn off reactions")
         logger.info("Waiting for the more options button...")
         MORE_OPTIONS_BUTTON_SELECTOR = 'button[jsname="NakZHc"][aria-label="More options"]'
         more_options_button = self.locate_element(
@@ -411,7 +412,8 @@ class GoogleMeetUIMethods:
         if self.google_meet_closed_captions_language:
             self.select_language(self.google_meet_closed_captions_language)
 
-        self.turn_off_reactions()
+        if os.getenv("DO_NOT_RECORD_MEETING_REACTIONS"):
+            self.turn_off_reactions()
 
         self.ready_to_show_bot_image()
 
