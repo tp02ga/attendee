@@ -137,7 +137,6 @@ class TeamsUIMethods:
     def look_for_we_could_not_connect_you_element(self, step):
         we_could_not_connect_you_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "we couldn\'t connect you")]')
         if we_could_not_connect_you_element:
-            # This means google is blocking us for whatever reason, but we can retry
             logger.info("Teams is blocking us for whatever reason, but we can retry. Raising UiTeamsBlockingUsException")
             raise UiTeamsBlockingUsException("Teams is blocking us for whatever reason, but we can retry", step)
 

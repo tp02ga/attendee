@@ -758,11 +758,11 @@ class BotController:
             self.cleanup()
             return
 
-        if message.get("message") == BotAdapter.Messages.BLOCKED_BY_GOOGLE_REPEATEDLY:
+        if message.get("message") == BotAdapter.Messages.BLOCKED_BY_PLATFORM_REPEATEDLY:
             from bots.tasks.restart_bot_pod_task import restart_bot_pod
 
             if self.bot_in_db.created_at < timezone.now() - timedelta(minutes=15):
-                logger.info("Received message that we were blocked by google repeatedly but bot was created more than 15 minutes ago, so not recreating pod")
+                logger.info("Received message that we were blocked by platform repeatedly but bot was created more than 15 minutes ago, so not recreating pod")
 
                 new_bot_event = BotEventManager.create_event(
                     bot=self.bot_in_db,
@@ -775,7 +775,7 @@ class BotController:
                 self.cleanup()
                 return
 
-            logger.info("Received message that we were blocked by google repeatedly, so recreating pod")
+            logger.info("Received message that we were blocked by platform repeatedly, so recreating pod")
             # Run task to restart the bot pod with 1 minute delay
             restart_bot_pod.apply_async(args=[self.bot_in_db.id], countdown=60)
             # Don't do the normal cleanup tasks because we'll be restarting the pod
