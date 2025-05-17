@@ -68,6 +68,7 @@ def process_utterance(self, utterance_id):
                 # Keep the audio blob around if it fails
                 utterance.failure_data = failure_data
                 utterance.save()
+                logger.info(f"Transcription failed for utterance {utterance_id}, failure data: {failure_data}")
                 return
 
         utterance.audio_blob = b""  # set the audio blob binary field to empty byte string
