@@ -199,7 +199,7 @@ class StyleManager {
 
     start() {
         this.startSilenceDetection();
-        //this.makeMainVideoFillFrame();
+        this.makeMainVideoFillFrame();
 
         console.log('Started StyleManager');
     }
