@@ -1,5 +1,6 @@
 import logging
 import time
+
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -100,12 +101,12 @@ class TeamsUIMethods:
             if len(self.participants_info) > 1:
                 logger.info("Waiting room timeout exceeded, but there is more than one participant in the meeting. Not aborting join attempt.")
                 return
-            
+
             try:
                 self.click_cancel_join_button()
-            except Exception as e:
+            except Exception:
                 logger.info("Error clicking cancel join button, but not a fatal error")
-                
+
             self.abort_join_attempt()
             logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
             raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", step)
@@ -212,10 +213,6 @@ class TeamsUIMethods:
 
     def click_cancel_join_button(self):
         logger.info("Waiting for the cancel button...")
-        cancel_button = self.locate_element(
-            step="cancel_button", 
-            condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="prejoin-cancel-button"]')), 
-            wait_time_seconds=10
-        )
+        cancel_button = self.locate_element(step="cancel_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="prejoin-cancel-button"]')), wait_time_seconds=10)
         logger.info("Clicking the cancel button...")
         self.click_element(cancel_button, "cancel_button")
