@@ -113,7 +113,7 @@ class TeamsUIMethods:
             except Exception as e:
                 logger.info("Exception raised in locate_element for show_more_button")
                 raise UiCouldNotLocateElementException("Exception raised in locate_element for show_more_button", "show_more_button", e)
-            
+
     def look_for_denied_your_request_element(self, step):
         denied_your_request_element = self.find_element_by_selector(
             By.XPATH,
@@ -121,9 +121,7 @@ class TeamsUIMethods:
         )
         if denied_your_request_element:
             logger.info("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
-            dismiss_button = self.locate_element(step="closed_captions_button", 
-                                                 condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="calling-retry-cancelbutton"]')), 
-                                                 wait_time_seconds=2)
+            dismiss_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="calling-retry-cancelbutton"]')), wait_time_seconds=2)
             if dismiss_button:
                 logger.info("Clicking the dismiss button...")
                 self.click_element(dismiss_button, "dismiss_button")
