@@ -151,8 +151,8 @@ class StyleManager {
         // Function to remove width and height from inline styles
         function adjustCentralElementSize(element) {
             if (element.style) {
-                element.style.width = '1920px';
-                element.style.height = '1080px';
+                element.style.width = `${window.initialData.videoFrameWidth}px`;
+                element.style.height = `${window.initialData.videoFrameHeight}px`;
             }
         }
         
@@ -817,7 +817,7 @@ class WebSocketClient {
               const currentTime = performance.now();
               if (currentTime - this.lastVideoFrameTime >= 500 && this.mediaSendingEnabled) {
                   // Create black frame data (I420 format)
-                  const width = 1920, height = 1080;
+                  const width = window.initialData.videoFrameWidth, height = window.initialData.videoFrameHeight;
                   const yPlaneSize = width * height;
                   const uvPlaneSize = (width * height) / 4;
                   
