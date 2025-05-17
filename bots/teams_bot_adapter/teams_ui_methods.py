@@ -10,9 +10,11 @@ from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiC
 
 logger = logging.getLogger(__name__)
 
+
 class UiTeamsBlockingUsException(UiRetryableExpectedException):
     def __init__(self, message, step=None, inner_exception=None):
         super().__init__(message, step, inner_exception)
+
 
 class TeamsUIMethods:
     def __init__(self, driver, meeting_url, display_name):
