@@ -101,6 +101,9 @@ def get_transcription_via_gladia(utterance):
     files = {"audio": ("file.mp3", payload_mp3, "audio/mpeg")}
     upload_response = requests.request("POST", upload_url, headers=headers, files=files)
 
+    if upload_response.status_code == 401:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
+
     if upload_response.status_code != 200 and upload_response.status_code != 201:
         return None, {"reason": TranscriptionFailureReasons.AUDIO_UPLOAD_FAILED, "status_code": upload_response.status_code}
 
@@ -248,6 +251,9 @@ def get_transcription_via_openai(utterance):
     if recording.bot.openai_transcription_prompt():
         files["prompt"] = (None, recording.bot.openai_transcription_prompt())
     response = requests.post(url, headers=headers, files=files)
+
+    if response.status_code == 401:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
 
     if response.status_code != 200:
         logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
