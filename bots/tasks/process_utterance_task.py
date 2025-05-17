@@ -31,6 +31,8 @@ def get_transcription(utterance, recording):
             transcription, failure_data = get_transcription_via_openai(utterance)
         else:
             raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
+        
+        return transcription, failure_data
     except Exception as e:
         return None, {"reason": TranscriptionFailureReasons.INTERNAL_ERROR, "error": str(e)}
 
@@ -157,7 +159,7 @@ def get_transcription_via_gladia(utterance):
             transcription["words"] = all_words
             del transcription["utterances"]
 
-            return transcription
+            return transcription, None
 
         elif status == "error":
             error_code = result_data.get("error_code")
@@ -182,6 +184,7 @@ def get_transcription_via_deepgram(utterance):
         DeepgramClient,
         FileSource,
         PrerecordedOptions,
+        DeepgramApiError,
     )
 
     recording = utterance.recording
@@ -210,9 +213,16 @@ def get_transcription_via_deepgram(utterance):
 
     deepgram = DeepgramClient(deepgram_credentials["api_key"])
 
-    response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+    try:
+        response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+    except DeepgramApiError as e:
+        original_error_json = json.loads(e.original_error)
+        if original_error_json.get("err_code") == "INVALID_AUTH":
+            return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error_code": original_error_json.get("err_code")}
+
     logger.info(f"Deepgram transcription complete with model {deepgram_model}")
-    return json.loads(response.results.channels[0].alternatives[0].to_json())
+    return json.loads(response.results.channels[0].alternatives[0].to_json()), None
 
 
 def get_transcription_via_openai(utterance):
@@ -248,4 +258,4 @@ def get_transcription_via_openai(utterance):
     # Format the response to match our expected schema
     transcription = {"transcript": result.get("text", "")}
 
-    return transcription
+    return transcription, None
