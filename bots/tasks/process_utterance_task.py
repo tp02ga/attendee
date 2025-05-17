@@ -7,8 +7,32 @@ from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
-from bots.models import Credentials, RecordingManager, TranscriptionProviders, Utterance
+from bots.models import Credentials, RecordingManager, TranscriptionFailureReasons, TranscriptionProviders, Utterance
 from bots.utils import pcm_to_mp3
+
+
+def is_retryable_failure(failure_data):
+    return failure_data.get("reason") in [
+        TranscriptionFailureReasons.AUDIO_UPLOAD_FAILED,
+        TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED,
+        TranscriptionFailureReasons.TIMED_OUT,
+        TranscriptionFailureReasons.RATE_LIMIT_EXCEEDED,
+        TranscriptionFailureReasons.INTERNAL_ERROR,
+    ]
+
+
+def get_transcription(utterance, recording):
+    try:
+        if recording.transcription_provider == TranscriptionProviders.DEEPGRAM:
+            transcription, failure_data = get_transcription_via_deepgram(utterance)
+        elif recording.transcription_provider == TranscriptionProviders.GLADIA:
+            transcription, failure_data = get_transcription_via_gladia(utterance)
+        elif recording.transcription_provider == TranscriptionProviders.OPENAI:
+            transcription, failure_data = get_transcription_via_openai(utterance)
+        else:
+            raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
+    except Exception as e:
+        return None, {"reason": TranscriptionFailureReasons.INTERNAL_ERROR, "error": str(e)}
 
 
 @shared_task(
@@ -25,17 +49,27 @@ def process_utterance(self, utterance_id):
     recording = utterance.recording
     RecordingManager.set_recording_transcription_in_progress(recording)
 
-    if utterance.transcription is None:
-        if recording.transcription_provider == TranscriptionProviders.DEEPGRAM:
-            utterance.transcription = get_transcription_via_deepgram(utterance)
-        elif recording.transcription_provider == TranscriptionProviders.GLADIA:
-            utterance.transcription = get_transcription_via_gladia(utterance)
-        elif recording.transcription_provider == TranscriptionProviders.OPENAI:
-            utterance.transcription = get_transcription_via_openai(utterance)
-        else:
-            raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
+    if utterance.failure_data:
+        logger.info(f"process_utterance was called for utterance {utterance_id} but it has already failed, skipping")
+        return
 
-        utterance.audio_blob = b""  # set the binary field to empty byte string
+    if utterance.transcription is None:
+        utterance.transcription_attempt_count += 1
+
+        transcription, failure_data = get_transcription(utterance, recording)
+
+        if failure_data:
+            if utterance.transcription_attempt_count < 5 and is_retryable_failure(failure_data):
+                utterance.save()
+                raise Exception(f"Retryable failure when transcribing utterance {utterance_id}: {failure_data}")
+            else:
+                # Keep the audio blob around if it fails
+                utterance.failure_data = failure_data
+                utterance.save()
+                return
+
+        utterance.audio_blob = b""  # set the audio blob binary field to empty byte string
+        utterance.transcription = transcription
         utterance.save()
 
         logger.info(f"Transcription complete for utterance {utterance_id}")
@@ -49,11 +83,11 @@ def get_transcription_via_gladia(utterance):
     recording = utterance.recording
     gladia_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.GLADIA).first()
     if not gladia_credentials_record:
-        raise Exception("Gladia credentials record not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     gladia_credentials = gladia_credentials_record.get_credentials()
     if not gladia_credentials:
-        raise Exception("Gladia credentials not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     upload_url = "https://api.gladia.io/v2/upload"
 
@@ -65,7 +99,7 @@ def get_transcription_via_gladia(utterance):
     upload_response = requests.request("POST", upload_url, headers=headers, files=files)
 
     if upload_response.status_code != 200 and upload_response.status_code != 201:
-        raise Exception(f"Gladia upload failed with status code {upload_response.status_code}")
+        return None, {"reason": TranscriptionFailureReasons.AUDIO_UPLOAD_FAILED, "status_code": upload_response.status_code}
 
     upload_response_json = upload_response.json()
     audio_url = upload_response_json["audio_url"]
@@ -80,7 +114,7 @@ def get_transcription_via_gladia(utterance):
     transcribe_response = requests.request("POST", transcribe_url, headers=headers, json=transcribe_request_body)
 
     if transcribe_response.status_code != 200 and transcribe_response.status_code != 201:
-        raise Exception(f"Gladia transcription failed with status code {transcribe_response.status_code}")
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "step": "transcribe_request", "status_code": transcribe_response.status_code}
 
     transcribe_response_json = transcribe_response.json()
     result_url = transcribe_response_json["result_url"]
@@ -127,7 +161,7 @@ def get_transcription_via_gladia(utterance):
 
         elif status == "error":
             error_code = result_data.get("error_code")
-            raise Exception(f"Gladia transcription failed with error code: {error_code}")
+            return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "step": "transcribe_result_poll", "error_code": error_code}
 
         elif status in ["queued", "processing"]:
             # Still processing, wait and retry
@@ -137,10 +171,10 @@ def get_transcription_via_gladia(utterance):
 
         else:
             # Unknown status
-            raise Exception(f"Gladia transcription returned unknown status: {status}")
+            return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "step": "transcribe_result_poll", "status": status}
 
     # If we've reached here, we've timed out
-    raise Exception("Gladia transcription timed out after maximum retries")
+    return None, {"reason": TranscriptionFailureReasons.TIMED_OUT, "step": "transcribe_result_poll"}
 
 
 def get_transcription_via_deepgram(utterance):
@@ -168,11 +202,11 @@ def get_transcription_via_deepgram(utterance):
 
     deepgram_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.DEEPGRAM).first()
     if not deepgram_credentials_record:
-        raise Exception("Deepgram credentials record not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     deepgram_credentials = deepgram_credentials_record.get_credentials()
     if not deepgram_credentials:
-        raise Exception("Deepgram credentials not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     deepgram = DeepgramClient(deepgram_credentials["api_key"])
 
@@ -185,11 +219,11 @@ def get_transcription_via_openai(utterance):
     recording = utterance.recording
     openai_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.OPENAI).first()
     if not openai_credentials_record:
-        raise Exception("OpenAI credentials record not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     openai_credentials = openai_credentials_record.get_credentials()
     if not openai_credentials:
-        raise Exception("OpenAI credentials not found")
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
     # Convert PCM audio to MP3
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
@@ -206,7 +240,7 @@ def get_transcription_via_openai(utterance):
 
     if response.status_code != 200:
         logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
-        raise Exception(f"OpenAI transcription failed with status code {response.status_code}")
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code}
 
     result = response.json()
     logger.info("OpenAI transcription completed successfully")

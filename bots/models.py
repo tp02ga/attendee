@@ -1017,8 +1017,21 @@ class RecordingManager:
     def is_terminal_state(cls, state: int):
         return state == RecordingStates.COMPLETE or state == RecordingStates.FAILED
 
+class TranscriptionFailureReasons(models.TextChoices):
+    CREDENTIALS_NOT_FOUND = "credentials_not_found"
+    CREDENTIALS_INVALID = "credentials_invalid"
+    RATE_LIMIT_EXCEEDED = "rate_limit_exceeded"
+    AUDIO_UPLOAD_FAILED = "audio_upload_failed"
+    TRANSCRIPTION_REQUEST_FAILED = "transcription_request_failed"
+    TIMED_OUT = "timed_out"
+    INTERNAL_ERROR = "internal_error"
+
 
 class Utterance(models.Model):
+    # If transcription is None and failure_data is not None, then the transcription failed
+    # If transcription is not None and failure_data is None, then the transcription succeeded
+    # If transcription is None and failure_data is None, then the transcription is in progress
+
     class Sources(models.IntegerChoices):
         PER_PARTICIPANT_AUDIO = 1, "Per Participant Audio"
         CLOSED_CAPTION_FROM_PLATFORM = 2, "Closed Caption From Platform"
@@ -1034,6 +1047,9 @@ class Utterance(models.Model):
     timestamp_ms = models.BigIntegerField()
     duration_ms = models.IntegerField()
     transcription = models.JSONField(null=True, default=None)
+    # To keep track of how many retries we've done for this utterance
+    transcription_attempt_count = models.IntegerField(default=0)
+    failure_data = models.JSONField(null=True, default=None)
     source_uuid = models.CharField(max_length=255, null=True, unique=True)
     sample_rate = models.IntegerField(null=True, default=None)
 
