@@ -263,7 +263,7 @@ class GoogleMeetUIMethods:
         self.click_element(settings_list_item, "settings_list_item")
 
         logger.info("Waiting for the reactions tab...")
-        reactions_tab = self.locate_element(
+        self.locate_element(
             step="reactions_tab",
             condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'button[aria-label="Reactions"]')),
             wait_time_seconds=6,
@@ -412,7 +412,7 @@ class GoogleMeetUIMethods:
         if self.google_meet_closed_captions_language:
             self.select_language(self.google_meet_closed_captions_language)
 
-        if os.getenv("DO_NOT_RECORD_MEETING_REACTIONS"):
+        if os.getenv("DO_NOT_RECORD_MEETING_REACTIONS") == "true":
             self.turn_off_reactions()
 
         self.ready_to_show_bot_image()
