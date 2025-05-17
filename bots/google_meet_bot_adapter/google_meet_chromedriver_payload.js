@@ -683,7 +683,7 @@ class WebSocketClient {
   We no longer need this because we're not using MediaStreamTrackProcessor's
   getBlackFrame() {
     // Create black frame data (I420 format)
-    const width = 1920, height = 1080;
+    const width = window.initialData.videoFrameWidth, height = window.initialData.videoFrameHeight;
     const yPlaneSize = width * height;
     const uvPlaneSize = (width * height) / 4;
 

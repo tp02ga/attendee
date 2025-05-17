@@ -84,6 +84,7 @@ class BotController:
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
             start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
             stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
+            video_frame_size=self.bot_in_db.recording_dimensions(),
         )
 
     def get_teams_bot_adapter(self):
@@ -104,6 +105,7 @@ class BotController:
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
             start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
             stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
+            video_frame_size=self.bot_in_db.recording_dimensions(),
         )
 
     def get_zoom_bot_adapter(self):
@@ -133,6 +135,7 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
             automatic_leave_configuration=self.automatic_leave_configuration,
+            video_frame_size=self.bot_in_db.recording_dimensions(),
         )
 
     def get_meeting_type(self):
@@ -391,7 +394,7 @@ class BotController:
         if self.should_create_gstreamer_pipeline():
             self.gstreamer_pipeline = GstreamerPipeline(
                 on_new_sample_callback=self.on_new_sample_from_gstreamer_pipeline,
-                video_frame_size=(1920, 1080),
+                video_frame_size=self.bot_in_db.recording_dimensions(),
                 audio_format=self.get_audio_format(),
                 output_format=self.get_gstreamer_output_format(),
                 num_audio_sources=self.get_num_audio_sources(),
@@ -404,6 +407,7 @@ class BotController:
         if self.should_create_screen_and_audio_recorder():
             self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
+                recording_dimensions=self.bot_in_db.recording_dimensions(),
             )
 
         self.adapter = self.get_bot_adapter()
