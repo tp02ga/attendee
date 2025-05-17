@@ -31,7 +31,7 @@ def get_transcription(utterance, recording):
             transcription, failure_data = get_transcription_via_openai(utterance)
         else:
             raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
-        
+
         return transcription, failure_data
     except Exception as e:
         return None, {"reason": TranscriptionFailureReasons.INTERNAL_ERROR, "error": str(e)}
@@ -185,10 +185,10 @@ def get_transcription_via_gladia(utterance):
 
 def get_transcription_via_deepgram(utterance):
     from deepgram import (
+        DeepgramApiError,
         DeepgramClient,
         FileSource,
         PrerecordedOptions,
-        DeepgramApiError,
     )
 
     recording = utterance.recording

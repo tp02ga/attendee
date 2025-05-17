@@ -1017,6 +1017,7 @@ class RecordingManager:
     def is_terminal_state(cls, state: int):
         return state == RecordingStates.COMPLETE or state == RecordingStates.FAILED
 
+
 class TranscriptionFailureReasons(models.TextChoices):
     CREDENTIALS_NOT_FOUND = "credentials_not_found"
     CREDENTIALS_INVALID = "credentials_invalid"
