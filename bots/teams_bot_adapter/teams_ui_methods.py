@@ -6,9 +6,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
+
+
+class UiTeamsBlockingUsException(UiRetryableExpectedException):
+    def __init__(self, message, step=None, inner_exception=None):
+        super().__init__(message, step, inner_exception)
 
 
 class TeamsUIMethods:
@@ -119,16 +124,23 @@ class TeamsUIMethods:
             try:
                 show_more_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.ID, "callingButtons-showMoreBtn")))
                 logger.info("Clicking the show more button...")
-                self.click_element(show_more_button, "show_more_button")
+                self.click_element(show_more_button, "click_show_more_button")
                 return
             except TimeoutException:
                 self.look_for_denied_your_request_element("click_show_more_button")
+                self.look_for_we_could_not_connect_you_element("click_show_more_button")
 
                 self.check_if_waiting_room_timeout_exceeded(waiting_room_timeout_started_at, "click_show_more_button")
 
             except Exception as e:
                 logger.info("Exception raised in locate_element for show_more_button")
-                raise UiCouldNotLocateElementException("Exception raised in locate_element for show_more_button", "show_more_button", e)
+                raise UiCouldNotLocateElementException("Exception raised in locate_element for click_show_more_button", "click_show_more_button", e)
+
+    def look_for_we_could_not_connect_you_element(self, step):
+        we_could_not_connect_you_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "we couldn\'t connect you")]')
+        if we_could_not_connect_you_element:
+            logger.info("Teams is blocking us for whatever reason, but we can retry. Raising UiTeamsBlockingUsException")
+            raise UiTeamsBlockingUsException("Teams is blocking us for whatever reason, but we can retry", step)
 
     def look_for_denied_your_request_element(self, step):
         denied_your_request_element = self.find_element_by_selector(
