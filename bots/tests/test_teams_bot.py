@@ -6,8 +6,9 @@ from django.db import connection
 from django.test import TransactionTestCase
 
 from bots.bot_controller.bot_controller import BotController
-from bots.models import Bot, BotEventManager, BotEventTypes, BotStates, Recording, RecordingTypes, TranscriptionTypes, TranscriptionProviders, Organization, Project
+from bots.models import Bot, BotEventManager, BotEventTypes, BotStates, Organization, Project, Recording, RecordingTypes, TranscriptionProviders, TranscriptionTypes
 from bots.teams_bot_adapter.teams_ui_methods import UiTeamsBlockingUsException
+
 
 # Helper functions for creating mocks
 def create_mock_file_uploader():
@@ -17,6 +18,7 @@ def create_mock_file_uploader():
     mock_file_uploader.delete_file.return_value = None
     mock_file_uploader.key = "test-recording-key"
     return mock_file_uploader
+
 
 def create_mock_teams_driver():
     mock_driver = MagicMock()
@@ -94,12 +96,10 @@ class TestTeamsBot(TransactionTestCase):
             time.sleep(4)
 
             # Verify the attempt_to_join_meeting method was called twice
-            self.assertEqual(mock_attempt_to_join.call_count, 2, 
-                             "attempt_to_join_meeting should be called twice - once for the initial failure and once for the retry")
+            self.assertEqual(mock_attempt_to_join.call_count, 2, "attempt_to_join_meeting should be called twice - once for the initial failure and once for the retry")
 
             # Verify joining succeeded after retry by checking that these methods were called
-            self.assertTrue(mock_driver.execute_script.called, 
-                            "execute_script should be called after successful retry")
+            self.assertTrue(mock_driver.execute_script.called, "execute_script should be called after successful retry")
 
             # Now wait for the thread to finish naturally
             bot_thread.join(timeout=5)  # Give it time to clean up
