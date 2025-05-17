@@ -261,6 +261,13 @@ class Bot(models.Model):
             recording_settings = {}
         return recording_settings.get("format", RecordingFormats.MP4)
 
+    def recording_dimensions(self):
+        recording_settings = self.settings.get("recording_settings", {})
+        if recording_settings is None:
+            recording_settings = {}
+        resolution_value = recording_settings.get("resolution", RecordingResolutions.HD_1080P)
+        return RecordingResolutions.get_dimensions(resolution_value)
+
     def recording_view(self):
         recording_settings = self.settings.get("recording_settings", {})
         if recording_settings is None:
@@ -828,6 +835,20 @@ class RecordingTranscriptionStates(models.IntegerChoices):
 class RecordingTypes(models.IntegerChoices):
     AUDIO_AND_VIDEO = 1, "Audio and Video"
     AUDIO_ONLY = 2, "Audio Only"
+
+
+class RecordingResolutions(models.TextChoices):
+    HD_1080P = "1080p"
+    HD_720P = "720p"
+
+    @classmethod
+    def get_dimensions(cls, value):
+        """Returns the width and height for a given resolution value"""
+        dimensions = {
+            cls.HD_1080P: (1920, 1080),
+            cls.HD_720P: (1280, 720),
+        }
+        return dimensions.get(value)
 
 
 class TranscriptionTypes(models.IntegerChoices):
