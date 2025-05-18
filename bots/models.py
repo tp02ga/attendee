@@ -683,8 +683,8 @@ class BotEventManager:
     @classmethod
     def after_transition_to_post_meeting_state(cls, bot: Bot, event_type: BotEventTypes, new_state: BotStates) -> dict:
         additional_event_metadata = {}
-        additional_event_metadata['bot_duration_seconds'] = bot.bot_duration_seconds()
-        
+        additional_event_metadata["bot_duration_seconds"] = bot.bot_duration_seconds()
+
         # If there is an in progress recording, terminate it
         in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
         if in_progress_recordings.count() > 1:
@@ -693,10 +693,10 @@ class BotEventManager:
             RecordingManager.terminate_recording(recording)
         for failed_transcription_recording in bot.recordings.filter(transcription_state=RecordingTranscriptionStates.FAILED):
             # Collect all transcription errors
-            if failed_transcription_recording.transcription_failure_data and failed_transcription_recording.transcription_failure_data.get('failure_reasons'):
-                if 'transcription_errors' not in additional_event_metadata:
-                    additional_event_metadata['transcription_errors'] = []
-                additional_event_metadata['transcription_errors'].extend(failed_transcription_recording.transcription_failure_data['failure_reasons'])
+            if failed_transcription_recording.transcription_failure_data and failed_transcription_recording.transcription_failure_data.get("failure_reasons"):
+                if "transcription_errors" not in additional_event_metadata:
+                    additional_event_metadata["transcription_errors"] = []
+                additional_event_metadata["transcription_errors"].extend(failed_transcription_recording.transcription_failure_data["failure_reasons"])
 
         if settings.CHARGE_CREDITS_FOR_BOTS and cls.bot_event_type_should_incur_charges(event_type):
             centicredits_consumed = bot.centicredits_consumed()
@@ -707,7 +707,7 @@ class BotEventManager:
                     bot=bot,
                     description=f"For bot {bot.object_id}",
                 )
-                additional_event_metadata['credits_consumed'] = centicredits_consumed / 100
+                additional_event_metadata["credits_consumed"] = centicredits_consumed / 100
 
         return additional_event_metadata
 
@@ -981,16 +981,16 @@ class RecordingManager:
                 RecordingManager.set_recording_complete(recording)
             else:
                 RecordingManager.set_recording_failed(recording)
-        
+
         if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS:
             # We'll mark it as failed if there are any failed utterances or any in progress utterances
-            any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()               
+            any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()
             any_failed_utterances = recording.utterances.filter(failure_data__isnull=False).exists()
             if any_failed_utterances or any_in_progress_utterances:
-                failure_reasons = list(recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct())
+                failure_reasons = list(recording.utterances.filter(failure_data__has_key="reason").values_list("failure_data__reason", flat=True).distinct())
                 if any_in_progress_utterances:
                     failure_reasons.append(TranscriptionFailureReasons.RECORDING_TERMINATED)
-                RecordingManager.set_recording_transcription_failed(recording, failure_data={'failure_reasons': failure_reasons})
+                RecordingManager.set_recording_transcription_failed(recording, failure_data={"failure_reasons": failure_reasons})
             else:
                 RecordingManager.set_recording_transcription_complete(recording)
 

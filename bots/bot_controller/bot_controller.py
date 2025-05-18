@@ -306,12 +306,12 @@ class BotController:
             if not in_progress_utterances.exists():
                 logger.info(f"All utterances are terminated for bot {self.bot_in_db.id}")
                 return
-            
-            logger.info(f"Waiting for {len(in_progress_utterances)} utterances to terminate. It has been {time.time() - start_time} seconds. We will wait {wait_time_seconds} seconds.")    
+
+            logger.info(f"Waiting for {len(in_progress_utterances)} utterances to terminate. It has been {time.time() - start_time} seconds. We will wait {wait_time_seconds} seconds.")
             time.sleep(5)
 
         logger.info(f"Timed out in post-processing waiting for utterances to terminate for bot {self.bot_in_db.id}. Transcription will be marked as failed because recording terminated.")
-        
+
     def __init__(self, bot_id):
         self.bot_in_db = Bot.objects.get(id=bot_id)
         self.cleanup_called = False

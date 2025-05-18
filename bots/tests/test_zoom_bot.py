@@ -1343,7 +1343,7 @@ class TestZoomBot(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": str(mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG), 'bot_duration_seconds': 30, 'credits_consumed': 0.01},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.AUTHRET_JWTTOKENWRONG), "bot_duration_seconds": 30, "credits_consumed": 0.01},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1439,7 +1439,7 @@ class TestZoomBot(TransactionTestCase):
             could_not_join_event.event_sub_type,
             BotEventSubTypes.COULD_NOT_JOIN_MEETING_NOT_STARTED_WAITING_FOR_HOST,
         )
-        self.assertEqual(could_not_join_event.metadata, {'bot_duration_seconds': 30, 'credits_consumed': 0.01})
+        self.assertEqual(could_not_join_event.metadata, {"bot_duration_seconds": 30, "credits_consumed": 0.01})
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
         # Verify expected SDK calls
@@ -1533,7 +1533,7 @@ class TestZoomBot(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": str(mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING), 'bot_duration_seconds': 30, 'credits_consumed': 0.01},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_UNABLE_TO_JOIN_EXTERNAL_MEETING), "bot_duration_seconds": 30, "credits_consumed": 0.01},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
@@ -1627,7 +1627,7 @@ class TestZoomBot(TransactionTestCase):
             BotEventSubTypes.COULD_NOT_JOIN_MEETING_ZOOM_MEETING_STATUS_FAILED,
         )
         self.assertEqual(
-            could_not_join_event.metadata.get('zoom_result_code'),
+            could_not_join_event.metadata.get("zoom_result_code"),
             str(mock_zoom_sdk_adapter.MeetingFailCode.MEETING_FAIL_BLOCKED_BY_ACCOUNT_ADMIN),
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
@@ -1793,7 +1793,7 @@ class TestZoomBot(TransactionTestCase):
             BotEventSubTypes.FATAL_ERROR_RTMP_CONNECTION_FAILED,
         )
         self.assertEqual(
-            fatal_error_event.metadata.get('rtmp_destination_url'),
+            fatal_error_event.metadata.get("rtmp_destination_url"),
             "rtmp://example.com/live/stream/1234",
         )
 
@@ -1867,7 +1867,7 @@ class TestZoomBot(TransactionTestCase):
         )
         self.assertEqual(
             could_not_join_event.metadata,
-            {"zoom_result_code": str(mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR), 'bot_duration_seconds': 30, 'credits_consumed': 0.01},
+            {"zoom_result_code": str(mock_zoom_sdk_adapter.SDKError.SDKERR_INTERNAL_ERROR), "bot_duration_seconds": 30, "credits_consumed": 0.01},
         )
         self.assertIsNone(could_not_join_event.requested_bot_action_taken_at)
 
