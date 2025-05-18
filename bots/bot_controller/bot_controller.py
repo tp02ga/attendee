@@ -54,6 +54,9 @@ logger = logging.getLogger(__name__)
 
 
 class BotController:
+    # Default wait time for utterance termination (5 minutes)
+    UTTERANCE_TERMINATION_WAIT_TIME_SECONDS = 300
+
     def per_participant_audio_input_manager(self):
         if self.bot_in_db.deepgram_use_streaming():
             return self.per_participant_streaming_audio_input_manager
@@ -299,7 +302,7 @@ class BotController:
         default_recording = self.bot_in_db.recordings.get(is_default_recording=True)
 
         start_time = time.time()
-        wait_time_seconds = 300
+        wait_time_seconds = self.UTTERANCE_TERMINATION_WAIT_TIME_SECONDS
         while time.time() - start_time < wait_time_seconds:
             in_progress_utterances = default_recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True)
             # If no more in progress utterances, then we're done
@@ -729,6 +732,9 @@ class BotController:
             duration_ms=len(message["audio_data"]) / 64,
             sample_rate=message["sample_rate"],
         )
+
+        # Set the recording transcription in progress
+        RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
 
         # Process the utterance immediately
         process_utterance.delay(utterance.id)

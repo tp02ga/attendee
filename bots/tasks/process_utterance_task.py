@@ -49,7 +49,6 @@ def process_utterance(self, utterance_id):
     logger.info(f"Processing utterance {utterance_id}")
 
     recording = utterance.recording
-    RecordingManager.set_recording_transcription_in_progress(recording)
 
     if utterance.failure_data:
         logger.info(f"process_utterance was called for utterance {utterance_id} but it has already failed, skipping")

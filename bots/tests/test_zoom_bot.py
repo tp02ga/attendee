@@ -2215,3 +2215,157 @@ class TestZoomBot(TransactionTestCase):
 
         # Close the database connection since we're in a thread
         connection.close()
+
+    @patch(
+        "bots.zoom_bot_adapter.video_input_manager.zoom",
+        new_callable=create_mock_zoom_sdk,
+    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.tasks.process_utterance_task.process_utterance")
+    def test_bot_handles_transcription_job_never_runs(
+        self,
+        mock_process_utterance,
+        MockFileUploader,
+        mock_jwt,
+        mock_zoom_sdk_adapter,
+        mock_zoom_sdk_video,
+    ):
+        # Mock the process_utterance task to never run
+        mock_process_utterance.delay.return_value = None
+        
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+        controller.UTTERANCE_TERMINATION_WAIT_TIME_SECONDS = 1
+
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def simulate_join_flow():
+            adapter = controller.adapter
+            # Simulate successful auth
+            adapter.auth_event.onAuthenticationReturnCallback(mock_zoom_sdk_adapter.AUTHRET_SUCCESS)
+
+            # Simulate connecting
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_CONNECTING,
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS,
+            )
+
+            # Simulate successful join
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_INMEETING,
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS,
+            )
+
+            # Wait for the video input manager to be set up
+            time.sleep(2)
+
+            # Simulate audio frame received 
+            adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
+                MockPCMAudioFrame(),
+                2,  # Simulated participant ID that's not the bot
+            )
+
+            # Give time for utterance to be saved
+            time.sleep(3)
+
+            # Simulate meeting ended
+            adapter.meeting_service_event.onMeetingStatusChangedCallback(
+                mock_zoom_sdk_adapter.MEETING_STATUS_ENDED,
+                mock_zoom_sdk_adapter.SDKERR_SUCCESS,
+            )
+
+            # sleep a bit for the utterance to be saved and post-processing to complete
+            time.sleep(5)
+
+            connection.close()
+
+        # Run join flow simulation after a short delay
+        threading.Timer(3, simulate_join_flow).start()
+
+        # Give the bot some time to process
+        bot_thread.join(timeout=15)
+
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the heartbeat timestamp was set
+        self.assertIsNotNone(self.bot.first_heartbeat_timestamp)
+        self.assertIsNotNone(self.bot.last_heartbeat_timestamp)
+
+        # Assert that the bot is in the ENDED state
+        self.assertEqual(self.bot.state, BotStates.ENDED)
+
+        # Verify all bot events in sequence
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 5)  # We expect 5 events in total
+
+        # Verify join_requested_event (Event 1)
+        join_requested_event = bot_events[0]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+
+        # Verify bot_joined_meeting_event (Event 2)
+        bot_joined_meeting_event = bot_events[1]
+        self.assertEqual(bot_joined_meeting_event.event_type, BotEventTypes.BOT_JOINED_MEETING)
+
+        # Verify recording_permission_granted_event (Event 3)
+        recording_permission_granted_event = bot_events[2]
+        self.assertEqual(
+            recording_permission_granted_event.event_type,
+            BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED,
+        )
+
+        # Verify meeting_ended_event (Event 4)
+        meeting_ended_event = bot_events[3]
+        self.assertEqual(meeting_ended_event.event_type, BotEventTypes.MEETING_ENDED)
+
+        # Verify post_processing_completed_event (Event 5)
+        post_processing_completed_event = bot_events[4]
+        self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
+        
+        # Verify post processing metadata contains transcription failure info
+        self.assertIn("transcription_errors", post_processing_completed_event.metadata)
+        self.assertEqual(
+            post_processing_completed_event.metadata.get("transcription_errors"),
+            [TranscriptionFailureReasons.RECORDING_TERMINATED]
+        )
+
+        # Verify that the recording was finished successfully
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+        self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.FAILED)
+        
+        # Check the transcription failure data
+        self.assertIsNotNone(self.recording.transcription_failure_data)
+        self.assertEqual(
+            self.recording.transcription_failure_data.get("failure_reasons"),
+            [TranscriptionFailureReasons.RECORDING_TERMINATED]
+        )
+        
+        # Verify that the utterance was created but never processed
+        utterances = self.recording.utterances.all()
+        self.assertEqual(utterances.count(), 1)
+        utterance = utterances.first()
+        self.assertIsNone(utterance.transcription)
+        self.assertIsNone(utterance.failure_data)  # No failure data since the task never ran
+        
+        # Verify the process_utterance task was called but never executed
+        mock_process_utterance.delay.assert_called_once()
+
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+
+        # Close the database connection since we're in a thread
+        connection.close()
