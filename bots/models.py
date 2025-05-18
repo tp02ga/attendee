@@ -694,7 +694,7 @@ class BotEventManager:
             # Collect all transcription errors
             transcription_errors = recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct()
             if transcription_errors:
-                additional_event_metadata['transcription_errors'] = transcription_errors
+                additional_event_metadata['transcription_errors'] = list(transcription_errors)
 
         if settings.CHARGE_CREDITS_FOR_BOTS and cls.bot_event_type_should_incur_charges(event_type):
             centicredits_consumed = bot.centicredits_consumed()
@@ -983,7 +983,7 @@ class RecordingManager:
             any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()
             if any_in_progress_utterances:
                 # Set all in progress utterances to failed with the reason of recording terminated
-                recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).update(failure_data={'reason': 'Recording terminated'})
+                recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).update(failure_data={'reason': TranscriptionFailureReasons.RECORDING_TERMINATED})
 
             any_failed_utterances = recording.utterances.filter(failure_data__isnull=False).exists()
             if any_failed_utterances:
