@@ -989,7 +989,7 @@ class RecordingManager:
             if any_failed_utterances or any_in_progress_utterances:
                 failure_reasons = list(recording.utterances.filter(failure_data__has_key="reason").values_list("failure_data__reason", flat=True).distinct())
                 if any_in_progress_utterances:
-                    failure_reasons.append(TranscriptionFailureReasons.RECORDING_TERMINATED)
+                    failure_reasons.append(TranscriptionFailureReasons.UTTERANCES_STILL_IN_PROGRESS_WHEN_RECORDING_TERMINATED)
                 RecordingManager.set_recording_transcription_failed(recording, failure_data={"failure_reasons": failure_reasons})
             else:
                 RecordingManager.set_recording_transcription_complete(recording)
@@ -1096,7 +1096,7 @@ class TranscriptionFailureReasons(models.TextChoices):
     TIMED_OUT = "timed_out"
     INTERNAL_ERROR = "internal_error"
     # This reason applies to the transcription operation as a whole, not a specific utterance
-    RECORDING_TERMINATED = "recording_terminated"
+    UTTERANCES_STILL_IN_PROGRESS_WHEN_RECORDING_TERMINATED = "utterances_still_in_progress_when_recording_terminated"
 
 
 class Utterance(models.Model):

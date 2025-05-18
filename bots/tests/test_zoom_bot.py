@@ -2336,7 +2336,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify post processing metadata contains transcription failure info
         self.assertIn("transcription_errors", post_processing_completed_event.metadata)
-        self.assertEqual(post_processing_completed_event.metadata.get("transcription_errors"), [TranscriptionFailureReasons.RECORDING_TERMINATED])
+        self.assertEqual(post_processing_completed_event.metadata.get("transcription_errors"), [TranscriptionFailureReasons.UTTERANCES_STILL_IN_PROGRESS_WHEN_RECORDING_TERMINATED])
 
         # Verify that the recording was finished successfully
         self.recording.refresh_from_db()
@@ -2345,7 +2345,7 @@ class TestZoomBot(TransactionTestCase):
 
         # Check the transcription failure data
         self.assertIsNotNone(self.recording.transcription_failure_data)
-        self.assertEqual(self.recording.transcription_failure_data.get("failure_reasons"), [TranscriptionFailureReasons.RECORDING_TERMINATED])
+        self.assertEqual(self.recording.transcription_failure_data.get("failure_reasons"), [TranscriptionFailureReasons.UTTERANCES_STILL_IN_PROGRESS_WHEN_RECORDING_TERMINATED])
 
         # Verify that the utterance was created but never processed
         utterances = self.recording.utterances.all()
