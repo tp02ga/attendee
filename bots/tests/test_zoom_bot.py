@@ -33,9 +33,9 @@ from bots.models import (
     RecordingStates,
     RecordingTranscriptionStates,
     RecordingTypes,
+    TranscriptionFailureReasons,
     TranscriptionProviders,
     TranscriptionTypes,
-    TranscriptionFailureReasons,
 )
 from bots.utils import mp3_to_pcm, png_to_yuv420_frame, scale_i420
 
@@ -2083,10 +2083,11 @@ class TestZoomBot(TransactionTestCase):
         mock_zoom_sdk_video,
     ):
         import deepgram
+
         # Set up Deepgram mock to raise an error for invalid credentials
         mock_deepgram = create_mock_deepgram()
         # Simulate invalid credentials error from Deepgram
-        deepgram_api_error = deepgram.DeepgramApiError(message="Invalid authentication",status="401",original_error='{"err_code": "INVALID_AUTH", "err_msg": "Invalid authentication"}')
+        deepgram_api_error = deepgram.DeepgramApiError(message="Invalid authentication", status="401", original_error='{"err_code": "INVALID_AUTH", "err_msg": "Invalid authentication"}')
         mock_deepgram.listen.rest.v.return_value.transcribe_file.side_effect = deepgram_api_error
         MockDeepgramClient.return_value = mock_deepgram
 
@@ -2104,8 +2105,6 @@ class TestZoomBot(TransactionTestCase):
         bot_thread = threading.Thread(target=controller.run)
         bot_thread.daemon = True
         bot_thread.start()
-
-        uploaded_data = []
 
         def simulate_join_flow():
             adapter = controller.adapter
@@ -2189,25 +2188,19 @@ class TestZoomBot(TransactionTestCase):
         # Verify post_processing_completed_event (Event 5)
         post_processing_completed_event = bot_events[4]
         self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
-        
+
         # Verify post processing metadata contains transcription failure info
-        self.assertEqual(
-            post_processing_completed_event.metadata.get("transcription_errors"),
-            [TranscriptionFailureReasons.CREDENTIALS_INVALID]
-        )
+        self.assertEqual(post_processing_completed_event.metadata.get("transcription_errors"), [TranscriptionFailureReasons.CREDENTIALS_INVALID])
 
         # Verify that the recording was finished successfully
         self.recording.refresh_from_db()
         self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
         self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.FAILED)
-        
+
         # Check the transcription failure data
         self.assertIsNotNone(self.recording.transcription_failure_data)
-        self.assertEqual(
-            self.recording.transcription_failure_data.get("failure_reasons"),
-            [TranscriptionFailureReasons.CREDENTIALS_INVALID]
-        )
-        
+        self.assertEqual(self.recording.transcription_failure_data.get("failure_reasons"), [TranscriptionFailureReasons.CREDENTIALS_INVALID])
+
         # Verify that the utterance has the expected failure data
         utterances = self.recording.utterances.all()
         self.assertEqual(utterances.count(), 1)
