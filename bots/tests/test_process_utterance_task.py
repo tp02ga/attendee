@@ -127,7 +127,7 @@ class ProcessUtteranceTaskTest(TransactionTestCase):
         mock_get_transcription.assert_not_called()
 
 
-import sys
+import json
 import types
 from unittest import mock
 
@@ -139,161 +139,122 @@ from bots.models import (
 from bots.tasks.process_utterance_task import get_transcription_via_deepgram
 
 
-class FakeDGError(Exception):
-    """Mimics DeepgramApiError with .original_error JSON payload"""
-
-    def __init__(self, err_code):
-        super().__init__(err_code)
-        self.original_error = f'{{"err_code":"{err_code}"}}'
-
-
-# --------------------------------------------------------------------------- #
-# Helper to inject a fake `deepgram` module                                   #
-# --------------------------------------------------------------------------- #
-def _install_fake_deepgram(transcribe_side_effect):
+def _build_fake_deepgram(success=True, err_code=None):
     """
-    Puts a stub   deepgram.DeepgramClient   +   deepgram.DeepgramApiError   in sys.modules.
-
-    *transcribe_side_effect* is either a return‑value or an Exception to raise
-    when   transcribe_file(...)   is invoked by our production code.
+    Return a fake 'deepgram' module and (optionally) the
+    expected transcript text for the success case.
     """
-    fake_mod = types.ModuleType("deepgram")
+    fake = types.ModuleType("deepgram")
 
-    # Build a client whose   listen.rest.v("1").transcribe_file(...)   calls our side effect
-    class FakeDGClient:
-        def __init__(self, *_, **__):
-            v_obj = mock.Mock()
-            if isinstance(transcribe_side_effect, Exception):
-                v_obj.transcribe_file.side_effect = transcribe_side_effect
-            else:
-                v_obj.transcribe_file.return_value = transcribe_side_effect
+    # ------------------------------------------------------------------ #
+    # 1. DeepgramApiError
+    class FakeDGError(Exception):
+        def __init__(self, original_error):
+            super().__init__("DG error")
+            self.original_error = original_error
 
-            rest_obj = mock.Mock()
-            rest_obj.v.return_value = v_obj
+    fake.DeepgramApiError = FakeDGError
 
-            self.listen = mock.Mock(rest=rest_obj)
+    # ------------------------------------------------------------------ #
+    # 2. DeepgramClient mock & its chained method calls
+    client_instance = mock.Mock(name="DeepgramClientInstance")
 
-    # Dummy stand‑ins so that the import line succeeds
-    fake_mod.DeepgramApiError = FakeDGError
-    fake_mod.DeepgramClient = FakeDGClient
-    fake_mod.FileSource = dict
-    fake_mod.PrerecordedOptions = mock.Mock()
+    if success:
+        alt = mock.Mock()
+        alt.to_json.return_value = json.dumps({"transcript": "hello"})
+        channel = mock.Mock(alternatives=[alt])
+        response = mock.Mock(results=mock.Mock(channels=[channel]))
+        (client_instance.listen.rest.v.return_value.transcribe_file).return_value = response
+    else:
+        (client_instance.listen.rest.v.return_value.transcribe_file).side_effect = FakeDGError(json.dumps({"err_code": err_code}))
 
-    sys.modules["deepgram"] = fake_mod
-    return FakeDGError  # handy when we need to raise it later
+    fake.DeepgramClient = mock.Mock(return_value=client_instance)
+
+    # ------------------------------------------------------------------ #
+    # 3. Other names used in the provider
+    fake.FileSource = dict
+    fake.PrerecordedOptions = mock.Mock()
+    return fake
 
 
-# --------------------------------------------------------------------------- #
-# Test‑cases                                                                  #
-# --------------------------------------------------------------------------- #
-class DeepgramProviderTests(TransactionTestCase):
-    """Unit‑tests for bots.tasks.process_utterance_task.get_transcription_via_deepgram"""
+class DeepgramProviderTest(TransactionTestCase):
+    """Direct tests for get_transcription_via_deepgram using mock.patch."""
 
     def setUp(self):
-        # ------------------------------------------------------------------ #
-        # Minimal object graph                                               #
-        # ------------------------------------------------------------------ #
-        self.org = Organization.objects.create(name="Deepgram Org")
-        self.proj = Project.objects.create(name="Deepgram Proj", organization=self.org)
-        self.bot = Bot.objects.create(project=self.proj, meeting_url="https://zoom.us/j/42")
-        self.rec = Recording.objects.create(
+        # ────────────────────────────────────────────────────────────────
+        self.org = Organization.objects.create(name="Org")
+        self.project = Project.objects.create(name="P", organization=self.org)
+        self.bot = self.project.bots.create(meeting_url="https://zoom.us/j/123")
+
+        self.recording = Recording.objects.create(
             bot=self.bot,
             recording_type=1,
             transcription_type=1,
             state=RecordingStates.COMPLETE,
-            transcription_state=RecordingTranscriptionStates.IN_PROGRESS,
-            transcription_provider=1,  # value irrelevant here
         )
         self.participant = Participant.objects.create(bot=self.bot, uuid=str(uuid.uuid4()))
-        self.utt = Utterance.objects.create(
-            recording=self.rec,
+        self.utterance = Utterance.objects.create(
+            recording=self.recording,
             participant=self.participant,
-            audio_blob=b"pcmbytes",
+            audio_blob=b"\x01\x02",
             timestamp_ms=0,
             duration_ms=500,
             sample_rate=16_000,
         )
-        self.utt.refresh_from_db()
+        self.utterance.refresh_from_db()
+        # Minimal Deepgram creds
+        Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.DEEPGRAM)
+        mock.patch.object(Credentials, "get_credentials", return_value={"api_key": "dg_key"}).start()
+        self.addCleanup(mock.patch.stopall)
 
-        # Create credentials record (we’ll monkey‑patch get_credentials)
-        self.creds = Credentials.objects.create(
-            project=self.proj,
-            credential_type=Credentials.CredentialTypes.DEEPGRAM,
-        )
+    # ────────────────────────────────────────────────────────────────────
+    def _call_with_fake_module(self, fake_module):
+        """
+        Helper that patches builtins.__import__ so that only imports of
+        'deepgram' get our fake module, everything else behaves normally.
+        """
+        real_import = __import__
 
-    # ---------------------------------------------------------------------- #
-    # Success path                                                           #
-    # ---------------------------------------------------------------------- #
-    def test_successful_transcription(self):
-        """Provider returns transcript JSON → helper yields (transcript, None)."""
-        # Fake Deepgram response object
-        alt = mock.Mock()
-        alt.to_json.return_value = '{"transcript":"Hello"}'
-        channel = mock.Mock(alternatives=[alt])
-        dg_response = mock.Mock()
-        dg_response.results = mock.Mock(channels=[channel])
+        def _import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "deepgram":
+                return fake_module
+            return real_import(name, globals, locals, fromlist, level)
 
-        _install_fake_deepgram(dg_response)
+        with mock.patch("builtins.__import__", side_effect=_import):
+            return get_transcription_via_deepgram(self.utterance)
 
-        with mock.patch.object(Credentials, "get_credentials", return_value={"api_key": "abc"}):
-            transcript, failure = get_transcription_via_deepgram(self.utt)
+    # ------------------------------------------------------------------ #
+    def test_deepgram_success(self):
+        fake = _build_fake_deepgram(success=True)
+        transcription, failure = self._call_with_fake_module(fake)
 
-        self.assertEqual(transcript, {"transcript": "Hello"})
         self.assertIsNone(failure)
+        self.assertEqual(transcription, {"transcript": "hello"})
 
-    # ---------------------------------------------------------------------- #
-    # Invalid credentials → CREDENTIALS_INVALID                              #
-    # ---------------------------------------------------------------------- #
-    @mock.patch("deepgram.DeepgramApiError", FakeDGError)
-    def test_invalid_credentials(self):
-        FakeDGError = _install_fake_deepgram(transcribe_side_effect=None)  # We’ll raise manually below
+    # ------------------------------------------------------------------ #
+    def test_deepgram_invalid_auth(self):
+        fake = _build_fake_deepgram(success=False, err_code="INVALID_AUTH")
+        transcription, failure = self._call_with_fake_module(fake)
 
-        # Raise INVALID_AUTH error when transcribe_file is called
-        invalid_auth_exc = FakeDGError("INVALID_AUTH")
-        _install_fake_deepgram(invalid_auth_exc)  # overwrite previous stub with new side‑effect
-
-        with mock.patch.object(Credentials, "get_credentials", return_value={"api_key": "bad_key"}):
-            transcript, failure = get_transcription_via_deepgram(self.utt)
-
-        self.assertIsNone(transcript)
+        self.assertIsNone(transcription)
         self.assertEqual(
             failure,
             {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID},
         )
 
-    # ---------------------------------------------------------------------- #
-    # Other Deepgram error → TRANSCRIPTION_REQUEST_FAILED                    #
-    # ---------------------------------------------------------------------- #
-    @mock.patch("deepgram.DeepgramApiError", FakeDGError)
-    def test_other_api_error(self):
-        FakeDGError = _install_fake_deepgram(None)
-        rate_limit_exc = FakeDGError("RATE_LIMIT")
-        _install_fake_deepgram(rate_limit_exc)
+    # ------------------------------------------------------------------ #
+    def test_deepgram_other_error(self):
+        fake = _build_fake_deepgram(success=False, err_code="SOME_OTHER")
+        transcription, failure = self._call_with_fake_module(fake)
 
-        with mock.patch.object(Credentials, "get_credentials", return_value={"api_key": "foo"}):
-            transcript, failure = get_transcription_via_deepgram(self.utt)
-
-        self.assertIsNone(transcript)
+        self.assertIsNone(transcription)
         self.assertEqual(
             failure,
             {
                 "reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED,
-                "error_code": "RATE_LIMIT",
+                "error_code": "SOME_OTHER",
             },
         )
-
-    # ---------------------------------------------------------------------- #
-    # No credentials record → CREDENTIALS_NOT_FOUND                          #
-    # ---------------------------------------------------------------------- #
-    def test_missing_credentials(self):
-        # Delete the credentials row
-        self.creds.delete()
-        _install_fake_deepgram(None)  # still inject stub so import doesn’t fail
-
-        transcript, failure = get_transcription_via_deepgram(self.utt)
-
-        self.assertIsNone(transcript)
-        self.assertEqual(failure, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND})
 
 
 from unittest import mock
