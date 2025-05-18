@@ -691,10 +691,12 @@ class BotEventManager:
             raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {in_progress_recordings.count()}")
         for recording in in_progress_recordings:
             RecordingManager.terminate_recording(recording)
+        for failed_transcription_recording in bot.recordings.filter(transcription_state=RecordingTranscriptionStates.FAILED):
             # Collect all transcription errors
-            transcription_errors = recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct()
-            if transcription_errors:
-                additional_event_metadata['transcription_errors'] = list(transcription_errors)
+            if failed_transcription_recording.transcription_failure_data and failed_transcription_recording.transcription_failure_data.get('failure_reasons'):
+                if 'transcription_errors' not in additional_event_metadata:
+                    additional_event_metadata['transcription_errors'] = []
+                additional_event_metadata['transcription_errors'].extend(failed_transcription_recording.transcription_failure_data['failure_reasons'])
 
         if settings.CHARGE_CREDITS_FOR_BOTS and cls.bot_event_type_should_incur_charges(event_type):
             centicredits_consumed = bot.centicredits_consumed()
@@ -927,6 +929,8 @@ class Recording(models.Model):
         null=False,
     )
 
+    transcription_failure_data = models.JSONField(null=True, default=None)
+
     transcription_provider = models.IntegerField(choices=TranscriptionProviders.choices, null=True, blank=True)
 
     version = IntegerVersionField()
@@ -979,15 +983,14 @@ class RecordingManager:
                 RecordingManager.set_recording_failed(recording)
         
         if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS:
-        
-            any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()
-            if any_in_progress_utterances:
-                # Set all in progress utterances to failed with the reason of recording terminated
-                recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).update(failure_data={'reason': TranscriptionFailureReasons.RECORDING_TERMINATED})
-
+            # We'll mark it as failed if there are any failed utterances or any in progress utterances
+            any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()               
             any_failed_utterances = recording.utterances.filter(failure_data__isnull=False).exists()
-            if any_failed_utterances:
-                RecordingManager.set_recording_transcription_failed(recording)
+            if any_failed_utterances or any_in_progress_utterances:
+                failure_reasons = recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct()
+                if any_in_progress_utterances:
+                    failure_reasons.append(TranscriptionFailureReasons.RECORDING_TERMINATED)
+                RecordingManager.set_recording_transcription_failed(recording, failure_data={'failure_reasons': failure_reasons})
             else:
                 RecordingManager.set_recording_transcription_complete(recording)
 
@@ -1065,7 +1068,7 @@ class RecordingManager:
         recording.save()
 
     @classmethod
-    def set_recording_transcription_failed(cls, recording: Recording):
+    def set_recording_transcription_failed(cls, recording: Recording, failure_data: dict):
         recording.refresh_from_db()
 
         if recording.transcription_state == RecordingTranscriptionStates.FAILED:
@@ -1075,8 +1078,8 @@ class RecordingManager:
         if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
-        # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
         recording.transcription_state = RecordingTranscriptionStates.FAILED
+        recording.transcription_failure_data = failure_data
         recording.save()
 
     @classmethod
@@ -1092,6 +1095,7 @@ class TranscriptionFailureReasons(models.TextChoices):
     TRANSCRIPTION_REQUEST_FAILED = "transcription_request_failed"
     TIMED_OUT = "timed_out"
     INTERNAL_ERROR = "internal_error"
+    # This reason applies to the transcription operation as a whole, not a specific utterance
     RECORDING_TERMINATED = "recording_terminated"
 
 
