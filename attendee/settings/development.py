@@ -36,10 +36,10 @@ LOGGING = {
             "propagate": False,
         },
         # Uncomment to log database queries
-        #"django.db.backends": {
+        # "django.db.backends": {
         #    "handlers": ["console"],
         #    "level": "DEBUG",
         #    "propagate": False,
-        #},
+        # },
     },
 }
