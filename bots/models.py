@@ -987,7 +987,7 @@ class RecordingManager:
             any_in_progress_utterances = recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True).exists()               
             any_failed_utterances = recording.utterances.filter(failure_data__isnull=False).exists()
             if any_failed_utterances or any_in_progress_utterances:
-                failure_reasons = recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct()
+                failure_reasons = list(recording.utterances.filter(failure_data__has_key='reason').values_list('failure_data__reason', flat=True).distinct())
                 if any_in_progress_utterances:
                     failure_reasons.append(TranscriptionFailureReasons.RECORDING_TERMINATED)
                 RecordingManager.set_recording_transcription_failed(recording, failure_data={'failure_reasons': failure_reasons})
