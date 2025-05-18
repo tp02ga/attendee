@@ -2,7 +2,6 @@ import uuid
 from unittest import mock
 
 from django.test import TransactionTestCase
-from django.utils import timezone
 
 from bots.models import (
     Bot,
@@ -66,9 +65,7 @@ class ProcessUtteranceTaskTest(TransactionTestCase):
     # ------------------------------------------------------------------------------------------
     @mock.patch("bots.tasks.process_utterance_task.RecordingManager.set_recording_transcription_complete")
     @mock.patch("bots.tasks.process_utterance_task.get_transcription")
-    def test_successful_transcription_marks_complete_and_clears_blob(
-        self, mock_get_transcription, mock_set_complete
-    ):
+    def test_successful_transcription_marks_complete_and_clears_blob(self, mock_get_transcription, mock_set_complete):
         """Happy‑path: transcription returned → audio blob cleared, transcript saved, recording closed."""
         mock_get_transcription.return_value = ({"transcript": "hello world"}, None)
 
@@ -88,9 +85,7 @@ class ProcessUtteranceTaskTest(TransactionTestCase):
 
     @mock.patch("bots.tasks.process_utterance_task.is_retryable_failure", return_value=True)
     @mock.patch("bots.tasks.process_utterance_task.get_transcription")
-    def test_retryable_failure_raises_and_increments_counter(
-        self, mock_get_transcription, mock_is_retryable
-    ):
+    def test_retryable_failure_raises_and_increments_counter(self, mock_get_transcription, mock_is_retryable):
         """Retryable failure → task raises for Celery to retry and attempt counter grows."""
         failure = {"reason": TranscriptionFailureReasons.RATE_LIMIT_EXCEEDED}
         mock_get_transcription.return_value = (None, failure)
@@ -106,9 +101,7 @@ class ProcessUtteranceTaskTest(TransactionTestCase):
 
     @mock.patch("bots.tasks.process_utterance_task.is_retryable_failure", return_value=False)
     @mock.patch("bots.tasks.process_utterance_task.get_transcription")
-    def test_non_retryable_failure_sets_failure_data(
-        self, mock_get_transcription, mock_is_retryable
-    ):
+    def test_non_retryable_failure_sets_failure_data(self, mock_get_transcription, mock_is_retryable):
         """Non‑retryable failure → no exception, failure_data stored."""
         failure = {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
         mock_get_transcription.return_value = (None, failure)
@@ -134,24 +127,14 @@ class ProcessUtteranceTaskTest(TransactionTestCase):
         mock_get_transcription.assert_not_called()
 
 
-import types
 import sys
-import uuid
+import types
 from unittest import mock
 
 from django.test import TransactionTestCase
 
 from bots.models import (
-    Bot,
     Credentials,
-    Organization,
-    Participant,
-    Project,
-    Recording,
-    RecordingStates,
-    RecordingTranscriptionStates,
-    TranscriptionFailureReasons,
-    Utterance,
 )
 from bots.tasks.process_utterance_task import get_transcription_via_deepgram
 
@@ -162,6 +145,8 @@ class FakeDGError(Exception):
     def __init__(self, err_code):
         super().__init__(err_code)
         self.original_error = f'{{"err_code":"{err_code}"}}'
+
+
 # --------------------------------------------------------------------------- #
 # Helper to inject a fake `deepgram` module                                   #
 # --------------------------------------------------------------------------- #
@@ -261,9 +246,7 @@ class DeepgramProviderTests(TransactionTestCase):
     # ---------------------------------------------------------------------- #
     @mock.patch("deepgram.DeepgramApiError", FakeDGError)
     def test_invalid_credentials(self):
-        FakeDGError = _install_fake_deepgram(
-            transcribe_side_effect=None
-        )  # We’ll raise manually below
+        FakeDGError = _install_fake_deepgram(transcribe_side_effect=None)  # We’ll raise manually below
 
         # Raise INVALID_AUTH error when transcribe_file is called
         invalid_auth_exc = FakeDGError("INVALID_AUTH")
@@ -313,22 +296,12 @@ class DeepgramProviderTests(TransactionTestCase):
         self.assertEqual(failure, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND})
 
 
-
 from unittest import mock
 
 from django.test import TransactionTestCase
 
 from bots.models import (
-    Bot,
-    Credentials,
     Credentials as CredModel,
-    Organization,
-    Participant,
-    Project,
-    Recording,
-    RecordingStates,
-    TranscriptionFailureReasons,
-    Utterance,
 )
 from bots.tasks.process_utterance_task import get_transcription_via_gladia
 
@@ -346,8 +319,8 @@ class GladiaProviderTest(TransactionTestCase):
             bot=self.bot,
             recording_type=1,
             transcription_type=1,
-            state=RecordingStates.COMPLETE,        # finished recording
-            transcription_provider=3,              # GLADIA
+            state=RecordingStates.COMPLETE,  # finished recording
+            transcription_provider=3,  # GLADIA
         )
 
         self.participant = Participant.objects.create(bot=self.bot, uuid="p1")
@@ -408,9 +381,7 @@ class GladiaProviderTest(TransactionTestCase):
                 "result": {
                     "transcription": {
                         "full_transcript": "hello world",
-                        "utterances": [
-                            {"speaker": 0, "words": [{"word": "hello"}, {"word": "world"}]}
-                        ],
+                        "utterances": [{"speaker": 0, "words": [{"word": "hello"}, {"word": "world"}]}],
                     }
                 },
             }
@@ -461,18 +432,6 @@ from unittest import mock
 
 from django.test import TransactionTestCase
 
-from bots.models import (
-    Bot,
-    Credentials,
-    Organization,
-    Participant,
-    Project,
-    Recording,
-    RecordingStates,
-    RecordingTranscriptionStates,
-    TranscriptionFailureReasons,
-    Utterance,
-)
 from bots.tasks.process_utterance_task import get_transcription_via_openai
 
 
@@ -506,9 +465,7 @@ class OpenAIProviderTest(TransactionTestCase):
         )
         self.utt.refresh_from_db()
         # Real credentials row (the crypto doesn’t matter – we patch .get_credentials)
-        self.creds = Credentials.objects.create(
-            project=self.project, credential_type=Credentials.CredentialTypes.OPENAI
-        )
+        self.creds = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.OPENAI)
 
     # ────────────────────────────────────────────────────────────────────────────────
     @mock.patch("bots.tasks.process_utterance_task.requests.post")
