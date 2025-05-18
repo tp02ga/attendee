@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
-from .bots_api_utils import create_bot, launch_bot, BotCreationSource
+from .bots_api_utils import BotCreationSource, create_bot, launch_bot
 from .models import (
     ApiKey,
     Bot,
@@ -63,11 +63,7 @@ class ProjectDashboardView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
         has_ended_bots = Bot.objects.filter(project=project, state=BotStates.ENDED).exists()
 
-        has_created_bots_via_api = BotEvent.objects.filter(
-            bot__project=project, 
-            event_type=BotEventTypes.JOIN_REQUESTED, 
-            metadata__source=BotCreationSource.API
-        ).exists()
+        has_created_bots_via_api = BotEvent.objects.filter(bot__project=project, event_type=BotEventTypes.JOIN_REQUESTED, metadata__source=BotCreationSource.API).exists()
 
         context = self.get_project_context(object_id, project)
         context.update(
@@ -301,7 +297,7 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
         context["filter_params"] = {"start_date": self.request.GET.get("start_date", ""), "end_date": self.request.GET.get("end_date", ""), "states": self.request.GET.getlist("states")}
 
         # Add flag to detect if create modal should be automatically opened
-        context['open_create_modal'] = self.request.GET.get('open_create_modal') == 'true'
+        context["open_create_modal"] = self.request.GET.get("open_create_modal") == "true"
 
         return context
 

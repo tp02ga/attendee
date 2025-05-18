@@ -1,12 +1,12 @@
 import json
 import logging
 import os
+from enum import Enum
 
 import redis
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.urls import reverse
-from enum import Enum, auto
 
 from .models import (
     Bot,
@@ -17,10 +17,10 @@ from .models import (
     Credentials,
     MediaBlob,
     MeetingTypes,
+    Project,
     Recording,
     RecordingTypes,
     TranscriptionTypes,
-    Project,
 )
 from .serializers import (
     CreateBotSerializer,
@@ -87,9 +87,11 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 
     return None
 
+
 class BotCreationSource(str, Enum):
     API = "api"
     DASHBOARD = "dashboard"
+
 
 def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple[Bot | None, dict | None]:
     # Given them a small grace period before we start rejecting requests
