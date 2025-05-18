@@ -54,6 +54,9 @@ logger = logging.getLogger(__name__)
 
 
 class BotController:
+    # Default wait time for utterance termination (5 minutes)
+    UTTERANCE_TERMINATION_WAIT_TIME_SECONDS = 300
+
     def per_participant_audio_input_manager(self):
         if self.bot_in_db.deepgram_use_streaming():
             return self.per_participant_streaming_audio_input_manager
@@ -288,9 +291,29 @@ class BotController:
             self.save_debug_recording()
 
         if self.bot_in_db.state == BotStates.POST_PROCESSING:
+            self.wait_until_all_utterances_are_terminated()
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.POST_PROCESSING_COMPLETED)
 
         normal_quitting_process_worked = True
+
+    # We're going to wait until all utterances are transcribed or have failed. If there are still
+    # in progress utterances, after 5 minutes, then we'll consider them failed and mark them as timed out.
+    def wait_until_all_utterances_are_terminated(self):
+        default_recording = self.bot_in_db.recordings.get(is_default_recording=True)
+
+        start_time = time.time()
+        wait_time_seconds = self.UTTERANCE_TERMINATION_WAIT_TIME_SECONDS
+        while time.time() - start_time < wait_time_seconds:
+            in_progress_utterances = default_recording.utterances.filter(transcription__isnull=True, failure_data__isnull=True)
+            # If no more in progress utterances, then we're done
+            if not in_progress_utterances.exists():
+                logger.info(f"All utterances are terminated for bot {self.bot_in_db.id}")
+                return
+
+            logger.info(f"Waiting for {len(in_progress_utterances)} utterances to terminate. It has been {time.time() - start_time} seconds. We will wait {wait_time_seconds} seconds.")
+            time.sleep(5)
+
+        logger.info(f"Timed out in post-processing waiting for utterances to terminate for bot {self.bot_in_db.id}. Transcription will be marked as failed because recording terminated.")
 
     def __init__(self, bot_id):
         self.bot_in_db = Bot.objects.get(id=bot_id)
@@ -709,6 +732,9 @@ class BotController:
             duration_ms=len(message["audio_data"]) / 64,
             sample_rate=message["sample_rate"],
         )
+
+        # Set the recording transcription in progress
+        RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
 
         # Process the utterance immediately
         process_utterance.delay(utterance.id)
