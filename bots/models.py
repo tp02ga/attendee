@@ -784,9 +784,10 @@ class BotEventManager:
                         # This helper method handles setting the state for recordings and credits for when the bot transitions to a post meeting state
                         # It returns a dictionary of additional event metadata that should be added to the event
                         additional_event_metadata = cls.after_transition_to_post_meeting_state(bot=bot, event_type=event_type, new_state=new_state)
-                        if event_metadata is None:
-                            event_metadata = {}
-                        event_metadata.update(additional_event_metadata)
+                        if additional_event_metadata:
+                            if event_metadata is None:
+                                event_metadata = {}
+                            event_metadata.update(additional_event_metadata)
 
                     # Create event record
                     event = BotEvent.objects.create(
