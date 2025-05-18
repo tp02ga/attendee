@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from enum import Enum
 
 import redis
 from django.core.exceptions import ValidationError
@@ -16,6 +17,7 @@ from .models import (
     Credentials,
     MediaBlob,
     MeetingTypes,
+    Project,
     Recording,
     RecordingTypes,
     TranscriptionTypes,
@@ -86,7 +88,12 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     return None
 
 
-def create_bot(data, project) -> tuple[Bot | None, dict | None]:
+class BotCreationSource(str, Enum):
+    API = "api"
+    DASHBOARD = "dashboard"
+
+
+def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple[Bot | None, dict | None]:
     # Given them a small grace period before we start rejecting requests
     if project.organization.credits() < -1:
         logger.error(f"Organization {project.organization.id} has insufficient credits. Please add credits in the Settings -> Billing page.")
@@ -144,6 +151,6 @@ def create_bot(data, project) -> tuple[Bot | None, dict | None]:
                 return None, {"error": e.messages[0]}
 
         # Try to transition the state from READY to JOINING
-        BotEventManager.create_event(bot, BotEventTypes.JOIN_REQUESTED)
+        BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
 
         return bot, None
