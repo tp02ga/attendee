@@ -19,7 +19,7 @@ See a [quick demo of the API](https://www.loom.com/embed/b738d02aabf84f489f0bfba
 
 Sign up for free on our hosted instance [here](https://app.attendee.dev/accounts/signup/). 
 
-Interested in using Attendee commercially? Schedule a call [here](https://calendly.com/noah-attendee/30min) to learn how you can lower your costs 10x vs closed-source vendors by self-hosting.
+Interested in using Attendee commercially? Schedule a call [here](https://calendly.com/noah-attendee/30min). By self-hosting Attendee you can reduce costs by 10x relative to closed source vendors.
  
 ## Self hosting
 
