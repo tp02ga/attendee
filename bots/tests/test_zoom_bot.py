@@ -2234,7 +2234,7 @@ class TestZoomBot(TransactionTestCase):
     ):
         # Mock the process_utterance task to never run
         mock_process_utterance.delay.return_value = None
-        
+
         # Configure the mock uploader
         mock_uploader = create_mock_file_uploader()
         MockFileUploader.return_value = mock_uploader
@@ -2271,7 +2271,7 @@ class TestZoomBot(TransactionTestCase):
             # Wait for the video input manager to be set up
             time.sleep(2)
 
-            # Simulate audio frame received 
+            # Simulate audio frame received
             adapter.audio_source.onOneWayAudioRawDataReceivedCallback(
                 MockPCMAudioFrame(),
                 2,  # Simulated participant ID that's not the bot
@@ -2333,33 +2333,27 @@ class TestZoomBot(TransactionTestCase):
         # Verify post_processing_completed_event (Event 5)
         post_processing_completed_event = bot_events[4]
         self.assertEqual(post_processing_completed_event.event_type, BotEventTypes.POST_PROCESSING_COMPLETED)
-        
+
         # Verify post processing metadata contains transcription failure info
         self.assertIn("transcription_errors", post_processing_completed_event.metadata)
-        self.assertEqual(
-            post_processing_completed_event.metadata.get("transcription_errors"),
-            [TranscriptionFailureReasons.RECORDING_TERMINATED]
-        )
+        self.assertEqual(post_processing_completed_event.metadata.get("transcription_errors"), [TranscriptionFailureReasons.RECORDING_TERMINATED])
 
         # Verify that the recording was finished successfully
         self.recording.refresh_from_db()
         self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
         self.assertEqual(self.recording.transcription_state, RecordingTranscriptionStates.FAILED)
-        
+
         # Check the transcription failure data
         self.assertIsNotNone(self.recording.transcription_failure_data)
-        self.assertEqual(
-            self.recording.transcription_failure_data.get("failure_reasons"),
-            [TranscriptionFailureReasons.RECORDING_TERMINATED]
-        )
-        
+        self.assertEqual(self.recording.transcription_failure_data.get("failure_reasons"), [TranscriptionFailureReasons.RECORDING_TERMINATED])
+
         # Verify that the utterance was created but never processed
         utterances = self.recording.utterances.all()
         self.assertEqual(utterances.count(), 1)
         utterance = utterances.first()
         self.assertIsNone(utterance.transcription)
         self.assertIsNone(utterance.failure_data)  # No failure data since the task never ran
-        
+
         # Verify the process_utterance task was called but never executed
         mock_process_utterance.delay.assert_called_once()
 
