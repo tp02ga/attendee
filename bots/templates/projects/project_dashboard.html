@@ -14,15 +14,15 @@
         </div>
         <div">
             <div class="card-body">
-                <h4 class="mt-4">Follow these steps to get started 🚀</h4>
+                <h4 class="mt-4">Follow these steps to get started</h4>
                 <ol class="list-group list-group-flush">
-                    <!-- Step 1: Credentials -->
-                    <li class="list-group-item {% if quick_start.has_credentials %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
-                        1. Add credentials
-                        {% if not quick_start.has_credentials %}
+                    <!-- Step 1: Test the API by creating a bot -->
+                    <li class="list-group-item {% if quick_start.has_ended_bots %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
+                        1. Test the API by creating a bot
+                        {% if not quick_start.has_ended_bots %}
                             <div class="mt-2">
-                                <a href="{% url 'projects:project-credentials' project.object_id %}" class="btn btn-sm btn-primary">
-                                    Go to Credentials
+                                <a href="{% url 'projects:project-bots' project.object_id %}?open_create_modal=true" class="btn btn-sm btn-primary">
+                                    Create a bot
                                 </a>
                             </div>
                         {% endif %}
@@ -41,9 +41,9 @@
                     </li>
 
                     <!-- Step 3: Call API -->
-                    <li class="list-group-item {% if quick_start.has_ended_bots %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
+                    <li class="list-group-item {% if quick_start.has_created_bots_via_api %}text-decoration-line-through{% endif %} pt-4 pb-4 fs-5">
                         3. Call the API
-                        {% if not quick_start.has_ended_bots %}
+                        {% if not quick_start.has_created_bots_via_api %}
                         
                             <div class="mt-2">
                                 <small>Create bot</small>
