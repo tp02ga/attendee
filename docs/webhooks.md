@@ -134,3 +134,70 @@ if __name__ == "__main__":
     log.setLevel(logging.ERROR)  # Only show errors, not request info
     app.run(host="0.0.0.0", port=port, debug=False)
 ```
+
+### Javascript (Node.js)
+
+This is a simple express server that runs on port 5005. It listens for webhook requests and verifies the signature.
+
+```
+// webhook.js
+import express from "express";
+import crypto from "crypto";
+
+const app  = express();
+const port = 5005;
+
+// Put the base‑64 secret from your dashboard here
+const WEBHOOK_SECRET = "<YOUR_SECRET>";
+
+/* ---- helpers ----------------------------------------------------------- */
+
+function sortKeys(value) {
+  if (Array.isArray(value))           return value.map(sortKeys);
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, k) => ({ ...acc, [k]: sortKeys(value[k]) }), {});
+  }
+  return value;
+}
+
+/** Sign a payload and return a base‑64 HMAC‑SHA256 digest */
+function signPayload(payload, secretB64) {
+  const canonical = JSON.stringify(sortKeys(payload));
+  const secretBuf = Buffer.from(secretB64, "base64");
+  return crypto
+    .createHmac("sha256", secretBuf)
+    .update(canonical, "utf8")
+    .digest("base64");
+}
+
+/* ---- middleware & route ----------------------------------------------- */
+
+app.use(express.json({ limit: "1mb" })); // parse JSON body
+
+app.post("/", (req, res) => {
+  const payload              = req.body;
+  const signatureFromHeader  = req.header("X-Webhook-Signature") || "";
+  const signatureCalculated  = signPayload(payload, WEBHOOK_SECRET);
+
+  console.log("Received payload =", payload);
+  console.log("signature_from_header =", signatureFromHeader);
+  console.log("signature_from_payload =", signatureCalculated);
+
+  if (signatureCalculated !== signatureFromHeader) {
+    console.log("Signature is invalid")
+    return res.status(400).send("Invalid signature");
+  }
+
+  console.log("Signature is valid");
+  res.send("Webhook received successfully");
+});
+
+/* ---- start server ------------------------------------------------------ */
+
+app.listen(port, () => {
+  console.log(`Webhook server running at http://localhost:${port}`);
+  console.log("Ready to receive webhook requests");
+});
+```
