@@ -29,6 +29,8 @@ from .models import (
     MeetingTypes,
     Recording,
     Utterance,
+    ChatMessage,
+    ChatMessageToOptions,
 )
 from .serializers import (
     BotImageSerializer,
@@ -37,6 +39,7 @@ from .serializers import (
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
+    ChatMessageSerializer,
 )
 from .utils import meeting_type_from_url
 
@@ -701,5 +704,74 @@ class BotDetailView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             return Response(BotSerializer(bot).data)
 
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ChatMessagesView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    
+    @extend_schema(
+        operation_id="Get Chat Messages",
+        summary="Get chat messages sent in the meeting",
+        description="If the meeting is still in progress, this returns the chat messages sent so far.",
+        responses={
+            200: OpenApiResponse(
+                response=ChatMessageSerializer(many=True),
+                description="List of chat messages",
+            ),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+            OpenApiParameter(
+                name="updated_after",
+                type={"type": "string", "format": "ISO 8601 datetime"},
+                location=OpenApiParameter.QUERY,
+                description="Only return chat messages created after this time. Useful when polling for updates.",
+                required=False,
+                examples=[OpenApiExample("DateTime Example", value="2024-01-18T12:34:56Z")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def get(self, request, object_id):
+        try:
+            # Get the bot and verify it belongs to the project
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+            
+            # Get optional updated_after parameter
+            updated_after = request.query_params.get("updated_after")
+            
+            # Query messages for this bot
+            messages_query = ChatMessage.objects.filter(bot=bot)
+            
+            # Filter by updated_after if provided
+            if updated_after:
+                try:
+                    updated_after_datetime = parse_datetime(str(updated_after))
+                except Exception:
+                    updated_after_datetime = None
+                
+                if not updated_after_datetime:
+                    return Response(
+                        {"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2024-01-18T12:34:56Z)"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                messages_query = messages_query.filter(created_at__gt=updated_after_datetime)
+            
+            # Apply ordering
+            messages = messages_query.order_by("timestamp")
+            
+            serializer = ChatMessageSerializer(messages, many=True)
+            return Response(serializer.data)
+            
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
