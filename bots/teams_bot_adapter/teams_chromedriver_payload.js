@@ -199,7 +199,7 @@ class StyleManager {
 
     start() {
         this.startSilenceDetection();
-        this.makeMainVideoFillFrame();
+        //this.makeMainVideoFillFrame();
 
         console.log('Started StyleManager');
     }
@@ -2011,3 +2011,24 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
         throw err;
       });
   };
+
+
+
+(function () {
+    const _bind = Function.prototype.bind;
+    Function.prototype.bind = function (thisArg, ...args) {
+      if (this.name === 'onMessageReceived') {
+        const bound = _bind.apply(this, [thisArg, ...args]);
+        return function (...callArgs) {
+          const eventData = callArgs[0];
+          if (eventData?.data?.chatServiceBatchEvent?.[0]?.message)
+          {
+            const message = eventData.data.chatServiceBatchEvent[0].message;
+            realConsole?.log('chatMessage', message);
+          }
+          return bound.apply(this, callArgs);
+        };
+      }
+      return _bind.apply(this, [thisArg, ...args]);
+    };
+  })();
