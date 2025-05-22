@@ -12,6 +12,8 @@ from drf_spectacular.utils import (
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.pagination import CursorPagination
+from rest_framework.generics import GenericAPIView
 
 from .authentication import ApiKeyAuthentication
 from .bots_api_utils import BotCreationSource, create_bot, create_bot_media_request_for_image, launch_bot, send_sync_command
@@ -707,13 +709,19 @@ class BotDetailView(APIView):
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class ChatMessagesView(APIView):
+class ChatMessageCursorPagination(CursorPagination):
+    ordering = 'created_at'
+    page_size = 1
+
+class ChatMessagesView(GenericAPIView):
     authentication_classes = [ApiKeyAuthentication]
+    pagination_class = ChatMessageCursorPagination
+    serializer_class = ChatMessageSerializer
 
     @extend_schema(
         operation_id="Get Chat Messages",
         summary="Get chat messages sent in the meeting",
-        description="If the meeting is still in progress, this returns the chat messages sent so far.",
+        description="If the meeting is still in progress, this returns the chat messages sent so far. Results are paginated using cursor pagination.",
         responses={
             200: OpenApiResponse(
                 response=ChatMessageSerializer(many=True),
@@ -737,6 +745,13 @@ class ChatMessagesView(APIView):
                 description="Only return chat messages created after this time. Useful when polling for updates.",
                 required=False,
                 examples=[OpenApiExample("DateTime Example", value="2024-01-18T12:34:56Z")],
+            ),
+            OpenApiParameter(
+                name="cursor",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Cursor for pagination",
+                required=False,
             ),
         ],
         tags=["Bots"],
@@ -766,10 +781,16 @@ class ChatMessagesView(APIView):
                     )
                 messages_query = messages_query.filter(created_at__gt=updated_after_datetime)
 
-            # Apply ordering
-            messages = messages_query.order_by("timestamp")
+            # Apply ordering - now using created_at for cursor pagination
+            messages = messages_query.order_by("created_at")
+            
+            # Let the pagination class handle the rest
+            page = self.paginate_queryset(messages)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
 
-            serializer = ChatMessageSerializer(messages, many=True)
+            serializer = self.get_serializer(messages, many=True)
             return Response(serializer.data)
 
         except Bot.DoesNotExist:
