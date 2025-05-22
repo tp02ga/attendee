@@ -24,22 +24,21 @@ from .models import (
     BotMediaRequestMediaTypes,
     BotMediaRequestStates,
     BotStates,
+    ChatMessage,
     Credentials,
     MediaBlob,
     MeetingTypes,
     Recording,
     Utterance,
-    ChatMessage,
-    ChatMessageToOptions,
 )
 from .serializers import (
     BotImageSerializer,
     BotSerializer,
+    ChatMessageSerializer,
     CreateBotSerializer,
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
-    ChatMessageSerializer,
 )
 from .utils import meeting_type_from_url
 
@@ -710,7 +709,7 @@ class BotDetailView(APIView):
 
 class ChatMessagesView(APIView):
     authentication_classes = [ApiKeyAuthentication]
-    
+
     @extend_schema(
         operation_id="Get Chat Messages",
         summary="Get chat messages sent in the meeting",
@@ -746,32 +745,32 @@ class ChatMessagesView(APIView):
         try:
             # Get the bot and verify it belongs to the project
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
-            
+
             # Get optional updated_after parameter
             updated_after = request.query_params.get("updated_after")
-            
+
             # Query messages for this bot
             messages_query = ChatMessage.objects.filter(bot=bot)
-            
+
             # Filter by updated_after if provided
             if updated_after:
                 try:
                     updated_after_datetime = parse_datetime(str(updated_after))
                 except Exception:
                     updated_after_datetime = None
-                
+
                 if not updated_after_datetime:
                     return Response(
                         {"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2024-01-18T12:34:56Z)"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 messages_query = messages_query.filter(created_at__gt=updated_after_datetime)
-            
+
             # Apply ordering
             messages = messages_query.order_by("timestamp")
-            
+
             serializer = ChatMessageSerializer(messages, many=True)
             return Response(serializer.data)
-            
+
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)

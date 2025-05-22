@@ -16,6 +16,7 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
     Recording,
@@ -25,8 +26,6 @@ from .models import (
     RecordingTranscriptionStates,
     RecordingViews,
     TranscriptionProviders,
-    ChatMessage,
-    ChatMessageToOptions,
 )
 from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
@@ -742,10 +741,10 @@ class ChatMessageSerializer(serializers.Serializer):
     text = serializers.CharField()
     timestamp = serializers.IntegerField()
     to = serializers.SerializerMethodField()
-    sender_name = serializers.CharField(source='participant.full_name')
-    sender_uuid = serializers.CharField(source='participant.uuid')
-    sender_user_uuid = serializers.CharField(source='participant.user_uuid', allow_null=True)
+    sender_name = serializers.CharField(source="participant.full_name")
+    sender_uuid = serializers.CharField(source="participant.uuid")
+    sender_user_uuid = serializers.CharField(source="participant.user_uuid", allow_null=True)
     metadata = serializers.JSONField()
-    
+
     def get_to(self, obj):
-        return ChatMessageToOptions.choices[obj.to-1][1]
+        return ChatMessageToOptions.choices[obj.to - 1][1]
