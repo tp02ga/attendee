@@ -1501,7 +1501,7 @@ class ChatMessage(models.Model):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name="chat_messages")
     to = models.IntegerField(choices=ChatMessageToOptions.choices, null=False)
     timestamp = models.IntegerField()
-    metadata = models.JSONField(null=False, default=dict)
+    additional_data = models.JSONField(null=False, default=dict)
     object_id = models.CharField(max_length=32, unique=True, editable=False)
 
     OBJECT_ID_PREFIX = "msg_"

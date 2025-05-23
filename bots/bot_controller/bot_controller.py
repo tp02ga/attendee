@@ -141,6 +141,7 @@ class BotController:
             add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
+            upsert_chat_message_callback=self.upsert_chat_message,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
         )
@@ -767,9 +768,10 @@ class BotController:
             source_uuid=chat_message["message_uuid"],
             defaults={
                 "timestamp": chat_message["timestamp"],
-                "to": ChatMessageToOptions.EVERYONE,
+                "to": ChatMessageToOptions.ONLY_BOT if chat_message.get("to_bot") else ChatMessageToOptions.EVERYONE,
                 "text": chat_message["text"],
                 "participant": participant,
+                "additional_data": chat_message.get("additional_data", {}),
             },
         )
 

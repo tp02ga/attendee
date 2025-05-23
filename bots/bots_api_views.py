@@ -711,7 +711,7 @@ class BotDetailView(APIView):
 
 class ChatMessageCursorPagination(CursorPagination):
     ordering = 'created_at'
-    page_size = 1
+    page_size = 25
 
 class ChatMessagesView(GenericAPIView):
     authentication_classes = [ApiKeyAuthentication]

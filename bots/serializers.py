@@ -744,7 +744,7 @@ class ChatMessageSerializer(serializers.Serializer):
     sender_name = serializers.CharField(source="participant.full_name")
     sender_uuid = serializers.CharField(source="participant.uuid")
     sender_user_uuid = serializers.CharField(source="participant.user_uuid", allow_null=True)
-    metadata = serializers.JSONField()
+    additional_data = serializers.JSONField()
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
