@@ -449,9 +449,10 @@ class ChatMessageManager {
     }
 
     handleChatMessage(chatMessageRaw) {
-        const chatMessage = chatMessageRaw.chatMessage;
-        console.log('handleChatMessage', chatMessage);
         try {
+            const chatMessage = chatMessageRaw.chatMessage;
+            console.log('handleChatMessage', chatMessage);
+
             this.ws.sendJson({
                 type: 'ChatMessage',
                 message_uuid: chatMessage.messageId,

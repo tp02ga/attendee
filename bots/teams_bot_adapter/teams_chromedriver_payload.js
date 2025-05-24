@@ -648,17 +648,17 @@ class ChatMessageManager {
     }
 
     handleChatMessage(chatMessage) {
-        if (!chatMessage.clientMessageId)
-            return;
-        if (!chatMessage.from)
-            return;
-        if (!chatMessage.content)
-            return;
-        if (!chatMessage.originalArrivalTime)
-            return;
-
-        const timestamp_ms = new Date(chatMessage.originalArrivalTime).getTime();
         try {
+            if (!chatMessage.clientMessageId)
+                return;
+            if (!chatMessage.from)
+                return;
+            if (!chatMessage.content)
+                return;
+            if (!chatMessage.originalArrivalTime)
+                return;
+
+            const timestamp_ms = new Date(chatMessage.originalArrivalTime).getTime();
             this.ws.sendJson({
                 type: 'ChatMessage',
                 message_uuid: chatMessage.clientMessageId,

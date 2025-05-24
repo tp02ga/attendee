@@ -82,7 +82,7 @@ class BotController:
             wants_any_video_frames_callback=None,
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
-            upsert_chat_message_callback=self.upsert_chat_message,
+            upsert_chat_message_callback=self.on_new_chat_message,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -105,7 +105,7 @@ class BotController:
             wants_any_video_frames_callback=None,
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
-            upsert_chat_message_callback=self.upsert_chat_message,
+            upsert_chat_message_callback=self.on_new_chat_message,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -141,7 +141,7 @@ class BotController:
             add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
-            upsert_chat_message_callback=self.upsert_chat_message,
+            upsert_chat_message_callback=self.on_new_chat_message,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
         )
@@ -744,6 +744,9 @@ class BotController:
         # Process the utterance immediately
         process_utterance.delay(utterance.id)
         return
+
+    def on_new_chat_message(self, chat_message):
+        GLib.idle_add(lambda: self.upsert_chat_message(chat_message))
 
     def upsert_chat_message(self, chat_message):
         logger.info(f"Upserting chat message: {chat_message}")

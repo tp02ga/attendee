@@ -339,24 +339,27 @@ class ZoomBotAdapter(BotAdapter):
             self.set_video_input_manager_based_on_state()
 
     def on_chat_msg_notification_callback(self, chat_msg_info, content):
-        self.upsert_chat_message_callback(
-            {
-                "text": chat_msg_info.GetContent(),
-                "participant_uuid": chat_msg_info.GetSenderUserId(),
-                "timestamp": chat_msg_info.GetTimeStamp(),
-                "message_uuid": chat_msg_info.GetMessageID(),
-                # Simplified logic to determine if the message is for the bot. Not completely accurate.
-                "to_bot": not chat_msg_info.IsChatToAllPanelist() and not chat_msg_info.IsChatToAll() and not chat_msg_info.IsChatToWaitingroom(),
-                "additional_data": {
-                    "is_comment": chat_msg_info.IsComment(),
-                    "is_thread": chat_msg_info.IsThread(),
-                    "thread_id": chat_msg_info.GetThreadID(),
-                    "is_chat_to_all": chat_msg_info.IsChatToAll(),
-                    "is_chat_to_all_panelist": chat_msg_info.IsChatToAllPanelist(),
-                    "is_chat_to_waitingroom": chat_msg_info.IsChatToWaitingroom(),
-                },
-            }
-        )
+        try:
+            self.upsert_chat_message_callback(
+                {
+                    "text": chat_msg_info.GetContent(),
+                    "participant_uuid": chat_msg_info.GetSenderUserId(),
+                    "timestamp": chat_msg_info.GetTimeStamp(),
+                    "message_uuid": chat_msg_info.GetMessageID(),
+                    # Simplified logic to determine if the message is for the bot. Not completely accurate.
+                    "to_bot": not chat_msg_info.IsChatToAllPanelist() and not chat_msg_info.IsChatToAll() and not chat_msg_info.IsChatToWaitingroom(),
+                    "additional_data": {
+                        "is_comment": chat_msg_info.IsComment(),
+                        "is_thread": chat_msg_info.IsThread(),
+                        "thread_id": chat_msg_info.GetThreadID(),
+                        "is_chat_to_all": chat_msg_info.IsChatToAll(),
+                        "is_chat_to_all_panelist": chat_msg_info.IsChatToAllPanelist(),
+                        "is_chat_to_waitingroom": chat_msg_info.IsChatToWaitingroom(),
+                    },
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error processing chat message: {e}")
 
     def on_join(self):
         # Meeting reminder controller
