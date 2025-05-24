@@ -46,6 +46,13 @@ class StyleManager {
             });
             console.log('Bot was removed from meeting, sent notification');
         }
+
+        // We need to open the chat window to be able to track messages
+        const chatButton = document.querySelector('button#chat-button');
+        if (chatButton && !this.chatButtonClicked) {
+            chatButton.click();
+            this.chatButtonClicked = true;
+        }
     }
 
     startSilenceDetection() {
@@ -199,7 +206,7 @@ class StyleManager {
 
     start() {
         this.startSilenceDetection();
-        //this.makeMainVideoFillFrame();
+        this.makeMainVideoFillFrame();
 
         console.log('Started StyleManager');
     }
