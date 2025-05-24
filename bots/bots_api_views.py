@@ -10,10 +10,10 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
+from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.pagination import CursorPagination
-from rest_framework.generics import GenericAPIView
 
 from .authentication import ApiKeyAuthentication
 from .bots_api_utils import BotCreationSource, create_bot, create_bot_media_request_for_image, launch_bot, send_sync_command
@@ -710,8 +710,9 @@ class BotDetailView(APIView):
 
 
 class ChatMessageCursorPagination(CursorPagination):
-    ordering = 'created_at'
+    ordering = "created_at"
     page_size = 25
+
 
 class ChatMessagesView(GenericAPIView):
     authentication_classes = [ApiKeyAuthentication]
@@ -783,7 +784,7 @@ class ChatMessagesView(GenericAPIView):
 
             # Apply ordering - now using created_at for cursor pagination
             messages = messages_query.order_by("created_at")
-            
+
             # Let the pagination class handle the rest
             page = self.paginate_queryset(messages)
             if page is not None:
