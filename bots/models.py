@@ -167,6 +167,9 @@ class Bot(models.Model):
             # Delete all participants
             self.participants.all().delete()
 
+            # Delete all chat messages
+            self.chat_messages.all().delete()
+
             BotEventManager.create_event(bot=self, event_type=BotEventTypes.DATA_DELETED)
 
     def set_heartbeat(self):
