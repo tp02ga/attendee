@@ -252,6 +252,11 @@ class MetadataJSONField(serializers.JSONField):
                 "description": "Number of seconds to wait before leaving if the bot is in the waiting room",
                 "default": 900,
             },
+            "max_uptime_seconds": {
+                "type": "integer",
+                "description": "Maximum number of seconds that the bot should be running before automatically leaving (infinity)",
+                "default": None,
+            },
         },
         "required": [],
         "additionalProperties": False,
