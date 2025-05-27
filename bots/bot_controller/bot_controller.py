@@ -868,11 +868,11 @@ class BotController:
                     "step": message.get("step"),
                     "current_time": message.get("current_time").isoformat(),
                     "exception_type": message.get("exception_type"),
-                    "exception_message": message.get("exception_message"),
                     "inner_exception_type": message.get("inner_exception_type"),
-                    "inner_exception_message": message.get("inner_exception_message"),
                 },
             )
+
+            logger.info(f"Created bot event for #{self.bot_in_db.object_id} for UI element not found. Exception info: {message}")
 
             if screenshot_available:
                 # Create debug screenshot

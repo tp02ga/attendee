@@ -809,6 +809,7 @@ class BotEventManager:
                         payload={
                             "event_type": BotEventTypes.type_to_api_code(event_type),
                             "event_sub_type": BotEventSubTypes.sub_type_to_api_code(event_sub_type),
+                            "event_metadata": event_metadata,
                             "old_state": BotStates.state_to_api_code(old_state),
                             "new_state": BotStates.state_to_api_code(bot.state),
                             "created_at": event.created_at.isoformat(),
