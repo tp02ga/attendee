@@ -476,7 +476,10 @@ class BotEventSubTypes(models.IntegerChoices):
     FATAL_ERROR_HEARTBEAT_TIMEOUT = 13, "Fatal error - Heartbeat timeout"
     COULD_NOT_JOIN_MEETING_MEETING_NOT_FOUND = 14, "Bot could not join meeting - Meeting not found"
     FATAL_ERROR_BOT_NOT_LAUNCHED = 15, "Fatal error - Bot not launched"
-    COULD_NOT_JOIN_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED = 16, "Bot could not join meeting - Waiting room timeout exceeded",
+    COULD_NOT_JOIN_MEETING_WAITING_ROOM_TIMEOUT_EXCEEDED = (
+        16,
+        "Bot could not join meeting - Waiting room timeout exceeded",
+    )
     LEAVE_REQUESTED_AUTO_LEAVE_MAX_UPTIME_EXCEEDED = 17, "Leave requested - Auto leave max uptime exceeded"
 
     @classmethod

@@ -592,13 +592,8 @@ class WebBotAdapter(BotAdapter):
 
         if self.joined_at is not None and self.automatic_leave_configuration.max_uptime_seconds is not None:
             if time.time() - self.joined_at > self.automatic_leave_configuration.max_uptime_seconds:
-                logger.info(
-                    f"Auto-leaving meeting because bot has been running for more than {self.automatic_leave_configuration.max_uptime_seconds} seconds"
-                )
-                self.send_message_callback({
-                    "message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING,
-                    "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_MAX_UPTIME
-                })
+                logger.info(f"Auto-leaving meeting because bot has been running for more than {self.automatic_leave_configuration.max_uptime_seconds} seconds")
+                self.send_message_callback({"message": self.Messages.ADAPTER_REQUESTED_BOT_LEAVE_MEETING, "leave_reason": BotAdapter.LEAVE_REASON.AUTO_LEAVE_MAX_UPTIME})
                 return
 
     def ready_to_show_bot_image(self):
