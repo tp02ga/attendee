@@ -192,6 +192,10 @@ class WebBotAdapter(BotAdapter):
         self.left_meeting = True
         self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
+    def handle_meeting_ended(self):
+        self.left_meeting = True
+        self.send_message_callback({"message": self.Messages.MEETING_ENDED})
+
     def handle_websocket(self, websocket):
         audio_format = None
         output_dir = "frames"  # Add output directory
@@ -247,6 +251,8 @@ class WebBotAdapter(BotAdapter):
                         elif json_data.get("type") == "MeetingStatusChange":
                             if json_data.get("change") == "removed_from_meeting":
                                 self.handle_removed_from_meeting()
+                            if json_data.get("change") == "meeting_ended":
+                                self.handle_meeting_ended()
 
                 elif message_type == 2:  # VIDEO
                     self.process_video_frame(message)
