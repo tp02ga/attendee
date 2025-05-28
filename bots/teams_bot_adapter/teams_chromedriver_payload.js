@@ -1173,6 +1173,14 @@ function handleRosterUpdate(eventDataObject) {
     }
 }
 
+function handleMeetingEnded() {
+    realConsole?.log('handleMeetingEnded');
+    window.ws?.sendJson({
+        type: 'MeetingStatusChange',
+        change: 'meeting_ended'
+    });
+}
+
 const originalWebSocket = window.WebSocket;
 // Example usage:
 const wsInterceptor = new WebSocketInterceptor({
@@ -1192,6 +1200,9 @@ const wsInterceptor = new WebSocketInterceptor({
             realConsole?.log('Event Data Object:', eventDataObject);
             if (eventDataObject.url.endsWith("rosterUpdate/") || eventDataObject.url.endsWith("rosterUpdate")) {
                 handleRosterUpdate(eventDataObject);
+            }
+            if (eventDataObject.url.endsWith("conversation/conversationEnd/")) {
+                handleMeetingEnded();
             }
             /*
             Not sure if this is needed
