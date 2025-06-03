@@ -221,6 +221,25 @@ class DominantSpeakerManager {
         this.dominantSpeakerStreamId = null;
     }
 
+    getLastSpeakerForTimestampMs(timestampMs) {
+        // iterate in reverse order
+        for (let i = this.captionAudioTimes.length - 1; i >= 0; i--) {
+            const captionAudioTime = this.captionAudioTimes[i];
+            if (captionAudioTime.timestampMs <= timestampMs) {
+                return captionAudioTime.speakerId;
+            }
+        }
+
+        return null;
+    }
+
+    addCaptionAudioTime(timestampMs, speakerId) {
+        this.captionAudioTimes.push({
+            timestampMs: timestampMs,
+            speakerId: speakerId
+        });
+    }
+
     setDominantSpeakerStreamId(dominantSpeakerStreamId) {
         this.dominantSpeakerStreamId = dominantSpeakerStreamId.toString();
     }
@@ -1291,6 +1310,12 @@ const processDominantSpeakerHistoryMessage = (item) => {
 }
 
 const processClosedCaptionData = (item) => {
+    if (!window.initialData.collectCaptions)
+    {
+        return;
+    }
+
+
     realConsole?.log('processClosedCaptionData', item);
     if (!window.ws) {
         return;
@@ -1341,7 +1366,7 @@ const handleMainChannelEvent = (event) => {
         }
         else
         {
-            if (parsedData.recognitionResults && window.initialData.collectCaptions) {
+            if (parsedData.recognitionResults) {
                 for(const item of parsedData.recognitionResults) {
                     processClosedCaptionData(item);
                 }
@@ -1555,6 +1580,8 @@ const handleVideoTrack = async (event) => {
 
   const handleAudioTrack = async (event) => {
     let lastAudioFormat = null;  // Track last seen format
+    const audioDataQueue = [];
+    const ACTIVE_SPEAKER_LATENCY_MS = 2000;
     
     try {
       // Create processor to get raw frames
@@ -1638,15 +1665,25 @@ const handleVideoTrack = async (event) => {
                   if (audioData.every(value => value === 0)) {
                       return;
                   }
-  
-                  // Get the dominant speaker and assume that's who the participant is
-                  const dominantSpeaker = dominantSpeakerManager.getDominantSpeaker();
-                  //console.log('dominantSpeaker', dominantSpeaker);
 
-                  // Send audio data through websocket
-                  if (dominantSpeaker) {
-                    ws.sendPerParticipantAudio(dominantSpeaker.id, audioData);
+                  audioDataQueue.push({
+                    audioArrivalTime: Date.now(),
+                    audioData: audioData
+                  });
+
+                  while (audioDataQueue.length > 0 && 
+                    Date.now() - audioDataQueue[0].audioArrivalTime >= ACTIVE_SPEAKER_LATENCY_MS) {
+                    const { audioData } = audioDataQueue.shift();
+
+                    // Get the dominant speaker and assume that's who the participant speaking is
+                    const dominantSpeaker = dominantSpeakerManager.getDominantSpeaker();
+
+                    // Send audio data through websocket
+                    if (dominantSpeaker) {
+                        ws.sendPerParticipantAudio(dominantSpeaker.id, audioData);
+                    }
                   }
+
                   // Pass through the original frame
                   controller.enqueue(frame);
               } catch (error) {
