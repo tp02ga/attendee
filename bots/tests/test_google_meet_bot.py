@@ -634,7 +634,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
 
             # Simulate caption data arrival
-            caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption"}
+            caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption", "isFinal": 1}
             controller.closed_caption_manager.upsert_caption(caption_data)
 
             # Process these events
@@ -1002,7 +1002,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
 
             # Simulate caption data arrival
-            caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption from closed captions"}
+            caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption from closed captions", "isFinal": 1}
             controller.closed_caption_manager.upsert_caption(caption_data)
 
             # Force caption processing by flushing
