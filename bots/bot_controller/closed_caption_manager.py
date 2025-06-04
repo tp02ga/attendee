@@ -16,7 +16,7 @@ class CaptionEntry:
 
     def should_upsert_to_db(self, should_flush=False) -> bool:
         if self.only_save_final_captions:
-            if not self.caption_data.get("isFinal"):
+            if not self.caption_data.get("isFinal") and not should_flush:
                 return False
             if not self.last_upsert_to_db_at:
                 return True
