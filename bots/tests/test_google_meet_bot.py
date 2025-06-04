@@ -32,6 +32,10 @@ from bots.models import (
     TranscriptionProviders,
     TranscriptionTypes,
     Utterance,
+    WebhookDeliveryAttempt,
+    WebhookSecret,
+    WebhookSubscription,
+    WebhookTriggerTypes,
 )
 from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRetryableException
 
@@ -102,6 +106,9 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.deepgram_credentials = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.DEEPGRAM)
         self.deepgram_credentials.set_credentials({"api_key": "test_api_key"})
 
+        # Create webhook subscription for transcript updates
+        self.webhook_secret = WebhookSecret.objects.create(project=self.project)
+
         # Configure Celery to run tasks eagerly (synchronously)
         from django.conf import settings
 
@@ -116,8 +123,10 @@ class TestGoogleMeetBot(TransactionTestCase):
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     @patch("deepgram.DeepgramClient")
     @patch("time.time")
+    @patch("bots.tasks.deliver_webhook_task.deliver_webhook")
     def test_bot_can_join_meeting_and_record_audio_with_deepgram_transcription(
         self,
+        mock_deliver_webhook,
         mock_time,
         MockDeepgramClient,
         mock_wait_for_host_if_needed,
@@ -127,6 +136,15 @@ class TestGoogleMeetBot(TransactionTestCase):
         MockDisplay,
         mock_create_debug_recording,
     ):
+        mock_deliver_webhook.return_value = None
+
+        self.webhook_subscription = WebhookSubscription.objects.create(
+            project=self.project,
+            url="https://example.com/webhook",
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE],
+            is_active=True,
+        )
+
         # Set initial time
         current_time = 1000.0
         mock_time.return_value = current_time
@@ -295,6 +313,20 @@ class TestGoogleMeetBot(TransactionTestCase):
         audio_utterance = utterances.filter(source=Utterance.Sources.PER_PARTICIPANT_AUDIO, failure_data__isnull=True).first()
         self.assertIsNotNone(audio_utterance)
         self.assertEqual(audio_utterance.transcription.get("transcript"), "This is a test transcription from Deepgram")
+
+        # Verify webhook delivery attempts were created for transcript updates
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=self.bot, webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE)
+        self.assertGreater(webhook_delivery_attempts.count(), 0, "Expected webhook delivery attempts for transcript updates")
+
+        # Verify the webhook payload contains the expected utterance data
+        webhook_attempt = webhook_delivery_attempts.first()
+        self.assertIsNotNone(webhook_attempt.payload)
+        self.assertIn("speaker_name", webhook_attempt.payload)
+        self.assertIn("speaker_uuid", webhook_attempt.payload)
+        self.assertIn("transcription", webhook_attempt.payload)
+        self.assertEqual(webhook_attempt.payload["speaker_name"], "Test User")
+        self.assertEqual(webhook_attempt.payload["speaker_uuid"], "user1")
+        self.assertIsNotNone(webhook_attempt.payload["transcription"])
 
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
@@ -725,6 +757,10 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertIsNotNone(caption_utterance)
         self.assertEqual(caption_utterance.transcription.get("transcript"), "This is a test caption")
 
+        # Verify webhook delivery attempts were created for transcript updates
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=self.bot, webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE)
+        self.assertEqual(webhook_delivery_attempts.count(), 0, "Expected zero webhook delivery attempts for transcript updates")
+
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
 
@@ -949,8 +985,10 @@ class TestGoogleMeetBot(TransactionTestCase):
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
     @patch("time.time")
+    @patch("bots.tasks.deliver_webhook_task.deliver_webhook")
     def test_bot_can_join_meeting_and_record_with_closed_caption_transcription(
         self,
+        mock_deliver_webhook,
         mock_time,
         mock_wait_for_host_if_needed,
         mock_check_if_meeting_is_found,
@@ -959,6 +997,15 @@ class TestGoogleMeetBot(TransactionTestCase):
         MockDisplay,
         mock_create_debug_recording,
     ):
+        mock_deliver_webhook.return_value = None
+
+        self.webhook_subscription = WebhookSubscription.objects.create(
+            project=self.project,
+            url="https://example.com/webhook",
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE],
+            is_active=True,
+        )
+
         # Set initial time
         current_time = 1000.0
         mock_time.return_value = current_time
@@ -1100,6 +1147,20 @@ class TestGoogleMeetBot(TransactionTestCase):
         caption_utterance = utterances.filter(source=Utterance.Sources.CLOSED_CAPTION_FROM_PLATFORM).first()
         self.assertIsNotNone(caption_utterance)
         self.assertEqual(caption_utterance.transcription.get("transcript"), "This is a test caption from closed captions")
+
+        # Verify webhook delivery attempts were created for transcript updates
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=self.bot, webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE)
+        self.assertGreater(webhook_delivery_attempts.count(), 0, "Expected webhook delivery attempts for transcript updates")
+
+        # Verify the webhook payload contains the expected utterance data
+        webhook_attempt = webhook_delivery_attempts.first()
+        self.assertIsNotNone(webhook_attempt.payload)
+        self.assertIn("speaker_name", webhook_attempt.payload)
+        self.assertIn("speaker_uuid", webhook_attempt.payload)
+        self.assertIn("transcription", webhook_attempt.payload)
+        self.assertEqual(webhook_attempt.payload["speaker_name"], "Test User")
+        self.assertEqual(webhook_attempt.payload["speaker_uuid"], "user1")
+        self.assertIsNotNone(webhook_attempt.payload["transcription"])
 
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
