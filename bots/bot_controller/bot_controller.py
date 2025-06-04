@@ -33,8 +33,8 @@ from bots.models import (
     RecordingManager,
     RecordingStates,
     TranscriptionProviders,
-    WebhookTriggerTypes,
     Utterance,
+    WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
 from bots.webhook_utils import trigger_webhook

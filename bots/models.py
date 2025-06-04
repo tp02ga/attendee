@@ -1150,7 +1150,7 @@ class Utterance(models.Model):
             "speaker_user_uuid": self.participant.user_uuid,
             "timestamp_ms": self.timestamp_ms,
             "duration_ms": self.duration_ms,
-            "transcription": self.transcription,
+            "transcription": {"transcript": self.transcription.get("transcript")} if self.transcription else None,
         }
 
 
