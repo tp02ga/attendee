@@ -1143,6 +1143,16 @@ class Utterance(models.Model):
     def __str__(self):
         return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
 
+    def webhook_payload(self):
+        return {
+            "speaker_name": self.participant.full_name,
+            "speaker_uuid": self.participant.uuid,
+            "speaker_user_uuid": self.participant.user_uuid,
+            "timestamp_ms": self.timestamp_ms,
+            "duration_ms": self.duration_ms,
+            "transcription": self.transcription,
+        }
+
 
 class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
@@ -1436,12 +1446,14 @@ class WebhookSecret(models.Model):
 
 class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
+    TRANSCRIPT_UPDATE = 2, "Transcript Update"
     # add other event types here
 
     @classmethod
     def trigger_type_to_api_code(cls, value):
         mapping = {
             cls.BOT_STATE_CHANGE: "bot.state_change",
+            cls.TRANSCRIPT_UPDATE: "transcript.update",
         }
         return mapping.get(value)
 
