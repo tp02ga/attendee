@@ -34,8 +34,10 @@ from bots.models import (
     RecordingStates,
     TranscriptionProviders,
     Utterance,
+    WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
+from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
 from .automatic_leave_configuration import AutomaticLeaveConfiguration
@@ -703,6 +705,13 @@ class BotController:
                 "duration_ms": message["duration_ms"],
                 "sample_rate": None,
             },
+        )
+
+        # Create webhook event
+        trigger_webhook(
+            webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE,
+            bot=self.bot_in_db,
+            payload=utterance.webhook_payload(),
         )
 
         RecordingManager.set_recording_transcription_in_progress(recording_in_progress)

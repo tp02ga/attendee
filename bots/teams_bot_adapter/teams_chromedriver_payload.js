@@ -1262,7 +1262,8 @@ const processClosedCaptionData = (item) => {
         deviceId: item.userId,
         captionId: captionId,
         text: item.text,
-        audioTimestamp: item.timestampAudioSent
+        audioTimestamp: item.timestampAudioSent,
+        isFinal: item.isFinal
     };
 
     window.ws.sendClosedCaptionUpdate(itemConverted);

@@ -1142,6 +1142,7 @@ const messageTypes = [
             { name: 'deviceId', fieldNumber: 1, type: 'string' },
             { name: 'captionId', fieldNumber: 2, type: 'int64' },
             { name: 'version', fieldNumber: 3, type: 'int64' },
+            { name: 'isFinal', fieldNumber: 4, type: 'varint' },
             { name: 'text', fieldNumber: 6, type: 'string' },
             { name: 'languageId', fieldNumber: 8, type: 'int64' }
         ]
