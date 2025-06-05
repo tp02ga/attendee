@@ -12,6 +12,7 @@ from .models import (
     Bot,
     BotEventManager,
     BotEventTypes,
+    BotChatMessageRequest,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
     Credentials,
@@ -52,6 +53,23 @@ def launch_bot(bot):
         # Default to launching bot via celery
         run_bot.delay(bot.id)
 
+def create_bot_chat_message_request(bot, chat_message_data):
+    """
+    Creates a BotChatMessageRequest for the given bot with the provided data.
+    
+    Args:
+        bot: The Bot instance
+        chat_message_data: Validated data containing to_user_uuid, to, and message
+    
+    Returns:
+        BotChatMessageRequest: The created chat message request
+    """
+    return BotChatMessageRequest.objects.create(
+        bot=bot,
+        to_user_uuid=chat_message_data.get("to_user_uuid"),
+        to=chat_message_data["to"],
+        message=chat_message_data["message"],
+    )
 
 def create_bot_media_request_for_image(bot, image):
     content_type = image["type"]

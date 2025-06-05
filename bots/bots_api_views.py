@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .bots_api_utils import BotCreationSource, create_bot, create_bot_media_request_for_image, launch_bot, send_sync_command
+from .bots_api_utils import BotCreationSource, create_bot, create_bot_media_request_for_image, create_bot_chat_message_request, launch_bot, send_sync_command
 from .models import (
     Bot,
     BotEventManager,
@@ -36,6 +36,7 @@ from .models import (
 from .serializers import (
     BotImageSerializer,
     BotSerializer,
+    BotChatMessageRequestSerializer,
     ChatMessageSerializer,
     CreateBotSerializer,
     RecordingSerializer,
@@ -450,6 +451,8 @@ class OutputImageView(APIView):
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
+
+
 class DeleteDataView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -796,3 +799,66 @@ class ChatMessagesView(GenericAPIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class SendChatMessageView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
+    @extend_schema(
+        operation_id="Send Chat Message",
+        summary="Send a chat message",
+        description="Causes the bot to send a chat message in the meeting.",
+        request=BotChatMessageRequestSerializer,
+        responses={
+            200: OpenApiResponse(description="Chat message request created successfully"),
+            400: OpenApiResponse(description="Invalid input"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def post(self, request, object_id):
+        # Get the bot
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Validate the request data
+        serializer = BotChatMessageRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if bot is in a state that can send chat messages
+        if not BotEventManager.is_state_that_can_play_media(bot.state):
+            return Response(
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot send chat messages"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        validated_data = serializer.validated_data
+
+        # Create the chat message request
+        try:
+            chat_message_request = create_bot_chat_message_request(bot, validated_data)
+
+            # Send sync command to notify bot of new chat message request
+            send_sync_command(bot, "sync_chat_message_requests")
+
+            return Response({"message": "Chat message request created successfully"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logging.error(f"Error creating chat message request for bot {bot.object_id}: {str(e)}")
+            return Response(
+                {"error": "Failed to create chat message request"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

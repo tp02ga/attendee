@@ -16,6 +16,7 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    BotChatMessageToOptions,
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
@@ -753,3 +754,28 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
+
+
+class BotChatMessageRequestSerializer(serializers.Serializer):
+    to_user_uuid = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
+    )
+    to = serializers.ChoiceField(
+        choices=BotChatMessageToOptions.choices,
+        help_text="Who to send the message to.",
+        default=BotChatMessageToOptions.EVERYONE
+    )
+    message = serializers.CharField(help_text="The message text to send.")
+
+    def validate(self, data):
+        to_value = data.get("to")
+        to_user_uuid = data.get("to_user_uuid")
+
+        if to_value == BotChatMessageToOptions.SPECIFIC_USER and not to_user_uuid:
+            raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
+
+        return data

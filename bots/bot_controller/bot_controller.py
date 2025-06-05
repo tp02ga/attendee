@@ -32,6 +32,8 @@ from bots.models import (
     RecordingFormats,
     RecordingManager,
     RecordingStates,
+    BotChatMessageRequestStates,
+    BotChatMessageRequestManager,
     TranscriptionProviders,
     Utterance,
     WebhookTriggerTypes,
@@ -593,6 +595,12 @@ class BotController:
             logger.info(f"Error playing video media request: {e}")
             BotMediaRequestManager.set_media_request_failed_to_play(oldest_enqueued_media_request)
 
+    def take_action_based_on_chat_message_requests_in_db(self):
+        chat_message_requests = self.bot_in_db.chat_message_requests.filter(state=BotChatMessageRequestStates.ENQUEUED)
+        for chat_message_request in chat_message_requests:
+            self.adapter.send_chat_message(text = chat_message_request.message)
+            BotChatMessageRequestManager.set_chat_message_request_sent(chat_message_request)
+
     def take_action_based_on_media_requests_in_db(self):
         self.take_action_based_on_audio_media_requests_in_db()
         self.take_action_based_on_image_media_requests_in_db()
@@ -626,6 +634,10 @@ class BotController:
                 logger.info(f"Syncing media requests for bot {self.bot_in_db.object_id}")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_media_requests_in_db()
+            elif command == "sync_chat_message_requests":
+                logger.info(f"Syncing chat message requests for bot {self.bot_in_db.object_id}")
+                self.bot_in_db.refresh_from_db()
+                self.take_action_based_on_chat_message_requests_in_db()
             else:
                 logger.info(f"Unknown command: {command}")
 
