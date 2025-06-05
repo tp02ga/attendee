@@ -45,7 +45,7 @@ class TeamsUIMethods:
         except Exception as e:
             logger.info(f"Error occurred when clicking element {step}, will retry")
             raise UiCouldNotClickElementException("Error occurred when clicking element", step, e)
-            
+
     def look_for_waiting_to_be_admitted_element(self, step):
         waiting_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Someone will let you in soon")]')
         if waiting_element:
@@ -150,7 +150,7 @@ class TeamsUIMethods:
             By.XPATH,
             '//*[contains(text(), "but you were denied access to the meeting") or contains(text(), "Your request to join was declined")]',
         )
-        
+
         if denied_your_request_element:
             logger.info("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
             dismiss_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="calling-retry-cancelbutton"]')), wait_time_seconds=2)
