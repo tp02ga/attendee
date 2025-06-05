@@ -83,7 +83,13 @@ class TeamsUIMethods:
                 raise UiCouldNotLocateElementException("Could not find name input. Unknown error.", "name_input", e)
 
     def click_captions_button(self):
-        logger.info("Waiting for the Language and Speech button...")
+        logger.info("Enabling closed captions programatically...")
+        closed_caption_enable_result = self.driver.execute_script("return enableClosedCaptions()")
+        if closed_caption_enable_result:
+            logger.info("Closed captions enabled programatically")
+            return
+
+        logger.info("Failed to enable closed captions programatically. Waiting for the Language and Speech button...")
         try:
             language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=4)
             logger.info("Clicking the language and speech button...")

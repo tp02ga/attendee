@@ -1187,7 +1187,7 @@ function handleConversationEnd(eventDataObject) {
             realConsole?.error('Error decoding eventDataObject.body:', error);
         }
     }
-    
+
     realConsole?.log('handleConversationEnd, eventDataObjectBody', eventDataObjectBody);
 
     const subCode = eventDataObjectBody?.subCode;
@@ -2243,3 +2243,25 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
       return _bind.apply(this, [thisArg, ...args]);
     };
   })();
+
+  function enableClosedCaptions() {
+    if (window.callingDebug?.observableCall?.startClosedCaption) {
+        window.callingDebug.observableCall.startClosedCaption();
+        return true;
+    }
+
+    if (window.msteamscalling?.deref)
+    {
+        const microsoftCalling = window.msteamscalling.deref();
+        if (microsoftCalling?.callingService?.getActiveCall) {
+            const call = microsoftCalling.callingService.getActiveCall();
+
+            if (call) {
+                call.startClosedCaption();
+                return true;
+            }
+        }
+    }
+
+    return false;
+  }
