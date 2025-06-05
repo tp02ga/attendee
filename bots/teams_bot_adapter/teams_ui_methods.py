@@ -90,9 +90,12 @@ class TeamsUIMethods:
 
     def click_captions_button(self):
         logger.info("Waiting for the Language and Speech button...")
-        language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
-        logger.info("Clicking the language and speech button...")
-        self.click_element(language_and_speech_button, "language_and_speech_button")
+        try:
+            language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
+            logger.info("Clicking the language and speech button...")
+            self.click_element(language_and_speech_button, "language_and_speech_button")
+        except Exception as e:
+            logger.info(f"Unable to find language and speech button. Exception will be caught because the caption button may be directly visible instead.")
 
         logger.info("Waiting for the closed captions button...")
         closed_captions_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.ID, "closed-captions-button")), wait_time_seconds=10)
@@ -157,12 +160,12 @@ class TeamsUIMethods:
 
     def select_speaker_view(self):
         logger.info("Waiting for the view button...")
-        view_button = self.locate_element(step="view_button", condition=EC.presence_of_element_located((By.ID, "view-mode-button")), wait_time_seconds=60)
+        view_button = self.locate_element(step="view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#view-mode-button, #custom-view-button")), wait_time_seconds=60)
         logger.info("Clicking the view button...")
         self.click_element(view_button, "view_button")
 
         logger.info("Waiting for the speaker view button...")
-        speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.ID, "custom-view-button-SpeakerViewButton")), wait_time_seconds=10)
+        speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-SpeakerViewButton, #SpeakerView-button")), wait_time_seconds=1000)
         logger.info("Clicking the speaker view button...")
         self.click_element(speaker_view_button, "speaker_view_button")
 
