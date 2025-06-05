@@ -605,9 +605,6 @@ class WebBotAdapter(BotAdapter):
     def ready_to_show_bot_image(self):
         self.send_message_callback({"message": self.Messages.READY_TO_SHOW_BOT_IMAGE})
 
-    def send_raw_audio(self, bytes, sample_rate):
-        logger.info("send_raw_audio not supported in web bots")
-
     def get_first_buffer_timestamp_ms(self):
         if self.media_sending_enable_timestamp_ms is None:
             return None
@@ -628,3 +625,20 @@ class WebBotAdapter(BotAdapter):
         """,
             list(image_bytes),
         )
+
+    def send_raw_audio(self, bytes, sample_rate):
+        """
+        Sends raw audio bytes to the Google Meet call.
+
+        :param bytes: Raw audio bytes in PCM format
+        :param sample_rate: Sample rate of the audio in Hz
+        """
+        if not self.driver:
+            print("Cannot send audio - driver not initialized")
+            return
+
+        # Convert bytes to Int16Array for JavaScript
+        audio_data = np.frombuffer(bytes, dtype=np.int16).tolist()
+
+        # Call the JavaScript function to enqueue the PCM chunk
+        self.driver.execute_script(f"window.botOutputManager.playPCMAudio({audio_data}, {sample_rate})")
