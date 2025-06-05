@@ -94,8 +94,8 @@ class TeamsUIMethods:
             language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
             logger.info("Clicking the language and speech button...")
             self.click_element(language_and_speech_button, "language_and_speech_button")
-        except Exception as e:
-            logger.info(f"Unable to find language and speech button. Exception will be caught because the caption button may be directly visible instead.")
+        except Exception:
+            logger.info("Unable to find language and speech button. Exception will be caught because the caption button may be directly visible instead.")
 
         logger.info("Waiting for the closed captions button...")
         closed_captions_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.ID, "closed-captions-button")), wait_time_seconds=10)
