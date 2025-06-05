@@ -213,7 +213,7 @@ class TeamsUIMethods:
             EC.presence_of_element_located(
                 (
                     By.CSS_SELECTOR,
-                    '[data-inp="hangup-button"]',
+                    '[data-inp="hangup-button"], #hangup-button',
                 )
             )
         )
