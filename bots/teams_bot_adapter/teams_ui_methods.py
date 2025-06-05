@@ -45,13 +45,7 @@ class TeamsUIMethods:
         except Exception as e:
             logger.info(f"Error occurred when clicking element {step}, will retry")
             raise UiCouldNotClickElementException("Error occurred when clicking element", step, e)
-
-    def look_for_denied_request_element(self, step):
-        denied_request_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Your request to join was declined")]')
-        if denied_request_element:
-            logger.info("The request to join the Teams meeting was declined. Raising UiRequestToJoinDeniedException")
-            raise UiRequestToJoinDeniedException("The request to join the Teams meeting was declined", step)
-
+            
     def look_for_waiting_to_be_admitted_element(self, step):
         waiting_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Someone will let you in soon")]')
         if waiting_element:
@@ -91,7 +85,7 @@ class TeamsUIMethods:
     def click_captions_button(self):
         logger.info("Waiting for the Language and Speech button...")
         try:
-            language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=10)
+            language_and_speech_button = self.locate_element(step="language_and_speech_button", condition=EC.presence_of_element_located((By.ID, "LanguageSpeechMenuControl-id")), wait_time_seconds=4)
             logger.info("Clicking the language and speech button...")
             self.click_element(language_and_speech_button, "language_and_speech_button")
         except Exception:
@@ -148,8 +142,9 @@ class TeamsUIMethods:
     def look_for_denied_your_request_element(self, step):
         denied_your_request_element = self.find_element_by_selector(
             By.XPATH,
-            '//*[contains(text(), "but you were denied access to the meeting")]',
+            '//*[contains(text(), "but you were denied access to the meeting") or contains(text(), "Your request to join was declined")]',
         )
+        
         if denied_your_request_element:
             logger.info("Someone in the call denied our request to join. Raising UiRequestToJoinDeniedException")
             dismiss_button = self.locate_element(step="closed_captions_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="calling-retry-cancelbutton"]')), wait_time_seconds=2)
@@ -194,12 +189,6 @@ class TeamsUIMethods:
         join_button = self.locate_element(step="join_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="prejoin-join-button"]')), wait_time_seconds=10)
         logger.info("Clicking the Join now button...")
         self.click_element(join_button, "join_button")
-
-        # Check if we were denied entry
-        try:
-            WebDriverWait(self.driver, 10).until(lambda d: self.look_for_denied_request_element("join_meeting") or False)
-        except TimeoutException:
-            pass  # This is expected if we're not denied
 
         # Wait for meeting to load and enable captions
         self.click_show_more_button()

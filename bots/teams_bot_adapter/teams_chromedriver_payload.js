@@ -1173,8 +1173,37 @@ function handleRosterUpdate(eventDataObject) {
     }
 }
 
-function handleMeetingEnded() {
-    realConsole?.log('handleMeetingEnded');
+function handleConversationEnd(eventDataObject) {
+
+    let eventDataObjectBody = {};
+    try {
+        eventDataObjectBody = JSON.parse(eventDataObject.body);
+    } catch (error) {
+        realConsole?.error('Error parsing eventDataObject.body:', error);
+
+        try {
+            eventDataObjectBody = decodeWebSocketBody(eventDataObject.body);
+        } catch (error) {
+            realConsole?.error('Error decoding eventDataObject.body:', error);
+        }
+    }
+    
+    realConsole?.log('handleConversationEnd, eventDataObjectBody', eventDataObjectBody);
+
+    const subCode = eventDataObjectBody?.subCode;
+    const subCodeValueForDeniedRequestToJoin = 5854;
+
+    if (subCode === subCodeValueForDeniedRequestToJoin)
+    {
+        // For now this won't do anything, but good to have it in our logs
+        window.ws?.sendJson({
+            type: 'MeetingStatusChange',
+            change: 'request_to_join_denied'
+        });
+        return;
+    }
+
+    realConsole?.log('handleConversationEnd, sending meeting ended message');
     window.ws?.sendJson({
         type: 'MeetingStatusChange',
         change: 'meeting_ended'
@@ -1202,7 +1231,7 @@ const wsInterceptor = new WebSocketInterceptor({
                 handleRosterUpdate(eventDataObject);
             }
             if (eventDataObject.url.endsWith("conversation/conversationEnd/")) {
-                handleMeetingEnded();
+                handleConversationEnd(eventDataObject);
             }
             /*
             Not sure if this is needed
