@@ -165,7 +165,7 @@ class TeamsUIMethods:
         self.click_element(view_button, "view_button")
 
         logger.info("Waiting for the speaker view button...")
-        speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-SpeakerViewButton, #SpeakerView-button")), wait_time_seconds=1000)
+        speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-SpeakerViewButton, #SpeakerView-button")), wait_time_seconds=10)
         logger.info("Clicking the speaker view button...")
         self.click_element(speaker_view_button, "speaker_view_button")
 
