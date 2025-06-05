@@ -892,6 +892,7 @@ class WebSocketClient {
     enableMediaSending() {
         this.mediaSendingEnabled = true;
         window.styleManager.start();
+        window.callManager.syncParticipants();
 
         // No longer need this because we're not using MediaStreamTrackProcessor's
         //this.startBlackFrameTimer();
@@ -2244,24 +2245,86 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
     };
   })();
 
-  function enableClosedCaptions() {
-    if (window.callingDebug?.observableCall?.startClosedCaption) {
-        window.callingDebug.observableCall.startClosedCaption();
-        return true;
+class CallManager {
+    constructor() {
+        this.activeCall = null;
     }
 
-    if (window.msteamscalling?.deref)
-    {
-        const microsoftCalling = window.msteamscalling.deref();
-        if (microsoftCalling?.callingService?.getActiveCall) {
-            const call = microsoftCalling.callingService.getActiveCall();
+    setActiveCall() {
+        if (this.activeCall) {
+            return;
+        }
 
-            if (call) {
-                call.startClosedCaption();
-                return true;
+        if (window.callingDebug?.observableCall) {
+            this.activeCall = window.callingDebug.observableCall;
+        }
+
+        if (window.msteamscalling?.deref)
+        {
+            const microsoftCalling = window.msteamscalling.deref();
+            if (microsoftCalling?.callingService?.getActiveCall) {
+                const call = microsoftCalling.callingService.getActiveCall();
+                if (call) {
+                    this.activeCall = call;
+                }
             }
         }
     }
 
-    return false;
-  }
+    syncParticipants() {
+        this.setActiveCall();
+        if (!this.activeCall) {
+            return;
+        }
+
+        const participantsRaw = this.activeCall.participants;
+        const participants = participantsRaw.map(participant => {
+            return {
+                id: participant.id,
+                displayName: participant.displayName,
+                endpoints: participant.endpoints,
+            };
+        }).filter(participant => participant.displayName);
+
+        for (const participant of participants) {
+            const endpoints = (participant?.endpoints?.endpointDetails || []).map(endpoint => {
+                if (!endpoint.endpointId) {
+                    return null;
+                }
+
+                if (!endpoint.mediaStreams) {
+                    return null;
+                }
+
+                return [
+                    endpoint.endpointId,
+                    {
+                        call: {
+                            mediaStreams: endpoint.mediaStreams
+                        }
+                    }
+                ]
+            }).filter(endpoint => endpoint);
+
+            const participantConverted = {
+                details: {id: participant.id, displayName: participant.displayName},
+                state: "active",
+                endpoints: Object.fromEntries(endpoints)
+            };
+            window.userManager.singleUserSynced(participantConverted);
+            syncVirtualStreamsFromParticipant(participantConverted);
+        }
+    }
+
+    enableClosedCaptions() {
+        this.setActiveCall();
+        if (this.activeCall) {
+            this.activeCall.startClosedCaption();
+            return true;
+        }
+        return false;
+    }
+}
+
+const callManager = new CallManager();
+window.callManager = callManager;
