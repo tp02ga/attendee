@@ -128,50 +128,48 @@ class StyleManager {
     }
 
     makeMainVideoFillFrame() {
-        // Create a style element
-        const style = document.createElement('style');
-        
-        // Define the CSS rules
+        /* ── 0.  Cleanup from earlier runs ─────────────────────────────── */
+        if (this.blanket?.isConnected) this.blanket.remove();
+        if (this.frameStyleElement?.isConnected) this.frameStyleElement.remove();
+        if (this.frameAdjustInterval) clearInterval(this.frameAdjustInterval);
+    
+        /* ── 1.  Inject the blanket ────────────────────────────────────── */
+        const blanket = document.createElement("div");
+        blanket.id = "attendee-blanket";
+        Object.assign(blanket.style, {
+            position: "fixed",
+            inset: "0",
+            background: "#fff",
+            zIndex: 998,              // below the video we’ll promote
+            pointerEvents: "none"     // lets events fall through
+        });
+        document.body.appendChild(blanket);
+        this.blanket = blanket;
+    
+        /* ── 2.  Promote the central video and its descendants ─────────── */
+        const style = document.createElement("style");
         style.textContent = `
-            /* First, hide all elements */
-            body * {
-            display: none !important;
-            }
-            
-            /* Make the target element visible */
+            /* central pane fills the viewport, highest z‑index */
             [data-test-segment-type="central"] {
-            display: block !important;
+                position: fixed !important;
+                inset: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 999 !important;   /* > blanket */
             }
-            
-            /* Make all parents of the target element visible - this works because an element must be displayed for its children to be visible */
-            [data-test-segment-type="central"] ancestor {
-            display: block !important;
-            }
-            
-            /* Make all ancestors visible using :has() selector (modern browsers) */
-            *:has([data-test-segment-type="central"]) {
-            display: block !important;
-            }
-            
-            /* Make all children visible */
+            /* make sure its children inherit size & events normally */
+            [data-test-segment-type="central"], 
             [data-test-segment-type="central"] * {
-            display: inherit !important;
+                pointer-events: auto !important;
             }
         `;
-        
-        // Add the style element to the document head
         document.head.appendChild(style);
-        
-        // Store reference to the style element
         this.frameStyleElement = style;
-        
-        // Initial adjustment
-        this.adjustCentralElement();
-        
-        // Set up interval to readjust the central element regularly
-        this.frameAdjustInterval = setInterval(() => {
-            this.adjustCentralElement();
-        }, 250);
+    
+        /* ── 3.  One‑off + periodic resize corrections (if you need them) */
+        const adjust = () => this.adjustCentralElement?.();
+        adjust();                               // run immediately
+        this.frameAdjustInterval = setInterval(adjust, 250);
     }
     
     adjustCentralElement() {
