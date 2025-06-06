@@ -892,6 +892,7 @@ class WebSocketClient {
     enableMediaSending() {
         this.mediaSendingEnabled = true;
         window.styleManager.start();
+        window.callManager.syncParticipants();
 
         // No longer need this because we're not using MediaStreamTrackProcessor's
         //this.startBlackFrameTimer();
@@ -1173,8 +1174,37 @@ function handleRosterUpdate(eventDataObject) {
     }
 }
 
-function handleMeetingEnded() {
-    realConsole?.log('handleMeetingEnded');
+function handleConversationEnd(eventDataObject) {
+
+    let eventDataObjectBody = {};
+    try {
+        eventDataObjectBody = JSON.parse(eventDataObject.body);
+    } catch (error) {
+        realConsole?.error('Error parsing eventDataObject.body:', error);
+
+        try {
+            eventDataObjectBody = decodeWebSocketBody(eventDataObject.body);
+        } catch (error) {
+            realConsole?.error('Error decoding eventDataObject.body:', error);
+        }
+    }
+
+    realConsole?.log('handleConversationEnd, eventDataObjectBody', eventDataObjectBody);
+
+    const subCode = eventDataObjectBody?.subCode;
+    const subCodeValueForDeniedRequestToJoin = 5854;
+
+    if (subCode === subCodeValueForDeniedRequestToJoin)
+    {
+        // For now this won't do anything, but good to have it in our logs
+        window.ws?.sendJson({
+            type: 'MeetingStatusChange',
+            change: 'request_to_join_denied'
+        });
+        return;
+    }
+
+    realConsole?.log('handleConversationEnd, sending meeting ended message');
     window.ws?.sendJson({
         type: 'MeetingStatusChange',
         change: 'meeting_ended'
@@ -1202,7 +1232,7 @@ const wsInterceptor = new WebSocketInterceptor({
                 handleRosterUpdate(eventDataObject);
             }
             if (eventDataObject.url.endsWith("conversation/conversationEnd/")) {
-                handleMeetingEnded();
+                handleConversationEnd(eventDataObject);
             }
             /*
             Not sure if this is needed
@@ -2214,3 +2244,87 @@ navigator.mediaDevices.getUserMedia = function(constraints) {
       return _bind.apply(this, [thisArg, ...args]);
     };
   })();
+
+class CallManager {
+    constructor() {
+        this.activeCall = null;
+    }
+
+    setActiveCall() {
+        if (this.activeCall) {
+            return;
+        }
+
+        if (window.callingDebug?.observableCall) {
+            this.activeCall = window.callingDebug.observableCall;
+        }
+
+        if (window.msteamscalling?.deref)
+        {
+            const microsoftCalling = window.msteamscalling.deref();
+            if (microsoftCalling?.callingService?.getActiveCall) {
+                const call = microsoftCalling.callingService.getActiveCall();
+                if (call) {
+                    this.activeCall = call;
+                }
+            }
+        }
+    }
+
+    syncParticipants() {
+        this.setActiveCall();
+        if (!this.activeCall) {
+            return;
+        }
+
+        const participantsRaw = this.activeCall.participants;
+        const participants = participantsRaw.map(participant => {
+            return {
+                id: participant.id,
+                displayName: participant.displayName,
+                endpoints: participant.endpoints,
+            };
+        }).filter(participant => participant.displayName);
+
+        for (const participant of participants) {
+            const endpoints = (participant?.endpoints?.endpointDetails || []).map(endpoint => {
+                if (!endpoint.endpointId) {
+                    return null;
+                }
+
+                if (!endpoint.mediaStreams) {
+                    return null;
+                }
+
+                return [
+                    endpoint.endpointId,
+                    {
+                        call: {
+                            mediaStreams: endpoint.mediaStreams
+                        }
+                    }
+                ]
+            }).filter(endpoint => endpoint);
+
+            const participantConverted = {
+                details: {id: participant.id, displayName: participant.displayName},
+                state: "active",
+                endpoints: Object.fromEntries(endpoints)
+            };
+            window.userManager.singleUserSynced(participantConverted);
+            syncVirtualStreamsFromParticipant(participantConverted);
+        }
+    }
+
+    enableClosedCaptions() {
+        this.setActiveCall();
+        if (this.activeCall) {
+            this.activeCall.startClosedCaption();
+            return true;
+        }
+        return false;
+    }
+}
+
+const callManager = new CallManager();
+window.callManager = callManager;
