@@ -183,7 +183,7 @@ class StyleManager {
         
         // Function to resize the central element
         function adjustCentralElementSize(element) {
-            if (element.style) {
+            if (element?.style) {
                 element.style.width  = `${window.initialData.videoFrameWidth}px`;
                 element.style.height = `${window.initialData.videoFrameHeight}px`;
                 element.style.position = 'fixed';
@@ -201,10 +201,10 @@ class StyleManager {
         }
         
         if (centralElement) {
-            adjustChildElement(centralElement.children[0].children[0].children[0].children[0].children[0]);
-            adjustChildElement(centralElement.children[0].children[0].children[0].children[0]);
-            adjustChildElement(centralElement.children[0].children[0].children[0]);
-            adjustChildElement(centralElement.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]);
             adjustCentralElementSize(centralElement);
         }
     }
