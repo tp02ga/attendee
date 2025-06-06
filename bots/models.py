@@ -1384,17 +1384,17 @@ class BotChatMessageRequestStates(models.IntegerChoices):
     FAILED = 3, "Failed"
 
 
-class BotChatMessageToOptions(models.IntegerChoices):
-    EVERYONE = 1, "Everyone"
-    SPECIFIC_USER = 2, "Specific User"
-    EVERYONE_BUT_HOST = 3, "Everyone but Host"
+class BotChatMessageToOptions(models.TextChoices):
+    EVERYONE = "everyone"
+    SPECIFIC_USER = "specific_user"
+    EVERYONE_BUT_HOST = "everyone_but_host"
 
 
 class BotChatMessageRequest(models.Model):
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="chat_message_requests")
 
     to_user_uuid = models.CharField(max_length=255, null=True, blank=True)
-    to = models.IntegerField(choices=BotChatMessageToOptions.choices, null=False)
+    to = models.CharField(choices=BotChatMessageToOptions.choices, null=False)
 
     message = models.TextField(null=False)
     additional_data = models.JSONField(null=False, default=dict)

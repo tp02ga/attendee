@@ -296,7 +296,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
     )
-    to = serializers.ChoiceField(choices=BotChatMessageToOptions.choices, help_text="Who to send the message to.", default=BotChatMessageToOptions.EVERYONE)
+    to = serializers.ChoiceField(choices=BotChatMessageToOptions.values, help_text="Who to send the message to.", default=BotChatMessageToOptions.EVERYONE)
     message = serializers.CharField(help_text="The message text to send.")
 
     def validate(self, data):

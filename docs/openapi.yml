@@ -739,13 +739,13 @@ components:
         to:
           allOf:
           - $ref: '#/components/schemas/ToEnum'
-          default: 1
+          default: everyone
           description: |-
             Who to send the message to.
 
-            * `1` - Everyone
-            * `2` - Specific User
-            * `3` - Everyone but Host
+            * `everyone` - everyone
+            * `specific_user` - specific_user
+            * `everyone_but_host` - everyone_but_host
         message:
           type: string
           minLength: 1
@@ -1055,14 +1055,14 @@ components:
       - data_deleted
     ToEnum:
       enum:
-      - 1
-      - 2
-      - 3
-      type: integer
+      - everyone
+      - specific_user
+      - everyone_but_host
+      type: string
       description: |-
-        * `1` - Everyone
-        * `2` - Specific User
-        * `3` - Everyone but Host
+        * `everyone` - everyone
+        * `specific_user` - specific_user
+        * `everyone_but_host` - everyone_but_host
     TranscriptUtterance:
       type: object
       properties:
