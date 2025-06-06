@@ -140,7 +140,7 @@ class StyleManager {
             position: "fixed",
             inset: "0",
             background: "#fff",
-            zIndex: 998,              // below the video we’ll promote
+            zIndex: 1998,              // below the video we’ll promote
             pointerEvents: "none"     // lets events fall through
         });
         document.body.appendChild(blanket);
@@ -155,7 +155,7 @@ class StyleManager {
                 inset: 0 !important;
                 width: 100vw !important;
                 height: 100vh !important;
-                z-index: 999 !important;   /* > blanket */
+                z-index: 1999 !important;   /* > blanket */
             }
             /* make sure its children inherit size & events normally */
             [data-test-segment-type="central"], 
