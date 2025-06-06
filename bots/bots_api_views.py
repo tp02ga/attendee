@@ -847,7 +847,7 @@ class SendChatMessageView(APIView):
 
         # Create the chat message request
         try:
-            chat_message_request = create_bot_chat_message_request(bot, validated_data)
+            create_bot_chat_message_request(bot, validated_data)
 
             # Send sync command to notify bot of new chat message request
             send_sync_command(bot, "sync_chat_message_requests")
