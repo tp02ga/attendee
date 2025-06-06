@@ -16,6 +16,9 @@ from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 from bots.bots_api_views import send_sync_command
 from bots.models import (
     Bot,
+    BotChatMessageRequest,
+    BotChatMessageRequestStates,
+    BotChatMessageToOptions,
     BotEventManager,
     BotEventSubTypes,
     BotEventTypes,
@@ -799,6 +802,7 @@ class TestZoomBot(TransactionTestCase):
         audio_request = None
         image_request = None
         speech_request = None
+        self.chat_message_request = None
 
         # Create a mock chat message info object
         mock_chat_msg_info = MagicMock()
@@ -898,6 +902,18 @@ class TestZoomBot(TransactionTestCase):
             # Sleep to give audio output manager time to play the speech audio
             time.sleep(2.0)
 
+            # Create chat message request
+            self.chat_message_request = BotChatMessageRequest.objects.create(
+                bot=self.bot,
+                message="Hello from the bot!",
+                to=BotChatMessageToOptions.EVERYONE,
+            )
+
+            send_sync_command(self.bot, "sync_chat_message_requests")
+
+            # Sleep to give the bot time to send the chat message
+            time.sleep(1.0)
+
             # Simulate chat message received
             adapter.on_chat_msg_notification_callback(mock_chat_msg_info, mock_chat_msg_info.GetContent())
 
@@ -913,7 +929,7 @@ class TestZoomBot(TransactionTestCase):
         threading.Timer(3, simulate_join_flow).start()
 
         # Give the bot some time to process
-        bot_thread.join(timeout=10)
+        bot_thread.join(timeout=11)
 
         # Verify that we received some data
         self.assertGreater(len(uploaded_data), 100, "Uploaded data length is not correct")
@@ -1024,6 +1040,10 @@ class TestZoomBot(TransactionTestCase):
         self.assertEqual(chat_message.participant.full_name, "Test User")
         self.assertEqual(chat_message.source_uuid, "test_chat_message_id_001")
         self.assertEqual(chat_message.to, ChatMessageToOptions.ONLY_BOT)
+
+        # Verify chat message request was processed
+        self.chat_message_request.refresh_from_db()
+        self.assertEqual(self.chat_message_request.state, BotChatMessageRequestStates.SENT)
 
         # Verify the bot adapter received the media
         controller.adapter.audio_raw_data_sender.send.assert_has_calls(

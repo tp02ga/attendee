@@ -500,6 +500,69 @@ paths:
                     start_timestamp_ms: 1733114771000
                   summary: Recording Upload
           description: Short-lived S3 URL for the recording
+  /api/v1/bots/{object_id}/send_chat_message:
+    post:
+      operationId: Send Chat Message
+      description: Causes the bot to send a chat message in the meeting.
+      summary: Send a chat message
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotChatMessageRequestRequest'
+            examples:
+              ChatMessage:
+                value:
+                  to: everyone
+                  message: Hello everyone, I'm here to record and summarize this meeting.
+                summary: Chat message
+                description: An example of a chat message to send to everyone in the
+                  meeting
+              ChatMessageToSpecificUser:
+                value:
+                  to: specific_user
+                  to_user_uuid: 123e4567-e89b-12d3-a456-426614174000
+                  message: Hello Bob, I'm here to record and summarize this meeting.
+                summary: Chat message to specific user
+                description: An example of a chat message to send to a specific user
+                  in the meeting
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Chat message request created successfully
+        '400':
+          description: Invalid input
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/speech:
     post:
       operationId: Output speech
@@ -662,6 +725,31 @@ components:
       - recording_state
       - state
       - transcription_state
+    BotChatMessageRequestRequest:
+      type: object
+      properties:
+        to_user_uuid:
+          type: string
+          nullable: true
+          description: The UUID of the user to send the message to. Required if 'to'
+            is 'specific_user'.
+          maxLength: 255
+        to:
+          allOf:
+          - $ref: '#/components/schemas/ToEnum'
+          default: everyone
+          description: |-
+            Who to send the message to.
+
+            * `everyone` - everyone
+            * `specific_user` - specific_user
+            * `everyone_but_host` - everyone_but_host
+        message:
+          type: string
+          minLength: 1
+          description: The message text to send.
+      required:
+      - message
     BotImageRequest:
       type: object
       properties:
@@ -731,6 +819,10 @@ components:
             client_id: abc123
             user: john_doe
             purpose: Weekly team meeting
+        bot_chat_message:
+          allOf:
+          - $ref: '#/components/schemas/BotChatMessageRequestRequest'
+          description: The chat message the bot sends after it joins the meeting
         transcription_settings:
           type: object
           properties:
@@ -875,6 +967,11 @@ components:
               description: Number of seconds to wait before leaving if the bot is
                 in the waiting room
               default: 900
+            max_uptime_seconds:
+              type: integer
+              description: Maximum number of seconds that the bot should be running
+                before automatically leaving (infinity)
+              default: null
           required: []
           additionalProperties: false
       required:
@@ -954,6 +1051,16 @@ components:
       - waiting_room
       - ended
       - data_deleted
+    ToEnum:
+      enum:
+      - everyone
+      - specific_user
+      - everyone_but_host
+      type: string
+      description: |-
+        * `everyone` - everyone
+        * `specific_user` - specific_user
+        * `everyone_but_host` - everyone_but_host
     TranscriptUtterance:
       type: object
       properties:

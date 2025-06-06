@@ -50,6 +50,11 @@ urlpatterns = [
         name="bot-chat-messages",
     ),
     path(
+        "bots/<str:object_id>/send_chat_message",
+        bots_api_views.SendChatMessageView.as_view(),
+        name="bot-send-chat-message",
+    ),
+    path(
         "bots/<str:object_id>/delete_data",
         bots_api_views.DeleteDataView.as_view(),
         name="bot-delete-data",

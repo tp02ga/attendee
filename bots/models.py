@@ -1378,6 +1378,61 @@ class BotMediaRequestManager:
         media_request.save()
 
 
+class BotChatMessageRequestStates(models.IntegerChoices):
+    ENQUEUED = 1, "Enqueued"
+    SENT = 2, "Sent"
+    FAILED = 3, "Failed"
+
+
+class BotChatMessageToOptions(models.TextChoices):
+    EVERYONE = "everyone"
+    SPECIFIC_USER = "specific_user"
+    EVERYONE_BUT_HOST = "everyone_but_host"
+
+
+class BotChatMessageRequest(models.Model):
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="chat_message_requests")
+
+    to_user_uuid = models.CharField(max_length=255, null=True, blank=True)
+    to = models.CharField(choices=BotChatMessageToOptions.choices, null=False)
+
+    message = models.TextField(null=False)
+    additional_data = models.JSONField(null=False, default=dict)
+
+    state = models.IntegerField(
+        choices=BotChatMessageRequestStates.choices,
+        default=BotChatMessageRequestStates.ENQUEUED,
+        null=False,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at_timestamp_ms = models.BigIntegerField(null=True, blank=True)
+    failure_data = models.JSONField(null=True, default=None)
+
+
+class BotChatMessageRequestManager:
+    @classmethod
+    def set_chat_message_request_sent(cls, chat_message_request: BotChatMessageRequest):
+        if chat_message_request.state == BotChatMessageRequestStates.SENT:
+            return
+        if chat_message_request.state != BotChatMessageRequestStates.ENQUEUED:
+            raise ValueError(f"Invalid state transition. Chat message request {chat_message_request.id} is in state {chat_message_request.get_state_display()}")
+
+        chat_message_request.state = BotChatMessageRequestStates.SENT
+        chat_message_request.sent_at_timestamp_ms = int(timezone.now().timestamp() * 1000)
+        chat_message_request.save()
+
+    @classmethod
+    def set_chat_message_request_failed(cls, chat_message_request: BotChatMessageRequest):
+        if chat_message_request.state == BotChatMessageRequestStates.FAILED:
+            return
+        if chat_message_request.state != BotChatMessageRequestStates.ENQUEUED:
+            raise ValueError(f"Invalid state transition. Chat message request {chat_message_request.id} is in state {chat_message_request.get_state_display()}")
+        chat_message_request.state = BotChatMessageRequestStates.FAILED
+        chat_message_request.save()
+
+
 class BotDebugScreenshotStorage(S3Boto3Storage):
     bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME
 

@@ -52,7 +52,30 @@ class StyleManager {
         if (chatButton && !this.chatButtonClicked) {
             chatButton.click();
             this.chatButtonClicked = true;
+            
+            // Wait until the chat input element appears in the DOM
+            this.waitForChatInputAndSendReadyMessage();
         }
+    }
+
+    waitForChatInputAndSendReadyMessage() {
+        const checkForChatInput = () => {
+            const chatInput = document.querySelector('[aria-label="Type a message"]');
+            if (chatInput) {
+                // Chat input is now available, send the ready message
+                window.ws.sendJson({
+                    type: 'ChatStatusChange',
+                    change: 'ready_to_send'
+                });
+                console.log('Chat input element found, ready to send messages');
+            } else {
+                // Chat input not found yet, check again in 500ms
+                setTimeout(checkForChatInput, 500);
+            }
+        };
+        
+        // Start checking for the chat input element
+        checkForChatInput();
     }
 
     startSilenceDetection() {
@@ -103,75 +126,90 @@ class StyleManager {
             this.checkNeededInteractions();
         }, 5000);
     }
-
-    makeMainVideoFillFrame() {
-        // Create a style element
-        const style = document.createElement('style');
-        
-        // Define the CSS rules
+ 
+    makeMainVideoFillFrame = function() {
+        /* ── 0.  Cleanup from earlier runs ─────────────────────────────── */
+        if (this.blanket?.isConnected) this.blanket.remove();
+        if (this.frameStyleElement?.isConnected) this.frameStyleElement.remove();
+        if (this.frameAdjustInterval) {
+            cancelAnimationFrame(this.frameAdjustInterval);   // ← was clearInterval
+            this.frameAdjustInterval = null;
+        }
+    
+        /* ── 1.  Inject the blanket ────────────────────────────────────── */
+        const blanket = document.createElement("div");
+        blanket.id = "attendee-blanket";
+        Object.assign(blanket.style, {
+            position: "fixed",
+            inset: "0",
+            background: "#fff",
+            zIndex: 1998,              // below the video we’ll promote
+            pointerEvents: "none"      // lets events fall through
+        });
+        document.body.appendChild(blanket);
+        this.blanket = blanket;
+    
+        /* ── 2.  Promote the central video and its descendants ─────────── */
+        const style = document.createElement("style");
         style.textContent = `
-            /* First, hide all elements */
-            body * {
-            display: none !important;
-            }
-            
-            /* Make the target element visible */
+            /* central pane fills the viewport, highest z‑index */
             [data-test-segment-type="central"] {
-            display: block !important;
+                position: fixed !important;
+                inset: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 1999 !important;   /* > blanket */
             }
-            
-            /* Make all parents of the target element visible - this works because an element must be displayed for its children to be visible */
-            [data-test-segment-type="central"] ancestor {
-            display: block !important;
-            }
-            
-            /* Make all ancestors visible using :has() selector (modern browsers) */
-            *:has([data-test-segment-type="central"]) {
-            display: block !important;
-            }
-            
-            /* Make all children visible */
+            /* make sure its children inherit size & events normally */
+            [data-test-segment-type="central"], 
             [data-test-segment-type="central"] * {
-            display: inherit !important;
+                pointer-events: auto !important;
             }
         `;
-        
-        // Add the style element to the document head
         document.head.appendChild(style);
-        
-        // Store reference to the style element
         this.frameStyleElement = style;
-        
-        // Initial adjustment
-        this.adjustCentralElement();
-        
-        // Set up interval to readjust the central element regularly
-        this.frameAdjustInterval = setInterval(() => {
-            this.adjustCentralElement();
-        }, 250);
+    
+        /* ── 3.  Keep the central element the right size ───────────────── */
+        const adjust = () => {
+            this.adjustCentralElement?.();
+            this.frameAdjustInterval = requestAnimationFrame(adjust);  // ← RAF loop
+        };
+        adjust();  // kick it off
     }
     
-    adjustCentralElement() {
+    adjustCentralElement = function() {
         // Get the central element
         const centralElement = document.querySelector('[data-test-segment-type="central"]');
         
-        // Function to remove width and height from inline styles
+        // Function to resize the central element
         function adjustCentralElementSize(element) {
-            if (element.style) {
-                element.style.width = `${window.initialData.videoFrameWidth}px`;
+            if (element?.style) {
+                element.style.width  = `${window.initialData.videoFrameWidth}px`;
                 element.style.height = `${window.initialData.videoFrameHeight}px`;
+                element.style.position = 'fixed';
+            }
+        }
+    
+        function adjustChildElement(element) {
+            if (element?.style) {
+                element.style.position = 'fixed';
+                element.style.width  = '100%';
+                element.style.height = '100%';
+                element.style.top  = '0';
+                element.style.left = '0';
             }
         }
         
         if (centralElement) {
-            // Remove styles from the central element
-            adjustCentralElementSize(centralElement.children[0].children[0].children[0]);
-            adjustCentralElementSize(centralElement.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]?.children[0]?.children[0]);
+            adjustChildElement(centralElement?.children[0]);
             adjustCentralElementSize(centralElement);
         }
     }
-
-    restoreOriginalFrame() {
+    
+    restoreOriginalFrame = function() {
         // If we have a reference to the style element, remove it
         if (this.frameStyleElement) {
             this.frameStyleElement.remove();
@@ -179,9 +217,9 @@ class StyleManager {
             console.log('Removed video frame style element');
         }
         
-        // Clear the adjustment interval if it exists
+        // Cancel the RAF loop if it exists
         if (this.frameAdjustInterval) {
-            clearInterval(this.frameAdjustInterval);
+            cancelAnimationFrame(this.frameAdjustInterval);   // ← was clearInterval
             this.frameAdjustInterval = null;
         }
     }
@@ -1259,6 +1297,7 @@ const dominantSpeakerManager = new DominantSpeakerManager();
 
 const styleManager = new StyleManager();
 window.styleManager = styleManager;
+
 if (!realConsole) {
     if (document.readyState === 'complete') {
         createIframe();

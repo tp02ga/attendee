@@ -338,6 +338,17 @@ class ZoomBotAdapter(BotAdapter):
             self.active_sharer_source_id = new_active_sharer_source_id
             self.set_video_input_manager_based_on_state()
 
+    def send_chat_message(self, text):
+        # Send a welcome message to the chat
+        builder = self.chat_ctrl.GetChatMessageBuilder()
+        builder.SetContent(text)
+        builder.SetReceiver(0)
+        builder.SetMessageType(zoom.SDKChatMessageType.To_All)
+        msg = builder.Build()
+        send_chat_message_result = self.chat_ctrl.SendChatMsgTo(msg)
+        logger.info(f"send_chat_message_result = {send_chat_message_result}")
+        builder.Clear()
+
     def on_chat_msg_notification_callback(self, chat_msg_info, content):
         try:
             self.upsert_chat_message_callback(
@@ -381,6 +392,7 @@ class ZoomBotAdapter(BotAdapter):
         self.chat_ctrl = self.meeting_service.GetMeetingChatController()
         self.chat_ctrl_event = zoom.MeetingChatEventCallbacks(onChatMsgNotificationCallback=self.on_chat_msg_notification_callback)
         self.chat_ctrl.SetEvent(self.chat_ctrl_event)
+        self.send_message_callback({"message": self.Messages.READY_TO_SEND_CHAT_MESSAGE})
 
         # Meeting sharing controller
         self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()
