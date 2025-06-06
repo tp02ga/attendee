@@ -1405,6 +1405,8 @@ class BotChatMessageRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    sent_at_timestamp_ms = models.BigIntegerField(null=True, blank=True)
+    failure_data = models.JSONField(null=True, default=None)
 
 class BotChatMessageRequestManager:
     @classmethod
@@ -1415,6 +1417,7 @@ class BotChatMessageRequestManager:
             raise ValueError(f"Invalid state transition. Chat message request {chat_message_request.id} is in state {chat_message_request.get_state_display()}")
 
         chat_message_request.state = BotChatMessageRequestStates.SENT
+        chat_message_request.sent_at_timestamp_ms = int(timezone.now().timestamp() * 1000)
         chat_message_request.save()
 
     @classmethod

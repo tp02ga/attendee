@@ -33,6 +33,3 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
     def send_video(self, video_url):
         logger.info(f"send_video called with video_url = {video_url}")
         self.driver.execute_script(f"window.botOutputManager.playVideo({json.dumps(video_url)})")
-
-    def send_chat_message(self, text):
-        self.driver.execute_script(f"window?.sendChatMessage('{text}')")

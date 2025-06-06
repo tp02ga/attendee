@@ -52,6 +52,10 @@ class StyleManager {
         if (chatButton && !this.chatButtonClicked) {
             chatButton.click();
             this.chatButtonClicked = true;
+            window.ws.sendJson({
+                type: 'ChatStatusChange',
+                change: 'ready_to_send'
+            });
         }
     }
 

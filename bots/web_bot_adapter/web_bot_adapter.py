@@ -91,6 +91,8 @@ class WebBotAdapter(BotAdapter):
         self.silence_detection_activated = False
         self.joined_at = None
 
+        self.ready_to_send_chat_messages = False
+
     def process_encoded_mp4_chunk(self, message):
         self.last_media_message_processed_time = time.time()
         if len(message) > 4:
@@ -251,6 +253,7 @@ class WebBotAdapter(BotAdapter):
                         elif json_data.get("type") == "ChatStatusChange":
                             if json_data.get("change") == "ready_to_send":
                                 self.send_message_callback({"message": self.Messages.READY_TO_SEND_CHAT_MESSAGE})
+                                self.ready_to_send_chat_messages = True
 
                         elif json_data.get("type") == "MeetingStatusChange":
                             if json_data.get("change") == "removed_from_meeting":
@@ -648,4 +651,8 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_script(f"window.botOutputManager.playPCMAudio({audio_data}, {sample_rate})")
 
     def send_chat_message(self, text):
-        logger.info("send_chat_message not supported in web bots")
+        if not self.ready_to_send_chat_messages:
+            logger.info("Not sending chat message because bot is not ready to send chat messages")
+            return
+
+        self.driver.execute_script(f"window?.sendChatMessage('{text}')")
