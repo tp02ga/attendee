@@ -126,12 +126,15 @@ class StyleManager {
             this.checkNeededInteractions();
         }, 5000);
     }
-
+ 
     makeMainVideoFillFrame = function() {
         /* ── 0.  Cleanup from earlier runs ─────────────────────────────── */
         if (this.blanket?.isConnected) this.blanket.remove();
         if (this.frameStyleElement?.isConnected) this.frameStyleElement.remove();
-        if (this.frameAdjustInterval) clearInterval(this.frameAdjustInterval);
+        if (this.frameAdjustInterval) {
+            cancelAnimationFrame(this.frameAdjustInterval);   // ← was clearInterval
+            this.frameAdjustInterval = null;
+        }
     
         /* ── 1.  Inject the blanket ────────────────────────────────────── */
         const blanket = document.createElement("div");
@@ -141,7 +144,7 @@ class StyleManager {
             inset: "0",
             background: "#fff",
             zIndex: 1998,              // below the video we’ll promote
-            pointerEvents: "none"     // lets events fall through
+            pointerEvents: "none"      // lets events fall through
         });
         document.body.appendChild(blanket);
         this.blanket = blanket;
@@ -165,37 +168,39 @@ class StyleManager {
         `;
         document.head.appendChild(style);
         this.frameStyleElement = style;
-
-        const adjust = () => this.adjustCentralElement?.();
-        adjust();
-        this.frameAdjustInterval = setInterval(adjust, 1);
+    
+        /* ── 3.  Keep the central element the right size ───────────────── */
+        const adjust = () => {
+            this.adjustCentralElement?.();
+            this.frameAdjustInterval = requestAnimationFrame(adjust);  // ← RAF loop
+        };
+        adjust();  // kick it off
     }
     
     adjustCentralElement = function() {
         // Get the central element
         const centralElement = document.querySelector('[data-test-segment-type="central"]');
         
-        // Function to remove width and height from inline styles
+        // Function to resize the central element
         function adjustCentralElementSize(element) {
             if (element.style) {
-                element.style.width = `${window.initialData.videoFrameWidth}px`;
+                element.style.width  = `${window.initialData.videoFrameWidth}px`;
                 element.style.height = `${window.initialData.videoFrameHeight}px`;
                 element.style.position = 'fixed';
             }
         }
-
+    
         function adjustChildElement(element) {
-            if (element.style) {
+            if (element?.style) {
                 element.style.position = 'fixed';
-                element.style.width = '100%';
+                element.style.width  = '100%';
                 element.style.height = '100%';
-                element.style.top = '0';
+                element.style.top  = '0';
                 element.style.left = '0';
             }
         }
         
         if (centralElement) {
-            // Remove styles from the central element
             adjustChildElement(centralElement.children[0].children[0].children[0].children[0].children[0]);
             adjustChildElement(centralElement.children[0].children[0].children[0].children[0]);
             adjustChildElement(centralElement.children[0].children[0].children[0]);
@@ -203,8 +208,8 @@ class StyleManager {
             adjustCentralElementSize(centralElement);
         }
     }
-
-    restoreOriginalFrame() {
+    
+    restoreOriginalFrame = function() {
         // If we have a reference to the style element, remove it
         if (this.frameStyleElement) {
             this.frameStyleElement.remove();
@@ -212,9 +217,9 @@ class StyleManager {
             console.log('Removed video frame style element');
         }
         
-        // Clear the adjustment interval if it exists
+        // Cancel the RAF loop if it exists
         if (this.frameAdjustInterval) {
-            clearInterval(this.frameAdjustInterval);
+            cancelAnimationFrame(this.frameAdjustInterval);   // ← was clearInterval
             this.frameAdjustInterval = null;
         }
     }
