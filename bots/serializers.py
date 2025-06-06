@@ -273,7 +273,7 @@ class AutomaticLeaveSettingsJSONField(serializers.JSONField):
             "Chat message",
             value={
                 "to": "everyone",
-                "message": "Hello everyone, I'm here to take recording and summarize this meeting.",
+                "message": "Hello everyone, I'm here to record and summarize this meeting.",
             },
             description="An example of a chat message to send to everyone in the meeting",
         ),
@@ -282,7 +282,7 @@ class AutomaticLeaveSettingsJSONField(serializers.JSONField):
             value={
                 "to": "specific_user",
                 "to_user_uuid": "123e4567-e89b-12d3-a456-426614174000",
-                "message": "Hello Bob, I'm here to take recording and summarize this meeting.",
+                "message": "Hello Bob, I'm here to record and summarize this meeting.",
             },
             description="An example of a chat message to send to a specific user in the meeting",
         ),
