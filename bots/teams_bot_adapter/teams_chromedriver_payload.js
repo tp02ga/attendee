@@ -127,7 +127,7 @@ class StyleManager {
         }, 5000);
     }
 
-    makeMainVideoFillFrame() {
+    makeMainVideoFillFrame = function() {
         /* ── 0.  Cleanup from earlier runs ─────────────────────────────── */
         if (this.blanket?.isConnected) this.blanket.remove();
         if (this.frameStyleElement?.isConnected) this.frameStyleElement.remove();
@@ -165,14 +165,13 @@ class StyleManager {
         `;
         document.head.appendChild(style);
         this.frameStyleElement = style;
-    
-        /* ── 3.  One‑off + periodic resize corrections (if you need them) */
+
         const adjust = () => this.adjustCentralElement?.();
-        adjust();                               // run immediately
+        adjust();
         this.frameAdjustInterval = setInterval(adjust, 250);
     }
     
-    adjustCentralElement() {
+    adjustCentralElement = function() {
         // Get the central element
         const centralElement = document.querySelector('[data-test-segment-type="central"]');
         
@@ -181,13 +180,26 @@ class StyleManager {
             if (element.style) {
                 element.style.width = `${window.initialData.videoFrameWidth}px`;
                 element.style.height = `${window.initialData.videoFrameHeight}px`;
+                element.style.position = 'fixed';
+            }
+        }
+
+        function adjustChildElement(element) {
+            if (element.style) {
+                element.style.position = 'fixed';
+                element.style.width = '100%';
+                element.style.height = '100%';
+                element.style.top = '0';
+                element.style.left = '0';
             }
         }
         
         if (centralElement) {
             // Remove styles from the central element
-            adjustCentralElementSize(centralElement.children[0].children[0].children[0]);
-            adjustCentralElementSize(centralElement.children[0]);
+            adjustChildElement(centralElement.children[0].children[0].children[0].children[0].children[0]);
+            adjustChildElement(centralElement.children[0].children[0].children[0].children[0]);
+            adjustChildElement(centralElement.children[0].children[0].children[0]);
+            adjustChildElement(centralElement.children[0]);
             adjustCentralElementSize(centralElement);
         }
     }
