@@ -248,6 +248,10 @@ class WebBotAdapter(BotAdapter):
                             if not json_data.get("isSilent"):
                                 self.last_audio_message_processed_time = time.time()
 
+                        elif json_data.get("type") == "ChatStatusChange":
+                            if json_data.get("change") == "ready_to_send":
+                                self.send_message_callback({"message": self.Messages.READY_TO_SEND_CHAT_MESSAGE})
+
                         elif json_data.get("type") == "MeetingStatusChange":
                             if json_data.get("change") == "removed_from_meeting":
                                 self.handle_removed_from_meeting()

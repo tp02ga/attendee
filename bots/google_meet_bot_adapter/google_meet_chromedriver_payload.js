@@ -376,6 +376,11 @@ class StyleManager {
 
             // Click the chat button again to close/minimize the panel
             chatButton.click();
+
+            window.ws.sendJson({
+                type: 'ChatStatusChange',
+                change: 'ready_to_send'
+            });
         }
     }
 

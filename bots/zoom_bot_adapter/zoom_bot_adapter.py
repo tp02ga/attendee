@@ -392,6 +392,7 @@ class ZoomBotAdapter(BotAdapter):
         self.chat_ctrl = self.meeting_service.GetMeetingChatController()
         self.chat_ctrl_event = zoom.MeetingChatEventCallbacks(onChatMsgNotificationCallback=self.on_chat_msg_notification_callback)
         self.chat_ctrl.SetEvent(self.chat_ctrl_event)
+        self.send_message_callback({"message": self.Messages.READY_TO_SEND_CHAT_MESSAGE})
 
         # Meeting sharing controller
         self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()

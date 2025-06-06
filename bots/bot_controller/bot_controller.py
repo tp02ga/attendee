@@ -1022,6 +1022,11 @@ class BotController:
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
             return
 
+        if message.get("message") == BotAdapter.Messages.READY_TO_SEND_CHAT_MESSAGE:
+            logger.info("Received message that bot is ready to send chat message")
+            self.take_action_based_on_chat_message_requests_in_db()
+            return
+
         if message.get("message") == BotAdapter.Messages.READY_TO_SHOW_BOT_IMAGE:
             logger.info("Received message that bot is ready to show image")
             # If there are any image media requests, this will start playing them
