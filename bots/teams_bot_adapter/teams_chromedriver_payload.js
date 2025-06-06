@@ -168,7 +168,7 @@ class StyleManager {
 
         const adjust = () => this.adjustCentralElement?.();
         adjust();
-        this.frameAdjustInterval = setInterval(adjust, 250);
+        this.frameAdjustInterval = setInterval(adjust, 1);
     }
     
     adjustCentralElement = function() {
