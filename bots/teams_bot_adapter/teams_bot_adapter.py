@@ -31,5 +31,9 @@ class TeamsBotAdapter(WebBotAdapter, TeamsUIMethods):
             logger.error("Could not find chat input")
             return
 
-        chatInput.send_keys(text)
-        chatInput.send_keys(Keys.ENTER)
+        try:
+            chatInput.send_keys(text)
+            chatInput.send_keys(Keys.ENTER)
+        except Exception as e:
+            logger.error(f"Error sending chat message: {e}")
+            return
