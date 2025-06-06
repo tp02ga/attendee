@@ -854,7 +854,7 @@ class SendChatMessageView(APIView):
             # Send sync command to notify bot of new chat message request
             send_sync_command(bot, "sync_chat_message_requests")
 
-            return Response({"message": "Chat message request created successfully"}, status=status.HTTP_200_OK)
+            return Response(status=status.HTTP_200_OK)
 
         except Exception as e:
             logging.error(f"Error creating chat message request for bot {bot.object_id}: {str(e)}")
