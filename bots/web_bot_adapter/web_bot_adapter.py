@@ -651,8 +651,4 @@ class WebBotAdapter(BotAdapter):
         self.driver.execute_script(f"window.botOutputManager.playPCMAudio({audio_data}, {sample_rate})")
 
     def send_chat_message(self, text):
-        if not self.ready_to_send_chat_messages:
-            logger.info("Not sending chat message because bot is not ready to send chat messages")
-            return
-
-        self.driver.execute_script(f"window?.sendChatMessage('{text}')")
+        logger.info("send_chat_message not supported in web bots")

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .bots_api_utils import BotCreationSource, create_bot, create_bot_media_request_for_image, create_bot_chat_message_request, launch_bot, send_sync_command
+from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, launch_bot, send_sync_command
 from .models import (
     Bot,
     BotEventManager,
@@ -34,9 +34,9 @@ from .models import (
     Utterance,
 )
 from .serializers import (
+    BotChatMessageRequestSerializer,
     BotImageSerializer,
     BotSerializer,
-    BotChatMessageRequestSerializer,
     ChatMessageSerializer,
     CreateBotSerializer,
     RecordingSerializer,
@@ -449,8 +449,6 @@ class OutputImageView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
-
-
 
 
 class DeleteDataView(APIView):

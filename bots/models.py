@@ -1383,10 +1383,12 @@ class BotChatMessageRequestStates(models.IntegerChoices):
     SENT = 2, "Sent"
     FAILED = 3, "Failed"
 
+
 class BotChatMessageToOptions(models.IntegerChoices):
     EVERYONE = 1, "Everyone"
     SPECIFIC_USER = 2, "Specific User"
     EVERYONE_BUT_HOST = 3, "Everyone but Host"
+
 
 class BotChatMessageRequest(models.Model):
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="chat_message_requests")
@@ -1408,6 +1410,7 @@ class BotChatMessageRequest(models.Model):
     sent_at_timestamp_ms = models.BigIntegerField(null=True, blank=True)
     failure_data = models.JSONField(null=True, default=None)
 
+
 class BotChatMessageRequestManager:
     @classmethod
     def set_chat_message_request_sent(cls, chat_message_request: BotChatMessageRequest):
@@ -1428,6 +1431,7 @@ class BotChatMessageRequestManager:
             raise ValueError(f"Invalid state transition. Chat message request {chat_message_request.id} is in state {chat_message_request.get_state_display()}")
         chat_message_request.state = BotChatMessageRequestStates.FAILED
         chat_message_request.save()
+
 
 class BotDebugScreenshotStorage(S3Boto3Storage):
     bucket_name = settings.AWS_RECORDING_STORAGE_BUCKET_NAME

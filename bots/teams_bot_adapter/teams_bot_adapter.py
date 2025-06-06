@@ -1,5 +1,7 @@
 import logging
 
+from selenium.webdriver.common.keys import Keys
+
 from bots.teams_bot_adapter.teams_ui_methods import (
     TeamsUIMethods,
 )
@@ -21,3 +23,13 @@ class TeamsBotAdapter(WebBotAdapter, TeamsUIMethods):
     def send_video(self, video_url):
         logger.info(f"send_video called with video_url = {video_url}. This is not supported for teams")
         return
+
+    def send_chat_message(self, text):
+        chatInput = self.driver.execute_script("return document.querySelector('[aria-label=\"Type a message\"]')")
+
+        if not chatInput:
+            logger.error("Could not find chat input")
+            return
+
+        chatInput.send_keys(text)
+        chatInput.send_keys(Keys.ENTER)

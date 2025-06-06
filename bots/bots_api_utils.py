@@ -10,9 +10,9 @@ from django.urls import reverse
 
 from .models import (
     Bot,
+    BotChatMessageRequest,
     BotEventManager,
     BotEventTypes,
-    BotChatMessageRequest,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
     Credentials,
@@ -53,14 +53,15 @@ def launch_bot(bot):
         # Default to launching bot via celery
         run_bot.delay(bot.id)
 
+
 def create_bot_chat_message_request(bot, chat_message_data):
     """
     Creates a BotChatMessageRequest for the given bot with the provided data.
-    
+
     Args:
         bot: The Bot instance
         chat_message_data: Validated data containing to_user_uuid, to, and message
-    
+
     Returns:
         BotChatMessageRequest: The created chat message request
     """
@@ -77,6 +78,7 @@ def create_bot_chat_message_request(bot, chat_message_data):
         raise ValidationError(f"Error creating the bot chat message request: {error_message_first_line}.")
 
     return bot_chat_message_request
+
 
 def create_bot_media_request_for_image(bot, image):
     content_type = image["type"]

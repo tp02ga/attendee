@@ -52,11 +52,30 @@ class StyleManager {
         if (chatButton && !this.chatButtonClicked) {
             chatButton.click();
             this.chatButtonClicked = true;
-            window.ws.sendJson({
-                type: 'ChatStatusChange',
-                change: 'ready_to_send'
-            });
+            
+            // Wait until the chat input element appears in the DOM
+            this.waitForChatInputAndSendReadyMessage();
         }
+    }
+
+    waitForChatInputAndSendReadyMessage() {
+        const checkForChatInput = () => {
+            const chatInput = document.querySelector('[aria-label="Type a message"]');
+            if (chatInput) {
+                // Chat input is now available, send the ready message
+                window.ws.sendJson({
+                    type: 'ChatStatusChange',
+                    change: 'ready_to_send'
+                });
+                console.log('Chat input element found, ready to send messages');
+            } else {
+                // Chat input not found yet, check again in 500ms
+                setTimeout(checkForChatInput, 500);
+            }
+        };
+        
+        // Start checking for the chat input element
+        checkForChatInput();
     }
 
     startSilenceDetection() {
@@ -1263,6 +1282,7 @@ const dominantSpeakerManager = new DominantSpeakerManager();
 
 const styleManager = new StyleManager();
 window.styleManager = styleManager;
+
 if (!realConsole) {
     if (document.readyState === 'complete') {
         createIframe();

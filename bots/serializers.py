@@ -13,10 +13,10 @@ from rest_framework import serializers
 from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
+    BotChatMessageToOptions,
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
-    BotChatMessageToOptions,
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
@@ -285,7 +285,7 @@ class AutomaticLeaveSettingsJSONField(serializers.JSONField):
                 "message": "Hello Bob, I'm here to take recording and summarize this meeting.",
             },
             description="An example of a chat message to send to a specific user in the meeting",
-        )
+        ),
     ]
 )
 class BotChatMessageRequestSerializer(serializers.Serializer):
@@ -296,11 +296,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
     )
-    to = serializers.ChoiceField(
-        choices=BotChatMessageToOptions.choices,
-        help_text="Who to send the message to.",
-        default=BotChatMessageToOptions.EVERYONE
-    )
+    to = serializers.ChoiceField(choices=BotChatMessageToOptions.choices, help_text="Who to send the message to.", default=BotChatMessageToOptions.EVERYONE)
     message = serializers.CharField(help_text="The message text to send.")
 
     def validate(self, data):
@@ -311,6 +307,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
 
         return data
+
 
 @extend_schema_serializer(
     examples=[
