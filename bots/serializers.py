@@ -270,6 +270,51 @@ class AutomaticLeaveSettingsJSONField(serializers.JSONField):
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
+            "Chat message",
+            value={
+                "to": "everyone",
+                "message": "Hello everyone, I'm here to take recording and summarize this meeting.",
+            },
+            description="An example of a chat message to send to everyone in the meeting",
+        ),
+        OpenApiExample(
+            "Chat message to specific user",
+            value={
+                "to": "specific_user",
+                "to_user_uuid": "123e4567-e89b-12d3-a456-426614174000",
+                "message": "Hello Bob, I'm here to take recording and summarize this meeting.",
+            },
+            description="An example of a chat message to send to a specific user in the meeting",
+        )
+    ]
+)
+class BotChatMessageRequestSerializer(serializers.Serializer):
+    to_user_uuid = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
+    )
+    to = serializers.ChoiceField(
+        choices=BotChatMessageToOptions.choices,
+        help_text="Who to send the message to.",
+        default=BotChatMessageToOptions.EVERYONE
+    )
+    message = serializers.CharField(help_text="The message text to send.")
+
+    def validate(self, data):
+        to_value = data.get("to")
+        to_user_uuid = data.get("to_user_uuid")
+
+        if to_value == BotChatMessageToOptions.SPECIFIC_USER and not to_user_uuid:
+            raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
+
+        return data
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
             "Valid meeting URL",
             value={
                 "meeting_url": "https://zoom.us/j/123?pwd=456",
@@ -284,6 +329,7 @@ class CreateBotSerializer(serializers.Serializer):
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
     bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
     metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
+    bot_chat_message = BotChatMessageRequestSerializer(help_text="The chat message the bot sends after it joins the meeting", required=False, default=None)
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
@@ -754,28 +800,3 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
-
-
-class BotChatMessageRequestSerializer(serializers.Serializer):
-    to_user_uuid = serializers.CharField(
-        max_length=255,
-        required=False,
-        allow_null=True,
-        allow_blank=True,
-        help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
-    )
-    to = serializers.ChoiceField(
-        choices=BotChatMessageToOptions.choices,
-        help_text="Who to send the message to.",
-        default=BotChatMessageToOptions.EVERYONE
-    )
-    message = serializers.CharField(help_text="The message text to send.")
-
-    def validate(self, data):
-        to_value = data.get("to")
-        to_user_uuid = data.get("to_user_uuid")
-
-        if to_value == BotChatMessageToOptions.SPECIFIC_USER and not to_user_uuid:
-            raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
-
-        return data

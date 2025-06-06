@@ -64,12 +64,19 @@ def create_bot_chat_message_request(bot, chat_message_data):
     Returns:
         BotChatMessageRequest: The created chat message request
     """
-    return BotChatMessageRequest.objects.create(
-        bot=bot,
-        to_user_uuid=chat_message_data.get("to_user_uuid"),
-        to=chat_message_data["to"],
-        message=chat_message_data["message"],
-    )
+    try:
+        bot_chat_message_request = BotChatMessageRequest.objects.create(
+            bot=bot,
+            to_user_uuid=chat_message_data.get("to_user_uuid"),
+            to=chat_message_data["to"],
+            message=chat_message_data["message"],
+        )
+    except Exception as e:
+        error_message_first_line = str(e).split("\n")[0]
+        logging.error(f"Error creating bot chat message request: {error_message_first_line}")
+        raise ValidationError(f"Error creating the bot chat message request: {error_message_first_line}.")
+
+    return bot_chat_message_request
 
 def create_bot_media_request_for_image(bot, image):
     content_type = image["type"]
@@ -135,6 +142,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     debug_settings = serializer.validated_data["debug_settings"]
     automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
     bot_image = serializer.validated_data["bot_image"]
+    bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
 
     settings = {
@@ -165,6 +173,12 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         if bot_image:
             try:
                 create_bot_media_request_for_image(bot, bot_image)
+            except ValidationError as e:
+                return None, {"error": e.messages[0]}
+
+        if bot_chat_message:
+            try:
+                create_bot_chat_message_request(bot, bot_chat_message)
             except ValidationError as e:
                 return None, {"error": e.messages[0]}
 
