@@ -2363,6 +2363,15 @@ class CallManager {
         }
         return false;
     }
+
+    setClosedCaptionsLanguage(language) {
+        this.setActiveCall();
+        if (this.activeCall) {
+            this.activeCall.setClosedCaptionsLanguage(language);
+            return true;
+        }
+        return false;
+    }
 }
 
 const callManager = new CallManager();
