@@ -162,7 +162,7 @@ class BotImageSerializer(serializers.Serializer):
                     },
                     "language": {
                         "type": "string",
-                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes",
+                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes. If not specified the language will be automatically detected.",
                     },
                 },
                 "required": ["model"],
@@ -400,7 +400,7 @@ class CreateBotSerializer(serializers.Serializer):
                     },
                     "language": {
                         "type": "string",
-                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes",
+                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes. If not specified the language will be automatically detected.",
                     },
                 },
                 "required": ["model"],
