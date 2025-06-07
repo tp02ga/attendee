@@ -250,10 +250,17 @@ class Bot(models.Model):
     def deepgram_keyterms(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("keyterms", None)
 
+    def deepgram_keywords(self):
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("keywords", None)
+
     def deepgram_use_streaming(self):
         return self.deepgram_callback() is not None
 
     def deepgram_model(self):
+        model_from_settings = self.settings.get("transcription_settings", {}).get("deepgram", {}).get("model", None)
+        if model_from_settings:
+            return model_from_settings
+
         # nova-3 does not have multilingual support yet, so we need to use nova-2 if we're transcribing with a non-default language
         if (self.deepgram_language() != "en" and self.deepgram_language()) or self.deepgram_detect_language():
             deepgram_model = "nova-2"

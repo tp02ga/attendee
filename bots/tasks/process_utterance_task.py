@@ -212,6 +212,7 @@ def get_transcription_via_deepgram(utterance):
         language=recording.bot.deepgram_language(),
         detect_language=recording.bot.deepgram_detect_language(),
         keyterm=recording.bot.deepgram_keyterms(),
+        keywords=recording.bot.deepgram_keywords(),
         encoding="linear16",  # for 16-bit PCM
         sample_rate=utterance.sample_rate,
     )
