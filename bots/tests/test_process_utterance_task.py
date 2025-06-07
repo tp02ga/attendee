@@ -253,6 +253,7 @@ class DeepgramProviderTest(TransactionTestCase):
             {
                 "reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED,
                 "error_code": "SOME_OTHER",
+                "error_json": {"err_code": "SOME_OTHER"},
             },
         )
 
@@ -294,7 +295,7 @@ class GladiaProviderTest(TransactionTestCase):
             sample_rate=16_000,
         )
         self.utterance.refresh_from_db()
-        # "Real" credential row – we'll monkey‑patch get_credentials() later
+        # “Real” credential row – we’ll monkey‑patch get_credentials() later
         self.cred = Credentials.objects.create(
             project=self.project,
             credential_type=CredModel.CredentialTypes.GLADIA,
@@ -335,7 +336,7 @@ class GladiaProviderTest(TransactionTestCase):
 
             m_request.side_effect = _request_side_effect
 
-            # ---- requests.get (polling) returns "done" once --------------------------------
+            # ---- requests.get (polling) returns “done” once --------------------------------
             done_resp = mock.Mock(status_code=200)
             done_resp.json.return_value = {
                 "status": "done",
@@ -359,7 +360,7 @@ class GladiaProviderTest(TransactionTestCase):
             self.assertEqual(m_request.call_count, 3)
             m_get.assert_called_once_with("https://api.gladia.io/result/abc", headers=mock.ANY)
 
-    # ------------------------------------------------------------------ INVALID CREDENTIALS
+    # ------------------------------------------------------------------ INVALID CREDENTIALS
 
     def test_upload_401_returns_credentials_invalid(self):
         """Gladia 401 on upload → CREDENTIALS_INVALID."""
@@ -376,7 +377,7 @@ class GladiaProviderTest(TransactionTestCase):
             self.assertIsNone(transcript)
             self.assertEqual(failure["reason"], TranscriptionFailureReasons.CREDENTIALS_INVALID)
 
-    # ------------------------------------------------------------------ NO CREDENTIAL ROW
+    # ------------------------------------------------------------------ NO CREDENTIAL ROW
 
     def test_missing_credentials_row(self):
         """No Credentials row → CREDENTIALS_NOT_FOUND."""
@@ -425,7 +426,7 @@ class OpenAIProviderTest(TransactionTestCase):
             sample_rate=16_000,
         )
         self.utt.refresh_from_db()
-        # Real credentials row (the crypto doesn't matter – we patch .get_credentials)
+        # Real credentials row (the crypto doesn’t matter – we patch .get_credentials)
         self.creds = Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.OPENAI)
 
     # ────────────────────────────────────────────────────────────────────────────────
@@ -534,7 +535,6 @@ class AssemblyAIProviderTest(TransactionTestCase):
             mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3"),
             mock.patch("bots.tasks.process_utterance_task.requests.post") as m_post,
             mock.patch("bots.tasks.process_utterance_task.requests.get") as m_get,
-            mock.patch("bots.tasks.process_utterance_task.requests.delete") as m_delete,
         ):
             # 1. Mock upload response
             upload_response = mock.Mock(status_code=200)
@@ -561,10 +561,6 @@ class AssemblyAIProviderTest(TransactionTestCase):
             }
             m_get.side_effect = [processing_response, done_response]
 
-            # 4. Mock delete response
-            delete_response = mock.Mock(status_code=200)
-            m_delete.return_value = delete_response
-
             transcript, failure = get_transcription_via_assemblyai(self.utterance)
 
             # Assertions
@@ -575,7 +571,6 @@ class AssemblyAIProviderTest(TransactionTestCase):
 
             self.assertEqual(m_post.call_count, 2)
             self.assertEqual(m_get.call_count, 2)
-            m_delete.assert_called_once_with("https://api.assemblyai.com/v2/transcript/transcript-abc", headers=mock.ANY)
 
     def test_upload_401_returns_credentials_invalid(self):
         """AssemblyAI 401 on upload → CREDENTIALS_INVALID."""
