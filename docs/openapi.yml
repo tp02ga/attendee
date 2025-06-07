@@ -907,7 +907,8 @@ components:
                   type: string
                   description: 'The language to use for transcription. See here in
                     the ''Set 1'' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes.
-                    If not specified the language will be automatically detected.'
+                    This parameter is optional but if you know the language in advance,
+                    setting it will improve accuracy.'
               required:
               - model
               additionalProperties: false
