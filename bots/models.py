@@ -229,6 +229,12 @@ class Bot(models.Model):
     def gladia_enable_code_switching(self):
         return self.settings.get("transcription_settings", {}).get("gladia", {}).get("enable_code_switching", False)
 
+    def assembly_ai_language_code(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("language_code", None)
+
+    def assembly_ai_language_detection(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("language_detection", False)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
@@ -913,6 +919,7 @@ class TranscriptionProviders(models.IntegerChoices):
     CLOSED_CAPTION_FROM_PLATFORM = 2, "Closed Caption From Platform"
     GLADIA = 3, "Gladia"
     OPENAI = 4, "OpenAI"
+    ASSEMBLY_AI = 5, "Assembly AI"
 
 
 from storages.backends.s3boto3 import S3Boto3Storage
@@ -1161,6 +1168,7 @@ class Credentials(models.Model):
         GOOGLE_TTS = 3, "Google Text To Speech"
         GLADIA = 4, "Gladia"
         OPENAI = 5, "OpenAI"
+        ASSEMBLY_AI = 6, "Assembly AI"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
