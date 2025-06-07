@@ -211,6 +211,7 @@ def get_transcription_via_deepgram(utterance):
         smart_format=True,
         language=recording.bot.deepgram_language(),
         detect_language=recording.bot.deepgram_detect_language(),
+        keyterm=recording.bot.deepgram_keyterms(),
         encoding="linear16",  # for 16-bit PCM
         sample_rate=utterance.sample_rate,
     )
@@ -231,7 +232,7 @@ def get_transcription_via_deepgram(utterance):
         original_error_json = json.loads(e.original_error)
         if original_error_json.get("err_code") == "INVALID_AUTH":
             return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
-        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error_code": original_error_json.get("err_code")}
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error_code": original_error_json.get("err_code"), "error_json": original_error_json}
 
     logger.info(f"Deepgram transcription complete with model {deepgram_model}")
     return json.loads(response.results.channels[0].alternatives[0].to_json()), None

@@ -247,6 +247,9 @@ class Bot(models.Model):
     def deepgram_callback(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("callback", None)
 
+    def deepgram_keyterms(self):
+        return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("keyterms", None)
+
     def deepgram_use_streaming(self):
         return self.deepgram_callback() is not None
 
