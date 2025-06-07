@@ -150,6 +150,14 @@ class BotImageSerializer(serializers.Serializer):
                 "required": ["model"],
                 "additionalProperties": False,
             },
+            "assembly_ai": {
+                "type": "object",
+                "properties": {
+                    "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
+                    "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
+                },
+                "additionalProperties": False,
+            },
         },
         "required": [],
     }
