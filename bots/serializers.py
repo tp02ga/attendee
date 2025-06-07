@@ -373,6 +373,15 @@ class CreateBotSerializer(serializers.Serializer):
                 "required": ["model"],
                 "additionalProperties": False,
             },
+            "assembly_ai": {
+                "type": "object",
+                "properties": {
+                    "language_code": {"type": "string"},
+                    "language_detection": {"type": "boolean"},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
             "meeting_closed_captions": {
                 "type": "object",
                 "properties": {

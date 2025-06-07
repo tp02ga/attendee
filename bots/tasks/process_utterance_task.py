@@ -30,6 +30,8 @@ def get_transcription(utterance, recording):
             transcription, failure_data = get_transcription_via_gladia(utterance)
         elif recording.transcription_provider == TranscriptionProviders.OPENAI:
             transcription, failure_data = get_transcription_via_openai(utterance)
+        elif recording.transcription_provider == TranscriptionProviders.ASSEMBLY_AI:
+            transcription, failure_data = get_transcription_via_assemblyai(utterance)
         else:
             raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
 
@@ -272,3 +274,100 @@ def get_transcription_via_openai(utterance):
     transcription = {"transcript": result.get("text", "")}
 
     return transcription, None
+
+
+def get_transcription_via_assemblyai(utterance):
+    recording = utterance.recording
+    assemblyai_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.ASSEMBLY_AI).first()
+    if not assemblyai_credentials_record:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
+
+    assemblyai_credentials = assemblyai_credentials_record.get_credentials()
+    if not assemblyai_credentials:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
+
+    api_key = assemblyai_credentials.get("api_key")
+    if not api_key:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND, "error": "api_key not in credentials"}
+
+    headers = {"authorization": api_key}
+    base_url = "https://api.assemblyai.com/v2"
+
+    payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
+
+    upload_response = requests.post(f"{base_url}/upload", headers=headers, data=payload_mp3)
+
+    if upload_response.status_code == 401:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
+
+    if upload_response.status_code != 200:
+        return None, {"reason": TranscriptionFailureReasons.AUDIO_UPLOAD_FAILED, "status_code": upload_response.status_code, "text": upload_response.text}
+
+    upload_url = upload_response.json()["upload_url"]
+
+    data = {
+        "audio_url": upload_url,
+        "speech_model": "universal",
+    }
+
+    if recording.bot.assembly_ai_language_detection():
+        data["language_detection"] = True
+    elif recording.bot.assembly_ai_language_code():
+        data["language_code"] = recording.bot.assembly_ai_language_code()
+
+    url = f"{base_url}/transcript"
+    response = requests.post(url, json=data, headers=headers)
+
+    if response.status_code != 200:
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code, "text": response.text}
+
+    transcript_id = response.json()["id"]
+    polling_endpoint = f"{base_url}/transcript/{transcript_id}"
+
+    # Poll the result_url until we get a completed transcription
+    max_retries = 120  # Maximum number of retries (2 minutes with 1s sleep)
+    retry_count = 0
+
+    while retry_count < max_retries:
+        polling_response = requests.get(polling_endpoint, headers=headers)
+
+        if polling_response.status_code != 200:
+            logger.error(f"AssemblyAI result fetch failed with status code {polling_response.status_code}")
+            time.sleep(10)
+            retry_count += 10
+            continue
+
+        transcription_result = polling_response.json()
+
+        if transcription_result["status"] == "completed":
+            logger.info("AssemblyAI transcription completed successfully.")
+
+            transcript_text = transcription_result.get("text", "")
+            words = transcription_result.get("words", [])
+
+            formatted_words = []
+            if words:
+                for word in words:
+                    formatted_words.append(
+                        {
+                            "word": word["text"],
+                            "start": word["start"] / 1000.0,
+                            "end": word["end"] / 1000.0,
+                            "confidence": word["confidence"],
+                        }
+                    )
+
+            transcription = {"transcript": transcript_text, "words": formatted_words}
+            return transcription, None
+
+        elif transcription_result["status"] == "error":
+            error = transcription_result.get("error")
+            return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "step": "transcribe_result_poll", "error": error}
+
+        else:  # queued, processing
+            logger.info(f"AssemblyAI transcription status: {transcription_result['status']}, waiting...")
+            time.sleep(1)
+            retry_count += 1
+
+    # If we've reached here, we've timed out
+    return None, {"reason": TranscriptionFailureReasons.TIMED_OUT, "step": "transcribe_result_poll"}
