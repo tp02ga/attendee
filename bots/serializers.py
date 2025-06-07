@@ -146,6 +146,10 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "string",
                         "description": "Optional prompt to use for the OpenAI transcription",
                     },
+                    "language": {
+                        "type": "string",
+                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes",
+                    },
                 },
                 "required": ["model"],
                 "additionalProperties": False,
@@ -376,6 +380,10 @@ class CreateBotSerializer(serializers.Serializer):
                     "prompt": {
                         "type": "string",
                         "description": "Optional prompt to use for the OpenAI transcription",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "The language to use for transcription. See here in the 'Set 1' column for available language codes: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes",
                     },
                 },
                 "required": ["model"],

@@ -258,6 +258,8 @@ def get_transcription_via_openai(utterance):
     files = {"file": ("file.mp3", payload_mp3, "audio/mpeg"), "model": (None, recording.bot.openai_transcription_model())}
     if recording.bot.openai_transcription_prompt():
         files["prompt"] = (None, recording.bot.openai_transcription_prompt())
+    if recording.bot.openai_transcription_language():
+        files["language"] = (None, recording.bot.openai_transcription_language())
     response = requests.post(url, headers=headers, files=files)
 
     if response.status_code == 401:

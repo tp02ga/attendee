@@ -223,6 +223,9 @@ class Bot(models.Model):
     def openai_transcription_model(self):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("model", "gpt-4o-transcribe")
 
+    def openai_transcription_language(self):
+        return self.settings.get("transcription_settings", {}).get("openai", {}).get("language", None)
+
     def gladia_code_switching_languages(self):
         return self.settings.get("transcription_settings", {}).get("gladia", {}).get("code_switching_languages", None)
 
