@@ -340,7 +340,14 @@ def get_transcription_via_assemblyai(utterance):
         transcription_result = polling_response.json()
 
         if transcription_result["status"] == "completed":
-            logger.info("AssemblyAI transcription completed successfully.")
+            logger.info("AssemblyAI transcription completed successfully, now deleting from AssemblyAI.")
+
+            # Delete the transcript from AssemblyAI
+            delete_response = requests.delete(polling_endpoint, headers=headers)
+            if delete_response.status_code != 200:
+                logger.error(f"AssemblyAI delete failed with status code {delete_response.status_code}: {delete_response.text}")
+            else:
+                logger.info("AssemblyAI delete successful")
 
             transcript_text = transcription_result.get("text", "")
             words = transcription_result.get("words", [])
