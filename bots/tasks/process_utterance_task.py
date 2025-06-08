@@ -236,7 +236,11 @@ def get_transcription_via_deepgram(utterance):
         return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error_code": original_error_json.get("err_code"), "error_json": original_error_json}
 
     logger.info(f"Deepgram transcription complete with model {deepgram_model}")
-    return json.loads(response.results.channels[0].alternatives[0].to_json()), None
+    alternatives = response.results.channels[0].alternatives
+    if len(alternatives) == 0:
+        logger.info(f"Deepgram transcription with model {deepgram_model} had no alternatives, returning empty transcription")
+        return {"transcript": "", "words": []}, None
+    return json.loads(alternatives[0].to_json()), None
 
 
 def get_transcription_via_openai(utterance):
