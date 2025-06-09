@@ -2369,6 +2369,7 @@ class CallManager {
         if (this.activeCall) {
             this.activeCall.setClosedCaptionsLanguage(language);
             // Unfortunately, this is needed for improved reliability.
+            // It seems like when the host joins at the same time as the bot, they reset the cc language to the default.
             setTimeout(() => {
                 if (this.activeCall) {
                     this.activeCall.setClosedCaptionsLanguage(language);
@@ -2387,6 +2388,19 @@ class CallManager {
             setTimeout(() => {
                 if (this.activeCall) {
                     this.activeCall.setClosedCaptionsLanguage(language);
+                    // Set an interval that runs every 60 seconds and makes sure the current closed caption language is equal to the language
+                    // This is for debugging purposes
+                    setInterval(() => {
+                        if (this.activeCall && this.activeCall.getClosedCaptionsLanguage) {
+                            if (this.activeCall.getClosedCaptionsLanguage() !== language) {
+                                window.ws?.sendJson({
+                                    type: "closedCaptionsLanguageMismatch",
+                                    desiredLanguage: language,
+                                    currentLanguage: this.activeCall.getClosedCaptionsLanguage()
+                                });
+                            }
+                        }
+                    }, 60000);
                 }
             }, 10000);
             return true;
