@@ -113,6 +113,7 @@ class BotController:
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
+            teams_closed_captions_language=self.bot_in_db.teams_closed_captions_language(),
             should_create_debug_recording=self.bot_in_db.create_debug_recording(),
             start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
             stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
