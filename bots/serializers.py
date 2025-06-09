@@ -131,6 +131,10 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "string",
                         "description": "The language code for Google Meet closed captions (e.g. 'en-US'). See here for available languages and codes: https://docs.google.com/spreadsheets/d/1MN44lRrEBaosmVI9rtTzKMii86zGgDwEwg4LSj-SjiE",
                     },
+                    "teams_language": {
+                        "type": "string",
+                        "description": "The language code for Teams closed captions (e.g. 'en-us'). This will change the closed captions language for everyone in the meeting, not just the bot. See here for available languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing",
+                    },
                 },
                 "additionalProperties": False,
             },
@@ -394,6 +398,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "type": "object",
                 "properties": {
                     "google_meet_language": {"type": "string"},
+                    "teams_language": {"type": "string"},
                 },
                 "required": [],
                 "additionalProperties": False,
