@@ -2368,6 +2368,27 @@ class CallManager {
         this.setActiveCall();
         if (this.activeCall) {
             this.activeCall.setClosedCaptionsLanguage(language);
+            // Unfortunately, this is needed for improved reliability.
+            setTimeout(() => {
+                if (this.activeCall) {
+                    this.activeCall.setClosedCaptionsLanguage(language);
+                }
+            }, 1000);         
+            setTimeout(() => {
+                if (this.activeCall) {
+                    this.activeCall.setClosedCaptionsLanguage(language);
+                }
+            }, 3000);
+            setTimeout(() => {
+                if (this.activeCall) {
+                    this.activeCall.setClosedCaptionsLanguage(language);
+                }
+            }, 5000);
+            setTimeout(() => {
+                if (this.activeCall) {
+                    this.activeCall.setClosedCaptionsLanguage(language);
+                }
+            }, 10000);
             return true;
         }
         return false;
