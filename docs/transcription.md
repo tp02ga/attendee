@@ -95,6 +95,12 @@ Make sure the `transcript.update` trigger is enabled for your webhook. This will
 
 You can fetch transcripts during and after the meeting, by calling the `/transcript` endpoint. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/GET/api/v1/bots/{object_id}/transcript) for details.
 
+## Multilingual transcription
+
+All transcription methods can transcribe audio in different languages, but some methods support different languages than others. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/POST/api/v1/bots) for details on how to specify the language.
+
+All third-party transcription providers support automatic language detection, but closed caption-based transcription does not. Some third-party providers have the ability to transcribe audio where the speaker is switching languages in the middle of a sentence, see the list below for details.
+
 ## Choosing the right transcription provider
 
 ### Deepgram
