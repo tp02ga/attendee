@@ -46,7 +46,7 @@ Closed caption-based transcription is free.
 | ------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------- |
 | **Source**               | Per-participant audio segments                  | Built-in captions from the meeting platform (Zoom, Google Meet) |
 | **Transcription Quality**| High (depends on the provider, e.g., OpenAI, Deepgram)        | Generally lower than third-party-based transcription
-| ** Word-level timestamps**| Supported by all providers except OpenAI                         | No.
+| **Word-level timestamps**| Supported by all providers except OpenAI                         | No.
 | **Speaker Diarization**  | Yes, perfect speaker identification.                          | Yes, perfect speaker identification.                            |
 | **Latency**              | Higher latency due to provider processing and segment size.     | Lower latency, near-instantaneous.                              |
 | **Cost**                 | Incurs costs from third-party transcription providers.        | No additional costs.                     |
