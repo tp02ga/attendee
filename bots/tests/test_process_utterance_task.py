@@ -472,6 +472,7 @@ class OpenAIProviderTest(TransactionTestCase):
             {
                 "reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED,
                 "status_code": 500,
+                "response_text": "boom",
             },
         )
 
