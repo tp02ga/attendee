@@ -45,7 +45,7 @@ def get_transcription(utterance, recording):
     soft_time_limit=3600,
     autoretry_for=(Exception,),
     retry_backoff=True,  # Enable exponential backoff
-    max_retries=5,
+    max_retries=55,
 )
 def process_utterance(self, utterance_id):
     utterance = Utterance.objects.get(id=utterance_id)
@@ -63,7 +63,7 @@ def process_utterance(self, utterance_id):
         transcription, failure_data = get_transcription(utterance, recording)
 
         if failure_data:
-            if utterance.transcription_attempt_count < 5 and is_retryable_failure(failure_data):
+            if utterance.transcription_attempt_count < 55 and is_retryable_failure(failure_data):
                 utterance.save()
                 raise Exception(f"Retryable failure when transcribing utterance {utterance_id}: {failure_data}")
             else:
@@ -271,7 +271,7 @@ def get_transcription_via_openai(utterance):
     if response.status_code == 401:
         return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
 
-    if response.status_code != 200:
+    if True:#response.status_code != 200:
         logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
         return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code}
 
