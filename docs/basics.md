@@ -1,14 +1,14 @@
 # Basics of Bots
 
 ## What is a bot?
-In the Attendee platform, a bot is an automated participant that can join virtual meetings across different platforms (Zoom, Google Meet, Microsoft Teams) to perform various tasks such as recording and transcription.
+In the Attendee platform, a bot is an automated participant that can join virtual meetings across Zoom, Google Meet, and Microsoft Teams to perform various tasks such as recording and transcription.
 
 ## Bot Capabilities
 
 1. Recording: Bots can record audio and video from meetings
-2. Transcription: Bots can transcribe meeting conversations in real-time or after the meeting ends
+2. Transcription: Bots can transcribe meeting conversations in real-time
 3. Speech: Bots can speak arbitrary audio into the meeting
-4. Avatars: Bots can display arbitrary images as in their virtual webcam
+4. Avatars: Bots can display arbitrary images from their virtual webcam
 5. Chat: Bots can record and send chat messages
 
 ## Bot States
@@ -31,7 +31,7 @@ Bots go through these lifecycle states:
 3. Automatic language detection
 4. Speaker identification / Diarization
 5. Precise timestamps for each utterance
-6. Transcripts from Platform closed captions
+6. Ability to transcribe using third party providers or from platform closed captions
 
 ## Configuration Options
 Bots can be configured with:
@@ -47,13 +47,13 @@ Bots can be configured with:
 
 3. Automatic leave settings
    - How long should the bot wait to be let into the meeting before giving up?
-   - How long it should be silent before the bot leaves
-   - How long should the bot be the only one in the meeting before it leaves
-   - How long the meeting can last before the bot leaves
+   - How long it should be silent before the bot leaves?
+   - How long should the bot be the only one in the meeting before it leaves?
+   - How long the meeting can last before the bot leaves?
 
 4. Webhooks
-   - Webhook events for bot state changes
-   - Webhook events for transcript updates
+   - Bot state changes
+   - Transcript updates
 
 ## Platform Support
 Currently supported platforms:
