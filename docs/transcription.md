@@ -67,8 +67,8 @@ You can configure transcription settings when creating a bot. This includes sele
 
 ```json
 {
-    <chosen transcription provider>: {
-        <provider-specific parameters>
+    "chosen transcription provider": {
+        "provider-specific parameters"
     }
 }
 ```
