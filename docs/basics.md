@@ -36,22 +36,22 @@ Bots go through these lifecycle states:
 ## Configuration Options
 Bots can be configured with:
 
-1. Transcription Settings
+Transcription Settings
    - Language selection
    - Automatic language detection
    - Provider-specific options
 
-2. Recording Settings
+Recording Settings
    - Recording type (Audio and Video / Audio Only)
    - Recording view (Speaker View / Gallery View)
 
-3. Automatic leave settings
+Automatic leave settings
    - How long should the bot wait to be let into the meeting before giving up?
    - How long it should be silent before the bot leaves?
    - How long should the bot be the only one in the meeting before it leaves?
    - How long the meeting can last before the bot leaves?
 
-4. Webhooks
+Webhooks
    - Bot state changes
    - Transcript updates
 
