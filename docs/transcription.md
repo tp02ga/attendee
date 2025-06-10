@@ -22,7 +22,7 @@ Third-party-based transcription is generally of higher quality than closed capti
 - Gladia
 - Assembly AI
 
-See the API reference for supported parameters for configuring the transcription providers.
+See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/POST/api/v1/bots) for supported parameters for configuring the transcription providers.
 
 ### Cost
 
@@ -50,7 +50,7 @@ Closed caption-based transcription is free.
 | **Speaker Diarization**  | Yes, perfect speaker identification.                          | Yes, perfect speaker identification.                            |
 | **Latency**              | Higher latency due to provider processing and segment size.     | Lower latency, near-instantaneous.                              |
 | **Cost**                 | Incurs costs from third-party transcription providers.        | No additional costs.                     |
-| **Setup**                | Requires configuring a third-party transcription provider.    | Simpler setup, just enable it in bot settings.                  |
+| **Setup**                | Requires configuring a third-party transcription provider.    | No setup required.                  |
 
 ## Adding transcription providers in the dashboard
 
@@ -64,7 +64,7 @@ Additionally, the `post-processing complete` bot event will contain a list of tr
 
 ## Configuring transcription in the API call
 
-You can configure transcription settings when creating a bot. This includes selecting the transcription provider and provider-specific options like language, model, etc. See the API reference for details. You will set the parameters in the `transcription_settings` object of the `create bot` request body. It will have the form
+You can configure transcription settings when creating a bot. This includes selecting the transcription provider and provider-specific options like language, model, etc. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/POST/api/v1/bots) for details. You will set the parameters in the `transcription_settings` object of the `create bot` request body. It will have the form
 
 ```json
 {
