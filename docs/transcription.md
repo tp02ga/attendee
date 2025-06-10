@@ -94,3 +94,37 @@ Make sure the `transcript.update` trigger is enabled for your webhook. This will
 ## Fetching transcripts during and after the meeting
 
 You can fetch transcripts during and after the meeting, by calling the `/transcript` endpoint. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/GET/api/v1/bots/{object_id}/transcript) for details.
+
+## Multilingual transcription
+
+All transcription methods can transcribe audio in different languages, but some methods support different languages than others. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/POST/api/v1/bots) for details on how to specify the language.
+
+All third-party transcription providers support automatic language detection, but closed caption-based transcription does not. Some third-party providers have the ability to transcribe audio where the speaker is switching languages in the middle of a sentence, see the list below for details.
+
+## Choosing the right transcription provider
+
+### Deepgram
+
+Cheap price, good quality, and fast, the only downside is it doesn't support as many languages as some of the other providers.
+
+Can transcribe audio where the speaker is switching languages in the middle of a sentence.
+
+$200 in free credits for new users.
+
+### Gladia
+
+Similar to Deepgram, but more expensive and supports more languages.
+
+Can transcribe audio where the speaker is switching languages in the middle of a sentence.
+
+10 hours of free transcription each month.
+
+### Assembly AI
+
+Similar to Deepgram in price and quality but lacks the ability to transcribe audio where the speaker is switching languages in the middle of a sentence. Very accurate word-level timestamps.
+
+$50 in free credits for new users.
+
+### OpenAI
+
+Cheaper then the other providers, but less accurate and often chooses the wrong language when the language is not specified in advance. Can transcribe audio where the speaker is switching languages in the middle of a sentence. Lacks word-level timestamps.
