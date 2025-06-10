@@ -94,31 +94,3 @@ Make sure the `transcript.update` trigger is enabled for your webhook. This will
 ## Fetching transcripts during and after the meeting
 
 You can fetch transcripts during and after the meeting, by calling the `/transcript` endpoint. See the [API reference](https://docs.attendee.dev/api-reference#tag/bots/GET/api/v1/bots/{object_id}/transcript) for details.
-
-## Choosing the right transcription provider
-
-### Deepgram
-
-Cheap price, good quality, and fast, the only downside is it doesn't support as many languages as some of the other providers.
-
-Can transcribe audio where the speaker is switching languages in the middle of a sentence.
-
-You get $200 in credits for free when you sign up.
-
-### Gladia
-
-Similar to Deepgram, but more expensive, slower, but supports more languages.
-
-Can transcribe audio where the speaker is switching languages in the middle of a sentence.
-
-10 hours of free transcription each month, but restrictive rate limits on the free tier.
-
-### Assembly AI
-
-Similar to Deepgram in price and quality but slightly slower. Lacks the ability to transcribe audio where the speaker is switching languages in the middle of a sentence. Very accurate word-level timestamps.
-
-You get $50 in credits for free when you sign up.
-
-### OpenAI
-
-Cheaper then the other providers, but significantly less accurate and often chooses the wrong language when the language is not specified in advance. Can transcribe audio where the speaker is switching languages in the middle of a sentence. Lacks word-level timestamps.
