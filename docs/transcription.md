@@ -88,7 +88,7 @@ For example, if you want to use Deepgram with english and the nova-2 model, you 
 
 You can set up webhooks for real time transcription in the dashboard. Go to the Settings > Webhooks page and click the 'Create Webhook' button.
 
-Make sure the `transcript.update` trigger is enabled for your webhook. This will fire a webhook event every time a new utterance is added to the transcript. See the [webhooks](webhooks.md) page for more details on the webhook payload.
+Make sure the `transcript.update` trigger is enabled for your webhook. This will fire a webhook event every time a new utterance is added to the transcript. See the [webhooks](webhooks.md#payload-for-transcriptupdate-trigger) page for more details on the webhook payload.
 
 ## Fetching transcripts during and after the meeting
 
