@@ -271,7 +271,7 @@ def get_transcription_via_openai(utterance):
     if response.status_code == 401:
         return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
 
-    time.sleep(300)
+    time.sleep(600)
 
     if response.status_code != 200:
         logger.error(f"OpenAI transcription failed with status code {response.status_code}: {response.text}")
