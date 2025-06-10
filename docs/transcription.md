@@ -2,7 +2,7 @@
 
 Attendee offers two methods for real-time meeting transcription: **Third-party-based Transcription** and **Closed Caption-based Transcription**. Both methods allow you to receive real-time updates via webhooks. Also, both methods have perfect speaker identification, also known as diarization.
 
-For an example of a simple web application that transcribes meeting audio in real time, see the [real time transcription example](https://github.com/attendee-labs/realtime-transcription-example) repository.
+For an example of a simple web application that uses Attendee to transcribe meeting audio in real time, see the [real time transcription example](https://github.com/attendee-labs/realtime-transcription-example) repository.
 
 ## Third-party-based Transcription
 
