@@ -42,22 +42,22 @@ Closed caption-based transcription is free.
 
 ## Choosing the Right Method
 
-| Feature                  | Chunk-based Transcription                                     | Closed Caption-based Transcription                              |
+| Feature                  | Third-party-based Transcription                                     | Closed Caption-based Transcription                              |
 | ------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Source**               | Per-participant audio chunks                  | Built-in captions from the meeting platform (Zoom, Google Meet) |
-| **Transcription Quality**| High (depends on the provider, e.g., OpenAI, Deepgram)        | Generally lower than chunk-based transcription
+| **Source**               | Per-participant audio segments                  | Built-in captions from the meeting platform (Zoom, Google Meet) |
+| **Transcription Quality**| High (depends on the provider, e.g., OpenAI, Deepgram)        | Generally lower than third-party-based transcription
 | **Speaker Diarization**  | Yes, perfect speaker identification.                          | Yes, perfect speaker identification.                            |
-| **Latency**              | Higher latency due to provider processing and chunk size.     | Lower latency, near-instantaneous.                              |
+| **Latency**              | Higher latency due to provider processing and segment size.     | Lower latency, near-instantaneous.                              |
 | **Cost**                 | Incurs costs from third-party transcription providers.        | No additional costs.                     |
 | **Setup**                | Requires configuring a third-party transcription provider.    | Simpler setup, just enable it in bot settings.                  |
 
 ## Adding transcription providers in the dashboard
 
-For chunk-based transcription, you need to add your API Key for a provider like Deepgram, OpenAI, Gladia, or Assembly AI in the Settings > Credentials page.
+For third-party-based transcription, you need to add your API Key for a provider like Deepgram, OpenAI, Gladia, or Assembly AI in the Settings > Credentials page.
 
 ## Transcription errors
 
-If you are using chunk-based transcription, you may encounter errors from the transcription provider. These errors are visible in the bot detail page in the dashboard, in the transcription section.
+If you are using third-party-based transcription, you may encounter errors from the transcription provider. These errors are visible in the bot detail page in the dashboard, in the transcription section.
 
 Additionally, the `post-processing complete` bot event will contain a list of transcription errors in the event metadata.
 
