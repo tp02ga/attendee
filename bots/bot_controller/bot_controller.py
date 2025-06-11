@@ -34,6 +34,7 @@ from bots.models import (
     RecordingFormats,
     RecordingManager,
     RecordingStates,
+    RecordingTypes,
     TranscriptionProviders,
     Utterance,
     WebhookTriggerTypes,
@@ -441,6 +442,7 @@ class BotController:
             self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
                 recording_dimensions=self.bot_in_db.recording_dimensions(),
+                audio_only=self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY,
             )
 
         self.adapter = self.get_bot_adapter()
