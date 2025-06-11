@@ -182,15 +182,6 @@ class BotController:
             return 0.9
         return 0.1
 
-    def get_num_audio_sources(self):
-        meeting_type = self.get_meeting_type()
-        if meeting_type == MeetingTypes.ZOOM:
-            return 1
-        elif meeting_type == MeetingTypes.GOOGLE_MEET:
-            return 3
-        elif meeting_type == MeetingTypes.TEAMS:
-            return 1
-
     def get_bot_adapter(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
@@ -436,7 +427,6 @@ class BotController:
                 video_frame_size=self.bot_in_db.recording_dimensions(),
                 audio_format=self.get_audio_format(),
                 output_format=self.get_gstreamer_output_format(),
-                num_audio_sources=self.get_num_audio_sources(),
                 sink_type=self.get_gstreamer_sink_type(),
                 file_location=self.get_recording_file_location(),
             )

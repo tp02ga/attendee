@@ -27,7 +27,6 @@ class GstreamerPipeline:
         video_frame_size,
         audio_format,
         output_format,
-        num_audio_sources,
         sink_type,
         file_location=None,
     ):
@@ -35,7 +34,6 @@ class GstreamerPipeline:
         self.video_frame_size = video_frame_size
         self.audio_format = audio_format
         self.output_format = output_format
-        self.num_audio_sources = num_audio_sources
         self.sink_type = sink_type
         self.file_location = file_location
 
@@ -87,60 +85,20 @@ class GstreamerPipeline:
         else:
             raise ValueError(f"Invalid sink type: {self.sink_type}")
 
-        if self.num_audio_sources == 1:
-            # fmt: off
-            audio_source_string = (
-                # --- AUDIO STRING FOR 1 AUDIO SOURCE ---
-                "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
-                "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "audioconvert ! "
-                "audiorate ! "
-                "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "voaacenc bitrate=128000 ! "
-                "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            )
-
-            if self.output_format == self.OUTPUT_FORMAT_MP3:
-                audio_source_string = (
-                    # --- AUDIO STRING FOR 1 AUDIO SOURCE ---
-                    "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
-                    "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                    "audioconvert ! "
-                    "audiorate ! "
-                    "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                )
-
-            # fmt: on
-        elif self.num_audio_sources == 3:
-            audio_source_string = (
-                # --- AUDIO BRANCH 1 ---
-                "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
-                "queue name=q5_1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "mixer. "
-                # --- AUDIO BRANCH 2 ---
-                "appsrc name=audio_source_2 do-timestamp=false stream-type=0 format=time ! "
-                "queue name=q5_2 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "mixer. "
-                # --- AUDIO BRANCH 3 ---
-                "appsrc name=audio_source_3 do-timestamp=false stream-type=0 format=time ! "
-                "queue name=q5_3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "mixer. "
-                # --- AUDIO MIXER
-                "adder name=mixer ! "
-                "queue name=mixer_q1 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "audioconvert ! "
-                "audiorate ! "
-                "queue name=mixer_q2 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-                "voaacenc bitrate=128000 ! "
-                "queue name=mixer_q3 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
-            )
-        else:
-            raise ValueError(f"Unsupported number of audio sources: {self.num_audio_sources}")
+        # fmt: off
+        audio_source_string = (
+            # --- AUDIO STRING FOR 1 AUDIO SOURCE ---
+            "appsrc name=audio_source_1 do-timestamp=false stream-type=0 format=time ! "
+            "queue name=q5 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+            "audioconvert ! "
+            "audiorate ! "
+            "queue name=q6 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
+        )
 
         if self.output_format == self.OUTPUT_FORMAT_MP3:
             pipeline_str = (
                 f"{audio_source_string}"        # raw audio → …
-                "lamemp3enc target=1 bitrate=128000 ! "
+                "flacenc ! "
                 f"{sink_string}"               # … → sink
             )
         else:
@@ -154,6 +112,8 @@ class GstreamerPipeline:
                 "queue name=q3 max-size-buffers=1000 max-size-bytes=100000000 max-size-time=0 ! "
                 f"{muxer_string} ! queue name=q4 ! {sink_string} "
                 f"{audio_source_string} "
+                "voaacenc bitrate=128000 ! "
+                "queue name=q7 leaky=downstream max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 ! "
                 "muxer. "
             )
 
@@ -176,6 +136,7 @@ class GstreamerPipeline:
 
         audio_caps = Gst.Caps.from_string(self.audio_format)  # e.g. "audio/x-raw,rate=48000,channels=2,format=S16LE"
         self.audio_appsrcs = []
+        self.num_audio_sources = 1
         for i in range(self.num_audio_sources):
             audio_appsrc = self.pipeline.get_by_name(f"audio_source_{i + 1}")
             audio_appsrc.set_property("caps", audio_caps)
