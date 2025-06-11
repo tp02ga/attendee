@@ -340,7 +340,10 @@ class BotController:
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
         else:
-            self.pipeline_configuration = PipelineConfiguration.recorder_bot()
+            if self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
+                self.pipeline_configuration = PipelineConfiguration.audio_recorder_bot()
+            else:
+                self.pipeline_configuration = PipelineConfiguration.recorder_bot()
 
     def get_gstreamer_sink_type(self):
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
@@ -442,7 +445,7 @@ class BotController:
             self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
                 recording_dimensions=self.bot_in_db.recording_dimensions(),
-                audio_only=self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY,
+                audio_only= not (self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video),
             )
 
         self.adapter = self.get_bot_adapter()
