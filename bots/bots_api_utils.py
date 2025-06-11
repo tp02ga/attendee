@@ -20,7 +20,6 @@ from .models import (
     MeetingTypes,
     Project,
     Recording,
-    RecordingTypes,
     TranscriptionTypes,
 )
 from .serializers import (
