@@ -437,7 +437,7 @@ class BotController:
             self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
                 recording_dimensions=self.bot_in_db.recording_dimensions(),
-                audio_only= not (self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video),
+                audio_only=not (self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video),
             )
 
         self.adapter = self.get_bot_adapter()
