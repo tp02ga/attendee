@@ -40,6 +40,39 @@ from bots.models import (
 from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRetryableException
 
 
+def create_mock_screen_and_audio_recorder_for_mp3():
+    mock_screen_and_audio_recorder = MagicMock()
+
+    # Store file_location when the mock is initialized
+    def mock_init(file_location, recording_dimensions, audio_only):
+        mock_screen_and_audio_recorder.file_location = file_location
+        mock_screen_and_audio_recorder.recording_dimensions = recording_dimensions
+        mock_screen_and_audio_recorder.audio_only = audio_only
+
+    # Create a dummy MP3 file when stop_recording is called
+    def mock_stop_recording():
+        if hasattr(mock_screen_and_audio_recorder, "file_location") and mock_screen_and_audio_recorder.file_location:
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(mock_screen_and_audio_recorder.file_location), exist_ok=True)
+
+            # Create a minimal valid MP3 file (ID3v2 header + minimal MP3 frame)
+            mp3_data = (
+                b"ID3\x03\x00\x00\x00\x00\x00\x00"  # ID3v2 header
+                b"\xff\xfb\x90\x00"  # MP3 frame header (MPEG-1 Layer III, 128kbps, 44.1kHz, mono)
+                b"\x00" * 100  # Some dummy audio data
+            )
+
+            with open("/tmp/test.mp3", "wb") as f:
+                f.write(mp3_data)
+
+    mock_screen_and_audio_recorder.side_effect = mock_init
+    mock_screen_and_audio_recorder.start_recording.return_value = None
+    mock_screen_and_audio_recorder.stop_recording.side_effect = mock_stop_recording
+    mock_screen_and_audio_recorder.cleanup.return_value = None
+
+    return mock_screen_and_audio_recorder
+
+
 def create_mock_file_uploader():
     mock_file_uploader = MagicMock()
     mock_file_uploader.upload_file.return_value = None
@@ -1170,6 +1203,96 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertGreater(mock_uploader.upload_file.call_count, 0)
         mock_uploader.wait_for_upload.assert_called_once()
         mock_uploader.delete_file.assert_called_once()
+
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+
+        # Close the database connection since we're in a thread
+        connection.close()
+
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.bot_controller.bot_controller.ScreenAndAudioRecorder")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
+    def test_google_meet_bot_can_join_meeting_and_record_audio_in_mp3_format(
+        self,
+        mock_wait_for_host_if_needed,
+        mock_check_if_meeting_is_found,
+        MockScreenAndAudioRecorder,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+        mock_create_debug_recording,
+    ):
+        self.bot.settings = {
+            "recording_settings": {
+                "format": "mp3",
+            }
+        }
+        self.bot.save()
+
+        mock_screen_and_audio_recorder = create_mock_screen_and_audio_recorder_for_mp3()
+        MockScreenAndAudioRecorder.return_value = mock_screen_and_audio_recorder
+
+        # Configure the mock uploader to capture data
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def simulate_join_flow():
+            # Sleep to allow initialization
+            time.sleep(2)
+
+            # Add participants to keep the bot in the meeting
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+
+            # Let the bot run for a bit to "record"
+            time.sleep(3)
+
+            # Trigger auto-leave
+            controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
+            time.sleep(4)
+
+            # Clean up connections in thread
+            connection.close()
+
+        # Run join flow simulation after a short delay
+        threading.Timer(2, simulate_join_flow).start()
+
+        # Give the bot some time to process
+        bot_thread.join(timeout=10)
+
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the bot is in the ENDED state
+        self.assertEqual(self.bot.state, BotStates.ENDED)
+
+        # Verify that the recording was finished
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+
+        # Verify file uploader was used. This implies a file was created and handled.
+        mock_uploader.upload_file.assert_called_once()
 
         # Cleanup
         controller.cleanup()
