@@ -131,6 +131,7 @@ See CONTRIBUTING.md for detailed instructions on how to contribute to Attendee.
 - [x] API Reference
 - [x] Audio input / output
 - [x] Video input / output
+- [x] Custom bot image 
 - [x] Google Meet support
 - [x] Speech support
 - [x] Automatically leave meetings
