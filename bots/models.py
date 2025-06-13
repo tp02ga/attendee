@@ -1,6 +1,7 @@
 import hashlib
 import json
 import math
+import os
 import random
 import secrets
 import string
@@ -220,6 +221,29 @@ class Bot(models.Model):
         # The rate is 1 credit per hour
         centicredits_active = hours_active * 100
         return math.ceil(centicredits_active)
+
+    def cpu_request(self):
+        from bots.utils import meeting_type_from_url
+
+        bot_meeting_type = meeting_type_from_url(self.meeting_url)
+        meeting_type_env_var_substring = {
+            MeetingTypes.GOOGLE_MEET: "GOOGLE_MEET",
+            MeetingTypes.TEAMS: "TEAMS",
+            MeetingTypes.ZOOM: "ZOOM",
+        }.get(bot_meeting_type, "UNKNOWN")
+
+        recording_mode_env_var_substring = {
+            RecordingTypes.AUDIO_AND_VIDEO: "AUDIO_AND_VIDEO",
+            RecordingTypes.AUDIO_ONLY: "AUDIO_ONLY",
+        }.get(self.recording_type(), "UNKNOWN")
+
+        env_var_name = f"{meeting_type_env_var_substring}_{recording_mode_env_var_substring}_BOT_CPU_REQUEST"
+
+        default_cpu_request = os.getenv("BOT_CPU_REQUEST", "4") or "4"
+        value_from_env_var = os.getenv(env_var_name, default_cpu_request)
+        if not value_from_env_var:
+            return default_cpu_request
+        return value_from_env_var
 
     def openai_transcription_prompt(self):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("prompt", None)
