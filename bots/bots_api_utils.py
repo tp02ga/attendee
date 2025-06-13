@@ -15,12 +15,12 @@ from .models import (
     BotEventTypes,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
+    BotStates,
     Credentials,
     MediaBlob,
     MeetingTypes,
     Project,
     Recording,
-    BotStates,
     TranscriptionTypes,
 )
 from .serializers import (

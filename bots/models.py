@@ -388,10 +388,10 @@ class Bot(models.Model):
         return self.settings.get("automatic_leave_settings", {})
 
     class Meta:
-        # We'll have to do a periodic query to find bots that have a join_at that is within 5 minutes of now. 
+        # We'll have to do a periodic query to find bots that have a join_at that is within 5 minutes of now.
         # The partial index will exclude bots without a join_at which should speed up the query and reduce the space used by the index.
         indexes = [
-            models.Index(fields=['join_at'], name='bot_join_at_idx', condition=models.Q(join_at__isnull=False)),
+            models.Index(fields=["join_at"], name="bot_join_at_idx", condition=models.Q(join_at__isnull=False)),
         ]
 
 
