@@ -90,23 +90,13 @@ class TestBotDataDeletion(TransactionTestCase):
         self.chat_message2 = ChatMessage.objects.create(bot=self.bot2, to=ChatMessageToOptions.EVERYONE, participant=self.participant2, text="Hello, world!", timestamp=1000)
 
         # Create bot events and debug screenshots for each bot
-        self.event1 = BotEvent.objects.create(
-            bot=self.bot1,
-            old_state=BotStates.ENDED,
-            new_state=BotStates.ENDED,
-            event_type=BotEventTypes.BOT_JOINED_MEETING
-        )
-        self.event2 = BotEvent.objects.create(
-            bot=self.bot2,
-            old_state=BotStates.ENDED,
-            new_state=BotStates.ENDED,
-            event_type=BotEventTypes.BOT_JOINED_MEETING
-        )
+        self.event1 = BotEvent.objects.create(bot=self.bot1, old_state=BotStates.ENDED, new_state=BotStates.ENDED, event_type=BotEventTypes.BOT_JOINED_MEETING)
+        self.event2 = BotEvent.objects.create(bot=self.bot2, old_state=BotStates.ENDED, new_state=BotStates.ENDED, event_type=BotEventTypes.BOT_JOINED_MEETING)
 
         # Create debug screenshots for each event
         self.screenshot1 = BotDebugScreenshot.objects.create(bot_event=self.event1)
         self.screenshot1.file.save("test1.png", ContentFile(b"test screenshot 1"))
-        
+
         self.screenshot2 = BotDebugScreenshot.objects.create(bot_event=self.event2)
         self.screenshot2.file.save("test2.png", ContentFile(b"test screenshot 2"))
 
