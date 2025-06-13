@@ -239,8 +239,11 @@ class Bot(models.Model):
 
         env_var_name = f"{meeting_type_env_var_substring}_{recording_mode_env_var_substring}_BOT_CPU_REQUEST"
 
-        default_cpu_request = os.getenv("BOT_CPU_REQUEST", "4")
-        return os.getenv(env_var_name, default_cpu_request)
+        default_cpu_request = os.getenv("BOT_CPU_REQUEST", "4") or "4"
+        value_from_env_var = os.getenv(env_var_name, default_cpu_request)
+        if not value_from_env_var:
+            return default_cpu_request
+        return value_from_env_var
 
     def openai_transcription_prompt(self):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("prompt", None)

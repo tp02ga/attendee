@@ -139,3 +139,30 @@ class TestBotCpuRequest(TestCase):
 
         self.assertEqual(result, "3")
         mock_getenv.assert_any_call("ZOOM_AUDIO_ONLY_BOT_CPU_REQUEST", "4")
+
+    @patch("bots.models.os.getenv")
+    def test_edge_case_empty_env_var_value(self, mock_getenv):
+        """Test edge case where env var is set but empty"""
+        mock_getenv.side_effect = lambda key, default=None: {
+            "GOOGLE_MEET_AUDIO_AND_VIDEO_BOT_CPU_REQUEST": "",  # Empty string
+            "BOT_CPU_REQUEST": "4",
+        }.get(key, default)
+
+        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
+        
+        result = bot.cpu_request()
+        
+        # Should return 4 if the env var is empty
+        self.assertEqual(result, "4")
+
+    @patch("bots.models.os.getenv")
+    def test_edge_case_empty_everything(self, mock_getenv):
+        # Simultate that no env vars are set
+        mock_getenv.side_effect = lambda key, default=None: None
+
+        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
+        
+        result = bot.cpu_request()
+        
+        # Should return 4 if the env var is empty
+        self.assertEqual(result, "4")
