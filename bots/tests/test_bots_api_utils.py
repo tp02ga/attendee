@@ -1,10 +1,8 @@
-from unittest.mock import patch
-
 from django.test import TestCase
 
 from accounts.models import Organization
 from bots.bots_api_utils import BotCreationSource, create_bot, validate_meeting_url_and_credentials
-from bots.models import Bot, Project, RecordingFormats
+from bots.models import Project
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
@@ -57,112 +55,3 @@ class TestCreateBot(TestCase):
         self.assertIsNotNone(error)
         self.assertEqual(error, {"error": "Google Meet URL must start with https://meet.google.com/"})
         self.assertEqual(bot.bot_events.first().metadata["source"], BotCreationSource.DASHBOARD)
-
-
-class TestBotCpuRequest(TestCase):
-    def setUp(self):
-        """Set up test data"""
-        self.organization = Organization.objects.create(name="Test Organization")
-        self.project = Project.objects.create(name="Test Project", organization=self.organization)
-
-    def create_bot(self, meeting_url, recording_settings=None):
-        """Helper method to create a bot with given settings"""
-        settings = {}
-        if recording_settings:
-            settings["recording_settings"] = recording_settings
-
-        return Bot.objects.create(
-            name="Test Bot",
-            project=self.project,
-            meeting_url=meeting_url,
-            settings=settings,
-        )
-
-    @patch("bots.models.os.getenv")
-    def test_google_meet_audio_video_cpu_request(self, mock_getenv):
-        """Test CPU request for Google Meet with audio and video recording"""
-        # Set up environment variable mock
-        mock_getenv.side_effect = lambda key, default=None: {
-            "GOOGLE_MEET_AUDIO_AND_VIDEO_BOT_CPU_REQUEST": "8",
-            "BOT_CPU_REQUEST": "4",
-        }.get(key, default)
-
-        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
-
-        result = bot.cpu_request()
-
-        self.assertEqual(result, "8")
-        # Verify the correct environment variable was checked
-        mock_getenv.assert_any_call("GOOGLE_MEET_AUDIO_AND_VIDEO_BOT_CPU_REQUEST", "4")
-
-    @patch("bots.models.os.getenv")
-    def test_google_meet_audio_only_cpu_request(self, mock_getenv):
-        """Test CPU request for Google Meet with audio only recording"""
-        mock_getenv.side_effect = lambda key, default=None: {
-            "GOOGLE_MEET_AUDIO_ONLY_BOT_CPU_REQUEST": "2",
-            "BOT_CPU_REQUEST": "4",
-        }.get(key, default)
-
-        bot = self.create_bot("https://meet.google.com/abc-defg-hij", recording_settings={"format": RecordingFormats.MP3})
-
-        result = bot.cpu_request()
-
-        self.assertEqual(result, "2")
-        mock_getenv.assert_any_call("GOOGLE_MEET_AUDIO_ONLY_BOT_CPU_REQUEST", "4")
-
-    @patch("bots.models.os.getenv")
-    def test_zoom_audio_video_cpu_request(self, mock_getenv):
-        """Test CPU request for Zoom with audio and video recording"""
-        mock_getenv.side_effect = lambda key, default=None: {
-            "ZOOM_AUDIO_AND_VIDEO_BOT_CPU_REQUEST": "6",
-            "BOT_CPU_REQUEST": "4",
-        }.get(key, default)
-
-        bot = self.create_bot("https://zoom.us/j/123456789")
-
-        result = bot.cpu_request()
-
-        self.assertEqual(result, "6")
-        mock_getenv.assert_any_call("ZOOM_AUDIO_AND_VIDEO_BOT_CPU_REQUEST", "4")
-
-    @patch("bots.models.os.getenv")
-    def test_zoom_audio_only_cpu_request(self, mock_getenv):
-        """Test CPU request for Zoom with audio only recording"""
-        mock_getenv.side_effect = lambda key, default=None: {
-            "ZOOM_AUDIO_ONLY_BOT_CPU_REQUEST": "3",
-            "BOT_CPU_REQUEST": "4",
-        }.get(key, default)
-
-        bot = self.create_bot("https://zoom.us/j/123456789", recording_settings={"format": RecordingFormats.MP3})
-
-        result = bot.cpu_request()
-
-        self.assertEqual(result, "3")
-        mock_getenv.assert_any_call("ZOOM_AUDIO_ONLY_BOT_CPU_REQUEST", "4")
-
-    @patch("bots.models.os.getenv")
-    def test_edge_case_empty_env_var_value(self, mock_getenv):
-        """Test edge case where env var is set but empty"""
-        mock_getenv.side_effect = lambda key, default=None: {
-            "GOOGLE_MEET_AUDIO_AND_VIDEO_BOT_CPU_REQUEST": "",  # Empty string
-            "BOT_CPU_REQUEST": "4",
-        }.get(key, default)
-
-        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
-        
-        result = bot.cpu_request()
-        
-        # Should return 4 if the env var is empty
-        self.assertEqual(result, "4")
-
-    @patch("bots.models.os.getenv")
-    def test_edge_case_empty_everything(self, mock_getenv):
-        # Simultate that no env vars are set
-        mock_getenv.side_effect = lambda key, default=None: None
-
-        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
-        
-        result = bot.cpu_request()
-        
-        # Should return 4 if the env var is empty
-        self.assertEqual(result, "4")

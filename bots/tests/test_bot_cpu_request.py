@@ -259,5 +259,17 @@ class TestBotCpuRequest(TestCase):
 
         result = bot.cpu_request()
 
-        # Should return empty string since that's what the env var is set to
-        self.assertEqual(result, "")
+        # Should return 4 if the env var is empty.
+        self.assertEqual(result, "4")
+
+    @patch("bots.models.os.getenv")
+    def test_edge_case_empty_everything(self, mock_getenv):
+        # Simultate that no env vars are set
+        mock_getenv.side_effect = lambda key, default=None: None
+
+        bot = self.create_bot("https://meet.google.com/abc-defg-hij")
+
+        result = bot.cpu_request()
+
+        # Should return 4 if the env var is empty.
+        self.assertEqual(result, "4")
