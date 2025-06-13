@@ -6,16 +6,40 @@ logger = logging.getLogger(__name__)
 
 
 class ScreenAndAudioRecorder:
-    def __init__(self, file_location, recording_dimensions):
+    def __init__(self, file_location, recording_dimensions, audio_only):
         self.file_location = file_location
         self.ffmpeg_proc = None
         # Screen will have buffer, we will crop to the recording dimensions
         self.screen_dimensions = (recording_dimensions[0] + 10, recording_dimensions[1] + 10)
         self.recording_dimensions = recording_dimensions
+        self.audio_only = audio_only
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
-        ffmpeg_cmd = ["ffmpeg", "-y", "-thread_queue_size", "4096", "-framerate", "30", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-f", "x11grab", "-draw_mouse", "0", "-probesize", "32", "-i", display_var, "-thread_queue_size", "4096", "-f", "alsa", "-i", "default", "-vf", f"crop={self.recording_dimensions[0]}:{self.recording_dimensions[1]}:10:10", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-g", "30", "-c:a", "aac", "-strict", "experimental", "-b:a", "128k", self.file_location]
+
+        if self.audio_only:
+            # FFmpeg command for audio-only recording to MP3
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite output file without asking
+                "-thread_queue_size",
+                "4096",
+                "-f",
+                "alsa",  # Audio input format for Linux
+                "-i",
+                "default",  # Default audio input device
+                "-c:a",
+                "libmp3lame",  # MP3 codec
+                "-b:a",
+                "192k",  # Audio bitrate (192 kbps for good quality)
+                "-ar",
+                "44100",  # Sample rate
+                "-ac",
+                "1",  # Mono
+                self.file_location,
+            ]
+        else:
+            ffmpeg_cmd = ["ffmpeg", "-y", "-thread_queue_size", "4096", "-framerate", "30", "-video_size", f"{self.screen_dimensions[0]}x{self.screen_dimensions[1]}", "-f", "x11grab", "-draw_mouse", "0", "-probesize", "32", "-i", display_var, "-thread_queue_size", "4096", "-f", "alsa", "-i", "default", "-vf", f"crop={self.recording_dimensions[0]}:{self.recording_dimensions[1]}:10:10", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-g", "30", "-c:a", "aac", "-strict", "experimental", "-b:a", "128k", self.file_location]
 
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
         self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -26,7 +50,7 @@ class ScreenAndAudioRecorder:
         self.ffmpeg_proc.terminate()
         self.ffmpeg_proc.wait()
         self.ffmpeg_proc = None
-        logger.info(f"Stopped debug screen recorder for display with dimensions {self.screen_dimensions} and file location {self.file_location}")
+        logger.info(f"Stopped screen and audio recorder for display with dimensions {self.screen_dimensions} and file location {self.file_location}")
 
     def get_seekable_path(self, path):
         """
@@ -44,6 +68,10 @@ class ScreenAndAudioRecorder:
             logger.info(f"Input file does not exist at {input_path}, creating empty file")
             with open(input_path, "wb"):
                 pass  # Create empty file
+            return
+
+        # if audio only, we don't need to make it seekable
+        if self.audio_only:
             return
 
         # if input file is greater than 3 GB, we will skip seekability

@@ -20,7 +20,6 @@ from .models import (
     MeetingTypes,
     Project,
     Recording,
-    RecordingTypes,
     TranscriptionTypes,
 )
 from .serializers import (
@@ -166,7 +165,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
 
         Recording.objects.create(
             bot=bot,
-            recording_type=RecordingTypes.AUDIO_AND_VIDEO,
+            recording_type=bot.recording_type(),
             transcription_type=TranscriptionTypes.NON_REALTIME,
             transcription_provider=transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, transcription_settings),
             is_default_recording=True,

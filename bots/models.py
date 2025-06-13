@@ -119,6 +119,7 @@ class BotStates(models.IntegerChoices):
 class RecordingFormats(models.TextChoices):
     MP4 = "mp4"
     WEBM = "webm"
+    MP3 = "mp3"
 
 
 class RecordingViews(models.TextChoices):
@@ -297,6 +298,16 @@ class Bot(models.Model):
         if recording_settings is None:
             recording_settings = {}
         return recording_settings.get("format", RecordingFormats.MP4)
+
+    def recording_type(self):
+        # Recording type is derived from the recording format
+        recording_format = self.recording_format()
+        if recording_format == RecordingFormats.MP4 or recording_format == RecordingFormats.WEBM:
+            return RecordingTypes.AUDIO_AND_VIDEO
+        elif recording_format == RecordingFormats.MP3:
+            return RecordingTypes.AUDIO_ONLY
+        else:
+            raise ValueError(f"Invalid recording format: {recording_format}")
 
     def recording_dimensions(self):
         recording_settings = self.settings.get("recording_settings", {})

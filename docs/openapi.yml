@@ -952,7 +952,7 @@ components:
             format:
               type: string
               description: The format of the recording to save. The supported formats
-                are 'mp4'.
+                are 'mp4' and 'mp3'.
             view:
               type: string
               description: The view to use for the recording. The supported views

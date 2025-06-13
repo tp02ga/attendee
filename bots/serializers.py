@@ -214,7 +214,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
         "properties": {
             "format": {
                 "type": "string",
-                "description": "The format of the recording to save. The supported formats are 'mp4'.",
+                "description": "The format of the recording to save. The supported formats are 'mp4' and 'mp3'.",
             },
             "view": {
                 "type": "string",
@@ -553,8 +553,8 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate format if provided
         format = value.get("format")
-        if format not in [RecordingFormats.MP4, None]:
-            raise serializers.ValidationError({"format": "Format must be mp4"})
+        if format not in [RecordingFormats.MP4, RecordingFormats.MP3, None]:
+            raise serializers.ValidationError({"format": "Format must be mp4 or mp3"})
 
         # Validate view if provided
         view = value.get("view")

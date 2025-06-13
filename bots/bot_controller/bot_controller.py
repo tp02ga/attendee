@@ -34,6 +34,7 @@ from bots.models import (
     RecordingFormats,
     RecordingManager,
     RecordingStates,
+    RecordingTypes,
     TranscriptionProviders,
     Utterance,
     WebhookTriggerTypes,
@@ -180,15 +181,6 @@ class BotController:
         if meeting_type == MeetingTypes.ZOOM:
             return 0.9
         return 0.1
-
-    def get_num_audio_sources(self):
-        meeting_type = self.get_meeting_type()
-        if meeting_type == MeetingTypes.ZOOM:
-            return 1
-        elif meeting_type == MeetingTypes.GOOGLE_MEET:
-            return 3
-        elif meeting_type == MeetingTypes.TEAMS:
-            return 1
 
     def get_bot_adapter(self):
         meeting_type = self.get_meeting_type()
@@ -339,7 +331,10 @@ class BotController:
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
         else:
-            self.pipeline_configuration = PipelineConfiguration.recorder_bot()
+            if self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
+                self.pipeline_configuration = PipelineConfiguration.audio_recorder_bot()
+            else:
+                self.pipeline_configuration = PipelineConfiguration.recorder_bot()
 
     def get_gstreamer_sink_type(self):
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
@@ -353,6 +348,8 @@ class BotController:
 
         if self.bot_in_db.recording_format() == RecordingFormats.WEBM:
             return GstreamerPipeline.OUTPUT_FORMAT_WEBM
+        elif self.bot_in_db.recording_format() == RecordingFormats.MP3:
+            return GstreamerPipeline.OUTPUT_FORMAT_MP3
         else:
             return GstreamerPipeline.OUTPUT_FORMAT_MP4
 
@@ -430,7 +427,6 @@ class BotController:
                 video_frame_size=self.bot_in_db.recording_dimensions(),
                 audio_format=self.get_audio_format(),
                 output_format=self.get_gstreamer_output_format(),
-                num_audio_sources=self.get_num_audio_sources(),
                 sink_type=self.get_gstreamer_sink_type(),
                 file_location=self.get_recording_file_location(),
             )
@@ -441,6 +437,7 @@ class BotController:
             self.screen_and_audio_recorder = ScreenAndAudioRecorder(
                 file_location=self.get_recording_file_location(),
                 recording_dimensions=self.bot_in_db.recording_dimensions(),
+                audio_only=not (self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video),
             )
 
         self.adapter = self.get_bot_adapter()
