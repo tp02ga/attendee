@@ -156,6 +156,9 @@ class Bot(models.Model):
             raise ValueError("Bot is not in a state where the data deleted event can be created")
 
         with transaction.atomic():
+            # Delete all debug screenshots from bot events
+            BotDebugScreenshot.objects.filter(bot_event__bot=self).delete()
+
             # Delete all utterances and recording files for each recording
             for recording in self.recordings.all():
                 # Delete all utterances first
