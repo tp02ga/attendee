@@ -140,7 +140,9 @@ class BotCreateView(APIView):
         if error:
             return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
-        launch_bot(bot)
+        # If this is a scheduled bot, we don't want to launch it yet.
+        if bot.state == BotStates.JOIN_REQUESTED:
+            launch_bot(bot)
 
         return Response(BotSerializer(bot).data, status=status.HTTP_201_CREATED)
 

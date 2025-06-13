@@ -533,7 +533,9 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             if error:
                 return HttpResponse(json.dumps(error), status=400)
 
-            launch_bot(bot)
+            # If this is a scheduled bot, we don't want to launch it yet.
+            if bot.state == BotStates.JOIN_REQUESTED:
+                launch_bot(bot)
 
             return HttpResponse("ok", status=200)
         except Exception as e:

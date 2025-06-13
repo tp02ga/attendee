@@ -20,6 +20,7 @@ from .models import (
     MeetingTypes,
     Project,
     Recording,
+    BotStates,
     TranscriptionTypes,
 )
 from .serializers import (
@@ -145,6 +146,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     bot_image = serializer.validated_data["bot_image"]
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
+    join_at = serializer.validated_data["join_at"]
+    initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
     settings = {
         "transcription_settings": transcription_settings,
@@ -161,6 +164,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             name=bot_name,
             settings=settings,
             metadata=metadata,
+            join_at=join_at,
+            state=initial_state,
         )
 
         Recording.objects.create(
@@ -183,7 +188,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             except ValidationError as e:
                 return None, {"error": e.messages[0]}
 
-        # Try to transition the state from READY to JOINING
-        BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
+        if bot.state == BotStates.READY:
+            # Try to transition the state from READY to JOINING
+            BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
 
         return bot, None
