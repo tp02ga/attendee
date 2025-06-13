@@ -654,6 +654,7 @@ class BotSerializer(serializers.ModelSerializer):
     events = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
     recording_state = serializers.SerializerMethodField()
+    join_at = serializers.DateTimeField()
 
     @extend_schema_field(
         {
@@ -729,6 +730,7 @@ class BotSerializer(serializers.ModelSerializer):
             "events",
             "transcription_state",
             "recording_state",
+            "join_at",
         ]
         read_only_fields = fields
 
