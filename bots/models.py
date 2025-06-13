@@ -1,10 +1,10 @@
 import hashlib
 import json
 import math
+import os
 import random
 import secrets
 import string
-import os
 
 from concurrency.exceptions import RecordModifiedError
 from concurrency.fields import IntegerVersionField

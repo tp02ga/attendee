@@ -1,16 +1,10 @@
-from django.test import TestCase
-
-from accounts.models import Organization
-from bots.bots_api_utils import BotCreationSource, create_bot, validate_meeting_url_and_credentials
-from bots.models import Project
-
-import os
 from unittest.mock import patch
 
 from django.test import TestCase
 
 from accounts.models import Organization
-from bots.models import Bot, MeetingTypes, Project, RecordingFormats, RecordingTypes
+from bots.bots_api_utils import BotCreationSource, create_bot, validate_meeting_url_and_credentials
+from bots.models import Bot, Project, RecordingFormats
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
@@ -64,6 +58,7 @@ class TestCreateBot(TestCase):
         self.assertEqual(error, {"error": "Google Meet URL must start with https://meet.google.com/"})
         self.assertEqual(bot.bot_events.first().metadata["source"], BotCreationSource.DASHBOARD)
 
+
 class TestBotCpuRequest(TestCase):
     def setUp(self):
         """Set up test data"""
@@ -93,9 +88,9 @@ class TestBotCpuRequest(TestCase):
         }.get(key, default)
 
         bot = self.create_bot("https://meet.google.com/abc-defg-hij")
-        
+
         result = bot.cpu_request()
-        
+
         self.assertEqual(result, "8")
         # Verify the correct environment variable was checked
         mock_getenv.assert_any_call("GOOGLE_MEET_AUDIO_AND_VIDEO_BOT_CPU_REQUEST", "4")
@@ -108,13 +103,10 @@ class TestBotCpuRequest(TestCase):
             "BOT_CPU_REQUEST": "4",
         }.get(key, default)
 
-        bot = self.create_bot(
-            "https://meet.google.com/abc-defg-hij",
-            recording_settings={"format": RecordingFormats.MP3}
-        )
-        
+        bot = self.create_bot("https://meet.google.com/abc-defg-hij", recording_settings={"format": RecordingFormats.MP3})
+
         result = bot.cpu_request()
-        
+
         self.assertEqual(result, "2")
         mock_getenv.assert_any_call("GOOGLE_MEET_AUDIO_ONLY_BOT_CPU_REQUEST", "4")
 
@@ -127,9 +119,9 @@ class TestBotCpuRequest(TestCase):
         }.get(key, default)
 
         bot = self.create_bot("https://zoom.us/j/123456789")
-        
+
         result = bot.cpu_request()
-        
+
         self.assertEqual(result, "6")
         mock_getenv.assert_any_call("ZOOM_AUDIO_AND_VIDEO_BOT_CPU_REQUEST", "4")
 
@@ -141,12 +133,9 @@ class TestBotCpuRequest(TestCase):
             "BOT_CPU_REQUEST": "4",
         }.get(key, default)
 
-        bot = self.create_bot(
-            "https://zoom.us/j/123456789",
-            recording_settings={"format": RecordingFormats.MP3}
-        )
-        
+        bot = self.create_bot("https://zoom.us/j/123456789", recording_settings={"format": RecordingFormats.MP3})
+
         result = bot.cpu_request()
-        
+
         self.assertEqual(result, "3")
         mock_getenv.assert_any_call("ZOOM_AUDIO_ONLY_BOT_CPU_REQUEST", "4")
