@@ -18,7 +18,7 @@
 
                     <div class="mb-3">
                         <label for="id_audio_websocket_url" class="form-label">Audio Websocket URL</label>
-                        <input type="url" class="form-control" id="id_audio_websocket_url" name="audio_websocket_url" required>
+                        <input type="url" class="form-control" id="id_audio_websocket_url" name="audio_websocket_url"a>
                         <div class="form-text">The URL of the audio websocket to use for the bot. It must start with <code>ws://</code> or <code>wss://</code>.</div>
                     </div>
                     
@@ -180,6 +180,7 @@
             // Add event listeners to form fields
             meetingUrlField.addEventListener('input', updateCurlCommand);
             botNameField.addEventListener('input', updateCurlCommand);
+            audioWebsocketUrlField.addEventListener('input', updateCurlCommand);
             
             // Set initial value with proper formatting
             updateCurlCommand();
