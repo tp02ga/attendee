@@ -57,6 +57,7 @@ class PipelineConfiguration:
             transcribe_audio=True,
             rtmp_stream_audio=False,
             rtmp_stream_video=False,
+            websocket_stream_audio=False,
         )
 
     @classmethod
