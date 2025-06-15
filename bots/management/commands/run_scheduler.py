@@ -50,7 +50,14 @@ class Command(BaseCommand):
 
             # Sleep the *remainder* of the interval, even if work took time T
             elapsed = time.monotonic() - began
-            time.sleep(max(0, interval - elapsed))
+            remaining_sleep = max(0, interval - elapsed)
+            
+            # Break sleep into smaller chunks to allow for more responsive shutdown
+            sleep_chunk = 1  # Sleep 1 second at a time
+            while remaining_sleep > 0 and self._keep_running:
+                chunk_sleep = min(sleep_chunk, remaining_sleep)
+                time.sleep(chunk_sleep)
+                remaining_sleep -= chunk_sleep
 
             # If we took longer than the interval, we should log a warning
             if elapsed > interval:
