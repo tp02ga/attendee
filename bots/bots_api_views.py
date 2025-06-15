@@ -40,6 +40,7 @@ from .serializers import (
     BotSerializer,
     ChatMessageSerializer,
     CreateBotSerializer,
+    PatchBotSerializer,
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
@@ -453,7 +454,6 @@ class OutputImageView(APIView):
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
-
 class DeleteDataView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -711,6 +711,58 @@ class BotDetailView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        operation_id="Patch Bot",
+        summary="Update a scheduled bot",
+        description="Updates a scheduled bot. Currently only the join_at field can be updated, and only for bots in the scheduled state.",
+        request=PatchBotSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=BotSerializer,
+                description="Bot updated successfully",
+            ),
+            400: OpenApiResponse(description="Invalid input or bot is not in scheduled state"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def patch(self, request, object_id):
+        # Get the bot
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if bot is in scheduled state
+        if bot.state != BotStates.SCHEDULED:
+            return Response(
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and can only be updated when in scheduled state"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate the request data
+        serializer = PatchBotSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+
+        bot.join_at = validated_data["join_at"]
+
+        bot.save()
+
+        return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
 
 
 class ChatMessageCursorPagination(CursorPagination):

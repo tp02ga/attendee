@@ -861,3 +861,28 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Update join_at",
+            value={
+                "join_at": "2025-06-13T12:00:00Z",
+            },
+            description="Example of updating the join_at time for a scheduled bot",
+        )
+    ]
+)
+class PatchBotSerializer(serializers.Serializer):
+    join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False)
+
+    def validate_join_at(self, value):
+        """Validate that join_at cannot be in the past."""
+        if value is None:
+            return value
+        
+        if value < timezone.now():
+            raise serializers.ValidationError("join_at cannot be in the past")
+        
+        return value
