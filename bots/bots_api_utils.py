@@ -38,6 +38,7 @@ def send_sync_command(bot, command="sync"):
     message = {"command": command}
     redis_client.publish(channel, json.dumps(message))
 
+
 def create_bot_chat_message_request(bot, chat_message_data):
     """
     Creates a BotChatMessageRequest for the given bot with the provided data.

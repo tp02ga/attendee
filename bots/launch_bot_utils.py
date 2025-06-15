@@ -1,7 +1,8 @@
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
+
 
 def launch_bot(bot):
     # If this instance is running in Kubernetes, use the Kubernetes pod creator
@@ -15,4 +16,5 @@ def launch_bot(bot):
     else:
         # Default to launching bot via celery
         from .tasks.run_bot_task import run_bot
+
         run_bot.delay(bot.id)
