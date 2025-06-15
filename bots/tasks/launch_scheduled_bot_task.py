@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, soft_time_limit=3600)
-def launch_scheduled_bot(self, bot_id):
-    logger.info(f"Launching scheduled bot {bot_id}")
+def launch_scheduled_bot(self, bot_id: int, bot_join_at: str):
+    logger.info(f"Launching scheduled bot {bot_id} with join_at {bot_join_at}")
 
     # Transition the bot to STAGED
     bot = Bot.objects.get(id=bot_id)
@@ -20,5 +20,5 @@ def launch_scheduled_bot(self, bot_id):
         return
 
     logger.info(f"Transitioning bot {bot_id} ({bot.object_id}) to STAGED")
-    BotEventManager.create_event(bot=bot, event_type=BotEventTypes.STAGED)
+    BotEventManager.create_event(bot=bot, event_type=BotEventTypes.STAGED, event_metadata={"join_at": bot_join_at})
     launch_bot(bot)

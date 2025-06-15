@@ -767,6 +767,13 @@ class BotEventManager:
         pending_recording = pending_recordings.first()
         RecordingManager.set_recording_in_progress(pending_recording)
 
+    @classmethod
+    def after_new_state_is_staged(cls, bot: Bot, new_state: BotStates, event_metadata: dict):
+        if "join_at" not in event_metadata:
+            raise ValidationError(f"join_at is required in event_metadata for bot {bot.object_id} for transition to state {BotStates.state_to_api_code(new_state)}")
+        if bot.join_at.isoformat() != event_metadata["join_at"]:
+            raise ValidationError(f"join_at in event_metadata for bot {bot.object_id} for transition to state {BotStates.state_to_api_code(new_state)} is different from the join_at in the database for bot {bot.object_id}")
+
     # This method handles sets the state for recordings and credits for when the bot transitions to a post meeting state
     # It returns a dictionary of additional event metadata that should be added to the event
     @classmethod
@@ -861,7 +868,9 @@ class BotEventManager:
                     if bot.state != new_state:
                         raise ValidationError(f"Bot state was modified by another thread to be '{BotStates.state_to_api_code(bot.state)}' instead of '{BotStates.state_to_api_code(new_state)}'.")
 
-                    # These two blocks below are hooks for things that need to happen when the bot state changes
+                    # These three blocks below are hooks for things that need to happen when the bot state changes
+                    if new_state == BotStates.STAGED:
+                        cls.after_new_state_is_staged(bot=bot, new_state=new_state, event_metadata=event_metadata)
 
                     # If we moved to the recording state
                     if new_state == BotStates.JOINED_RECORDING:

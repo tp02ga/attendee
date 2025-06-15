@@ -19,8 +19,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--interval",
             type=int,
-            default=30,
-            help="Polling interval in seconds (default: 30)",
+            default=60,
+            help="Polling interval in seconds (default: 60)",
         )
 
     # Graceful shutdown flags
@@ -74,12 +74,16 @@ class Command(BaseCommand):
         """
 
         # Give the bots 5 minutes to spin up, before they join the meeting.
-        join_at_threshold = timezone.now() + timezone.timedelta(minutes=5)
+        join_at_upper_threshold = timezone.now() + timezone.timedelta(minutes=5)
+        # If we miss a scheduled bot by more than 5 minutes, don't bother launching it, it's a failure and it'll be cleaned up
+        # by the clean_up_bots_with_heartbeat_timeout_or_that_never_launched command
+        join_at_lower_threshold = timezone.now() - timezone.timedelta(minutes=5)
+
         with transaction.atomic():
-            bots_to_launch = Bot.objects.filter(state=BotStates.SCHEDULED, join_at__lte=join_at_threshold).select_for_update(skip_locked=True)
+            bots_to_launch = Bot.objects.filter(state=BotStates.SCHEDULED, join_at__lte=join_at_upper_threshold, join_at__gte=join_at_lower_threshold).select_for_update(skip_locked=True)
 
             for bot in bots_to_launch:
-                log.info(f"Launching scheduled bot {bot.id} ({bot.object_id})")
-                launch_scheduled_bot.delay(bot.id)
+                log.info(f"Launching scheduled bot {bot.id} ({bot.object_id}) with join_at {bot.join_at.isoformat()}")
+                launch_scheduled_bot.delay(bot.id, bot.join_at.isoformat())
 
             log.info("Launched %s bots", len(bots_to_launch))
