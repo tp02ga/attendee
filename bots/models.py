@@ -387,13 +387,6 @@ class Bot(models.Model):
     def automatic_leave_settings(self):
         return self.settings.get("automatic_leave_settings", {})
 
-    class Meta:
-        # We'll have to do a periodic query to find bots that have a join_at that is within 5 minutes of now.
-        # The partial index will exclude bots without a join_at which should speed up the query and reduce the space used by the index.
-        indexes = [
-            models.Index(fields=["join_at"], name="bot_join_at_idx", condition=models.Q(join_at__isnull=False)),
-        ]
-
 
 class CreditTransaction(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, null=False, related_name="credit_transactions")
