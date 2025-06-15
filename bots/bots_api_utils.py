@@ -118,6 +118,7 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 class BotCreationSource(str, Enum):
     API = "api"
     DASHBOARD = "dashboard"
+    SCHEDULER = "scheduler"
 
 
 def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple[Bot | None, dict | None]:

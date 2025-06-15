@@ -652,3 +652,6 @@ class WebBotAdapter(BotAdapter):
 
     def send_chat_message(self, text):
         logger.info("send_chat_message not supported in web bots")
+
+    def get_staged_bot_join_delay_seconds(self):
+        return 30
