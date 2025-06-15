@@ -14,7 +14,8 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
-from .bots_api_utils import BotCreationSource, create_bot, launch_bot
+from .bots_api_utils import BotCreationSource, create_bot
+from .launch_bot_utils import launch_bot
 from .models import (
     ApiKey,
     Bot,

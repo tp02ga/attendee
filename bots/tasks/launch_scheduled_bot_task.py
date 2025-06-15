@@ -3,13 +3,13 @@ import logging
 from celery import shared_task
 
 from bots.models import Bot, BotEventManager, BotEventTypes, BotStates
+from bots.launch_bot_utils import launch_bot
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, soft_time_limit=3600)
 def launch_scheduled_bot(self, bot_id):
-    from bots.bots_api_utils import launch_bot
     logger.info(f"Launching scheduled bot {bot_id}")
 
     # Transition the bot to STAGED

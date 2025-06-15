@@ -72,6 +72,7 @@ class Command(BaseCommand):
             bots_to_launch = Bot.objects.filter(state=BotStates.SCHEDULED, join_at__lte=join_at_threshold).select_for_update(skip_locked=True)
 
             for bot in bots_to_launch:
+                log.info(f"Launching scheduled bot {bot.id} ({bot.object_id})")
                 launch_scheduled_bot.delay(bot.id)
 
             log.info("Launched %s bots", len(bots_to_launch))

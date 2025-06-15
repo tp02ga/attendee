@@ -10,7 +10,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers
 
-from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
     BotChatMessageToOptions,

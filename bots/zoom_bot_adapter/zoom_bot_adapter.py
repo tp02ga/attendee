@@ -19,7 +19,7 @@ import logging
 
 from gi.repository import GLib
 
-from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, launch_bot, send_sync_command
+from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, send_sync_command
+from .launch_bot_utils import launch_bot
 from .models import (
     Bot,
     BotEventManager,

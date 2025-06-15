@@ -14,7 +14,7 @@ from selenium import webdriver
 from websockets.sync.server import serve
 
 from bots.bot_adapter import BotAdapter
-from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 

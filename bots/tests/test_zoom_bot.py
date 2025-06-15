@@ -10,7 +10,7 @@ from django.test import override_settings
 from django.test.testcases import TransactionTestCase
 
 from bots.bot_controller import BotController
-from bots.bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.bot_controller.file_uploader import FileUploader
 from bots.bot_controller.pipeline_configuration import PipelineConfiguration
 from bots.bots_api_views import send_sync_command

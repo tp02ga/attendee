@@ -40,10 +40,12 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
+
+from bots.bots_api_utils import BotCreationSource
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
-from .automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
@@ -524,7 +526,6 @@ class BotController:
             logger.info("take_action_based_on_bot_in_db - STAGED. For now, this is a no-op.")
 
     def join_if_staged_and_time_to_join(self):
-        from bots.bots_api_utils import BotCreationSource
 
         if self.bot_in_db.state != BotStates.STAGED:
             return
