@@ -522,7 +522,7 @@ class BotController:
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.leave()
         if self.bot_in_db.state == BotStates.STAGED:
-            logger.info("take_action_based_on_bot_in_db - STAGED. For now, this is a no-op.")
+            logger.info(f"take_action_based_on_bot_in_db - STAGED. For now, this is a no-op. join_at = {self.bot_in_db.join_at.isoformat()}")
 
     def join_if_staged_and_time_to_join(self):
         if self.bot_in_db.state != BotStates.STAGED:
@@ -531,6 +531,7 @@ class BotController:
             return
 
         # Transition to JOINING
+        logger.info(f"Joining bot {self.bot_in_db.id} ({self.bot_in_db.object_id}) because join_at is {self.bot_in_db.join_at.isoformat()} and current time is {timezone.now().isoformat()}")
         BotEventManager.create_event(
             bot=self.bot_in_db,
             event_type=BotEventTypes.JOIN_REQUESTED,

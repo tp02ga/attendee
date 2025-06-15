@@ -3,6 +3,7 @@ import json
 from dataclasses import asdict
 
 import jsonschema
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiExample,
     extend_schema_field,
@@ -644,6 +645,16 @@ class CreateBotSerializer(serializers.Serializer):
         for char in value:
             if ord(char) > 0xFFFF:
                 raise serializers.ValidationError("Bot name cannot contain emojis or rare script characters.")
+        return value
+
+    def validate_join_at(self, value):
+        """Validate that join_at cannot be in the past."""
+        if value is None:
+            return value
+        
+        if value < timezone.now():
+            raise serializers.ValidationError("join_at cannot be in the past")
+        
         return value
 
 
