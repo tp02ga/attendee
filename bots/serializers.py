@@ -651,10 +651,10 @@ class CreateBotSerializer(serializers.Serializer):
         """Validate that join_at cannot be in the past."""
         if value is None:
             return value
-        
+
         if value < timezone.now():
             raise serializers.ValidationError("join_at cannot be in the past")
-        
+
         return value
 
 
@@ -881,8 +881,8 @@ class PatchBotSerializer(serializers.Serializer):
         """Validate that join_at cannot be in the past."""
         if value is None:
             return value
-        
+
         if value < timezone.now():
             raise serializers.ValidationError("join_at cannot be in the past")
-        
+
         return value

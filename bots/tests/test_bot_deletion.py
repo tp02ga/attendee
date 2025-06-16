@@ -1,4 +1,3 @@
-
 from unittest.mock import PropertyMock, patch
 
 from django.core.files.base import ContentFile
@@ -32,6 +31,7 @@ def mock_file_field_save(instance, name, content, save=True):
         # instance.instance refers to the model instance (e.g., Recording)
         # that owns this FieldFile.
         instance.instance.save()
+
 
 class TestBotDeletion(TransactionTestCase):
     @classmethod
@@ -108,7 +108,6 @@ class TestBotDeletion(TransactionTestCase):
 
     def test_hard_delete_bot_with_protected_references_fails(self):
         """Test that hard deleting a bot fails when there are PROTECT constraints (Utterances)"""
-        from django.db import IntegrityError
         from django.db.models import ProtectedError
 
         # Verify initial state - bot1 has utterances that reference participants
@@ -133,15 +132,11 @@ class TestBotDeletion(TransactionTestCase):
     def test_hard_delete_bot_with_credit_transactions_fails(self):
         """Test that hard deleting a bot fails when there are CreditTransaction references (PROTECT)"""
         from django.db.models import ProtectedError
+
         from bots.models import CreditTransactionManager
 
         # Create a credit transaction for bot1
-        CreditTransactionManager.create_transaction(
-            organization=self.organization,
-            centicredits_delta=-100,
-            bot=self.bot1,
-            description="Test transaction"
-        )
+        CreditTransactionManager.create_transaction(organization=self.organization, centicredits_delta=-100, bot=self.bot1, description="Test transaction")
 
         # Verify credit transaction exists
         self.assertEqual(self.bot1.credit_transactions.count(), 1)
@@ -162,42 +157,17 @@ class TestBotDeletion(TransactionTestCase):
     def test_hard_delete_clean_bot_success(self):
         """Test that hard deleting a bot succeeds when there are no PROTECT constraints"""
         # Create a clean bot without utterances or credit transactions
-        clean_bot = Bot.objects.create(
-            project=self.project,
-            name="Clean Bot",
-            meeting_url="https://test.com/clean",
-            state=BotStates.ENDED
-        )
+        clean_bot = Bot.objects.create(project=self.project, name="Clean Bot", meeting_url="https://test.com/clean", state=BotStates.ENDED)
 
         # Create some CASCADE-related objects
-        clean_participant = Participant.objects.create(
-            bot=clean_bot,
-            uuid="clean_participant",
-            full_name="Clean Participant"
-        )
-        
-        clean_recording = Recording.objects.create(
-            bot=clean_bot,
-            recording_type=1,
-            transcription_type=1,
-            state=RecordingStates.COMPLETE
-        )
-        
-        clean_chat_message = ChatMessage.objects.create(
-            bot=clean_bot,
-            to=ChatMessageToOptions.EVERYONE,
-            participant=clean_participant,
-            text="Clean message",
-            timestamp=1000
-        )
-        
-        clean_event = BotEvent.objects.create(
-            bot=clean_bot,
-            old_state=BotStates.ENDED,
-            new_state=BotStates.ENDED,
-            event_type=BotEventTypes.BOT_JOINED_MEETING
-        )
-        
+        clean_participant = Participant.objects.create(bot=clean_bot, uuid="clean_participant", full_name="Clean Participant")
+
+        clean_recording = Recording.objects.create(bot=clean_bot, recording_type=1, transcription_type=1, state=RecordingStates.COMPLETE)
+
+        clean_chat_message = ChatMessage.objects.create(bot=clean_bot, to=ChatMessageToOptions.EVERYONE, participant=clean_participant, text="Clean message", timestamp=1000)
+
+        clean_event = BotEvent.objects.create(bot=clean_bot, old_state=BotStates.ENDED, new_state=BotStates.ENDED, event_type=BotEventTypes.BOT_JOINED_MEETING)
+
         clean_screenshot = BotDebugScreenshot.objects.create(bot_event=clean_event)
 
         # Store counts before deletion
@@ -236,31 +206,26 @@ class TestBotDeletion(TransactionTestCase):
     def test_hard_delete_cascade_relationships_summary(self):
         """Test that documents the expected cascade behavior when deleting a bot"""
         # This test serves as documentation for the expected behavior
-        
+
         # CASCADE relationships (will be deleted when bot is deleted):
         # - Participant (bot -> CASCADE)
-        # - Recording (bot -> CASCADE) 
+        # - Recording (bot -> CASCADE)
         # - BotEvent (bot -> CASCADE)
         # - BotDebugScreenshot (bot_event -> CASCADE, so indirectly deleted)
         # - ChatMessage (bot -> CASCADE)
         # - BotMediaRequest (bot -> CASCADE)
         # - BotChatMessageRequest (bot -> CASCADE)
-        
+
         # PROTECT relationships (will prevent bot deletion):
         # - CreditTransaction (bot -> PROTECT)
         # - Utterance (participant -> PROTECT, so indirectly protects bot)
-        
+
         # SET_NULL relationships (will be set to NULL when bot is deleted):
         # - WebhookDeliveryAttempt (bot -> SET_NULL)
-        
+
         # This test just validates our understanding is correct
-        clean_bot = Bot.objects.create(
-            project=self.project,
-            name="Documentation Bot", 
-            meeting_url="https://test.com/docs",
-            state=BotStates.ENDED
-        )
-        
+        clean_bot = Bot.objects.create(project=self.project, name="Documentation Bot", meeting_url="https://test.com/docs", state=BotStates.ENDED)
+
         # Verify we can delete a clean bot
         clean_bot.delete()
         self.assertFalse(Bot.objects.filter(id=clean_bot.id).exists())

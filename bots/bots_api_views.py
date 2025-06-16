@@ -454,6 +454,7 @@ class OutputImageView(APIView):
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
+
 class DeleteDataView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
@@ -796,6 +797,7 @@ class BotDetailView(APIView):
             return Response(status=status.HTTP_200_OK)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 class ChatMessageCursorPagination(CursorPagination):
     ordering = "created_at"
