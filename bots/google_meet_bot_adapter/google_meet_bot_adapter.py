@@ -36,3 +36,6 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
 
     def send_chat_message(self, text):
         self.driver.execute_script(f"window?.sendChatMessage('{text}')")
+
+    def get_staged_bot_join_delay_seconds(self):
+        return 5
