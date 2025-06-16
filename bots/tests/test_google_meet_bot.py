@@ -989,11 +989,11 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
         mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
 
-        # Create a scheduled bot that was created 10 days ago but has join_at in the future
-        ten_days_ago = timezone.now() - timezone.timedelta(days=10)
+        # Create a scheduled bot that was created 5 days ago but has join_at in the future
+        five_days_ago = timezone.now() - timezone.timedelta(days=5)
         one_hour_from_now = timezone.now() + timezone.timedelta(hours=1)
 
-        self.bot.created_at = ten_days_ago
+        self.bot.created_at = five_days_ago
         self.bot.join_at = one_hour_from_now  # Future join time
         self.bot.first_heartbeat_timestamp = None
         self.bot.last_heartbeat_timestamp = None
