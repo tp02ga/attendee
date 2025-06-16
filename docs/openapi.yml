@@ -119,6 +119,101 @@ paths:
           description: Bot details
         '404':
           description: Bot not found
+    patch:
+      operationId: Patch Bot
+      description: Updates a scheduled bot. Currently only the join_at field can be
+        updated, and only for bots in the scheduled state.
+      summary: Update a scheduled bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPatchBotRequest'
+            examples:
+              UpdateJoinAt:
+                value:
+                  join_at: '2025-06-13T12:00:00Z'
+                summary: Update join_at
+                description: Example of updating the join_at time for a scheduled
+                  bot
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Bot updated successfully
+        '400':
+          description: Invalid input or bot is not in scheduled state
+        '404':
+          description: Bot not found
+    delete:
+      operationId: Delete scheduled Bot
+      description: Deletes a scheduled bot.
+      summary: Delete a scheduled bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          description: Scheduled bot deleted successfully
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/chat_messages:
     get:
       operationId: Get Chat Messages
@@ -717,9 +812,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/RecordingStateEnum'
           readOnly: true
+        join_at:
+          type: string
+          format: date-time
       required:
       - events
       - id
+      - join_at
       - meeting_url
       - metadata
       - recording_state
@@ -823,6 +922,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/BotChatMessageRequestRequest'
           description: The chat message the bot sends after it joins the meeting
+        join_at:
+          type: string
+          format: date-time
+          description: The time the bot should join the meeting. ISO 8601 format,
+            e.g. 2025-06-13T12:00:00Z
         transcription_settings:
           type: object
           properties:
@@ -1039,6 +1143,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChatMessage'
+    PatchedPatchBotRequest:
+      type: object
+      properties:
+        join_at:
+          type: string
+          format: date-time
+          description: The time the bot should join the meeting. ISO 8601 format,
+            e.g. 2025-06-13T12:00:00Z
     Recording:
       type: object
       properties:
@@ -1094,6 +1206,8 @@ components:
       - waiting_room
       - ended
       - data_deleted
+      - scheduled
+      - staged
     ToEnum:
       enum:
       - everyone

@@ -978,6 +978,93 @@ class TestGoogleMeetBot(TransactionTestCase):
         fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED).first()
         self.assertIsNone(fatal_error_event)
 
+    @patch("kubernetes.client.CoreV1Api")
+    @patch("kubernetes.config.load_incluster_config")
+    @patch("kubernetes.config.load_kube_config")
+    def test_scheduled_bot_with_future_join_at_not_terminated(self, mock_load_kube_config, mock_load_incluster_config, MockCoreV1Api):
+        # Set up mock Kubernetes API
+        mock_k8s_api = MagicMock()
+        MockCoreV1Api.return_value = mock_k8s_api
+
+        # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
+        mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
+
+        # Create a scheduled bot that was created 5 days ago but has join_at in the future
+        five_days_ago = timezone.now() - timezone.timedelta(days=5)
+        one_hour_from_now = timezone.now() + timezone.timedelta(hours=1)
+
+        self.bot.created_at = five_days_ago
+        self.bot.join_at = one_hour_from_now  # Future join time
+        self.bot.first_heartbeat_timestamp = None
+        self.bot.last_heartbeat_timestamp = None
+        self.bot.state = BotStates.SCHEDULED  # Set to scheduled state
+        self.bot.save()
+
+        # Set bot launch method to kubernetes
+        with patch.dict(os.environ, {"LAUNCH_BOT_METHOD": "kubernetes"}):
+            # Import and run the command
+            from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
+
+            command = Command()
+            command.handle()
+
+        # Refresh the bot state from the database
+        self.bot.refresh_from_db()
+
+        # Verify the bot was NOT moved to FATAL_ERROR state since join_at is in the future
+        self.assertEqual(self.bot.state, BotStates.SCHEDULED)
+
+        # Verify that no FATAL_ERROR event was created for a bot that never launched
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED).first()
+        self.assertIsNone(fatal_error_event)
+
+        # Verify that no pod deletion was attempted
+        mock_k8s_api.delete_namespaced_pod.assert_not_called()
+
+    @patch("kubernetes.client.CoreV1Api")
+    @patch("kubernetes.config.load_incluster_config")
+    @patch("kubernetes.config.load_kube_config")
+    def test_scheduled_bot_with_past_join_at_terminated(self, mock_load_kube_config, mock_load_incluster_config, MockCoreV1Api):
+        # Set up mock Kubernetes API
+        mock_k8s_api = MagicMock()
+        MockCoreV1Api.return_value = mock_k8s_api
+
+        # Set up config.load_incluster_config to raise ConfigException so load_kube_config gets called
+        mock_load_incluster_config.side_effect = kubernetes.config.config_exception.ConfigException("Mock ConfigException")
+
+        # Create a scheduled bot with join_at in the past (2 days ago) but never launched
+        two_days_ago = timezone.now() - timezone.timedelta(days=2)
+
+        self.bot.join_at = two_days_ago  # Past join time
+        self.bot.first_heartbeat_timestamp = None
+        self.bot.last_heartbeat_timestamp = None
+        self.bot.state = BotStates.SCHEDULED  # Set to scheduled state
+        self.bot.save()
+
+        # Set bot launch method to kubernetes
+        with patch.dict(os.environ, {"LAUNCH_BOT_METHOD": "kubernetes"}):
+            # Import and run the command
+            from bots.management.commands.clean_up_bots_with_heartbeat_timeout_or_that_never_launched import Command
+
+            command = Command()
+            command.handle()
+
+        # Refresh the bot state from the database
+        self.bot.refresh_from_db()
+
+        # Verify the bot was moved to FATAL_ERROR state since join_at was in the past and it never launched
+        self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
+
+        # Verify that a FATAL_ERROR event was created with the correct sub type
+        fatal_error_event = self.bot.bot_events.filter(event_type=BotEventTypes.FATAL_ERROR, event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED).first()
+        self.assertIsNotNone(fatal_error_event)
+        self.assertEqual(fatal_error_event.old_state, BotStates.SCHEDULED)
+        self.assertEqual(fatal_error_event.new_state, BotStates.FATAL_ERROR)
+
+        # Verify Kubernetes pod deletion was attempted with the correct pod name
+        pod_name = self.bot.k8s_pod_name()
+        mock_k8s_api.delete_namespaced_pod.assert_called_once_with(name=pod_name, namespace="attendee", grace_period_seconds=0)
+
     @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")

@@ -46,3 +46,6 @@ class TeamsBotAdapter(WebBotAdapter, TeamsUIMethods):
         except Exception as e:
             logger.error(f"Error sending chat message: {e}")
             return
+
+    def get_staged_bot_join_delay_seconds(self):
+        return 10

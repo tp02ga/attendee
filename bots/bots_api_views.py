@@ -16,7 +16,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, launch_bot, send_sync_command
+from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, send_sync_command
+from .launch_bot_utils import launch_bot
 from .models import (
     Bot,
     BotEventManager,
@@ -39,6 +40,7 @@ from .serializers import (
     BotSerializer,
     ChatMessageSerializer,
     CreateBotSerializer,
+    PatchBotSerializer,
     RecordingSerializer,
     SpeechSerializer,
     TranscriptUtteranceSerializer,
@@ -140,7 +142,9 @@ class BotCreateView(APIView):
         if error:
             return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
-        launch_bot(bot)
+        # If this is a scheduled bot, we don't want to launch it yet.
+        if bot.state == BotStates.JOINING:
+            launch_bot(bot)
 
         return Response(BotSerializer(bot).data, status=status.HTTP_201_CREATED)
 
@@ -706,6 +710,91 @@ class BotDetailView(APIView):
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
             return Response(BotSerializer(bot).data)
 
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        operation_id="Patch Bot",
+        summary="Update a scheduled bot",
+        description="Updates a scheduled bot. Currently only the join_at field can be updated, and only for bots in the scheduled state.",
+        request=PatchBotSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=BotSerializer,
+                description="Bot updated successfully",
+            ),
+            400: OpenApiResponse(description="Invalid input or bot is not in scheduled state"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def patch(self, request, object_id):
+        # Get the bot
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if bot is in scheduled state
+        if bot.state != BotStates.SCHEDULED:
+            return Response(
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be updated when in scheduled state"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate the request data
+        serializer = PatchBotSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+
+        bot.join_at = validated_data["join_at"]
+
+        bot.save()
+
+        return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        operation_id="Delete scheduled Bot",
+        summary="Delete a scheduled bot",
+        description="Deletes a scheduled bot.",
+        responses={
+            200: OpenApiResponse(description="Scheduled bot deleted successfully"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def delete(self, request, object_id):
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+            if bot.state != BotStates.SCHEDULED:
+                return Response(
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be deleted when in scheduled state"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            bot.delete()
+            return Response(status=status.HTTP_200_OK)
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
