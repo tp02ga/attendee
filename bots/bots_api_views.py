@@ -747,7 +747,7 @@ class BotDetailView(APIView):
         # Check if bot is in scheduled state
         if bot.state != BotStates.SCHEDULED:
             return Response(
-                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and can only be updated when in scheduled state"},
+                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be updated when in scheduled state"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -764,6 +764,38 @@ class BotDetailView(APIView):
 
         return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        operation_id="Delete scheduled Bot",
+        summary="Delete a scheduled bot",
+        description="Deletes a scheduled bot.",
+        responses={
+            200: OpenApiResponse(description="Scheduled bot deleted successfully"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def delete(self, request, object_id):
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+            if bot.state != BotStates.SCHEDULED:
+                return Response(
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be deleted when in scheduled state"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            bot.delete()
+            return Response(status=status.HTTP_200_OK)
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class ChatMessageCursorPagination(CursorPagination):
     ordering = "created_at"
