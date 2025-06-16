@@ -266,8 +266,8 @@ class Bot(models.Model):
     def assembly_ai_language_detection(self):
         return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("language_detection", False)
 
-    def assemblyai_word_boost(self):
-        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("word_boost", None)
+    def assemblyai_keyterms_prompt(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("keyterms_prompt", None)
 
     def assemblyai_boost_param(self):
         return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("boost_param", None)

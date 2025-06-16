@@ -928,7 +928,7 @@ components:
                 language_detection:
                   type: boolean
                   description: Whether to automatically detect the spoken language.
-                word_boost:
+                keyterms_prompt:
                   type: array
                   items:
                     type: string

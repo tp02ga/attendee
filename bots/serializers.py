@@ -177,7 +177,7 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
                     "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
-                    "word_boost": {
+                    "keyterms_prompt": {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."
@@ -425,7 +425,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string"},
                     "language_detection": {"type": "boolean"},
-                    "word_boost": {
+                    "keyterms_prompt": {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."
