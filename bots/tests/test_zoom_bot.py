@@ -2583,3 +2583,107 @@ class TestZoomBot(TransactionTestCase):
 
         # Close the database connection since we're in a thread
         connection.close()
+
+    @patch(
+        "bots.zoom_bot_adapter.video_input_manager.zoom",
+        new_callable=create_mock_zoom_sdk,
+    )
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.zoom", new_callable=create_mock_zoom_sdk)
+    @patch("bots.zoom_bot_adapter.zoom_bot_adapter.jwt")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    def test_scheduled_bot_transitions_from_staged_to_joining_at_join_time(
+        self,
+        MockFileUploader,
+        mock_jwt,
+        mock_zoom_sdk_adapter,
+        mock_zoom_sdk_video,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone as django_timezone
+
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the JWT token generation
+        mock_jwt.encode.return_value = "fake_jwt_token"
+
+        # Set the bot to SCHEDULED state and set a join_at time in the past
+        # This way we can test that the bot transitions when the time condition is met
+        join_time = django_timezone.now() + timedelta(seconds=5)  # 5 seconds from now
+        self.bot.state = BotStates.SCHEDULED
+        self.bot.join_at = join_time
+        self.bot.save()
+
+        # Clear the old joined event added by the setup code
+        self.bot.bot_events.all().delete()
+
+        # Transition the bot to STAGED state (simulating what the scheduler task would do)
+        BotEventManager.create_event(bot=self.bot, event_type=BotEventTypes.STAGED, event_metadata={"join_at": join_time.isoformat()})
+
+        # Verify bot is in STAGED state
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.state, BotStates.STAGED)
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def wait_for_transition():
+            # Wait for the join time to pass and for the bot to process the time change
+            time.sleep(8)  # Wait longer than the join_time (5 seconds) plus processing time
+
+            # Refresh bot and check if it transitioned to JOINING
+            self.bot.refresh_from_db()
+            # Bot should now be in JOINING state since join time has passed
+            self.assertEqual(self.bot.state, BotStates.JOINING)
+
+            # Clean up - we don't need to test the actual joining process, just the transition
+            controller.cleanup()
+
+            # Clean up connections in thread
+            connection.close()
+
+        # Run simulation after a short delay to let the bot controller start
+        threading.Timer(2, wait_for_transition).start()
+
+        # Give the bot some time to process
+        bot_thread.join(timeout=15)
+
+        # Refresh the bot from the database one final time
+        self.bot.refresh_from_db()
+
+        # Verify that the bot is now in JOINING state
+        self.assertEqual(self.bot.state, BotStates.JOINING)
+
+        # Verify the events were created correctly
+        bot_events = self.bot.bot_events.all()
+        self.assertEqual(len(bot_events), 2)  # STAGED and JOIN_REQUESTED events
+
+        # Verify STAGED event
+        staged_event = bot_events[0]
+        self.assertEqual(staged_event.event_type, BotEventTypes.STAGED)
+        self.assertEqual(staged_event.old_state, BotStates.SCHEDULED)
+        self.assertEqual(staged_event.new_state, BotStates.STAGED)
+        self.assertEqual(staged_event.metadata.get("join_at"), join_time.isoformat())
+
+        # Verify JOIN_REQUESTED event
+        join_requested_event = bot_events[1]
+        self.assertEqual(join_requested_event.event_type, BotEventTypes.JOIN_REQUESTED)
+        self.assertEqual(join_requested_event.old_state, BotStates.STAGED)
+        self.assertEqual(join_requested_event.new_state, BotStates.JOINING)
+        # Verify it was triggered by the scheduler
+        from bots.bots_api_utils import BotCreationSource
+
+        self.assertEqual(join_requested_event.metadata.get("source"), BotCreationSource.SCHEDULER)
+
+        # Cleanup
+        bot_thread.join(timeout=5)
+
+        # Close the database connection since we're in a thread
+        connection.close()
