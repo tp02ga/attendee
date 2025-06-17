@@ -759,6 +759,10 @@ class BotEventManager:
         return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING or state == BotStates.JOINED_RECORDING_PAUSED
 
     @classmethod
+    def is_state_that_can_pause_recording(cls, state: int):
+        return state in cls.VALID_TRANSITIONS[BotEventTypes.RECORDING_PAUSED]["from"]
+
+    @classmethod
     def is_post_meeting_state(cls, state: int):
         return state in cls.POST_MEETING_STATES
 

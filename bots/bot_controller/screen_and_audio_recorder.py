@@ -50,35 +50,42 @@ class ScreenAndAudioRecorder:
     # Pauses by muting the audio and showing a black xterm covering the entire screen
     def pause_recording(self):
         if self.paused:
-            return
+            return True  # Already paused, consider this success
 
-        self.paused = True
+        try:
+            sw, sh = self.screen_dimensions
 
-        sw, sh = self.screen_dimensions
+            x, y = 0, 0
 
-        x, y = 0, 0
+            self.xterm_proc = subprocess.Popen([
+                'xterm', '-bg', 'black', '-fg', 'black',
+                '-geometry', f'{sw}x{sh}+{x}+{y}',
+                '-xrm', '*borderWidth:0',
+                '-xrm', '*scrollBar:false'
+            ], check=True)
 
-        self.xterm_proc = subprocess.Popen([
-            'xterm', '-bg', 'black', '-fg', 'black',
-            '-geometry', f'{sw}x{sh}+{x}+{y}',
-            '-xrm', '*borderWidth:0',
-            '-xrm', '*scrollBar:false'
-        ])
-
-        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
+            subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
+            self.paused = True
+            return True
+        except Exception as e:
+            logger.error(f"Failed to pause recording: {e}")
+            return False
 
     # Resumes by unmuting the audio and killing the xterm proc
     def resume_recording(self):
         if not self.paused:
-            return
-        if not self.xterm_proc:
-            return
+            return True
 
-        self.paused = False
-        self.xterm_proc.terminate()
-        self.xterm_proc.wait()
-        self.xterm_proc = None
-        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '0'], check=True)
+        try:
+            self.xterm_proc.terminate()
+            self.xterm_proc.wait()
+            self.xterm_proc = None
+            subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '0'], check=True)
+            self.paused = False
+            return True
+        except Exception as e:
+            logger.error(f"Failed to resume recording: {e}")
+            return False
 
     def stop_recording(self):
         if not self.ffmpeg_proc:
