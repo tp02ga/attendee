@@ -100,6 +100,7 @@ class BotStates(models.IntegerChoices):
     DATA_DELETED = 10, "Data Deleted"
     SCHEDULED = 11, "Scheduled"
     STAGED = 12, "Staged"
+    JOINED_RECORDING_PAUSED = 13, "Joined - Recording Paused"
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -117,6 +118,7 @@ class BotStates(models.IntegerChoices):
             cls.DATA_DELETED: "data_deleted",
             cls.SCHEDULED: "scheduled",
             cls.STAGED: "staged",
+            cls.JOINED_RECORDING_PAUSED: "joined_recording_paused",
         }
         return mapping.get(value)
 
@@ -496,6 +498,8 @@ class BotEventTypes(models.IntegerChoices):
     POST_PROCESSING_COMPLETED = 10, "Post Processing Completed"
     DATA_DELETED = 11, "Data Deleted"
     STAGED = 12, "Bot staged"
+    RECORDING_PAUSED = 13, "Recording Paused"
+    RECORDING_RESUMED = 14, "Recording Resumed"
 
     @classmethod
     def type_to_api_code(cls, value):
@@ -513,6 +517,8 @@ class BotEventTypes(models.IntegerChoices):
             cls.POST_PROCESSING_COMPLETED: "post_processing_completed",
             cls.DATA_DELETED: "data_deleted",
             cls.STAGED: "staged",
+            cls.RECORDING_PAUSED: "recording_paused",
+            cls.RECORDING_RESUMED: "recording_resumed",
         }
         return mapping.get(value)
 
@@ -654,6 +660,7 @@ class BotEventManager:
         BotEventTypes.FATAL_ERROR: {
             "from": [
                 BotStates.JOINING,
+                BotStates.JOINED_RECORDING_PAUSED,
                 BotStates.JOINED_RECORDING,
                 BotStates.JOINED_NOT_RECORDING,
                 BotStates.WAITING_ROOM,
@@ -678,6 +685,7 @@ class BotEventManager:
         },
         BotEventTypes.MEETING_ENDED: {
             "from": [
+                BotStates.JOINED_RECORDING_PAUSED,
                 BotStates.JOINED_RECORDING,
                 BotStates.JOINED_NOT_RECORDING,
                 BotStates.WAITING_ROOM,
@@ -688,6 +696,7 @@ class BotEventManager:
         },
         BotEventTypes.LEAVE_REQUESTED: {
             "from": [
+                BotStates.JOINED_RECORDING_PAUSED,
                 BotStates.JOINED_RECORDING,
                 BotStates.JOINED_NOT_RECORDING,
                 BotStates.WAITING_ROOM,
@@ -706,6 +715,14 @@ class BotEventManager:
         BotEventTypes.DATA_DELETED: {
             "from": [BotStates.FATAL_ERROR, BotStates.ENDED],
             "to": BotStates.DATA_DELETED,
+        },
+        BotEventTypes.RECORDING_PAUSED: {
+            "from": BotStates.JOINED_RECORDING,
+            "to": BotStates.JOINED_RECORDING_PAUSED,
+        },
+        BotEventTypes.RECORDING_RESUMED: {
+            "from": BotStates.JOINED_RECORDING_PAUSED,
+            "to": BotStates.JOINED_RECORDING,
         },
     }
 
@@ -739,7 +756,7 @@ class BotEventManager:
 
     @classmethod
     def is_state_that_can_play_media(cls, state: int):
-        return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING
+        return state == BotStates.JOINED_RECORDING or state == BotStates.JOINED_NOT_RECORDING or state == BotStates.JOINED_RECORDING_PAUSED
 
     @classmethod
     def is_post_meeting_state(cls, state: int):
