@@ -508,8 +508,6 @@ class WebBotAdapter(BotAdapter):
                 self.debug_screen_recorder.stop()
             self.start_recording_screen_callback(self.display_var_for_debug_recording)
 
-        self.turn_off_display()
-
         self.media_sending_enable_timestamp_ms = time.time() * 1000
 
     def leave(self):
@@ -654,25 +652,4 @@ class WebBotAdapter(BotAdapter):
 
     def send_chat_message(self, text):
         logger.info("send_chat_message not supported in web bots")
-
-    def turn_off_display(self):
-        import re, subprocess, sys
-
-        # 1) Get screen dimensions from xdpyinfo
-        xdpy = subprocess.check_output(['xdpyinfo'], text=True)
-        sw, sh = map(int, re.search(r'dimensions:\s+(\d+)x(\d+)', xdpy).groups())
-
-        # 2) Position at top-left corner to cover entire screen
-        x, y = 0, 0
-
-        # 3) Launch a border-less black xterm covering the entire screen
-        proc = subprocess.Popen([
-            'xterm', '-bg', 'black', '-fg', 'black',
-            '-geometry', f'{sw}x{sh}+{x}+{y}',
-            '-xrm', '*borderWidth:0',
-            '-xrm', '*scrollBar:false'
-        ])
-
-        # 4) Also mute pulse audio
-        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
 

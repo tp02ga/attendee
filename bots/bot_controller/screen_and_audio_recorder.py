@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ class ScreenAndAudioRecorder:
         self.screen_dimensions = (recording_dimensions[0] + 10, recording_dimensions[1] + 10)
         self.recording_dimensions = recording_dimensions
         self.audio_only = audio_only
+        self.paused = False
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
@@ -43,6 +45,26 @@ class ScreenAndAudioRecorder:
 
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
         self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+    # Pauses by muting the audio and showing a black xterm covering the entire screen
+    def pause_recording(self):
+        if self.paused:
+            return
+
+        self.paused = True
+
+        sw, sh = self.screen_dimensions
+
+        x, y = 0, 0
+
+        proc = subprocess.Popen([
+            'xterm', '-bg', 'black', '-fg', 'black',
+            '-geometry', f'{sw}x{sh}+{x}+{y}',
+            '-xrm', '*borderWidth:0',
+            '-xrm', '*scrollBar:false'
+        ])
+
+        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
 
     def stop_recording(self):
         if not self.ffmpeg_proc:
