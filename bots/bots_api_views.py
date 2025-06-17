@@ -1,4 +1,5 @@
 import logging
+import time
 
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -46,7 +47,6 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .utils import meeting_type_from_url
-import time
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -1092,4 +1092,3 @@ class ResumeRecordingView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
-
