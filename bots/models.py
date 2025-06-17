@@ -766,6 +766,13 @@ class BotEventManager:
         return state in valid_from_states
 
     @classmethod
+    def is_state_that_can_resume_recording(cls, state: int):
+        valid_from_states = cls.VALID_TRANSITIONS[BotEventTypes.RECORDING_RESUMED]["from"]
+        if not isinstance(valid_from_states, (list, tuple)):
+            valid_from_states = [valid_from_states]
+        return state in valid_from_states
+
+    @classmethod
     def is_post_meeting_state(cls, state: int):
         return state in cls.POST_MEETING_STATES
 
@@ -785,11 +792,19 @@ class BotEventManager:
 
     @classmethod
     def after_new_state_is_joined_recording(cls, bot: Bot, new_state: BotStates):
-        pending_recordings = bot.recordings.filter(state=RecordingStates.NOT_STARTED)
+        pending_recordings = bot.recordings.filter(state__in=[RecordingStates.NOT_STARTED, RecordingStates.PAUSED])
         if pending_recordings.count() != 1:
             raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {pending_recordings.count()}")
         pending_recording = pending_recordings.first()
         RecordingManager.set_recording_in_progress(pending_recording)
+
+    @classmethod
+    def after_new_state_is_joined_recording_paused(cls, bot: Bot, new_state: BotStates):
+        in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
+        if in_progress_recordings.count() != 1:
+            raise ValidationError(f"Expected exactly one in progress recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {in_progress_recordings.count()}")
+        in_progress_recording = in_progress_recordings.first()
+        RecordingManager.set_recording_paused(in_progress_recording)
 
     @classmethod
     def after_new_state_is_staged(cls, bot: Bot, new_state: BotStates, event_metadata: dict):
@@ -806,7 +821,7 @@ class BotEventManager:
         additional_event_metadata["bot_duration_seconds"] = bot.bot_duration_seconds()
 
         # If there is an in progress recording, terminate it
-        in_progress_recordings = bot.recordings.filter(state=RecordingStates.IN_PROGRESS)
+        in_progress_recordings = bot.recordings.filter(state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
         if in_progress_recordings.count() > 1:
             raise ValidationError(f"Expected at most one in progress recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {in_progress_recordings.count()}")
         for recording in in_progress_recordings:
@@ -900,6 +915,9 @@ class BotEventManager:
                     if new_state == BotStates.JOINED_RECORDING:
                         cls.after_new_state_is_joined_recording(bot=bot, new_state=new_state)
 
+                    if new_state == BotStates.JOINED_RECORDING_PAUSED:
+                        cls.after_new_state_is_joined_recording_paused(bot=bot, new_state=new_state)
+
                     # If we transitioned to a post meeting state
                     transitioned_to_post_meeting_state = cls.is_post_meeting_state(new_state) and not cls.is_post_meeting_state(old_state)
                     if transitioned_to_post_meeting_state:
@@ -966,6 +984,7 @@ class RecordingStates(models.IntegerChoices):
     IN_PROGRESS = 2, "In Progress"
     COMPLETE = 3, "Complete"
     FAILED = 4, "Failed"
+    PAUSED = 5, "Paused"
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -975,6 +994,7 @@ class RecordingStates(models.IntegerChoices):
             cls.IN_PROGRESS: "in_progress",
             cls.COMPLETE: "complete",
             cls.FAILED: "failed",
+            cls.PAUSED: "paused",
         }
         return mapping.get(value)
 
@@ -1100,7 +1120,7 @@ class RecordingManager:
     # If the transcription succeeded, then mark it as succeeded
     @classmethod
     def terminate_recording(cls, recording: Recording):
-        if recording.state == RecordingStates.IN_PROGRESS:
+        if recording.state == RecordingStates.IN_PROGRESS or recording.state == RecordingStates.PAUSED:
             # If we don't have a recording file, then it failed.
             if recording.file:
                 RecordingManager.set_recording_complete(recording)
@@ -1125,11 +1145,24 @@ class RecordingManager:
 
         if recording.state == RecordingStates.IN_PROGRESS:
             return
-        if recording.state != RecordingStates.NOT_STARTED:
+        if recording.state != RecordingStates.NOT_STARTED and recording.state != RecordingStates.PAUSED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
+        if recording.state != RecordingStates.PAUSED:
+            recording.started_at = timezone.now()
         recording.state = RecordingStates.IN_PROGRESS
-        recording.started_at = timezone.now()
+        recording.save()
+
+    @classmethod
+    def set_recording_paused(cls, recording: Recording):
+        recording.refresh_from_db()
+
+        if recording.state == RecordingStates.PAUSED:
+            return
+        if recording.state != RecordingStates.IN_PROGRESS:
+            raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
+
+        recording.state = RecordingStates.PAUSED
         recording.save()
 
     @classmethod
@@ -1138,7 +1171,7 @@ class RecordingManager:
 
         if recording.state == RecordingStates.COMPLETE:
             return
-        if recording.state != RecordingStates.IN_PROGRESS:
+        if recording.state != RecordingStates.IN_PROGRESS and recording.state != RecordingStates.PAUSED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
         recording.state = RecordingStates.COMPLETE
@@ -1156,7 +1189,7 @@ class RecordingManager:
 
         if recording.state == RecordingStates.FAILED:
             return
-        if recording.state != RecordingStates.IN_PROGRESS:
+        if recording.state != RecordingStates.IN_PROGRESS and recording.state != RecordingStates.PAUSED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in state {recording.get_state_display()}")
 
         # todo: ADD REASON WHY IT FAILED STORAGE? OR MAYBE PUT IN THE EVENTs?
@@ -1172,7 +1205,7 @@ class RecordingManager:
             return
         if recording.transcription_state != RecordingTranscriptionStates.NOT_STARTED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
-        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS and recording.state != RecordingStates.PAUSED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
         recording.transcription_state = RecordingTranscriptionStates.IN_PROGRESS
@@ -1200,7 +1233,7 @@ class RecordingManager:
             return
         if recording.transcription_state != RecordingTranscriptionStates.IN_PROGRESS:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in transcription state {recording.get_transcription_state_display()}")
-        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS:
+        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.FAILED and recording.state != RecordingStates.IN_PROGRESS and recording.state != RecordingStates.PAUSED:
             raise ValueError(f"Invalid state transition. Recording {recording.id} is in recording state {recording.get_state_display()}")
 
         recording.transcription_state = RecordingTranscriptionStates.FAILED

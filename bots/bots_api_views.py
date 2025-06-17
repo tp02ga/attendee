@@ -983,6 +983,12 @@ class PauseRecordingView(APIView):
         try:
             bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
 
+            # This functionality is not supported for zoom yet
+            meeting_type = meeting_type_from_url(bot.meeting_url)
+            if meeting_type == MeetingTypes.ZOOM:
+                # Pausing recording is not supported for zoom
+                return Response({"error": "Pausing the recording is not supported for zoom bots"}, status=status.HTTP_400_BAD_REQUEST)
+
             # Check if bot is in a state that allows pausing the recording
             if not BotEventManager.is_state_that_can_pause_recording(bot.state):
                 return Response(
@@ -1018,3 +1024,72 @@ class PauseRecordingView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ResumeRecordingView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
+    @extend_schema(
+        operation_id="Resume Recording",
+        summary="Resume the bot's recording",
+        description="Resumes the recording for the specified bot.",
+        responses={
+            200: OpenApiResponse(
+                response=BotSerializer,
+                description="Recording resumed successfully",
+            ),
+            400: OpenApiResponse(description="Bot is not in a valid state to resume recording"),
+            404: OpenApiResponse(description="Bot not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Bot ID",
+                examples=[OpenApiExample("Bot ID Example", value="bot_xxxxxxxxxxx")],
+            ),
+        ],
+        tags=["Bots"],
+    )
+    def post(self, request, object_id):
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+
+            # Check if bot is in a state that allows resuming the recording
+            if not BotEventManager.is_state_that_can_resume_recording(bot.state):
+                return Response(
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot resume recording."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Call the utility method on the bot instance to resume recording
+            try:
+                logging.info(f"Resuming recording for bot {bot.object_id}")
+                send_sync_command(bot, "resume_recording")
+                # The best we can do is poll the state of the bot to see if the recording has been resumed
+                # We'll wait up to one second and if the bot's state has not changed, we'll return an error
+                for _ in range(5):
+                    time.sleep(0.2)
+                    bot.refresh_from_db()
+                    if bot.state == BotStates.JOINED_RECORDING:
+                        return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
+                    if not BotEventManager.is_state_that_can_resume_recording(bot.state):
+                        return Response(
+                            {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot resume recording."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                logging.error(f"Unable to resume recording for bot {bot.object_id}")
+                return Response({"error": "Unable to resume recording"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logging.error(f"Error resuming recording for bot {bot.object_id}: {str(e)}")
+                return Response(
+                    {"error": "Failed to resume recording"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
