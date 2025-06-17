@@ -1397,6 +1397,8 @@ class TestGoogleMeetBot(TransactionTestCase):
         bot_thread.daemon = True
         bot_thread.start()
 
+        self.original_recording_started_at = None
+
         def simulate_pause_resume_flow():
             nonlocal current_time
             # Sleep to allow initialization and joining
@@ -1419,6 +1421,8 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Verify we're in recording state
             controller.bot_in_db.refresh_from_db()
             self.assertEqual(controller.bot_in_db.state, BotStates.JOINED_RECORDING)
+
+            self.original_recording_started_at = controller.bot_in_db.recordings.first().started_at
 
             # Send closed caption before pause (should create utterance)
             # Simulate caption coming through the web bot adapter
@@ -1473,7 +1477,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Trigger leave to end the test
             controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
-            time.sleep(3)
+            time.sleep(5)
 
             # Clean up connections in thread
             connection.close()
@@ -1482,7 +1486,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         threading.Timer(2, simulate_pause_resume_flow).start()
 
         # Give the bot some time to process
-        bot_thread.join(timeout=15)
+        bot_thread.join(timeout=20)
 
         # Refresh the bot from the database
         self.bot.refresh_from_db()
@@ -1530,6 +1534,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify that the recording was completed
         self.recording.refresh_from_db()
         self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+        self.assertEqual(self.recording.started_at, self.original_recording_started_at)
 
         # Cleanup
         controller.cleanup()
