@@ -218,6 +218,20 @@ class WebBotAdapter(BotAdapter):
         self.left_meeting = True
         self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
+    def handle_caption_update(self, json_data):
+        if self.recording_paused:
+            return
+
+        # Count a caption as audio activity
+        self.last_audio_message_processed_time = time.time()
+        self.upsert_caption_callback(json_data["caption"])
+
+    def handle_chat_message(self, json_data):
+        if self.recording_paused:
+            return
+
+        self.upsert_chat_message_callback(json_data)
+
     def handle_websocket(self, websocket):
         audio_format = None
         output_dir = "frames"  # Add output directory
@@ -241,18 +255,10 @@ class WebBotAdapter(BotAdapter):
                             logger.info(f"audio format {audio_format}")
 
                         elif json_data.get("type") == "CaptionUpdate":
-                            if self.recording_paused:
-                                return
-
-                            # Count a caption as audio activity
-                            self.last_audio_message_processed_time = time.time()
-                            self.upsert_caption_callback(json_data["caption"])
+                            self.handle_caption_update(json_data)
 
                         elif json_data.get("type") == "ChatMessage":
-                            if self.recording_paused:
-                                return
-
-                            self.upsert_chat_message_callback(json_data)
+                            self.handle_chat_message(json_data)
 
                         elif json_data.get("type") == "UsersUpdate":
                             for user in json_data["newUsers"]:
