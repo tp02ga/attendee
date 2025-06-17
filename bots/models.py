@@ -907,7 +907,7 @@ class BotEventManager:
                     if bot.state != new_state:
                         raise ValidationError(f"Bot state was modified by another thread to be '{BotStates.state_to_api_code(bot.state)}' instead of '{BotStates.state_to_api_code(new_state)}'.")
 
-                    # These three blocks below are hooks for things that need to happen when the bot state changes
+                    # These four blocks below are hooks for things that need to happen when the bot state changes
                     if new_state == BotStates.STAGED:
                         cls.after_new_state_is_staged(bot=bot, new_state=new_state, event_metadata=event_metadata)
 
