@@ -15,6 +15,7 @@ class ScreenAndAudioRecorder:
         self.recording_dimensions = recording_dimensions
         self.audio_only = audio_only
         self.paused = False
+        self.xterm_proc = None
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
@@ -57,7 +58,7 @@ class ScreenAndAudioRecorder:
 
         x, y = 0, 0
 
-        proc = subprocess.Popen([
+        self.xterm_proc = subprocess.Popen([
             'xterm', '-bg', 'black', '-fg', 'black',
             '-geometry', f'{sw}x{sh}+{x}+{y}',
             '-xrm', '*borderWidth:0',
@@ -65,6 +66,19 @@ class ScreenAndAudioRecorder:
         ])
 
         subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
+
+    # Resumes by unmuting the audio and killing the xterm proc
+    def resume_recording(self):
+        if not self.paused:
+            return
+        if not self.xterm_proc:
+            return
+
+        self.paused = False
+        self.xterm_proc.terminate()
+        self.xterm_proc.wait()
+        self.xterm_proc = None
+        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '0'], check=True)
 
     def stop_recording(self):
         if not self.ffmpeg_proc:
