@@ -652,4 +652,3 @@ class WebBotAdapter(BotAdapter):
 
     def send_chat_message(self, text):
         logger.info("send_chat_message not supported in web bots")
-

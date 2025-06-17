@@ -46,6 +46,7 @@ from .serializers import (
     TranscriptUtteranceSerializer,
 )
 from .utils import meeting_type_from_url
+import time
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -1017,4 +1018,3 @@ class PauseRecordingView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
-

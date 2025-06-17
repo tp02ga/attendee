@@ -760,7 +760,10 @@ class BotEventManager:
 
     @classmethod
     def is_state_that_can_pause_recording(cls, state: int):
-        return state in cls.VALID_TRANSITIONS[BotEventTypes.RECORDING_PAUSED]["from"]
+        valid_from_states = cls.VALID_TRANSITIONS[BotEventTypes.RECORDING_PAUSED]["from"]
+        if not isinstance(valid_from_states, (list, tuple)):
+            valid_from_states = [valid_from_states]
+        return state in valid_from_states
 
     @classmethod
     def is_post_meeting_state(cls, state: int):
