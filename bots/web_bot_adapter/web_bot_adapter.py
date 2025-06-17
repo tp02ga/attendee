@@ -673,3 +673,6 @@ class WebBotAdapter(BotAdapter):
             '-xrm', '*scrollBar:false'
         ])
 
+        # 4) Also mute pulse audio
+        subprocess.run(['pactl', 'set-sink-mute', '@DEFAULT_SINK@', '1'], check=True)
+
