@@ -548,6 +548,51 @@ paths:
           description: Invalid input
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/pause_recording:
+    post:
+      operationId: Pause Recording
+      description: Pauses the recording for the specified bot.
+      summary: Pause the bot's recording
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Recording paused successfully
+        '400':
+          description: Bot is not in a valid state to pause recording
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/recording:
     get:
       operationId: Get Bot Recording
@@ -595,6 +640,51 @@ paths:
                     start_timestamp_ms: 1733114771000
                   summary: Recording Upload
           description: Short-lived S3 URL for the recording
+  /api/v1/bots/{object_id}/resume_recording:
+    post:
+      operationId: Resume Recording
+      description: Resumes the recording for the specified bot.
+      summary: Resume the bot's recording
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Recording resumed successfully
+        '400':
+          description: Bot is not in a valid state to resume recording
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/send_chat_message:
     post:
       operationId: Send Chat Message
@@ -1169,6 +1259,7 @@ components:
       - in_progress
       - complete
       - failed
+      - paused
     SpeechRequest:
       type: object
       properties:
@@ -1208,6 +1299,7 @@ components:
       - data_deleted
       - scheduled
       - staged
+      - joined_recording_paused
     ToEnum:
       enum:
       - everyone
