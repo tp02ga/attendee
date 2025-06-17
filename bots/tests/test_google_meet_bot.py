@@ -1352,6 +1352,192 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Close the database connection since we're in a thread
         connection.close()
 
+    @patch("bots.models.Bot.create_debug_recording", return_value=False)
+    @patch("bots.web_bot_adapter.web_bot_adapter.Display")
+    @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
+    @patch("bots.bot_controller.bot_controller.FileUploader")
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
+    @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
+    @patch("time.time")
+    def test_bot_can_pause_and_resume_recording_with_proper_utterance_handling(
+        self,
+        mock_time,
+        mock_wait_for_host_if_needed,
+        mock_check_if_meeting_is_found,
+        MockFileUploader,
+        MockChromeDriver,
+        MockDisplay,
+        mock_create_debug_recording,
+    ):
+        # Set initial time
+        current_time = 1000.0
+        mock_time.return_value = current_time
+
+        # Use closed captions for transcription
+        self.recording.transcription_provider = TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
+        self.recording.save()
+
+        # Configure the mock uploader
+        mock_uploader = create_mock_file_uploader()
+        MockFileUploader.return_value = mock_uploader
+
+        # Mock the Chrome driver
+        mock_driver = create_mock_google_meet_driver()
+        MockChromeDriver.return_value = mock_driver
+
+        # Mock virtual display
+        mock_display = MagicMock()
+        MockDisplay.return_value = mock_display
+
+        # Create bot controller
+        controller = BotController(self.bot.id)
+
+        # Run the bot in a separate thread since it has an event loop
+        bot_thread = threading.Thread(target=controller.run)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        def simulate_pause_resume_flow():
+            nonlocal current_time
+            # Sleep to allow initialization and joining
+            time.sleep(3)
+
+            # Add participants - simulate websocket message processing
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+
+            # Simulate receiving audio to keep bot alive
+            controller.adapter.last_audio_message_processed_time = current_time
+
+            # Wait for bot to be in recording state
+            timeout = time.time() + 10
+            while time.time() < timeout:
+                controller.bot_in_db.refresh_from_db()
+                if controller.bot_in_db.state == BotStates.JOINED_RECORDING:
+                    break
+                time.sleep(0.1)
+
+            # Verify we're in recording state
+            controller.bot_in_db.refresh_from_db()
+            self.assertEqual(controller.bot_in_db.state, BotStates.JOINED_RECORDING)
+
+            # Send closed caption before pause (should create utterance)
+            # Simulate caption coming through the web bot adapter
+            caption_json_before_pause = {"type": "CaptionUpdate", "caption": {"captionId": "caption1", "deviceId": "user1", "text": "Caption before pause", "isFinal": 1}}
+            controller.adapter.handle_caption_update(caption_json_before_pause)
+
+            time.sleep(1)
+
+            # Pause recording
+            controller.pause_recording()
+
+            # Wait for pause to take effect
+            timeout = time.time() + 5
+            while time.time() < timeout:
+                controller.bot_in_db.refresh_from_db()
+                if controller.bot_in_db.state == BotStates.JOINED_RECORDING_PAUSED:
+                    break
+                time.sleep(0.1)
+
+            # Verify we're in paused state
+            controller.bot_in_db.refresh_from_db()
+            self.assertEqual(controller.bot_in_db.state, BotStates.JOINED_RECORDING_PAUSED)
+
+            # Send closed caption during pause (should NOT create utterance)
+            # Simulate caption coming through the web bot adapter - this should be ignored due to recording_paused check
+            caption_json_during_pause = {"type": "CaptionUpdate", "caption": {"captionId": "caption2", "deviceId": "user1", "text": "Caption during pause", "isFinal": 1}}
+            controller.adapter.handle_caption_update(caption_json_during_pause)
+
+            time.sleep(1)
+
+            # Resume recording
+            controller.resume_recording()
+
+            # Wait for resume to take effect
+            timeout = time.time() + 5
+            while time.time() < timeout:
+                controller.bot_in_db.refresh_from_db()
+                if controller.bot_in_db.state == BotStates.JOINED_RECORDING:
+                    break
+                time.sleep(0.1)
+
+            # Verify we're back in recording state
+            controller.bot_in_db.refresh_from_db()
+            self.assertEqual(controller.bot_in_db.state, BotStates.JOINED_RECORDING)
+
+            # Send closed caption after resume (should create utterance)
+            # Simulate caption coming through the web bot adapter
+            caption_json_after_resume = {"type": "CaptionUpdate", "caption": {"captionId": "caption3", "deviceId": "user1", "text": "Caption after resume", "isFinal": 1}}
+            controller.adapter.handle_caption_update(caption_json_after_resume)
+
+            time.sleep(1)
+
+            # Trigger leave to end the test
+            controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
+            time.sleep(3)
+
+            # Clean up connections in thread
+            connection.close()
+
+        # Run simulation after a short delay
+        threading.Timer(2, simulate_pause_resume_flow).start()
+
+        # Give the bot some time to process
+        bot_thread.join(timeout=15)
+
+        # Refresh the bot from the database
+        self.bot.refresh_from_db()
+
+        # Assert that the bot ended properly
+        self.assertEqual(self.bot.state, BotStates.ENDED)
+
+        # Verify bot events include pause and resume
+        bot_events = self.bot.bot_events.all()
+        event_types = [event.event_type for event in bot_events]
+
+        # Check that we have the expected sequence of events including pause and resume
+        self.assertIn(BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED, event_types)
+        self.assertIn(BotEventTypes.RECORDING_PAUSED, event_types)
+        self.assertIn(BotEventTypes.RECORDING_RESUMED, event_types)
+        self.assertIn(BotEventTypes.POST_PROCESSING_COMPLETED, event_types)
+
+        # Verify the sequence of recording-related events
+        recording_events = [e for e in bot_events if e.event_type in [BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED, BotEventTypes.RECORDING_PAUSED, BotEventTypes.RECORDING_RESUMED]]
+
+        self.assertEqual(len(recording_events), 3)
+        self.assertEqual(recording_events[0].event_type, BotEventTypes.BOT_RECORDING_PERMISSION_GRANTED)
+        self.assertEqual(recording_events[0].old_state, BotStates.JOINED_NOT_RECORDING)
+        self.assertEqual(recording_events[0].new_state, BotStates.JOINED_RECORDING)
+
+        self.assertEqual(recording_events[1].event_type, BotEventTypes.RECORDING_PAUSED)
+        self.assertEqual(recording_events[1].old_state, BotStates.JOINED_RECORDING)
+        self.assertEqual(recording_events[1].new_state, BotStates.JOINED_RECORDING_PAUSED)
+
+        self.assertEqual(recording_events[2].event_type, BotEventTypes.RECORDING_RESUMED)
+        self.assertEqual(recording_events[2].old_state, BotStates.JOINED_RECORDING_PAUSED)
+        self.assertEqual(recording_events[2].new_state, BotStates.JOINED_RECORDING)
+
+        # Verify utterances were created correctly
+        utterances = Utterance.objects.filter(recording=self.recording).order_by("created_at")
+
+        # Should have exactly 2 utterances (before pause and after resume, but NOT during pause)
+        self.assertEqual(utterances.count(), 2)
+
+        utterance_texts = [utterance.transcription.get("transcript") for utterance in utterances]
+        self.assertIn("Caption before pause", utterance_texts)
+        self.assertIn("Caption after resume", utterance_texts)
+        self.assertNotIn("Caption during pause", utterance_texts)
+
+        # Verify that the recording was completed
+        self.recording.refresh_from_db()
+        self.assertEqual(self.recording.state, RecordingStates.COMPLETE)
+
+        # Cleanup
+        controller.cleanup()
+        bot_thread.join(timeout=5)
+
+        # Close the database connection since we're in a thread
+        connection.close()
+
 
 # Simulate video data arrival
 # Create a mock video message in the format expected by process_video_frame
