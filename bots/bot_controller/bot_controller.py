@@ -686,6 +686,7 @@ class BotController:
         resume_recording_success = self.screen_and_audio_recorder.resume_recording()
         if not resume_recording_success:
             logger.error(f"Failed to resume recording for bot {self.bot_in_db.object_id}")
+            return
         self.adapter.resume_recording()
         BotEventManager.create_event(
             bot=self.bot_in_db,
