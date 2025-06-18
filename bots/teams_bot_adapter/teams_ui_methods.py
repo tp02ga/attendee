@@ -180,6 +180,9 @@ class TeamsUIMethods:
 
     # Returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):
+        if self.teams_bot_login_credentials:
+            self.login_to_microsoft_account()
+
         self.driver.get(self.meeting_url)
 
         self.driver.execute_cdp_cmd(
@@ -234,3 +237,30 @@ class TeamsUIMethods:
         cancel_button = self.locate_element(step="cancel_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="prejoin-cancel-button"]')), wait_time_seconds=10)
         logger.info("Clicking the cancel button...")
         self.click_element(cancel_button, "cancel_button")
+
+    def login_to_microsoft_account(self):
+        logger.info("Navigate to login screen")
+        self.driver.get("https://www.office.com/login")
+
+        logger.info("Waiting for the username input...")
+        username_input = self.locate_element(step="username_input", condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="loginfmt"]')), wait_time_seconds=10)
+        logger.info("Filling in the username...")
+        username_input.send_keys(self.teams_bot_login_credentials["username"])
+
+        logger.info("Looking for next button...")
+        next_button = self.locate_element(step="next_button", condition=EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"]')), wait_time_seconds=10)
+        logger.info("Clicking the next button...")
+        self.click_element(next_button, "next_button")
+
+        logger.info("Waiting for the password input...")
+        password_input = self.locate_element(step="password_input", condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="passwd"]')), wait_time_seconds=10)
+        logger.info("Filling in the password...")
+        password_input.send_keys(self.teams_bot_login_credentials["password"])
+
+        logger.info("Looking for sign in button...")
+        signin_button = self.locate_element(step="signin_button", condition=EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"]')), wait_time_seconds=10)
+        logger.info("Clicking the sign in button...")
+        self.click_element(signin_button, "signin_button")
+
+        logger.info("Login completed, waiting for redirect...")
+        time.sleep(3)  # Allow time for login to complete
