@@ -1310,6 +1310,7 @@ class Credentials(models.Model):
         GLADIA = 4, "Gladia"
         OPENAI = 5, "OpenAI"
         ASSEMBLY_AI = 6, "Assembly AI"
+        TEAMS_BOT_LOGIN = 7, "Teams Bot Login"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
