@@ -11,8 +11,9 @@ import zoom_meeting_sdk as zoom
 
 from bots.bot_adapter import BotAdapter
 from bots.utils import png_to_yuv420_frame, scale_i420
-
+from .video_output_manager import VideoOutputManager
 from .video_input_manager import VideoInputManager
+
 
 gi.require_version("GLib", "2.0")
 import logging
@@ -166,6 +167,8 @@ class ZoomBotAdapter(BotAdapter):
         self.meeting_status = None
 
         self.suggested_video_cap = None
+
+        self.video_output_manager = None
 
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
@@ -752,11 +755,35 @@ class ZoomBotAdapter(BotAdapter):
                 return
 
     def is_sent_video_still_playing(self):
-        return False
+        if not self.video_output_manager:
+            return False
+        return self.video_output_manager.is_playing()
 
     def send_video(self, video_url):
-        logger.info(f"send_video called with video_url = {video_url}. This is not supported for zoom")
+        logger.info(f"send_video called with video_url = {video_url}.")
+        if self.video_output_manager:
+            self.video_output_manager.stop()
+            self.video_output_manager = None
+
+        self.video_output_manager = VideoOutputManager(
+            url=video_url,
+            on_video_sample=self.video_output_manager_on_video_sample,
+            on_audio_sample=self.video_output_manager_on_audio_sample,
+        )
+        self.video_output_manager.start()
         return
+
+    def video_output_manager_on_video_sample(self, pts, bytes):
+        #logger.info(f"video_output_manager_on_video_sample called with pts = {pts} and bytes = {len(bytes)}")
+        pass
+
+    def video_output_manager_on_audio_sample(self, pts, bytes2):
+        #logger.info(f"video_output_manager_on_audio_sample called with pts = {pts} and bytes = {len(bytes)}")
+        self.send_raw_audio(bytes2, 16000)
+        # Append to a file
+        #with open("audio_from_vo.raw", "ab") as f:
+        #    f.write(bytes2)
+
 
     def get_staged_bot_join_delay_seconds(self):
         return 0
