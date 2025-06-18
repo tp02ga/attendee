@@ -62,9 +62,16 @@ class TeamsUIMethods:
         logger.info("Waiting for the camera button...")
         camera_button = self.locate_element(step="turn_off_camera_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="toggle-video"]')), wait_time_seconds=6)
         logger.info("Clicking the camera button...")
-        self.click_element(camera_button, "turn_off_camera_button")
+        # if the aria-checked attribute of the element is true, then click the element
+        if camera_button.get_attribute("aria-checked") == "true":
+            self.click_element(camera_button, "turn_off_camera_button")
+        else:
+            logger.info("Camera button is already off, not clicking it")
 
     def fill_out_name_input(self):
+        if self.teams_bot_login_credentials:
+            return
+
         num_attempts = 30
         logger.info("Waiting for the name input field...")
         for attempt_index in range(num_attempts):
