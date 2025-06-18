@@ -43,7 +43,7 @@ class TeamsUIMethods:
         try:
             element.click()
         except Exception as e:
-            logger.info(f"Error occurred when clicking element {step}, will retry")
+            logger.info(f"Error occurred when clicking element {step}, will retry. Error: {e}")
             raise UiCouldNotClickElementException("Error occurred when clicking element", step, e)
 
     def look_for_waiting_to_be_admitted_element(self, step):
@@ -267,7 +267,17 @@ class TeamsUIMethods:
         logger.info("Looking for sign in button...")
         signin_button = self.locate_element(step="signin_button", condition=EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"]')), wait_time_seconds=10)
         logger.info("Clicking the sign in button...")
+        # Get the current page url
+        url_before_signin = self.driver.current_url
         self.click_element(signin_button, "signin_button")
 
         logger.info("Login completed, waiting for redirect...")
-        time.sleep(3)  # Allow time for login to complete
+        ## Wait until the url changes to something other than the login page or too much time has passed
+        start_waiting_at = time.time()
+        while self.driver.current_url == url_before_signin:
+            time.sleep(1)
+            if time.time() - start_waiting_at > 60:
+                logger.info("Login timed out, redirecting to meeting page")
+                break
+
+        logger.info("Login completed, redirecting to meeting page")
