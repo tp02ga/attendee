@@ -76,11 +76,11 @@ class VideoOutputManager:
         """
         launch = f"""
             uridecodebin name=d uri={self._url}
-                d. ! queue ! videoconvert ! video/x-raw,format=I420 !
-                     appsink name=vsink emit-signals=true sync=false max-buffers=3000 drop=true
+                d. ! queue ! videoconvert ! videoscale ! video/x-raw,width=640,height=360,format=I420 !
+                     appsink name=vsink emit-signals=true sync=true max-buffers=3000 drop=true
                 d. ! queue ! audioconvert ! audioresample !
                      audio/x-raw,format=S16LE,channels=1,rate=16000 !
-                     appsink name=asink emit-signals=true sync=false max-buffers=1000 drop=true
+                     appsink name=asink emit-signals=true sync=true max-buffers=1000 drop=true
         """
         self._pipeline = Gst.parse_launch(launch)
 

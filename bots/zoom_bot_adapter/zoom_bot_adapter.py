@@ -494,6 +494,16 @@ class ZoomBotAdapter(BotAdapter):
 
         return True
 
+    def send_video_frame_to_zoom(self, yuv420_image_bytes, original_width, original_height):
+        if self.requested_leave or self.cleaned_up or (not self.suggested_video_cap):
+            return False
+
+        yuv420_image_bytes_scaled = scale_i420(yuv420_image_bytes, (original_width, original_height), (self.suggested_video_cap.width, self.suggested_video_cap.height))
+        send_video_frame_response = self.video_sender.sendVideoFrame(yuv420_image_bytes_scaled, self.suggested_video_cap.width, self.suggested_video_cap.height, 0, zoom.FrameDataFormat_I420_FULL)
+        if send_video_frame_response != zoom.SDKERR_SUCCESS:
+            logger.info(f"send_video_frame_to_zoom failed with send_video_frame_response = {send_video_frame_response}")
+        return True
+
     def set_up_bot_audio_input(self):
         if self.audio_helper is None:
             self.audio_helper = zoom.GetAudioRawdataHelper()
@@ -773,16 +783,12 @@ class ZoomBotAdapter(BotAdapter):
         self.video_output_manager.start()
         return
 
-    def video_output_manager_on_video_sample(self, pts, bytes):
-        #logger.info(f"video_output_manager_on_video_sample called with pts = {pts} and bytes = {len(bytes)}")
-        pass
+    def video_output_manager_on_video_sample(self, pts, bytes_from_gstreamer):
+        self.send_video_frame_to_zoom(bytes_from_gstreamer, 640, 360)
 
-    def video_output_manager_on_audio_sample(self, pts, bytes2):
-        #logger.info(f"video_output_manager_on_audio_sample called with pts = {pts} and bytes = {len(bytes)}")
-        self.send_raw_audio(bytes2, 16000)
-        # Append to a file
-        #with open("audio_from_vo.raw", "ab") as f:
-        #    f.write(bytes2)
+
+    def video_output_manager_on_audio_sample(self, pts, bytes_from_gstreamer):
+        self.send_raw_audio(bytes_from_gstreamer, 16000)
 
 
     def get_staged_bot_join_delay_seconds(self):
