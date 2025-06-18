@@ -1358,10 +1358,14 @@ class TestGoogleMeetBot(TransactionTestCase):
     @patch("bots.bot_controller.bot_controller.FileUploader")
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.check_if_meeting_is_found", return_value=None)
     @patch("bots.google_meet_bot_adapter.google_meet_ui_methods.GoogleMeetUIMethods.wait_for_host_if_needed", return_value=None)
+    @patch("bots.bot_controller.screen_and_audio_recorder.ScreenAndAudioRecorder.pause_recording", return_value=True)
+    @patch("bots.bot_controller.screen_and_audio_recorder.ScreenAndAudioRecorder.resume_recording", return_value=True)
     @patch("time.time")
     def test_bot_can_pause_and_resume_recording_with_proper_utterance_handling(
         self,
         mock_time,
+        mock_pause_recording,
+        mock_resume_recording,
         mock_wait_for_host_if_needed,
         mock_check_if_meeting_is_found,
         MockFileUploader,

@@ -50,7 +50,6 @@ class ScreenAndAudioRecorder:
     def pause_recording(self):
         if self.paused:
             return True  # Already paused, consider this success
-        return True
 
         try:
             sw, sh = self.screen_dimensions
@@ -70,7 +69,6 @@ class ScreenAndAudioRecorder:
     def resume_recording(self):
         if not self.paused:
             return True
-        return True
 
         try:
             self.xterm_proc.terminate()
