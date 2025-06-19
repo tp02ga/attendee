@@ -449,10 +449,6 @@ def get_transcription_via_sarvam(utterance):
         # Format the response to match our expected schema
         transcription = {"transcript": transcript_text}
 
-        # Sarvam API doesn't provide word-level timestamps in the basic response
-        # If they add this feature later, we can extract words here
-        transcription["words"] = []
-
         return transcription, None
 
     except requests.exceptions.RequestException as e:

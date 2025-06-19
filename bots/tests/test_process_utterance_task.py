@@ -777,7 +777,6 @@ class SarvamProviderTest(TransactionTestCase):
 
             self.assertIsNone(failure)
             self.assertEqual(transcript["transcript"], "hello sarvam")
-            self.assertEqual(transcript["words"], [])  # Sarvam doesn't provide word-level timestamps
             m_post.assert_called_once()
 
     def test_invalid_credentials(self):
