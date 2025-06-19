@@ -8,7 +8,7 @@ from gi.repository import Gst, GObject
 # --------------------------------------------------------------------------- #
 #  Core class                                                                 #
 # --------------------------------------------------------------------------- #
-class VideoOutputManager:
+class MP4Demuxer:
     """
     Stream-demux a remote MP4.
 
@@ -22,12 +22,12 @@ class VideoOutputManager:
         Called with (pts_seconds, raw_pcm_block).
     """
 
-    def __init__(self, url, on_video_sample, on_audio_sample):
+    def __init__(self, url, output_video_dimensions, on_video_sample, on_audio_sample):
         Gst.init(None)
         self._url = url
         self._video_cb = on_video_sample
         self._audio_cb = on_audio_sample
-
+        self._output_video_dimensions = output_video_dimensions
         self._playing = False
         self._loop = GObject.MainLoop()
         self._thread = None
@@ -76,11 +76,11 @@ class VideoOutputManager:
         """
         launch = f"""
             uridecodebin name=d uri={self._url}
-                d. ! queue ! videoconvert ! videoscale ! video/x-raw,width=640,height=360,format=I420 !
-                     appsink name=vsink emit-signals=true sync=true max-buffers=3000 drop=true
+                d. ! queue ! videoconvert ! videoscale ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 !
+                     appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
                 d. ! queue ! audioconvert ! audioresample !
                      audio/x-raw,format=S16LE,channels=1,rate=16000 !
-                     appsink name=asink emit-signals=true sync=true max-buffers=1000 drop=true
+                     appsink name=asink emit-signals=true sync=true max-buffers=300 drop=true
         """
         self._pipeline = Gst.parse_launch(launch)
 
