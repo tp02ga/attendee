@@ -654,8 +654,44 @@ class BotController:
                 logger.info(f"Syncing chat message requests for bot {self.bot_in_db.object_id}")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_chat_message_requests_in_db()
+            elif command == "pause_recording":
+                logger.info(f"Pausing recording for bot {self.bot_in_db.object_id}")
+                self.bot_in_db.refresh_from_db()
+                self.pause_recording()
+            elif command == "resume_recording":
+                logger.info(f"Resuming recording for bot {self.bot_in_db.object_id}")
+                self.bot_in_db.refresh_from_db()
+                self.resume_recording()
             else:
                 logger.info(f"Unknown command: {command}")
+
+    def pause_recording(self):
+        if not BotEventManager.is_state_that_can_pause_recording(self.bot_in_db.state):
+            logger.info(f"Bot {self.bot_in_db.object_id} is in state {BotStates.state_to_api_code(self.bot_in_db.state)} and cannot pause recording")
+            return
+        pause_recording_success = self.screen_and_audio_recorder.pause_recording()
+        if not pause_recording_success:
+            logger.error(f"Failed to pause recording for bot {self.bot_in_db.object_id}")
+            return
+        self.adapter.pause_recording()
+        BotEventManager.create_event(
+            bot=self.bot_in_db,
+            event_type=BotEventTypes.RECORDING_PAUSED,
+        )
+
+    def resume_recording(self):
+        if not BotEventManager.is_state_that_can_resume_recording(self.bot_in_db.state):
+            logger.info(f"Bot {self.bot_in_db.object_id} is in state {BotStates.state_to_api_code(self.bot_in_db.state)} and cannot resume recording")
+            return
+        resume_recording_success = self.screen_and_audio_recorder.resume_recording()
+        if not resume_recording_success:
+            logger.error(f"Failed to resume recording for bot {self.bot_in_db.object_id}")
+            return
+        self.adapter.resume_recording()
+        BotEventManager.create_event(
+            bot=self.bot_in_db,
+            event_type=BotEventTypes.RECORDING_RESUMED,
+        )
 
     def set_bot_heartbeat(self):
         if self.bot_in_db.last_heartbeat_timestamp is None or self.bot_in_db.last_heartbeat_timestamp <= int(timezone.now().timestamp()) - 60:
@@ -702,7 +738,7 @@ class BotController:
             return False
 
     def get_recording_in_progress(self):
-        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
+        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
         if recordings_in_progress.count() == 0:
             return None
         if recordings_in_progress.count() > 1:
