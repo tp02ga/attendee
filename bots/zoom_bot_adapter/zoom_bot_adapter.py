@@ -11,9 +11,9 @@ import zoom_meeting_sdk as zoom
 
 from bots.bot_adapter import BotAdapter
 from bots.utils import png_to_yuv420_frame, scale_i420
+
 from .mp4_demuxer import MP4Demuxer
 from .video_input_manager import VideoInputManager
-
 
 gi.require_version("GLib", "2.0")
 import logging
@@ -776,7 +776,7 @@ class ZoomBotAdapter(BotAdapter):
         return self.video_output_manager.is_playing()
 
     def send_video(self, video_url):
-        logger.info(f"send_video called with video_url = {video_url}.")
+        logger.info(f"send_video called with video_url = {video_url}")
         if self.video_output_manager:
             self.video_output_manager.stop()
             self.video_output_manager = None
@@ -802,7 +802,6 @@ class ZoomBotAdapter(BotAdapter):
 
         self.send_video_frame_to_zoom(bytes_from_gstreamer, self.suggested_video_cap.width, self.suggested_video_cap.height)
 
-
     def video_output_manager_on_audio_sample(self, pts, bytes_from_gstreamer):
         if self.requested_leave or self.cleaned_up:
             self.video_output_manager.stop()
@@ -810,7 +809,6 @@ class ZoomBotAdapter(BotAdapter):
             return
 
         self.send_raw_audio(bytes_from_gstreamer, 16000)
-
 
     def get_staged_bot_join_delay_seconds(self):
         return 0
