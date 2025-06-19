@@ -932,14 +932,18 @@ components:
                   type: array
                   items:
                     type: string
-                  description: 'List of words or phrases to boost in the transcript. See https://www.assemblyai.com/docs/Transcribe%20Audio/custom-vocabulary for details.'
-                boost_param:
+                  description: List of words or phrases to boost in the transcript.
+                    Only supported for when using the 'slam-1' speech model. See AssemblyAI
+                    docs for details.
+                speech_model:
                   type: string
                   enum:
-                    - low
-                    - default
-                    - high
-                  description: 'How much to boost the provided words/phrases. See https://www.assemblyai.com/docs/Transcribe%20Audio/custom-vocabulary for details.'
+                  - best
+                  - nano
+                  - slam-1
+                  - universal
+                  description: The speech model to use for transcription. See AssemblyAI
+                    docs for details.
               additionalProperties: false
           required: []
           description: 'The transcription settings for the bot, e.g. {''deepgram'':

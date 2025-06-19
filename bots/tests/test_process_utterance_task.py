@@ -673,13 +673,13 @@ class AssemblyAIProviderTest(TransactionTestCase):
             # The code has max_retries = 120
             self.assertEqual(m_get.call_count, 120)
 
-    def test_keyterms_prompt_and_boost_param_included(self):
-        """Test that keyterms_prompt and boost_param are included in the AssemblyAI request if set in settings."""
+    def test_keyterms_prompt_and_speech_model_included(self):
+        """Test that keyterms_prompt and speech_model are included in the AssemblyAI request if set in settings."""
         self.bot.settings = {
             "transcription_settings": {
                 "assembly_ai": {
                     "keyterms_prompt": ["aws", "azure", "google cloud"],
-                    "boost_param": "high",
+                    "speech_model": "slam-1",
                 }
             }
         }
@@ -719,12 +719,12 @@ class AssemblyAIProviderTest(TransactionTestCase):
             self.assertIsNone(failure)
             self.assertEqual(transcript["transcript"], "hello assembly")
 
-            # Check that the transcript creation request included keyterms_prompt and boost_param
+            # Check that the transcript creation request included keyterms_prompt and speech_model
             # The second call to requests.post is the transcript creation
             transcript_call = m_post.call_args_list[1]
             _, kwargs = transcript_call
             data = kwargs["json"]
             self.assertIn("keyterms_prompt", data)
             self.assertEqual(data["keyterms_prompt"], ["aws", "azure", "google cloud"])
-            self.assertIn("boost_param", data)
-            self.assertEqual(data["boost_param"], "high")
+            self.assertIn("speech_model", data)
+            self.assertEqual(data["speech_model"], "slam-1")

@@ -180,12 +180,12 @@ class BotImageSerializer(serializers.Serializer):
                     "keyterms_prompt": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."
+                        "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."
                     },
-                    "boost_param": {
+                    "speech_model": {
                         "type": "string",
-                        "enum": ["low", "default", "high"],
-                        "description": "How much to boost the provided words/phrases. See AssemblyAI docs for details."
+                        "enum": ["best", "nano", "slam-1", "universal"],
+                        "description": "The speech model to use for transcription. See AssemblyAI docs for details."
                     },
                 },
                 "additionalProperties": False,
@@ -430,10 +430,10 @@ class CreateBotSerializer(serializers.Serializer):
                         "items": {"type": "string"},
                         "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."
                     },
-                    "boost_param": {
+                    "speech_model": {
                         "type": "string",
-                        "enum": ["low", "default", "high"],
-                        "description": "How much to boost the provided words/phrases. See AssemblyAI docs for details."
+                        "enum": ["best", "nano", "slam-1", "universal"],
+                        "description": "The speech model to use for transcription. See AssemblyAI docs for details."
                     },
                 },
                 "required": [],
