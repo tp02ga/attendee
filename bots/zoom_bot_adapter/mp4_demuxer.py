@@ -76,11 +76,19 @@ class MP4Demuxer:
         """
         launch = f"""
             uridecodebin name=d uri={self._url}
-                d. ! queue max-size-buffers=1000000 max-size-bytes=1294967200 max-size-time=0 leaky=upstream ! videoconvert ! videoscale ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 !
-                     appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
-                d. ! queue max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 leaky=upstream ! audioconvert ! audioresample !
-                     audio/x-raw,format=S16LE,channels=1,rate=16000 !
-                     appsink name=asink emit-signals=true sync=true max-buffers=300 drop=true
+
+                d. ! queue max-size-buffers=1000000 max-size-bytes=2294967200 max-size-time=0 leaky=upstream \
+                    ! videoconvert \
+                    ! videoscale \
+                    ! videorate max-rate=15 drop-only=true \
+                    ! video/x-raw,framerate=15/1,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
+                    ! appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
+
+                d. ! queue max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 leaky=upstream \
+                    ! audioconvert \
+                    ! audioresample \
+                    ! audio/x-raw,format=S16LE,channels=1,rate=8000 \
+                    ! appsink name=asink emit-signals=true sync=true max-buffers=300 drop=true
         """
         self._pipeline = Gst.parse_launch(launch)
 

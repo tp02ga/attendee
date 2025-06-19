@@ -808,7 +808,7 @@ class ZoomBotAdapter(BotAdapter):
             self.video_output_manager = None
             return
 
-        self.send_raw_audio(bytes_from_gstreamer, 16000)
+        self.send_raw_audio(bytes_from_gstreamer, 8000)
 
     def get_staged_bot_join_delay_seconds(self):
         return 0
