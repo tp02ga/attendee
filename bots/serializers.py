@@ -177,16 +177,8 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
                     "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
-                    "keyterms_prompt": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."
-                    },
-                    "speech_model": {
-                        "type": "string",
-                        "enum": ["best", "nano", "slam-1", "universal"],
-                        "description": "The speech model to use for transcription. See AssemblyAI docs for details."
-                    },
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
                 "additionalProperties": False,
             },
@@ -425,16 +417,8 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string"},
                     "language_detection": {"type": "boolean"},
-                    "keyterms_prompt": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."
-                    },
-                    "speech_model": {
-                        "type": "string",
-                        "enum": ["best", "nano", "slam-1", "universal"],
-                        "description": "The speech model to use for transcription. See AssemblyAI docs for details."
-                    },
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
                 "required": [],
                 "additionalProperties": False,
