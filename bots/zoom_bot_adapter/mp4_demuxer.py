@@ -76,9 +76,9 @@ class MP4Demuxer:
         """
         launch = f"""
             uridecodebin name=d uri={self._url}
-                d. ! queue ! videoconvert ! videoscale ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 !
+                d. ! queue max-size-buffers=1000000 max-size-bytes=4294967200 max-size-time=0 leaky=upstream ! videoconvert ! videoscale ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 !
                      appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
-                d. ! queue ! audioconvert ! audioresample !
+                d. ! queue max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 leaky=upstream ! audioconvert ! audioresample !
                      audio/x-raw,format=S16LE,channels=1,rate=16000 !
                      appsink name=asink emit-signals=true sync=true max-buffers=300 drop=true
         """
