@@ -323,6 +323,14 @@ def get_transcription_via_assemblyai(utterance):
     elif recording.bot.assembly_ai_language_code():
         data["language_code"] = recording.bot.assembly_ai_language_code()
 
+    # Add keyterms_prompt and speech_model if set
+    keyterms_prompt = recording.bot.assemblyai_keyterms_prompt()
+    if keyterms_prompt:
+        data["keyterms_prompt"] = keyterms_prompt
+    speech_model = recording.bot.assemblyai_speech_model()
+    if speech_model:
+        data["speech_model"] = speech_model
+
     url = f"{base_url}/transcript"
     response = requests.post(url, json=data, headers=headers)
 

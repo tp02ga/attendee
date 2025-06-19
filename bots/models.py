@@ -274,6 +274,12 @@ class Bot(models.Model):
     def assembly_ai_language_detection(self):
         return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("language_detection", False)
 
+    def assemblyai_keyterms_prompt(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("keyterms_prompt", None)
+
+    def assemblyai_speech_model(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("speech_model", None)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
