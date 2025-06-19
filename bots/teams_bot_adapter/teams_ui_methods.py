@@ -55,7 +55,7 @@ class TeamsUIMethods:
 
     def turn_off_media_inputs(self):
         logger.info("Waiting for the microphone button...")
-        microphone_button = self.locate_element(step="turn_off_microphone_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="toggle-mute"]')), wait_time_seconds=6)
+        microphone_button = self.locate_element(step="turn_off_microphone_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, '[data-tid="toggle-mute"]')), wait_time_seconds=60)
         logger.info("Clicking the microphone button...")
         self.click_element(microphone_button, "turn_off_microphone_button")
 
@@ -284,6 +284,7 @@ class TeamsUIMethods:
             time.sleep(1)
             if time.time() - start_waiting_at > 60:
                 logger.info("Login timed out, redirecting to meeting page")
+                # TODO Replace with error message for login failed
                 break
 
         logger.info("Login completed, redirecting to meeting page")
