@@ -18,16 +18,18 @@ def pcm_to_mp3(
     channels: int = 1,
     sample_width: int = 2,
     bitrate: str = "128k",
+    output_sample_rate: int = None,
 ) -> bytes:
     """
     Convert PCM audio data to MP3 format.
 
     Args:
         pcm_data (bytes): Raw PCM audio data
-        sample_rate (int): Sample rate in Hz (default: 32000)
+        sample_rate (int): Input sample rate in Hz (default: 32000)
         channels (int): Number of audio channels (default: 1)
         sample_width (int): Sample width in bytes (default: 2)
         bitrate (str): MP3 encoding bitrate (default: "128k")
+        output_sample_rate (int): Output sample rate in Hz (default: None, uses input sample_rate)
 
     Returns:
         bytes: MP3 encoded audio data
@@ -39,6 +41,10 @@ def pcm_to_mp3(
         frame_rate=sample_rate,
         channels=channels,
     )
+
+    # Resample to different sample rate if specified
+    if output_sample_rate is not None and output_sample_rate != sample_rate:
+        audio_segment = audio_segment.set_frame_rate(output_sample_rate)
 
     # Create a bytes buffer to store the MP3 data
     buffer = io.BytesIO()
@@ -443,6 +449,8 @@ def transcription_provider_from_meeting_url_and_transcription_settings(url, sett
         return TranscriptionProviders.OPENAI
     elif "assembly_ai" in settings:
         return TranscriptionProviders.ASSEMBLY_AI
+    elif "sarvam" in settings:
+        return TranscriptionProviders.SARVAM
     elif "meeting_closed_captions" in settings:
         return TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM
 
