@@ -12,7 +12,9 @@ import redis
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
+from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.bot_adapter import BotAdapter
+from bots.bots_api_utils import BotCreationSource
 from bots.models import (
     Bot,
     BotChatMessageRequestManager,
@@ -43,7 +45,6 @@ from bots.utils import meeting_type_from_url
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
-from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
@@ -520,6 +521,23 @@ class BotController:
             logger.info("take_action_based_on_bot_in_db - LEAVING")
             BotEventManager.set_requested_bot_action_taken_at(self.bot_in_db)
             self.adapter.leave()
+        if self.bot_in_db.state == BotStates.STAGED:
+            logger.info(f"take_action_based_on_bot_in_db - STAGED. For now, this is a no-op. join_at = {self.bot_in_db.join_at.isoformat()}")
+
+    def join_if_staged_and_time_to_join(self):
+        if self.bot_in_db.state != BotStates.STAGED:
+            return
+        if self.bot_in_db.join_at > timezone.now() + timedelta(seconds=self.adapter.get_staged_bot_join_delay_seconds()):
+            return
+
+        # Transition to JOINING
+        logger.info(f"Joining bot {self.bot_in_db.id} ({self.bot_in_db.object_id}) because join_at is {self.bot_in_db.join_at.isoformat()} and current time is {timezone.now().isoformat()}")
+        BotEventManager.create_event(
+            bot=self.bot_in_db,
+            event_type=BotEventTypes.JOIN_REQUESTED,
+            event_metadata={"source": BotCreationSource.SCHEDULER},
+        )
+        self.take_action_based_on_bot_in_db()
 
     def get_participant(self, participant_id):
         return self.adapter.get_participant(participant_id)
@@ -636,8 +654,44 @@ class BotController:
                 logger.info(f"Syncing chat message requests for bot {self.bot_in_db.object_id}")
                 self.bot_in_db.refresh_from_db()
                 self.take_action_based_on_chat_message_requests_in_db()
+            elif command == "pause_recording":
+                logger.info(f"Pausing recording for bot {self.bot_in_db.object_id}")
+                self.bot_in_db.refresh_from_db()
+                self.pause_recording()
+            elif command == "resume_recording":
+                logger.info(f"Resuming recording for bot {self.bot_in_db.object_id}")
+                self.bot_in_db.refresh_from_db()
+                self.resume_recording()
             else:
                 logger.info(f"Unknown command: {command}")
+
+    def pause_recording(self):
+        if not BotEventManager.is_state_that_can_pause_recording(self.bot_in_db.state):
+            logger.info(f"Bot {self.bot_in_db.object_id} is in state {BotStates.state_to_api_code(self.bot_in_db.state)} and cannot pause recording")
+            return
+        pause_recording_success = self.screen_and_audio_recorder.pause_recording()
+        if not pause_recording_success:
+            logger.error(f"Failed to pause recording for bot {self.bot_in_db.object_id}")
+            return
+        self.adapter.pause_recording()
+        BotEventManager.create_event(
+            bot=self.bot_in_db,
+            event_type=BotEventTypes.RECORDING_PAUSED,
+        )
+
+    def resume_recording(self):
+        if not BotEventManager.is_state_that_can_resume_recording(self.bot_in_db.state):
+            logger.info(f"Bot {self.bot_in_db.object_id} is in state {BotStates.state_to_api_code(self.bot_in_db.state)} and cannot resume recording")
+            return
+        resume_recording_success = self.screen_and_audio_recorder.resume_recording()
+        if not resume_recording_success:
+            logger.error(f"Failed to resume recording for bot {self.bot_in_db.object_id}")
+            return
+        self.adapter.resume_recording()
+        BotEventManager.create_event(
+            bot=self.bot_in_db,
+            event_type=BotEventTypes.RECORDING_RESUMED,
+        )
 
     def set_bot_heartbeat(self):
         if self.bot_in_db.last_heartbeat_timestamp is None or self.bot_in_db.last_heartbeat_timestamp <= int(timezone.now().timestamp()) - 60:
@@ -671,6 +725,9 @@ class BotController:
 
             # Process video output
             self.video_output_manager.monitor_currently_playing_video_media_request()
+
+            # For staged bots, check if its time to join
+            self.join_if_staged_and_time_to_join()
             return True
 
         except Exception as e:
@@ -681,7 +738,7 @@ class BotController:
             return False
 
     def get_recording_in_progress(self):
-        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state=RecordingStates.IN_PROGRESS)
+        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
         if recordings_in_progress.count() == 0:
             return None
         if recordings_in_progress.count() > 1:

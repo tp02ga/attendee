@@ -388,6 +388,9 @@ class StyleManager {
         if (window.initialData.recordingView === 'gallery_view')
         {
             await this.openParticipantList();
+
+            // Sleep for half a second to let the panel close, so that opening the chat panel will work
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         await this.openChatPanel();

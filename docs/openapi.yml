@@ -119,6 +119,101 @@ paths:
           description: Bot details
         '404':
           description: Bot not found
+    patch:
+      operationId: Patch Bot
+      description: Updates a scheduled bot. Currently only the join_at field can be
+        updated, and only for bots in the scheduled state.
+      summary: Update a scheduled bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPatchBotRequest'
+            examples:
+              UpdateJoinAt:
+                value:
+                  join_at: '2025-06-13T12:00:00Z'
+                summary: Update join_at
+                description: Example of updating the join_at time for a scheduled
+                  bot
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Bot updated successfully
+        '400':
+          description: Invalid input or bot is not in scheduled state
+        '404':
+          description: Bot not found
+    delete:
+      operationId: Delete scheduled Bot
+      description: Deletes a scheduled bot.
+      summary: Delete a scheduled bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          description: Scheduled bot deleted successfully
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/chat_messages:
     get:
       operationId: Get Chat Messages
@@ -453,6 +548,52 @@ paths:
           description: Invalid input
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/pause_recording:
+    post:
+      operationId: Pause Recording
+      description: Pauses the recording for the specified bot. This functionality
+        is in beta and only supported for Google Meet and MS Teamsbots.
+      summary: Pause the bot's recording
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Recording paused successfully
+        '400':
+          description: Bot is not in a valid state to pause recording
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/recording:
     get:
       operationId: Get Bot Recording
@@ -500,6 +641,51 @@ paths:
                     start_timestamp_ms: 1733114771000
                   summary: Recording Upload
           description: Short-lived S3 URL for the recording
+  /api/v1/bots/{object_id}/resume_recording:
+    post:
+      operationId: Resume Recording
+      description: Resumes the recording for the specified bot.
+      summary: Resume the bot's recording
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bot'
+          description: Recording resumed successfully
+        '400':
+          description: Bot is not in a valid state to resume recording
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/send_chat_message:
     post:
       operationId: Send Chat Message
@@ -717,9 +903,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/RecordingStateEnum'
           readOnly: true
+        join_at:
+          type: string
+          format: date-time
       required:
       - events
       - id
+      - join_at
       - meeting_url
       - metadata
       - recording_state
@@ -823,6 +1013,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/BotChatMessageRequestRequest'
           description: The chat message the bot sends after it joins the meeting
+        join_at:
+          type: string
+          format: date-time
+          description: The time the bot should join the meeting. ISO 8601 format,
+            e.g. 2025-06-13T12:00:00Z
         transcription_settings:
           type: object
           properties:
@@ -1055,6 +1250,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChatMessage'
+    PatchedPatchBotRequest:
+      type: object
+      properties:
+        join_at:
+          type: string
+          format: date-time
+          description: The time the bot should join the meeting. ISO 8601 format,
+            e.g. 2025-06-13T12:00:00Z
     Recording:
       type: object
       properties:
@@ -1073,6 +1276,7 @@ components:
       - in_progress
       - complete
       - failed
+      - paused
     SpeechRequest:
       type: object
       properties:
@@ -1110,6 +1314,9 @@ components:
       - waiting_room
       - ended
       - data_deleted
+      - scheduled
+      - staged
+      - joined_recording_paused
     ToEnum:
       enum:
       - everyone
