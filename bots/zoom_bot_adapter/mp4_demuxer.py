@@ -78,10 +78,10 @@ class MP4Demuxer:
             uridecodebin name=d uri={self._url}
 
                 d. ! queue max-size-buffers=1000000 max-size-bytes=2294967200 max-size-time=0 leaky=upstream \
+                    ! videorate max-rate=5 drop-only=true \
                     ! videoconvert \
                     ! videoscale \
-                    ! videorate max-rate=15 drop-only=true \
-                    ! video/x-raw,framerate=15/1,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
+                    ! video/x-raw,framerate=5/1,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
                     ! appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
 
                 d. ! queue max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 leaky=upstream \
