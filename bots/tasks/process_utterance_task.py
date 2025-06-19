@@ -419,7 +419,7 @@ def get_transcription_via_sarvam(utterance):
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate, output_sample_rate=16000)
 
     files = {"file": ("audio.mp3", payload_mp3, "audio/mpeg")}
-    
+
     # Add optional parameters if configured
     data = {}
     if recording.bot.sarvam_language_code():
@@ -429,7 +429,7 @@ def get_transcription_via_sarvam(utterance):
 
     try:
         response = requests.post(base_url, headers=headers, files=files, data=data if data else None)
-        
+
         if response.status_code == 403:
             return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
 
@@ -445,10 +445,10 @@ def get_transcription_via_sarvam(utterance):
 
         # Extract transcript from the response
         transcript_text = result.get("transcript", "")
-        
+
         # Format the response to match our expected schema
         transcription = {"transcript": transcript_text}
-        
+
         # Sarvam API doesn't provide word-level timestamps in the basic response
         # If they add this feature later, we can extract words here
         transcription["words"] = []
