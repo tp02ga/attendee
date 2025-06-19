@@ -254,15 +254,21 @@ class TeamsUIMethods:
         logger.info("Filling in the username...")
         username_input.send_keys(self.teams_bot_login_credentials["username"])
 
+        time.sleep(1)
+
         logger.info("Looking for next button...")
         next_button = self.locate_element(step="next_button", condition=EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"]')), wait_time_seconds=10)
         logger.info("Clicking the next button...")
         self.click_element(next_button, "next_button")
 
+        time.sleep(1)
+
         logger.info("Waiting for the password input...")
         password_input = self.locate_element(step="password_input", condition=EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="passwd"]')), wait_time_seconds=10)
         logger.info("Filling in the password...")
         password_input.send_keys(self.teams_bot_login_credentials["password"])
+
+        time.sleep(1)
 
         logger.info("Looking for sign in button...")
         signin_button = self.locate_element(step="signin_button", condition=EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"]')), wait_time_seconds=10)
