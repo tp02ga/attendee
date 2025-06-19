@@ -1165,9 +1165,7 @@ components:
                   - en-IN
                   - gu-IN
                   description: The language code to use for transcription
-              required:
-              - model
-              - language_code
+              required: []
               additionalProperties: false
           required: []
           description: 'The transcription settings for the bot, e.g. {''deepgram'':
