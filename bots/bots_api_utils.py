@@ -108,7 +108,7 @@ class BotCreationSource(str, Enum):
 
 def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple[Bot | None, dict | None]:
     # Given them a small grace period before we start rejecting requests
-    if project.organization.credits() < -1:
+    if project.organization.out_of_credits():
         logger.error(f"Organization {project.organization.id} has insufficient credits. Please add credits in the Settings -> Billing page.")
         return None, {"error": "Organization has run out of credits. Please add more credits in the Settings -> Billing page."}
 
