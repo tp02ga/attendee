@@ -580,7 +580,7 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_LOGIN_REQUIRED = 18, "Bot could not join meeting - Login required"
     COULD_NOT_JOIN_MEETING_BOT_LOGIN_ATTEMPT_FAILED = 19, "Bot could not join meeting - Bot login attempt failed"
     FATAL_ERROR_OUT_OF_CREDITS = 20, "Fatal error - Out of credits"
-    
+
     @classmethod
     def sub_type_to_api_code(cls, value):
         """Returns the API code for a given sub type value"""
