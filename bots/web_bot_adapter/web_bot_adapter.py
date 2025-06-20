@@ -19,7 +19,7 @@ from bots.models import RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
-from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
+from .ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiLoginRequiredException, UiMeetingNotFoundException, UiRequestToJoinDeniedException, UiRetryableException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -342,6 +342,9 @@ class WebBotAdapter(BotAdapter):
     def send_meeting_not_found_message(self):
         self.send_message_callback({"message": self.Messages.MEETING_NOT_FOUND})
 
+    def send_login_required_message(self):
+        self.send_message_callback({"message": self.Messages.LOGIN_REQUIRED})
+
     def send_debug_screenshot_message(self, step, exception, inner_exception):
         current_time = datetime.datetime.now()
         timestamp = current_time.strftime("%Y%m%d_%H%M%S")
@@ -476,6 +479,10 @@ class WebBotAdapter(BotAdapter):
                 self.attempt_to_join_meeting()
                 logger.info("Successfully joined meeting")
                 break
+
+            except UiLoginRequiredException:
+                self.send_login_required_message()
+                return
 
             except UiRequestToJoinDeniedException:
                 self.send_request_to_join_denied_message()

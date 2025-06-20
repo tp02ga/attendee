@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiLoginRequiredException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,7 @@ class TeamsUIMethods:
                 self.click_element(show_more_button, "click_show_more_button")
                 return
             except TimeoutException:
+                self.look_for_sign_in_required_element("click_show_more_button")
                 self.look_for_denied_your_request_element("click_show_more_button")
                 self.look_for_we_could_not_connect_you_element("click_show_more_button")
 
@@ -153,6 +154,12 @@ class TeamsUIMethods:
             except Exception as e:
                 logger.info("Exception raised in locate_element for show_more_button")
                 raise UiCouldNotLocateElementException("Exception raised in locate_element for click_show_more_button", "click_show_more_button", e)
+
+    def look_for_sign_in_required_element(self, step):
+        sign_in_required_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "We need to verify your info before you can join")]')
+        if sign_in_required_element:
+            logger.info("Sign in required. Raising UiLoginRequiredException")
+            raise UiLoginRequiredException("Sign in required", step)
 
     def look_for_we_could_not_connect_you_element(self, step):
         we_could_not_connect_you_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "we couldn\'t connect you")]')
