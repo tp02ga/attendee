@@ -934,6 +934,16 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.LOGIN_ATTEMPT_FAILED:
+            logger.info("Received message that login attempt failed")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_MEETING_BOT_LOGIN_ATTEMPT_FAILED,
+            )
+            self.cleanup()
+            return
+
         if message.get("message") == BotAdapter.Messages.BLOCKED_BY_PLATFORM_REPEATEDLY:
             from bots.tasks.restart_bot_pod_task import restart_bot_pod
 

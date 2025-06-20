@@ -51,3 +51,7 @@ class UiCouldNotClickElementException(UiRetryableException):
 class UiLoginRequiredException(UiException):
     def __init__(self, message, step=None, inner_exception=None):
         super().__init__(message, step, inner_exception)
+
+class UiLoginAttemptFailedException(UiException):
+    def __init__(self, message, step=None, inner_exception=None):
+        super().__init__(message, step, inner_exception)

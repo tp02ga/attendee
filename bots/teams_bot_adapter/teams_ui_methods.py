@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiLoginRequiredException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
+from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiLoginAttemptFailedException, UiLoginRequiredException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
 
@@ -284,7 +284,7 @@ class TeamsUIMethods:
         url_before_signin = self.driver.current_url
         self.click_element(signin_button, "signin_button")
 
-        logger.info("Login completed, waiting for redirect...")
+        logger.info("Login attempted, waiting for redirect...")
         ## Wait until the url changes to something other than the login page or too much time has passed
         start_waiting_at = time.time()
         while self.driver.current_url == url_before_signin:
@@ -293,5 +293,13 @@ class TeamsUIMethods:
                 logger.info("Login timed out, redirecting to meeting page")
                 # TODO Replace with error message for login failed
                 break
+
+        logger.info(f"Redirected to {self.driver.current_url}")
+
+        # If we see the incorrect password error, then we should raise an exception
+        incorrect_password_element = self.find_element_by_selector(By.XPATH, '//*[contains(text(), "Your account or password is incorrect")]')
+        if incorrect_password_element:
+            logger.info("Incorrect password. Raising UiLoginAttemptFailedException")
+            raise UiLoginAttemptFailedException("Incorrect password", "login_to_microsoft_account")
 
         logger.info("Login completed, redirecting to meeting page")
