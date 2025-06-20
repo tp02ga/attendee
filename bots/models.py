@@ -327,6 +327,9 @@ class Bot(models.Model):
     def teams_closed_captions_language(self):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("teams_language", None)
 
+    def teams_use_bot_login(self):
+        return self.settings.get("teams_settings", {}).get("use_login", False)
+
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
         if not rtmp_settings:

@@ -122,7 +122,7 @@ class BotController:
             start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
             stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
             video_frame_size=self.bot_in_db.recording_dimensions(),
-            teams_bot_login_credentials=teams_bot_login_credentials.get_credentials() if teams_bot_login_credentials else None,
+            teams_bot_login_credentials=teams_bot_login_credentials.get_credentials() if teams_bot_login_credentials and self.bot_in_db.teams_use_bot_login() else None,
         )
 
     def get_zoom_bot_adapter(self):

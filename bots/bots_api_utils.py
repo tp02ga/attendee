@@ -129,6 +129,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     recording_settings = serializer.validated_data["recording_settings"]
     debug_settings = serializer.validated_data["debug_settings"]
     automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
+    teams_settings = serializer.validated_data["teams_settings"]
     bot_image = serializer.validated_data["bot_image"]
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
@@ -141,6 +142,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         "recording_settings": recording_settings,
         "debug_settings": debug_settings,
         "automatic_leave_settings": automatic_leave_settings,
+        "teams_settings": teams_settings,
     }
 
     with transaction.atomic():
