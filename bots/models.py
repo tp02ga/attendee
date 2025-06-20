@@ -274,6 +274,18 @@ class Bot(models.Model):
     def assembly_ai_language_detection(self):
         return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("language_detection", False)
 
+    def assemblyai_keyterms_prompt(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("keyterms_prompt", None)
+
+    def assemblyai_speech_model(self):
+        return self.settings.get("transcription_settings", {}).get("assembly_ai", {}).get("speech_model", None)
+
+    def sarvam_language_code(self):
+        return self.settings.get("transcription_settings", {}).get("sarvam", {}).get("language_code", None)
+
+    def sarvam_model(self):
+        return self.settings.get("transcription_settings", {}).get("sarvam", {}).get("model", None)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
@@ -1048,6 +1060,7 @@ class TranscriptionProviders(models.IntegerChoices):
     GLADIA = 3, "Gladia"
     OPENAI = 4, "OpenAI"
     ASSEMBLY_AI = 5, "Assembly AI"
+    SARVAM = 6, "Sarvam"
 
 
 from storages.backends.s3boto3 import S3Boto3Storage
@@ -1310,7 +1323,8 @@ class Credentials(models.Model):
         GLADIA = 4, "Gladia"
         OPENAI = 5, "OpenAI"
         ASSEMBLY_AI = 6, "Assembly AI"
-        TEAMS_BOT_LOGIN = 7, "Teams Bot Login"
+        SARVAM = 7, "Sarvam"
+        TEAMS_BOT_LOGIN = 8, "Teams Bot Login"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)

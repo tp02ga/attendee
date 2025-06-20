@@ -5,6 +5,7 @@ from django.test import TransactionTestCase
 
 from bots.models import (
     Bot,
+    Credentials,
     Organization,
     Participant,
     Project,
@@ -14,7 +15,7 @@ from bots.models import (
     TranscriptionFailureReasons,
     Utterance,
 )
-from bots.tasks.process_utterance_task import process_utterance
+from bots.tasks.process_utterance_task import get_transcription_via_assemblyai, get_transcription_via_deepgram, get_transcription_via_gladia, get_transcription_via_openai, get_transcription_via_sarvam, process_utterance
 
 
 class ProcessUtteranceTaskTest(TransactionTestCase):
@@ -132,11 +133,6 @@ import types
 from unittest import mock
 
 from django.test import TransactionTestCase
-
-from bots.models import (
-    Credentials,
-)
-from bots.tasks.process_utterance_task import get_transcription_via_deepgram
 
 
 def _build_fake_deepgram(success=True, err_code=None):
@@ -265,7 +261,6 @@ from django.test import TransactionTestCase
 from bots.models import (
     Credentials as CredModel,
 )
-from bots.tasks.process_utterance_task import get_transcription_via_gladia
 
 
 class GladiaProviderTest(TransactionTestCase):
@@ -394,8 +389,6 @@ from unittest import mock
 
 from django.test import TransactionTestCase
 
-from bots.tasks.process_utterance_task import get_transcription_via_openai
-
 
 class OpenAIProviderTest(TransactionTestCase):
     """Unit‑tests for get_transcription_via_openai"""
@@ -489,8 +482,6 @@ class OpenAIProviderTest(TransactionTestCase):
 from unittest import mock
 
 from django.test import TransactionTestCase
-
-from bots.tasks.process_utterance_task import get_transcription_via_assemblyai
 
 
 class AssemblyAIProviderTest(TransactionTestCase):
@@ -672,3 +663,149 @@ class AssemblyAIProviderTest(TransactionTestCase):
             self.assertEqual(failure["reason"], TranscriptionFailureReasons.TIMED_OUT)
             # The code has max_retries = 120
             self.assertEqual(m_get.call_count, 120)
+
+    def test_keyterms_prompt_and_speech_model_included(self):
+        """Test that keyterms_prompt and speech_model are included in the AssemblyAI request if set in settings."""
+        self.bot.settings = {
+            "transcription_settings": {
+                "assembly_ai": {
+                    "keyterms_prompt": ["aws", "azure", "google cloud"],
+                    "speech_model": "slam-1",
+                }
+            }
+        }
+        self.bot.save()
+        with (
+            self._patch_creds(),
+            mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3"),
+            mock.patch("bots.tasks.process_utterance_task.requests.post") as m_post,
+            mock.patch("bots.tasks.process_utterance_task.requests.get") as m_get,
+            mock.patch("bots.tasks.process_utterance_task.requests.delete") as m_delete,
+        ):
+            # 1. Mock upload response
+            upload_response = mock.Mock(status_code=200)
+            upload_response.json.return_value = {"upload_url": "https://cdn.assemblyai.com/upload/123"}
+
+            # 2. Mock transcript creation response
+            transcript_response = mock.Mock(status_code=200)
+            transcript_response.json.return_value = {"id": "transcript-abc"}
+
+            m_post.side_effect = [upload_response, transcript_response]
+
+            # 3. Mock polling responses
+            done_response = mock.Mock(status_code=200)
+            done_response.json.return_value = {
+                "status": "completed",
+                "text": "hello assembly",
+                "words": [],
+            }
+            m_get.return_value = done_response
+
+            # 4. Mock delete response
+            delete_response = mock.Mock(status_code=200)
+            m_delete.return_value = delete_response
+
+            transcript, failure = get_transcription_via_assemblyai(self.utterance)
+
+            self.assertIsNone(failure)
+            self.assertEqual(transcript["transcript"], "hello assembly")
+
+            # Check that the transcript creation request included keyterms_prompt and speech_model
+            # The second call to requests.post is the transcript creation
+            transcript_call = m_post.call_args_list[1]
+            _, kwargs = transcript_call
+            data = kwargs["json"]
+            self.assertIn("keyterms_prompt", data)
+            self.assertEqual(data["keyterms_prompt"], ["aws", "azure", "google cloud"])
+            self.assertIn("speech_model", data)
+            self.assertEqual(data["speech_model"], "slam-1")
+
+
+from unittest import mock
+
+from django.test import TransactionTestCase
+
+
+class SarvamProviderTest(TransactionTestCase):
+    """Unit‑tests for bots.tasks.process_utterance_task.get_transcription_via_sarvam"""
+
+    def setUp(self):
+        # Minimal DB fixtures
+        self.org = Organization.objects.create(name="Org")
+        self.project = Project.objects.create(name="Proj", organization=self.org)
+        self.bot = Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/999")
+
+        self.recording = Recording.objects.create(
+            bot=self.bot,
+            recording_type=1,
+            transcription_type=1,
+            state=RecordingStates.COMPLETE,
+            transcription_provider=6,  # SARVAM
+        )
+
+        self.participant = Participant.objects.create(bot=self.bot, uuid="p1")
+        self.utterance = Utterance.objects.create(
+            recording=self.recording,
+            participant=self.participant,
+            audio_blob=b"pcm-bytes",
+            timestamp_ms=0,
+            duration_ms=600,
+            sample_rate=16_000,
+        )
+        self.utterance.refresh_from_db()
+        self.cred = Credentials.objects.create(
+            project=self.project,
+            credential_type=Credentials.CredentialTypes.SARVAM,
+        )
+
+    def _patch_creds(self):
+        """Always return a fake API key."""
+        return mock.patch.object(Credentials, "get_credentials", return_value={"api_key": "fake-sarvam-key"})
+
+    def test_happy_path(self):
+        """Successful transcription returns formatted transcript."""
+        with (
+            self._patch_creds(),
+            mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3"),
+            mock.patch("bots.tasks.process_utterance_task.requests.post") as m_post,
+        ):
+            success_response = mock.Mock(status_code=200)
+            success_response.json.return_value = {"transcript": "hello sarvam"}
+            m_post.return_value = success_response
+
+            transcript, failure = get_transcription_via_sarvam(self.utterance)
+
+            self.assertIsNone(failure)
+            self.assertEqual(transcript["transcript"], "hello sarvam")
+            m_post.assert_called_once()
+
+    def test_invalid_credentials(self):
+        """Sarvam 403 on request → CREDENTIALS_INVALID."""
+        with (
+            self._patch_creds(),
+            mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3"),
+            mock.patch("bots.tasks.process_utterance_task.requests.post") as m_post,
+        ):
+            resp403 = mock.Mock(status_code=403)
+            m_post.return_value = resp403
+
+            transcript, failure = get_transcription_via_sarvam(self.utterance)
+
+            self.assertIsNone(transcript)
+            self.assertEqual(failure["reason"], TranscriptionFailureReasons.CREDENTIALS_INVALID)
+
+    def test_rate_limit_exceeded(self):
+        """Sarvam 429 on request → RATE_LIMIT_EXCEEDED."""
+        with (
+            self._patch_creds(),
+            mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3"),
+            mock.patch("bots.tasks.process_utterance_task.requests.post") as m_post,
+        ):
+            resp429 = mock.Mock(status_code=429)
+            m_post.return_value = resp429
+
+            transcript, failure = get_transcription_via_sarvam(self.utterance)
+
+            self.assertIsNone(transcript)
+            self.assertEqual(failure["reason"], TranscriptionFailureReasons.RATE_LIMIT_EXCEEDED)
+            self.assertEqual(failure["status_code"], 429)

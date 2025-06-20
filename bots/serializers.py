@@ -178,7 +178,26 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
                     "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
+                    },
+                },
+                "required": [],
                 "additionalProperties": False,
             },
         },
@@ -417,6 +436,8 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string"},
                     "language_detection": {"type": "boolean"},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
                 "required": [],
                 "additionalProperties": False,
@@ -428,6 +449,23 @@ class CreateBotSerializer(serializers.Serializer):
                     "teams_language": {
                         "type": "string",
                         "enum": ["ar-sa", "ar-ae", "bg-bg", "ca-es", "zh-cn", "zh-hk", "zh-tw", "hr-hr", "cs-cz", "da-dk", "nl-be", "nl-nl", "en-au", "en-ca", "en-in", "en-nz", "en-gb", "en-us", "et-ee", "fi-fi", "fr-ca", "fr-fr", "de-de", "de-ch", "el-gr", "he-il", "hi-in", "hu-hu", "id-id", "it-it", "ja-jp", "ko-kr", "lv-lv", "lt-lt", "nb-no", "pl-pl", "pt-br", "pt-pt", "ro-ro", "ru-ru", "sr-rs", "sk-sk", "sl-si", "es-mx", "es-es", "sv-se", "th-th", "tr-tr", "uk-ua", "vi-vn", "cy-gb"],
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
                     },
                 },
                 "required": [],

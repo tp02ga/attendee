@@ -167,6 +167,11 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
                 if not all(credentials_data.values()):
                     return HttpResponse("Missing required credentials data", status=400)
+            elif credential_type == Credentials.CredentialTypes.SARVAM:
+                credentials_data = {"api_key": request.POST.get("api_key")}
+
+                if not all(credentials_data.values()):
+                    return HttpResponse("Missing required credentials data", status=400)
             elif credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
                 credentials_data = {"service_account_json": request.POST.get("service_account_json")}
 
@@ -197,6 +202,8 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 return render(request, "projects/partials/openai_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.ASSEMBLY_AI:
                 return render(request, "projects/partials/assembly_ai_credentials.html", context)
+            elif credential.credential_type == Credentials.CredentialTypes.SARVAM:
+                return render(request, "projects/partials/sarvam_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
                 return render(request, "projects/partials/google_tts_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.TEAMS_BOT_LOGIN:
@@ -225,6 +232,8 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
         assembly_ai_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.ASSEMBLY_AI).first()
 
+        sarvam_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.SARVAM).first()
+
         teams_bot_login_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.TEAMS_BOT_LOGIN).first()
 
         context = self.get_project_context(object_id, project)
@@ -242,6 +251,8 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 "openai_credential_type": Credentials.CredentialTypes.OPENAI,
                 "assembly_ai_credentials": assembly_ai_credentials.get_credentials() if assembly_ai_credentials else None,
                 "assembly_ai_credential_type": Credentials.CredentialTypes.ASSEMBLY_AI,
+                "sarvam_credentials": sarvam_credentials.get_credentials() if sarvam_credentials else None,
+                "sarvam_credential_type": Credentials.CredentialTypes.SARVAM,
                 "teams_bot_login_credentials": teams_bot_login_credentials.get_credentials() if teams_bot_login_credentials else None,
                 "teams_bot_login_credential_type": Credentials.CredentialTypes.TEAMS_BOT_LOGIN,
             }
