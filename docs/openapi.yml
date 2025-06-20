@@ -1140,6 +1140,33 @@ components:
                   description: The speech model to use for transcription. See AssemblyAI
                     docs for details.
               additionalProperties: false
+            sarvam:
+              type: object
+              properties:
+                model:
+                  type: string
+                  enum:
+                  - saarika:v2
+                  - saarika:v2.5
+                  description: The Sarvam model to use for transcription
+                language_code:
+                  type: string
+                  enum:
+                  - unknown
+                  - hi-IN
+                  - bn-IN
+                  - kn-IN
+                  - ml-IN
+                  - mr-IN
+                  - od-IN
+                  - pa-IN
+                  - ta-IN
+                  - te-IN
+                  - en-IN
+                  - gu-IN
+                  description: The language code to use for transcription
+              required: []
+              additionalProperties: false
           required: []
           description: 'The transcription settings for the bot, e.g. {''deepgram'':
             {''language'': ''en''}}'

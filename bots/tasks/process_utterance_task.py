@@ -32,6 +32,8 @@ def get_transcription(utterance, recording):
             transcription, failure_data = get_transcription_via_openai(utterance)
         elif recording.transcription_provider == TranscriptionProviders.ASSEMBLY_AI:
             transcription, failure_data = get_transcription_via_assemblyai(utterance)
+        elif recording.transcription_provider == TranscriptionProviders.SARVAM:
+            transcription, failure_data = get_transcription_via_sarvam(utterance)
         else:
             raise Exception(f"Unknown transcription provider: {recording.transcription_provider}")
 
@@ -394,3 +396,67 @@ def get_transcription_via_assemblyai(utterance):
 
     # If we've reached here, we've timed out
     return None, {"reason": TranscriptionFailureReasons.TIMED_OUT, "step": "transcribe_result_poll"}
+
+
+def get_transcription_via_sarvam(utterance):
+    recording = utterance.recording
+    sarvam_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.SARVAM).first()
+    if not sarvam_credentials_record:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
+
+    sarvam_credentials = sarvam_credentials_record.get_credentials()
+    if not sarvam_credentials:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
+
+    api_key = sarvam_credentials.get("api_key")
+    if not api_key:
+        return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND, "error": "api_key not in credentials"}
+
+    headers = {"api-subscription-key": api_key}
+    base_url = "https://api.sarvam.ai/speech-to-text"
+
+    # Sarvam says 16kHz sample rate works best
+    payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate, output_sample_rate=16000)
+
+    files = {"file": ("audio.mp3", payload_mp3, "audio/mpeg")}
+
+    # Add optional parameters if configured
+    data = {}
+    if recording.bot.sarvam_language_code():
+        data["language_code"] = recording.bot.sarvam_language_code()
+    if recording.bot.sarvam_model():
+        data["model"] = recording.bot.sarvam_model()
+
+    try:
+        response = requests.post(base_url, headers=headers, files=files, data=data if data else None)
+
+        if response.status_code == 403:
+            return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_INVALID}
+
+        if response.status_code == 429:
+            return None, {"reason": TranscriptionFailureReasons.RATE_LIMIT_EXCEEDED, "status_code": response.status_code}
+
+        if response.status_code != 200:
+            logger.error(f"Sarvam transcription failed with status code {response.status_code}: {response.text}")
+            return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code, "response_text": response.text}
+
+        result = response.json()
+        logger.info("Sarvam transcription completed successfully")
+
+        # Extract transcript from the response
+        transcript_text = result.get("transcript", "")
+
+        # Format the response to match our expected schema
+        transcription = {"transcript": transcript_text}
+
+        return transcription, None
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Sarvam transcription request failed: {str(e)}")
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error": str(e)}
+    except json.JSONDecodeError as e:
+        logger.error(f"Sarvam transcription response parsing failed: {str(e)}")
+        return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "error": f"Invalid JSON response: {str(e)}"}
+    except Exception as e:
+        logger.error(f"Sarvam transcription unexpected error: {str(e)}")
+        return None, {"reason": TranscriptionFailureReasons.INTERNAL_ERROR, "error": str(e)}
