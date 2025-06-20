@@ -387,6 +387,20 @@ class BotController:
         self.pubsub.subscribe(self.pubsub_channel)
         logger.info(f"Redis connection established for bot {self.bot_in_db.id}")
 
+    # Sarvam has this 30 second limit on audio clips, so we need to change the max utterance duration to 30 seconds
+    # and make the silence duration lower so it generates a bunch of small clips
+    def non_streaming_audio_utterance_size_limit(self):
+        if self.get_recording_transcription_provider() == TranscriptionProviders.SARVAM:
+            return 1920000  # 30 seconds of audio at 32kHz
+        else:
+            return 19200000  # 19.2 MB / 2 bytes per sample / 32,000 samples per second = 300 seconds of continuous audio
+
+    def non_streaming_audio_silence_duration_limit(self):
+        if self.get_recording_transcription_provider() == TranscriptionProviders.SARVAM:
+            return 1  # seconds
+        else:
+            return 3  # seconds
+
     def run(self):
         if self.run_called:
             raise Exception("Run already called, exiting")
@@ -396,10 +410,13 @@ class BotController:
 
         # Initialize core objects
         # Only used for adapters that can provide per-participant audio
+
         self.per_participant_non_streaming_audio_input_manager = PerParticipantNonStreamingAudioInputManager(
             save_utterance_callback=self.save_individual_audio_utterance,
             get_participant_callback=self.get_participant,
             sample_rate=self.get_per_participant_audio_sample_rate(),
+            utterance_size_limit=self.non_streaming_audio_utterance_size_limit(),
+            silence_duration_limit=self.non_streaming_audio_silence_duration_limit(),
         )
 
         self.per_participant_streaming_audio_input_manager = PerParticipantStreamingAudioInputManager(
