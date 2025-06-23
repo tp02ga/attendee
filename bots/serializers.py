@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from dataclasses import asdict
 
 import jsonschema
@@ -29,6 +30,17 @@ from .models import (
     RecordingViews,
     TranscriptionProviders,
 )
+
+
+def get_openai_model_enum():
+    """Get allowed OpenAI models including custom env var if set"""
+    default_models = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+    custom_model = os.getenv("OPENAI_MODEL_NAME")
+    if custom_model and custom_model not in default_models:
+        return default_models + [custom_model]
+    return default_models
+
+
 from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 # Define the schema once
@@ -158,7 +170,7 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
@@ -434,7 +446,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
