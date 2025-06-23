@@ -286,13 +286,7 @@ class BotModelTest(TransactionTestCase):
     @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-env-model"})
     def test_openai_transcription_model_settings_override_env(self):
         """Test that bot settings override env var"""
-        self.bot.settings = {
-            "transcription_settings": {
-                "openai": {
-                    "model": "settings-model"
-                }
-            }
-        }
+        self.bot.settings = {"transcription_settings": {"openai": {"model": "settings-model"}}}
         self.bot.save()
         model = self.bot.openai_transcription_model()
         self.assertEqual(model, "settings-model")
@@ -300,13 +294,7 @@ class BotModelTest(TransactionTestCase):
     @mock.patch.dict("os.environ", {}, clear=True)
     def test_openai_transcription_model_settings_override_default(self):
         """Test that bot settings override default"""
-        self.bot.settings = {
-            "transcription_settings": {
-                "openai": {
-                    "model": "settings-model"
-                }
-            }
-        }
+        self.bot.settings = {"transcription_settings": {"openai": {"model": "settings-model"}}}
         self.bot.save()
         model = self.bot.openai_transcription_model()
         self.assertEqual(model, "settings-model")
@@ -582,9 +570,52 @@ class OpenAIProviderTest(TransactionTestCase):
         self.assertEqual(files_dict["model"][1], "gpt-4-turbo-transcribe")
 
 
-from unittest import mock
+class OpenAIModelValidationTest(TransactionTestCase):
+    """Tests for OpenAI model validation in serializers"""
 
-from django.test import TransactionTestCase
+    def setUp(self):
+        self.organization = Organization.objects.create(name="Test Organization")
+        self.project = Project.objects.create(name="Test Project", organization=self.organization)
+
+    @mock.patch.dict("os.environ", {}, clear=True)
+    def test_get_openai_model_enum_default(self):
+        """Test that default models are returned when no env var is set"""
+        from bots.serializers import get_openai_model_enum
+
+        models = get_openai_model_enum()
+        expected = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+        self.assertEqual(models, expected)
+
+    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-whisper-model"})
+    def test_get_openai_model_enum_custom_model(self):
+        """Test that custom model is added to enum when env var is set"""
+        from bots.serializers import get_openai_model_enum
+
+        models = get_openai_model_enum()
+        expected = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "custom-whisper-model"]
+        self.assertEqual(models, expected)
+
+    @mock.patch.dict("os.environ", {}, clear=True)
+    def test_transcription_settings_validation_default_models(self):
+        """Test that default OpenAI models are accepted in validation"""
+        from bots.serializers import CreateBotSerializer
+
+        serializer = CreateBotSerializer()
+
+        valid_settings = {"openai": {"model": "gpt-4o-transcribe"}}
+        validated = serializer.validate_transcription_settings(valid_settings)
+        self.assertEqual(validated["openai"]["model"], "gpt-4o-transcribe")
+
+    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-whisper-model"})
+    def test_transcription_settings_validation_custom_model(self):
+        """Test that custom model from env var is accepted in validation"""
+        from bots.serializers import CreateBotSerializer
+
+        serializer = CreateBotSerializer()
+
+        valid_settings = {"openai": {"model": "custom-whisper-model"}}
+        validated = serializer.validate_transcription_settings(valid_settings)
+        self.assertEqual(validated["openai"]["model"], "custom-whisper-model")
 
 
 class AssemblyAIProviderTest(TransactionTestCase):
