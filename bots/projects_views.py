@@ -333,6 +333,9 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
         # Add flag to detect if create modal should be automatically opened
         context["open_create_modal"] = self.request.GET.get("open_create_modal") == "true"
 
+        # Check if any bots in the current page have a join_at value
+        context["has_scheduled_bots"] = any(bot.join_at is not None for bot in context["bots"])
+
         return context
 
 
