@@ -530,7 +530,7 @@ class OpenAIProviderTest(TransactionTestCase):
         # Verify that the custom base URL was used
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        self.assertEqual(call_args[1]["url"], "https://custom.openai.com/v1/audio/transcriptions")
+        self.assertEqual(call_args[0][0], "https://custom.openai.com/v1/audio/transcriptions")
 
     # ────────────────────────────────────────────────────────────────────────────────
     @mock.patch("bots.tasks.process_utterance_task.requests.post")
@@ -565,7 +565,8 @@ class OpenAIProviderTest(TransactionTestCase):
         # Verify both custom values were used
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        self.assertEqual(call_args[1]["url"], "https://custom-ai-endpoint.example.com/v1/audio/transcriptions")
+        print("call_args", call_args)
+        self.assertEqual(call_args[0][0], "https://custom-ai-endpoint.example.com/v1/audio/transcriptions")
         files_dict = call_args[1]["files"]
         self.assertEqual(files_dict["model"][1], "gpt-4-turbo-transcribe")
 
@@ -600,18 +601,37 @@ class OpenAIModelValidationTest(TransactionTestCase):
         """Test that default OpenAI models are accepted in validation"""
         from bots.serializers import CreateBotSerializer
 
-        serializer = CreateBotSerializer()
+        # Provide initial data with a meeting URL that supports OpenAI transcription
+        data = {
+            "meeting_url": "https://zoom.us/j/123456789",
+            "bot_name": "Test Bot",
+        }
+        serializer = CreateBotSerializer(data=data)
 
         valid_settings = {"openai": {"model": "gpt-4o-transcribe"}}
         validated = serializer.validate_transcription_settings(valid_settings)
         self.assertEqual(validated["openai"]["model"], "gpt-4o-transcribe")
 
-    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-whisper-model"})
-    def test_transcription_settings_validation_custom_model(self):
+    @mock.patch("bots.serializers.os.getenv")
+    def test_transcription_settings_validation_custom_model(self, mock_getenv):
         """Test that custom model from env var is accepted in validation"""
-        from bots.serializers import CreateBotSerializer
+        mock_getenv.side_effect = lambda key, default=None: {
+            "OPENAI_MODEL_NAME": "custom-whisper-model",
+        }.get(key, default)
 
-        serializer = CreateBotSerializer()
+        # Import and reload the serializers module to pick up the mocked getenv
+        import importlib
+
+        from bots import serializers
+
+        importlib.reload(serializers)
+
+        # Provide initial data with a meeting URL that supports OpenAI transcription
+        data = {
+            "meeting_url": "https://zoom.us/j/123456789",
+            "bot_name": "Test Bot",
+        }
+        serializer = serializers.CreateBotSerializer(data=data)
 
         valid_settings = {"openai": {"model": "custom-whisper-model"}}
         validated = serializer.validate_transcription_settings(valid_settings)
