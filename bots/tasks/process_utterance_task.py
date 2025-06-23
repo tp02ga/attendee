@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 
 import requests
@@ -259,7 +260,8 @@ def get_transcription_via_openai(utterance):
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
 
     # Prepare the request for OpenAI's transcription API
-    url = "https://api.openai.com/v1/audio/transcriptions"
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    url = f"{base_url}/audio/transcriptions"
     headers = {
         "Authorization": f"Bearer {openai_credentials['api_key']}",
     }

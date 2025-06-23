@@ -263,6 +263,55 @@ from bots.models import (
 )
 
 
+class BotModelTest(TransactionTestCase):
+    """Unit tests for Bot model methods related to OpenAI transcription configuration"""
+
+    def setUp(self):
+        self.org = Organization.objects.create(name="Org")
+        self.project = Project.objects.create(name="Proj", organization=self.org)
+        self.bot = Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/test")
+
+    @mock.patch.dict("os.environ", {}, clear=True)
+    def test_openai_transcription_model_default_without_env(self):
+        """Test that the default model is used when no env var or settings are present"""
+        model = self.bot.openai_transcription_model()
+        self.assertEqual(model, "gpt-4o-transcribe")
+
+    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-env-model"})
+    def test_openai_transcription_model_env_var_fallback(self):
+        """Test that env var is used as fallback when no bot settings are present"""
+        model = self.bot.openai_transcription_model()
+        self.assertEqual(model, "custom-env-model")
+
+    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-env-model"})
+    def test_openai_transcription_model_settings_override_env(self):
+        """Test that bot settings override env var"""
+        self.bot.settings = {
+            "transcription_settings": {
+                "openai": {
+                    "model": "settings-model"
+                }
+            }
+        }
+        self.bot.save()
+        model = self.bot.openai_transcription_model()
+        self.assertEqual(model, "settings-model")
+
+    @mock.patch.dict("os.environ", {}, clear=True)
+    def test_openai_transcription_model_settings_override_default(self):
+        """Test that bot settings override default"""
+        self.bot.settings = {
+            "transcription_settings": {
+                "openai": {
+                    "model": "settings-model"
+                }
+            }
+        }
+        self.bot.save()
+        model = self.bot.openai_transcription_model()
+        self.assertEqual(model, "settings-model")
+
+
 class GladiaProviderTest(TransactionTestCase):
     """Unit‑tests for bots.tasks.process_utterance_task.get_transcription_via_gladia"""
 
@@ -477,6 +526,60 @@ class OpenAIProviderTest(TransactionTestCase):
 
         self.assertIsNone(tx)
         self.assertEqual(failure, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND})
+
+    # ────────────────────────────────────────────────────────────────────────────────
+    @mock.patch("bots.tasks.process_utterance_task.requests.post")
+    @mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3")
+    @mock.patch.dict("os.environ", {"OPENAI_BASE_URL": "https://custom.openai.com/v1"})
+    def test_custom_base_url_from_env(self, mock_pcm, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"text": "custom endpoint!"}
+        with mock.patch.object(self.creds.__class__, "get_credentials", return_value={"api_key": "sk‑XYZ"}):
+            tx, failure = get_transcription_via_openai(self.utt)
+
+        self.assertIsNone(failure)
+        self.assertEqual(tx, {"transcript": "custom endpoint!"})
+        # Verify that the custom base URL was used
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        self.assertEqual(call_args[1]["url"], "https://custom.openai.com/v1/audio/transcriptions")
+
+    # ────────────────────────────────────────────────────────────────────────────────
+    @mock.patch("bots.tasks.process_utterance_task.requests.post")
+    @mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3")
+    @mock.patch.dict("os.environ", {"OPENAI_MODEL_NAME": "custom-model"})
+    def test_custom_model_name_from_env(self, mock_pcm, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"text": "custom model!"}
+        with mock.patch.object(self.creds.__class__, "get_credentials", return_value={"api_key": "sk‑XYZ"}):
+            tx, failure = get_transcription_via_openai(self.utt)
+
+        self.assertIsNone(failure)
+        self.assertEqual(tx, {"transcript": "custom model!"})
+        # Verify that the custom model name was used
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        files_dict = call_args[1]["files"]
+        self.assertEqual(files_dict["model"][1], "custom-model")
+
+    # ────────────────────────────────────────────────────────────────────────────────
+    @mock.patch("bots.tasks.process_utterance_task.requests.post")
+    @mock.patch("bots.tasks.process_utterance_task.pcm_to_mp3", return_value=b"mp3")
+    @mock.patch.dict("os.environ", {"OPENAI_BASE_URL": "https://custom-ai-endpoint.example.com/v1", "OPENAI_MODEL_NAME": "gpt-4-turbo-transcribe"})
+    def test_both_env_vars_together(self, mock_pcm, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"text": "both custom!"}
+        with mock.patch.object(self.creds.__class__, "get_credentials", return_value={"api_key": "sk‑XYZ"}):
+            tx, failure = get_transcription_via_openai(self.utt)
+
+        self.assertIsNone(failure)
+        self.assertEqual(tx, {"transcript": "both custom!"})
+        # Verify both custom values were used
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        self.assertEqual(call_args[1]["url"], "https://custom-ai-endpoint.example.com/v1/audio/transcriptions")
+        files_dict = call_args[1]["files"]
+        self.assertEqual(files_dict["model"][1], "gpt-4-turbo-transcribe")
 
 
 from unittest import mock

@@ -257,7 +257,8 @@ class Bot(models.Model):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("prompt", None)
 
     def openai_transcription_model(self):
-        return self.settings.get("transcription_settings", {}).get("openai", {}).get("model", "gpt-4o-transcribe")
+        default_model = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-transcribe")
+        return self.settings.get("transcription_settings", {}).get("openai", {}).get("model", default_model)
 
     def openai_transcription_language(self):
         return self.settings.get("transcription_settings", {}).get("openai", {}).get("language", None)
