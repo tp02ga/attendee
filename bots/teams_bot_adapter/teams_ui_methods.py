@@ -68,8 +68,12 @@ class TeamsUIMethods:
         else:
             logger.info("Camera button is already off, not clicking it")
 
+    def is_teams_live_meeting(self):
+        return "teams.live.com" in self.driver.current_url
+
     def fill_out_name_input(self):
-        if self.teams_bot_login_credentials:
+        # Teams live meetings always have you fill out your name even if you're logged in
+        if self.teams_bot_login_credentials and not self.is_teams_live_meeting():
             return
 
         num_attempts = 30
