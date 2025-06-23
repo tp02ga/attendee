@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from bots.models import RecordingViews
 from bots.web_bot_adapter.ui_methods import UiCouldNotClickElementException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiLoginAttemptFailedException, UiLoginRequiredException, UiRequestToJoinDeniedException, UiRetryableExpectedException
 
 logger = logging.getLogger(__name__)
@@ -185,16 +186,31 @@ class TeamsUIMethods:
                 self.click_element(dismiss_button, "dismiss_button")
             raise UiRequestToJoinDeniedException("Someone in the call denied your request to join", step)
 
-    def select_speaker_view(self):
+    def set_layout(self, layout_to_select):
         logger.info("Waiting for the view button...")
         view_button = self.locate_element(step="view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#view-mode-button, #custom-view-button")), wait_time_seconds=60)
         logger.info("Clicking the view button...")
         self.click_element(view_button, "view_button")
 
-        logger.info("Waiting for the speaker view button...")
-        speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-SpeakerViewButton, #SpeakerView-button")), wait_time_seconds=10)
-        logger.info("Clicking the speaker view button...")
-        self.click_element(speaker_view_button, "speaker_view_button")
+        if layout_to_select == "speaker":
+            logger.info("Waiting for the speaker view button...")
+            speaker_view_button = self.locate_element(step="speaker_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-SpeakerViewButton, #SpeakerView-button")), wait_time_seconds=10)
+            logger.info("Clicking the speaker view button...")
+            self.click_element(speaker_view_button, "speaker_view_button")
+
+        if layout_to_select == "gallery":
+            logger.info("Waiting for the gallery view button...")
+            gallery_view_button = self.locate_element(step="gallery_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-MixedGridButton, #MixedGrid-button")), wait_time_seconds=10)
+            logger.info("Clicking the gallery view button...")
+            self.click_element(gallery_view_button, "gallery_view_button")
+
+    def get_layout_to_select(self):
+        if self.recording_view == RecordingViews.SPEAKER_VIEW:
+            return "speaker"
+        elif self.recording_view == RecordingViews.GALLERY_VIEW:
+            return "gallery"
+        else:
+            return "speaker"
 
     # Returns nothing if succeeded, raises an exception if failed
     def attempt_to_join_meeting(self):
@@ -231,8 +247,7 @@ class TeamsUIMethods:
         # Click the captions button
         self.click_captions_button()
 
-        # Select speaker view
-        self.select_speaker_view()
+        self.set_layout(self.get_layout_to_select())
 
         self.ready_to_show_bot_image()
 
