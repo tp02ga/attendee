@@ -56,15 +56,6 @@ Closed caption-based transcription is free.
 
 For third-party-based transcription, you need to add your API Key for a provider like Deepgram, OpenAI, Gladia, or Assembly AI in the Settings > Credentials page.
 
-### Note on custom OpenAI proxy servers
-
-To use a custom OpenAI-compatible endpoint (such as a proxy server or alternative model provider), set these environment variables:
-
-- `OPENAI_BASE_URL`: The base URL for your custom endpoint (default: `https://api.openai.com/v1`)
-- `OPENAI_MODEL_NAME`: The model name to use for transcription (default: `gpt-4o-transcribe`)
-
-Example: `OPENAI_BASE_URL=https://your-proxy.com/v1` and `OPENAI_MODEL_NAME=whisper-large-v3`
-
 ## Transcription errors
 
 If you are using third-party-based transcription, you may encounter errors from the transcription provider. These errors are visible in the bot detail page in the dashboard, in the transcription section.
@@ -137,3 +128,12 @@ $50 in free credits for new users.
 ### OpenAI
 
 Cheaper then the other providers, but less accurate and often chooses the wrong language when the language is not specified in advance. Can transcribe audio where the speaker is switching languages in the middle of a sentence. Lacks word-level timestamps.
+
+#### Note on custom OpenAI proxy servers
+
+To use a custom OpenAI-compatible endpoint (such as a proxy server or alternative model provider), set these environment variables:
+
+- `OPENAI_BASE_URL`: The base URL for your custom endpoint (default: `https://api.openai.com/v1`)
+- `OPENAI_MODEL_NAME`: The model name to use for transcription (default: `gpt-4o-transcribe`)
+
+Example: `OPENAI_BASE_URL=https://your-proxy.com/v1` and `OPENAI_MODEL_NAME=whisper-large-v3`
