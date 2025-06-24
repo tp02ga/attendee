@@ -200,7 +200,7 @@ class TeamsUIMethods:
 
         if layout_to_select == "gallery":
             logger.info("Waiting for the gallery view button...")
-            gallery_view_button = self.locate_element(step="gallery_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-MixedGridButton, #MixedGrid-button")), wait_time_seconds=10)
+            gallery_view_button = self.locate_element(step="gallery_view_button", condition=EC.presence_of_element_located((By.CSS_SELECTOR, "#custom-view-button-MixedGridButton, #MixedGrid-button, #MixedGridView-button")), wait_time_seconds=10)
             logger.info("Clicking the gallery view button...")
             self.click_element(gallery_view_button, "gallery_view_button")
 
