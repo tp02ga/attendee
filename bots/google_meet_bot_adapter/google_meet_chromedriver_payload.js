@@ -1603,18 +1603,29 @@ const handleAudioTrack = async (event) => {
                 }
 
                 const contributingSources = receiverManager.getContributingSources(receiver);
-                const usersForContributingSources = contributingSources.map(source => userManager.getUserByStreamId(source.source.toString())).filter(x => x);
+
+                const usersForContributingSourcesWithAudioLevel = contributingSources.map(source => {
+                    return {
+                        audioLevel: source?.audioLevel || 0, 
+                        user: userManager.getUserByStreamId(source.source.toString())
+                    }
+                }).filter(x => x.user).sort((a, b) => b.audioLevel - a.audioLevel);
+
+                const userForContributingSourceWithLoudestAudio = usersForContributingSourcesWithAudioLevel[0]?.user;
+
+
                 //console.log('contributingSources', contributingSources);
                 //console.log('deviceOutputMap', userManager.deviceOutputMap);
                 //console.log('usersForContributingSources', usersForContributingSources);
 
                 // Send audio data through websocket
-                if (usersForContributingSources.length === 1) {
-                    const firstUserId = usersForContributingSources[0]?.deviceId;
+                if (userForContributingSourceWithLoudestAudio) {
+                    const firstUserId = userForContributingSourceWithLoudestAudio?.deviceId;
                     if (firstUserId) {
                         ws.sendPerParticipantAudio(firstUserId, audioData);
                     }
                 }
+                
                 // Pass through the original frame
                 controller.enqueue(frame);
             } catch (error) {
