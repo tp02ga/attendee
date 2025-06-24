@@ -79,17 +79,17 @@ class MP4Demuxer:
         launch = f"""
             uridecodebin name=d uri={self._url}
 
-                d. ! queue max-size-buffers=1000000 max-size-bytes=2294967200 max-size-time=0 leaky=upstream \
+                d. ! queue max-size-buffers=200 max-size-bytes=50000000 max-size-time=5000000000 leaky=downstream \
                     ! videoconvert \
                     ! videoscale \
                     ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
-                    ! appsink name=vsink emit-signals=true sync=true max-buffers=100 drop=true
+                    ! appsink name=vsink emit-signals=true sync=false max-buffers=10 drop=true
 
-                d. ! queue max-size-buffers=1000000 max-size-bytes=100000000 max-size-time=0 leaky=upstream \
+                d. ! queue max-size-buffers=500 max-size-bytes=10000000 max-size-time=5000000000 leaky=downstream \
                     ! audioconvert \
                     ! audioresample \
                     ! audio/x-raw,format=S16LE,channels=1,rate=8000 \
-                    ! appsink name=asink emit-signals=true sync=true max-buffers=300 drop=true
+                    ! appsink name=asink emit-signals=true sync=true max-buffers=20 drop=true
         """
         self._pipeline = Gst.parse_launch(launch)
 
@@ -135,6 +135,23 @@ class MP4Demuxer:
     # ------------------------- Bus handler ----------------------------- #
     def _on_bus_message(self, bus, msg):
         t = msg.type
-        if t == Gst.MessageType.EOS or t == Gst.MessageType.ERROR:
-            # Pipeline finished or hit error – shut down cleanly
+        if t == Gst.MessageType.EOS:
+            print("MP4Demuxer: End of stream reached")
             self.stop()
+        elif t == Gst.MessageType.ERROR:
+            error, debug = msg.parse_error()
+            print(f"MP4Demuxer: Pipeline error: {error.message}")
+            print(f"MP4Demuxer: Debug info: {debug}")
+            self.stop()
+        elif t == Gst.MessageType.WARNING:
+            warning, debug = msg.parse_warning()
+            print(f"MP4Demuxer: Pipeline warning: {warning.message}")
+            if debug:
+                print(f"MP4Demuxer: Debug info: {debug}")
+        elif t == Gst.MessageType.INFO:
+            info, debug = msg.parse_info()
+            print(f"MP4Demuxer: Pipeline info: {info.message}")
+        elif t == Gst.MessageType.STATE_CHANGED:
+            if msg.src == self._pipeline:
+                old_state, new_state, pending_state = msg.parse_state_changed()
+                print(f"MP4Demuxer: Pipeline state changed from {old_state.value_nick} to {new_state.value_nick}")
