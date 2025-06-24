@@ -4,7 +4,7 @@ import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GObject, Gst
+from gi.repository import GObject, Gst, GLib
 
 
 # --------------------------------------------------------------------------- #
@@ -33,6 +33,7 @@ class MP4Demuxer:
         self._playing = False
         self._loop = GObject.MainLoop()
         self._thread = None
+        self._queue_elements = {}  # Store references to queue elements
 
         self._build_pipeline()
 
@@ -49,6 +50,9 @@ class MP4Demuxer:
         self._thread = threading.Thread(target=self._loop.run, daemon=True)
         self._thread.start()
         self._playing = True
+        
+        # Start queue monitoring
+        GLib.timeout_add_seconds(10, self._monitor_queue_sizes)
 
     def stop(self) -> None:
         """
@@ -79,23 +83,32 @@ class MP4Demuxer:
         launch = f"""
             uridecodebin name=d uri={self._url}
 
-                d. ! queue max-size-buffers=200 max-size-bytes=50000000 max-size-time=5000000000 leaky=downstream \
-                    ! videoconvert \
-                    ! videoscale \
-                    ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
-                    ! appsink name=vsink emit-signals=true sync=false max-buffers=10 drop=true
+                d. ! queue name=video_queue                                 \
+                        max-size-buffers=50 max-size-bytes=0 max-size-time=0 \
+                        ! videorate max-rate=15 drop-only=true          \
+                        ! videoconvert                                  \
+                        ! videoscale                                    \
+                        ! video/x-raw,framerate=15/1,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
+                        ! appsink name=vsink emit-signals=true sync=true   \
+                                max-buffers=10 drop=false              
 
-                d. ! queue max-size-buffers=500 max-size-bytes=10000000 max-size-time=5000000000 leaky=downstream \
-                    ! audioconvert \
-                    ! audioresample \
-                    ! audio/x-raw,format=S16LE,channels=1,rate=8000 \
-                    ! appsink name=asink emit-signals=true sync=true max-buffers=20 drop=true
+                d. ! queue name=audio_queue                                 \
+                        max-size-buffers=100 max-size-bytes=0 max-size-time=0 \
+                        ! audioconvert                                  \
+                        ! audioresample                                 \
+                        ! audio/x-raw,format=S16LE,channels=1,rate=8000 \
+                        ! appsink name=asink emit-signals=true sync=true \
+                                max-buffers=30 drop=false
         """
         self._pipeline = Gst.parse_launch(launch)
 
         # sink elements
         vsink = self._pipeline.get_by_name("vsink")
         asink = self._pipeline.get_by_name("asink")
+
+        # Get queue elements for monitoring
+        self._queue_elements["video_queue"] = self._pipeline.get_by_name("video_queue")
+        self._queue_elements["audio_queue"] = self._pipeline.get_by_name("audio_queue")
 
         # connect data callbacks
         vsink.connect("new-sample", self._on_video_sample)
@@ -105,6 +118,40 @@ class MP4Demuxer:
         bus = self._pipeline.get_bus()
         bus.add_signal_watch()
         bus.connect("message", self._on_bus_message)
+
+    def _monitor_queue_sizes(self) -> bool:
+        """
+        Monitor and print queue sizes. Returns True to continue the timer.
+        """
+        if not self._playing:
+            return False  # Stop the timer
+            
+        print("\n=== MP4Demuxer Queue Status ===")
+        for queue_name, queue_element in self._queue_elements.items():
+            if queue_element:
+                try:
+                    current_buffers = queue_element.get_property("current-level-buffers")
+                    max_buffers = queue_element.get_property("max-size-buffers")
+                    current_bytes = queue_element.get_property("current-level-bytes")
+                    max_bytes = queue_element.get_property("max-size-bytes")
+                    current_time = queue_element.get_property("current-level-time")
+                    max_time = queue_element.get_property("max-size-time")
+                    
+                    print(f"{queue_name}:")
+                    print(f"  Buffers: {current_buffers}/{max_buffers} ({current_buffers/max_buffers*100:.1f}%)")
+                    print(f"  Bytes: {current_bytes:,}/{max_bytes:,} ({current_bytes/max_bytes*100:.1f}%)")
+                    if max_time > 0:
+                        print(f"  Time: {current_time/1e9:.2f}s/{max_time/1e9:.2f}s ({current_time/max_time*100:.1f}%)")
+                    else:
+                        print(f"  Time: {current_time/1e9:.2f}s (no limit)")
+                        
+                except Exception as e:
+                    print(f"Error getting stats for {queue_name}: {e}")
+            else:
+                print(f"{queue_name}: Element not found")
+        print("===============================\n")
+        
+        return True  # Continue the timer
 
     # ------------------------- Sample handlers ------------------------- #
     def _on_video_sample(self, sink) -> Gst.FlowReturn:
@@ -135,23 +182,6 @@ class MP4Demuxer:
     # ------------------------- Bus handler ----------------------------- #
     def _on_bus_message(self, bus, msg):
         t = msg.type
-        if t == Gst.MessageType.EOS:
-            print("MP4Demuxer: End of stream reached")
+        if t == Gst.MessageType.EOS or t == Gst.MessageType.ERROR:
+            # Pipeline finished or hit error – shut down cleanly
             self.stop()
-        elif t == Gst.MessageType.ERROR:
-            error, debug = msg.parse_error()
-            print(f"MP4Demuxer: Pipeline error: {error.message}")
-            print(f"MP4Demuxer: Debug info: {debug}")
-            self.stop()
-        elif t == Gst.MessageType.WARNING:
-            warning, debug = msg.parse_warning()
-            print(f"MP4Demuxer: Pipeline warning: {warning.message}")
-            if debug:
-                print(f"MP4Demuxer: Debug info: {debug}")
-        elif t == Gst.MessageType.INFO:
-            info, debug = msg.parse_info()
-            print(f"MP4Demuxer: Pipeline info: {info.message}")
-        elif t == Gst.MessageType.STATE_CHANGED:
-            if msg.src == self._pipeline:
-                old_state, new_state, pending_state = msg.parse_state_changed()
-                print(f"MP4Demuxer: Pipeline state changed from {old_state.value_nick} to {new_state.value_nick}")
