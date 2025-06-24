@@ -377,7 +377,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
         help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
     )
     to = serializers.ChoiceField(choices=BotChatMessageToOptions.values, help_text="Who to send the message to.", default=BotChatMessageToOptions.EVERYONE)
-    message = serializers.CharField(help_text="The message text to send.")
+    message = serializers.CharField(help_text="The message text to send. Does not support emojis currently.")
 
     def validate(self, data):
         to_value = data.get("to")
@@ -387,6 +387,16 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
 
         return data
+
+    def validate_message(self, value):
+        if len(value) > 10000:
+            raise serializers.ValidationError("Message must be less than 10000 characters")
+
+        """Validate that the message only contains characters in the Basic Multilingual Plane (BMP)."""
+        for char in value:
+            if ord(char) > 0xFFFF:
+                raise serializers.ValidationError("Message cannot contain emojis or rare script characters.")
+        return value
 
 
 @extend_schema_serializer(
