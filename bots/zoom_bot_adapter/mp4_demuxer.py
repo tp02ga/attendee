@@ -85,10 +85,10 @@ class MP4Demuxer:
 
                 d. ! queue name=video_queue                                 \
                         max-size-buffers=50 max-size-bytes=0 max-size-time=0 \
-                        ! videorate max-rate=15 drop-only=true          \
+                        ! videorate max-rate=25 drop-only=true          \
                         ! videoconvert                                  \
                         ! videoscale                                    \
-                        ! video/x-raw,framerate=15/1,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
+                        ! video/x-raw,width={self._output_video_dimensions[0]},height={self._output_video_dimensions[1]},format=I420 \
                         ! appsink name=vsink emit-signals=true sync=true   \
                                 max-buffers=10 drop=false              
 
