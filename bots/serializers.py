@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from dataclasses import asdict
 
 import jsonschema
@@ -29,6 +30,17 @@ from .models import (
     RecordingViews,
     TranscriptionProviders,
 )
+
+
+def get_openai_model_enum():
+    """Get allowed OpenAI models including custom env var if set"""
+    default_models = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+    custom_model = os.getenv("OPENAI_MODEL_NAME")
+    if custom_model and custom_model not in default_models:
+        return default_models + [custom_model]
+    return default_models
+
+
 from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 # Define the schema once
@@ -158,7 +170,7 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
@@ -178,7 +190,26 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
                     "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
+                    },
+                },
+                "required": [],
                 "additionalProperties": False,
             },
         },
@@ -252,6 +283,24 @@ class DebugSettingsJSONField(serializers.JSONField):
 
 @extend_schema_field({"type": "object", "description": "JSON object containing metadata to associate with the bot", "example": {"client_id": "abc123", "user": "john_doe", "purpose": "Weekly team meeting"}})
 class MetadataJSONField(serializers.JSONField):
+    pass
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "use_login": {
+                "type": "boolean",
+                "description": "Whether to use Teams bot login credentials to sign in before joining the meeting. Requires Teams bot login credentials to be set for the project.",
+                "default": False,
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class TeamsSettingsJSONField(serializers.JSONField):
     pass
 
 
@@ -397,7 +446,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
@@ -417,6 +466,8 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string"},
                     "language_detection": {"type": "boolean"},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
                 "required": [],
                 "additionalProperties": False,
@@ -428,6 +479,23 @@ class CreateBotSerializer(serializers.Serializer):
                     "teams_language": {
                         "type": "string",
                         "enum": ["ar-sa", "ar-ae", "bg-bg", "ca-es", "zh-cn", "zh-hk", "zh-tw", "hr-hr", "cs-cz", "da-dk", "nl-be", "nl-nl", "en-au", "en-ca", "en-in", "en-nz", "en-gb", "en-us", "et-ee", "fi-fi", "fr-ca", "fr-fr", "de-de", "de-ch", "el-gr", "he-il", "hi-in", "hu-hu", "id-id", "it-it", "ja-jp", "ko-kr", "lv-lv", "lt-lt", "nb-no", "pl-pl", "pt-br", "pt-pt", "ro-ro", "ru-ru", "sr-rs", "sk-sk", "sl-si", "es-mx", "es-es", "sv-se", "th-th", "tr-tr", "uk-ua", "vi-vn", "cy-gb"],
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
                     },
                 },
                 "required": [],
@@ -562,6 +630,41 @@ class CreateBotSerializer(serializers.Serializer):
         view = value.get("view")
         if view not in [RecordingViews.SPEAKER_VIEW, RecordingViews.GALLERY_VIEW, None]:
             raise serializers.ValidationError({"view": "View must be speaker_view or gallery_view"})
+
+        return value
+
+    teams_settings = TeamsSettingsJSONField(
+        help_text="The Microsoft Teams-specific settings for the bot.",
+        required=False,
+        default={"use_login": False},
+    )
+
+    TEAMS_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "use_login": {"type": "boolean"},
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_teams_settings(self, value):
+        if value is None:
+            return value
+
+        # Define defaults
+        defaults = {"use_login": False}
+
+        try:
+            jsonschema.validate(instance=value, schema=self.TEAMS_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # If at least one attribute is provided, apply defaults for any missing attributes
+        if value:
+            for key, default_value in defaults.items():
+                if key not in value:
+                    value[key] = default_value
 
         return value
 
