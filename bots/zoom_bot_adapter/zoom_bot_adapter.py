@@ -170,6 +170,9 @@ class ZoomBotAdapter(BotAdapter):
 
         self.mp4_demuxer = None
 
+        self.cannot_send_video_error_ticker = 0
+        self.cannot_send_audio_error_ticker = 0
+
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
         for joined_user_id in joined_user_ids:
@@ -471,7 +474,9 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_image(self, png_image_bytes):
         if not self.on_virtual_camera_start_send_callback_called:
-            logger.error("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            if self.cannot_send_video_error_ticker % 500 == 0:
+                logger.error("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            self.cannot_send_video_error_ticker += 1
             return
 
         if not self.suggested_video_cap:
@@ -539,7 +544,9 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_audio(self, bytes, sample_rate):
         if not self.on_mic_start_send_callback_called:
-            logger.error("on_mic_start_send_callback_called not called so cannot send raw audio")
+            if self.cannot_send_audio_error_ticker % 500 == 0:
+                logger.error("on_mic_start_send_callback_called not called so cannot send raw audio")
+            self.cannot_send_audio_error_ticker += 1
             return
 
         send_result = self.audio_raw_data_sender.send(bytes, sample_rate, zoom.ZoomSDKAudioChannel_Mono)
