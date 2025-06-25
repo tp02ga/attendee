@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 
 from bots.models import Credentials, RecordingManager, TranscriptionFailureReasons, TranscriptionProviders, Utterance, WebhookTriggerTypes
 from bots.utils import pcm_to_mp3
-from bots.webhook_utils import trigger_webhook
 from bots.webhook_payloads import utterance_webhook_payload
+from bots.webhook_utils import trigger_webhook
+
 
 def is_retryable_failure(failure_data):
     return failure_data.get("reason") in [
