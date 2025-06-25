@@ -992,14 +992,43 @@ class Participant(models.Model):
     email = models.EmailField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    object_id = models.CharField(max_length=255, unique=True, editable=False, blank=True, null=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["bot", "uuid"], name="unique_participant_per_bot")]
+
+    OBJECT_ID_PREFIX = "par_"
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         display_name = self.full_name or self.uuid
         return f"{display_name} in {self.bot.object_id}"
 
+class ParticipantEventTypes(models.IntegerChoices):
+    JOIN = 1, "Join"
+    LEAVE = 2, "Leave"
+
+class ParticipantEvent(models.Model):
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name="events")
+    event_type = models.IntegerField(choices=ParticipantEventTypes.choices)
+    object_id = models.CharField(max_length=255, unique=True, editable=False)
+
+    event_data = models.JSONField(null=False, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    OBJECT_ID_PREFIX = "pe_"
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
 
 class RecordingStates(models.IntegerChoices):
     NOT_STARTED = 1, "Not Started"
