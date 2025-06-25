@@ -1,16 +1,17 @@
-import threading
-import tempfile
-import os
-import urllib.request
 import logging
+import os
+import tempfile
+import threading
+import urllib.request
 
 import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GObject, Gst, GLib
+from gi.repository import GLib, GObject, Gst
 
 logger = logging.getLogger(__name__)
+
 
 # --------------------------------------------------------------------------- #
 #  Core class                                                                 #
@@ -52,11 +53,11 @@ class MP4Demuxer:
         Download the file from URL to a temporary file.
         """
         logger.info(f"Downloading MP4 from {self._url}...")
-        
+
         # Create a temporary file
-        temp_fd, self._temp_file_path = tempfile.mkstemp(suffix='.mp4')
+        temp_fd, self._temp_file_path = tempfile.mkstemp(suffix=".mp4")
         os.close(temp_fd)  # Close the file descriptor, we'll use the path
-        
+
         try:
             # Download the file
             urllib.request.urlretrieve(self._url, self._temp_file_path)
@@ -80,7 +81,7 @@ class MP4Demuxer:
         self._thread = threading.Thread(target=self._loop.run, daemon=True)
         self._thread.start()
         self._playing = True
-        
+
         # Start queue monitoring
         GLib.timeout_add_seconds(10, self._monitor_queue_sizes)
 
@@ -96,7 +97,7 @@ class MP4Demuxer:
         if self._thread and self._thread.is_alive():
             self._thread.join()
         self._playing = False
-        
+
         # Clean up temporary file
         self._cleanup_temp_file()
 
@@ -173,7 +174,7 @@ class MP4Demuxer:
         """
         if not self._playing:
             return False  # Stop the timer
-            
+
         logger.info("\n=== MP4Demuxer Queue Status ===")
         for queue_name, queue_element in self._queue_elements.items():
             if queue_element:
@@ -184,27 +185,27 @@ class MP4Demuxer:
                     max_bytes = queue_element.get_property("max-size-bytes")
                     current_time = queue_element.get_property("current-level-time")
                     max_time = queue_element.get_property("max-size-time")
-                    
+
                     logger.info(f"{queue_name}:")
                     if max_buffers > 0:
-                        logger.info(f"  Buffers: {current_buffers}/{max_buffers} ({current_buffers/max_buffers*100:.1f}%)")
+                        logger.info(f"  Buffers: {current_buffers}/{max_buffers} ({current_buffers / max_buffers * 100:.1f}%)")
                     else:
                         logger.info(f"  Buffers: {current_buffers} (no limit)")
                     if max_bytes > 0:
-                        logger.info(f"  Bytes: {current_bytes:,}/{max_bytes:,} ({current_bytes/max_bytes*100:.1f}%)")
+                        logger.info(f"  Bytes: {current_bytes:,}/{max_bytes:,} ({current_bytes / max_bytes * 100:.1f}%)")
                     else:
                         logger.info(f"  Bytes: {current_bytes:,} (no limit)")
                     if max_time > 0:
-                        logger.info(f"  Time: {current_time/1e9:.2f}s/{max_time/1e9:.2f}s ({current_time/max_time*100:.1f}%)")
+                        logger.info(f"  Time: {current_time / 1e9:.2f}s/{max_time / 1e9:.2f}s ({current_time / max_time * 100:.1f}%)")
                     else:
-                        logger.info(f"  Time: {current_time/1e9:.2f}s (no limit)")
-                        
+                        logger.info(f"  Time: {current_time / 1e9:.2f}s (no limit)")
+
                 except Exception as e:
                     logger.error(f"Error getting stats for {queue_name}: {e}")
             else:
                 logger.error(f"{queue_name}: Element not found")
         logger.info("===============================\n")
-        
+
         return True  # Continue the timer
 
     # ------------------------- Sample handlers ------------------------- #
