@@ -170,6 +170,9 @@ class ZoomBotAdapter(BotAdapter):
 
         self.mp4_demuxer = None
 
+        self.cannot_send_video_error_ticker = 0
+        self.cannot_send_audio_error_ticker = 0
+
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
         for joined_user_id in joined_user_ids:
@@ -183,6 +186,10 @@ class ZoomBotAdapter(BotAdapter):
                 self.only_one_participant_in_meeting_at = time.time()
         else:
             self.only_one_participant_in_meeting_at = None
+
+    def on_host_request_start_audio_callback(self, handler):
+        logger.info("on_host_request_start_audio_callback called. Accepting request.")
+        handler.Accept()
 
     def on_user_active_audio_change_callback(self, user_ids):
         if len(user_ids) == 0:
@@ -404,7 +411,7 @@ class ZoomBotAdapter(BotAdapter):
 
         # Audio controller
         self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
-        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
+        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onHostRequestStartAudioCallback=self.on_host_request_start_audio_callback, onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
         self.audio_ctrl.SetEvent(self.audio_ctrl_event)
         # Raw audio input got borked in the Zoom SDK after 6.3.5.
         # This is work-around to get it to work again.
@@ -467,7 +474,10 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_image(self, png_image_bytes):
         if not self.on_virtual_camera_start_send_callback_called:
-            raise Exception("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            if self.cannot_send_video_error_ticker % 500 == 0:
+                logger.error("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            self.cannot_send_video_error_ticker += 1
+            return
 
         if not self.suggested_video_cap:
             logger.error("suggested_video_cap is None so cannot send raw image")
@@ -534,7 +544,11 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_audio(self, bytes, sample_rate):
         if not self.on_mic_start_send_callback_called:
-            raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
+            if self.cannot_send_audio_error_ticker % 500 == 0:
+                logger.error("on_mic_start_send_callback_called not called so cannot send raw audio")
+            self.cannot_send_audio_error_ticker += 1
+            return
+
         send_result = self.audio_raw_data_sender.send(bytes, sample_rate, zoom.ZoomSDKAudioChannel_Mono)
         if send_result != zoom.SDKERR_SUCCESS:
             logger.info(f"error with send_raw_audio send_result = {send_result}")
