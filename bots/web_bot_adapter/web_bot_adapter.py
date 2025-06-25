@@ -121,6 +121,19 @@ class WebBotAdapter(BotAdapter):
 
         return None
 
+    def handle_participant_update(self, user):
+
+        user_before = self.participants_info.get(user["deviceId"], {"active": False})
+        self.participants_info[user["deviceId"]] = user
+
+        if user_before.get("active") and not user["active"]:
+            self.add_participant_event(user, {"event_type": ParticipantEventTypes.LEAVE, "event_data": user})
+            return
+
+        if not user_before.get("active") and user["active"]:
+            self.add_participant_event(user, {"event_type": ParticipantEventTypes.JOIN, "event_data": user})
+            return
+
     def process_video_frame(self, message):
         if self.recording_paused:
             return
@@ -263,13 +276,13 @@ class WebBotAdapter(BotAdapter):
                         elif json_data.get("type") == "UsersUpdate":
                             for user in json_data["newUsers"]:
                                 user["active"] = user["humanized_status"] == "in_meeting"
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
                             for user in json_data["removedUsers"]:
                                 user["active"] = False
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
                             for user in json_data["updatedUsers"]:
                                 user["active"] = user["humanized_status"] == "in_meeting"
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
 
                                 if user["humanized_status"] == "removed_from_meeting" and user["fullName"] == self.display_name:
                                     # if this is the only participant with that name in the meeting, then we can assume that it was us who was removed

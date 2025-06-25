@@ -766,6 +766,8 @@ class BotController:
             raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
         return recordings_in_progress.first()
 
+    
+
     def save_closed_caption_utterance(self, message):
         participant, _ = Participant.objects.get_or_create(
             bot=self.bot_in_db,
@@ -844,6 +846,25 @@ class BotController:
 
     def on_new_chat_message(self, chat_message):
         GLib.idle_add(lambda: self.upsert_chat_message(chat_message))
+
+    def add_participant_event(self, participant, event):
+        # Create participant record if it doesn't exist
+        participant, _ = Participant.objects.get_or_create(
+            bot=self.bot_in_db,
+            uuid=participant["uuid"],
+            defaults={
+                "user_uuid": participant["user_uuid"],
+                "full_name": participant["full_name"],
+            },
+        )
+
+        ParticipantEvent.objects.create(
+            participant=participant,
+            event_type=event["event_type"],
+            event_data=event["event_data"],
+        )
+
+        return
 
     def upsert_chat_message(self, chat_message):
         logger.info(f"Upserting chat message: {chat_message}")
