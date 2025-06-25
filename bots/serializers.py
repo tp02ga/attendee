@@ -963,8 +963,9 @@ class SpeechSerializer(serializers.Serializer):
 
 
 class ChatMessageSerializer(serializers.Serializer):
-    object_id = serializers.CharField()
+    id = serializers.CharField(source="object_id")
     text = serializers.CharField()
+    timestamp_ms = serializers.SerializerMethodField()
     timestamp = serializers.IntegerField()
     to = serializers.SerializerMethodField()
     sender_name = serializers.CharField(source="participant.full_name")
@@ -974,6 +975,9 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
+
+    def get_timestamp_ms(self, obj):
+        return obj.timestamp * 1000
 
 
 @extend_schema_serializer(

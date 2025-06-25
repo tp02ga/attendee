@@ -1038,7 +1038,7 @@ class TestZoomBot(TransactionTestCase):
         chat_message = chat_messages.first()
         self.assertEqual(chat_message.text, "Hello bot from Test User!")
         self.assertEqual(chat_message.participant.full_name, "Test User")
-        self.assertEqual(chat_message.source_uuid, "test_chat_message_id_001")
+        self.assertEqual(chat_message.source_uuid, self.recording.object_id + "-test_chat_message_id_001")
         self.assertEqual(chat_message.to, ChatMessageToOptions.ONLY_BOT)
 
         # Verify chat message request was processed

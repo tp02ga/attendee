@@ -42,6 +42,7 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
+from bots.webhook_payloads import chat_message_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
@@ -798,7 +799,7 @@ class BotController:
         trigger_webhook(
             webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE,
             bot=self.bot_in_db,
-            payload=utterance.webhook_payload(),
+            payload=utterance_webhook_payload(utterance),
         )
 
         RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
@@ -862,9 +863,14 @@ class BotController:
             },
         )
 
-        ChatMessage.objects.update_or_create(
+        recording_in_progress = self.get_recording_in_progress()
+        if recording_in_progress is None:
+            logger.warning(f"Warning: No recording in progress found so cannot save chat message. Message: {chat_message}")
+            return
+
+        chat_message_in_db, _ = ChatMessage.objects.update_or_create(
             bot=self.bot_in_db,
-            source_uuid=chat_message["message_uuid"],
+            source_uuid=f"{recording_in_progress.object_id}-{chat_message['message_uuid']}",
             defaults={
                 "timestamp": chat_message["timestamp"],
                 "to": ChatMessageToOptions.ONLY_BOT if chat_message.get("to_bot") else ChatMessageToOptions.EVERYONE,
@@ -872,6 +878,13 @@ class BotController:
                 "participant": participant,
                 "additional_data": chat_message.get("additional_data", {}),
             },
+        )
+
+        # Create webhook event
+        trigger_webhook(
+            webhook_trigger_type=WebhookTriggerTypes.CHAT_MESSAGES_UPDATE,
+            bot=self.bot_in_db,
+            payload=chat_message_webhook_payload(chat_message_in_db),
         )
 
         return

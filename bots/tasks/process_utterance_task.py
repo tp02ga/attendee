@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 from bots.models import Credentials, RecordingManager, TranscriptionFailureReasons, TranscriptionProviders, Utterance, WebhookTriggerTypes
 from bots.utils import pcm_to_mp3
+from bots.webhook_payloads import utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 
@@ -82,11 +83,13 @@ def process_utterance(self, utterance_id):
 
         logger.info(f"Transcription complete for utterance {utterance_id}")
 
-        trigger_webhook(
-            webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE,
-            bot=recording.bot,
-            payload=utterance.webhook_payload(),
-        )
+        # Don't send webhook for empty transcript
+        if utterance.transcription.get("transcript"):
+            trigger_webhook(
+                webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE,
+                bot=recording.bot,
+                payload=utterance_webhook_payload(utterance),
+            )
 
     # If the recording is in a terminal state and there are no more utterances to transcribe, set the recording's transcription state to complete
     if RecordingManager.is_terminal_state(utterance.recording.state) and Utterance.objects.filter(recording=utterance.recording, transcription__isnull=True).count() == 0:
