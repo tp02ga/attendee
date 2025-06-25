@@ -1150,7 +1150,7 @@ class TestGoogleMeetBot(TransactionTestCase):
                 "timestamp": int(current_time * 1000),  # Convert to milliseconds
                 "text": "Hello, this is a test chat message!",
                 "to_bot": False,
-                "additional_data": {"source": "test"}
+                "additional_data": {"source": "test"},
             }
             controller.on_new_chat_message(chat_message_data)
 
@@ -1264,7 +1264,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify chat message was created
         chat_messages = ChatMessage.objects.filter(bot=self.bot)
         self.assertGreater(chat_messages.count(), 0, "Expected at least one chat message to be created")
-        
+
         # Verify the chat message has the correct content
         chat_message = chat_messages.first()
         self.assertEqual(chat_message.text, "Hello, this is a test chat message!")
