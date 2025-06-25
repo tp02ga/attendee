@@ -168,7 +168,7 @@ class ZoomBotAdapter(BotAdapter):
 
         self.suggested_video_cap = None
 
-        self.video_output_manager = None
+        self.mp4_demuxer = None
 
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
@@ -771,41 +771,41 @@ class ZoomBotAdapter(BotAdapter):
                 return
 
     def is_sent_video_still_playing(self):
-        if not self.video_output_manager:
+        if not self.mp4_demuxer:
             return False
-        return self.video_output_manager.is_playing()
+        return self.mp4_demuxer.is_playing()
 
     def send_video(self, video_url):
         logger.info(f"send_video called with video_url = {video_url}")
-        if self.video_output_manager:
-            self.video_output_manager.stop()
-            self.video_output_manager = None
+        if self.mp4_demuxer:
+            self.mp4_demuxer.stop()
+            self.mp4_demuxer = None
 
         if self.suggested_video_cap is None:
             logger.info("No suggested video cap. Not sending video.")
             return
 
-        self.video_output_manager = MP4Demuxer(
+        self.mp4_demuxer = MP4Demuxer(
             url=video_url,
             output_video_dimensions=(self.suggested_video_cap.width, self.suggested_video_cap.height),
-            on_video_sample=self.video_output_manager_on_video_sample,
-            on_audio_sample=self.video_output_manager_on_audio_sample,
+            on_video_sample=self.mp4_demuxer_on_video_sample,
+            on_audio_sample=self.mp4_demuxer_on_audio_sample,
         )
-        self.video_output_manager.start()
+        self.mp4_demuxer.start()
         return
 
-    def video_output_manager_on_video_sample(self, pts, bytes_from_gstreamer):
+    def mp4_demuxer_on_video_sample(self, pts, bytes_from_gstreamer):
         if self.requested_leave or self.cleaned_up or (not self.suggested_video_cap):
-            self.video_output_manager.stop()
-            self.video_output_manager = None
+            self.mp4_demuxer.stop()
+            self.mp4_demuxer = None
             return
 
         self.send_video_frame_to_zoom(bytes_from_gstreamer, self.suggested_video_cap.width, self.suggested_video_cap.height)
 
-    def video_output_manager_on_audio_sample(self, pts, bytes_from_gstreamer):
+    def mp4_demuxer_on_audio_sample(self, pts, bytes_from_gstreamer):
         if self.requested_leave or self.cleaned_up:
-            self.video_output_manager.stop()
-            self.video_output_manager = None
+            self.mp4_demuxer.stop()
+            self.mp4_demuxer = None
             return
 
         self.send_raw_audio(bytes_from_gstreamer, 8000)
