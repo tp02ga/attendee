@@ -1676,6 +1676,7 @@ class WebhookSecret(models.Model):
 class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
     TRANSCRIPT_UPDATE = 2, "Transcript Update"
+    CHAT_MESSAGES_UPDATE = 3, "Chat Messages Update"
     # add other event types here
 
     @classmethod
@@ -1683,6 +1684,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
         mapping = {
             cls.BOT_STATE_CHANGE: "bot.state_change",
             cls.TRANSCRIPT_UPDATE: "transcript.update",
+            cls.CHAT_MESSAGES_UPDATE: "chat_messages.update",
         }
         return mapping.get(value)
 

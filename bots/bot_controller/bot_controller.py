@@ -43,6 +43,7 @@ from bots.models import (
 )
 from bots.utils import meeting_type_from_url
 from bots.webhook_utils import trigger_webhook
+from bots.webhook_payloads import chat_message_webhook_payload
 
 from .audio_output_manager import AudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
@@ -867,7 +868,7 @@ class BotController:
             logger.warning(f"Warning: No recording in progress found so cannot save chat message. Message: {chat_message}")
             return
 
-        ChatMessage.objects.update_or_create(
+        chat_message_in_db, _ = ChatMessage.objects.update_or_create(
             bot=self.bot_in_db,
             source_uuid=f"{recording_in_progress.object_id}-{chat_message['message_uuid']}",
             defaults={
@@ -877,6 +878,13 @@ class BotController:
                 "participant": participant,
                 "additional_data": chat_message.get("additional_data", {}),
             },
+        )
+
+        # Create webhook event
+        trigger_webhook(
+            webhook_trigger_type=WebhookTriggerTypes.CHAT_MESSAGES_UPDATE,
+            bot=self.bot_in_db,
+            payload=chat_message_webhook_payload(chat_message_in_db),
         )
 
         return
