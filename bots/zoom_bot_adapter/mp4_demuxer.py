@@ -2,6 +2,7 @@ import threading
 import tempfile
 import os
 import urllib.request
+import logging
 
 import gi
 
@@ -9,6 +10,7 @@ gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
 from gi.repository import GObject, Gst, GLib
 
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------- #
 #  Core class                                                                 #
@@ -49,7 +51,7 @@ class MP4Demuxer:
         """
         Download the file from URL to a temporary file.
         """
-        print(f"Downloading MP4 from {self._url}...")
+        logger.info(f"Downloading MP4 from {self._url}...")
         
         # Create a temporary file
         temp_fd, self._temp_file_path = tempfile.mkstemp(suffix='.mp4')
@@ -58,9 +60,9 @@ class MP4Demuxer:
         try:
             # Download the file
             urllib.request.urlretrieve(self._url, self._temp_file_path)
-            print(f"Downloaded MP4 to {self._temp_file_path}")
+            logger.info(f"Downloaded MP4 to {self._temp_file_path}")
         except Exception as e:
-            print(f"Error downloading file: {e}")
+            logger.error(f"Error downloading file: {e}")
             if os.path.exists(self._temp_file_path):
                 os.unlink(self._temp_file_path)
             raise
@@ -111,9 +113,9 @@ class MP4Demuxer:
         if self._temp_file_path and os.path.exists(self._temp_file_path):
             try:
                 os.unlink(self._temp_file_path)
-                print(f"Cleaned up temporary file: {self._temp_file_path}")
+                logger.info(f"Cleaned up temporary file: {self._temp_file_path}")
             except Exception as e:
-                print(f"Error cleaning up temporary file: {e}")
+                logger.error(f"Error cleaning up temporary file: {e}")
             finally:
                 self._temp_file_path = None
 
@@ -167,12 +169,12 @@ class MP4Demuxer:
 
     def _monitor_queue_sizes(self) -> bool:
         """
-        Monitor and print queue sizes. Returns True to continue the timer.
+        Monitor and log queue sizes. Returns True to continue the timer.
         """
         if not self._playing:
             return False  # Stop the timer
             
-        print("\n=== MP4Demuxer Queue Status ===")
+        logger.info("\n=== MP4Demuxer Queue Status ===")
         for queue_name, queue_element in self._queue_elements.items():
             if queue_element:
                 try:
@@ -183,19 +185,25 @@ class MP4Demuxer:
                     current_time = queue_element.get_property("current-level-time")
                     max_time = queue_element.get_property("max-size-time")
                     
-                    print(f"{queue_name}:")
-                    print(f"  Buffers: {current_buffers}/{max_buffers} ({current_buffers/max_buffers*100:.1f}%)")
-                    print(f"  Bytes: {current_bytes:,}/{max_bytes:,} ({current_bytes/max_bytes*100:.1f}%)")
-                    if max_time > 0:
-                        print(f"  Time: {current_time/1e9:.2f}s/{max_time/1e9:.2f}s ({current_time/max_time*100:.1f}%)")
+                    logger.info(f"{queue_name}:")
+                    if max_buffers > 0:
+                        logger.info(f"  Buffers: {current_buffers}/{max_buffers} ({current_buffers/max_buffers*100:.1f}%)")
                     else:
-                        print(f"  Time: {current_time/1e9:.2f}s (no limit)")
+                        logger.info(f"  Buffers: {current_buffers} (no limit)")
+                    if max_bytes > 0:
+                        logger.info(f"  Bytes: {current_bytes:,}/{max_bytes:,} ({current_bytes/max_bytes*100:.1f}%)")
+                    else:
+                        logger.info(f"  Bytes: {current_bytes:,} (no limit)")
+                    if max_time > 0:
+                        logger.info(f"  Time: {current_time/1e9:.2f}s/{max_time/1e9:.2f}s ({current_time/max_time*100:.1f}%)")
+                    else:
+                        logger.info(f"  Time: {current_time/1e9:.2f}s (no limit)")
                         
                 except Exception as e:
-                    print(f"Error getting stats for {queue_name}: {e}")
+                    logger.error(f"Error getting stats for {queue_name}: {e}")
             else:
-                print(f"{queue_name}: Element not found")
-        print("===============================\n")
+                logger.error(f"{queue_name}: Element not found")
+        logger.info("===============================\n")
         
         return True  # Continue the timer
 
