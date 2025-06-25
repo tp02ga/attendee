@@ -862,9 +862,14 @@ class BotController:
             },
         )
 
+        recording_in_progress = self.get_recording_in_progress()
+        if recording_in_progress is None:
+            logger.warning(f"Warning: No recording in progress found so cannot save chat message. Message: {chat_message}")
+            return
+
         ChatMessage.objects.update_or_create(
             bot=self.bot_in_db,
-            source_uuid=chat_message["message_uuid"],
+            source_uuid=f"{recording_in_progress.object_id}-{chat_message['message_uuid']}",
             defaults={
                 "timestamp": chat_message["timestamp"],
                 "to": ChatMessageToOptions.ONLY_BOT if chat_message.get("to_bot") else ChatMessageToOptions.EVERYONE,
