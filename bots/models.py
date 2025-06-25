@@ -1314,17 +1314,6 @@ class Utterance(models.Model):
     def __str__(self):
         return f"Utterance at {self.timestamp_ms}ms ({self.duration_ms}ms long)"
 
-    def webhook_payload(self):
-        return {
-            "speaker_name": self.participant.full_name,
-            "speaker_uuid": self.participant.uuid,
-            "speaker_user_uuid": self.participant.user_uuid,
-            "timestamp_ms": self.timestamp_ms,
-            "duration_ms": self.duration_ms,
-            "transcription": {"transcript": self.transcription.get("transcript")} if self.transcription else None,
-        }
-
-
 class Credentials(models.Model):
     class CredentialTypes(models.IntegerChoices):
         DEEPGRAM = 1, "Deepgram"

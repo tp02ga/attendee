@@ -43,7 +43,7 @@ from bots.models import (
 )
 from bots.utils import meeting_type_from_url
 from bots.webhook_utils import trigger_webhook
-from bots.webhook_payloads import chat_message_webhook_payload
+from bots.webhook_payloads import chat_message_webhook_payload, utterance_webhook_payload
 
 from .audio_output_manager import AudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
@@ -799,7 +799,7 @@ class BotController:
         trigger_webhook(
             webhook_trigger_type=WebhookTriggerTypes.TRANSCRIPT_UPDATE,
             bot=self.bot_in_db,
-            payload=utterance.webhook_payload(),
+            payload=utterance_webhook_payload(utterance),
         )
 
         RecordingManager.set_recording_transcription_in_progress(recording_in_progress)
