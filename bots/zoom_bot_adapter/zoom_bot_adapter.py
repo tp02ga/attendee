@@ -184,6 +184,10 @@ class ZoomBotAdapter(BotAdapter):
         else:
             self.only_one_participant_in_meeting_at = None
 
+    def on_host_request_start_audio_callback(self, handler):
+        logger.info("on_host_request_start_audio_callback called. Accepting request.")
+        handler.Accept()
+
     def on_user_active_audio_change_callback(self, user_ids):
         if len(user_ids) == 0:
             return
@@ -404,7 +408,7 @@ class ZoomBotAdapter(BotAdapter):
 
         # Audio controller
         self.audio_ctrl = self.meeting_service.GetMeetingAudioController()
-        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
+        self.audio_ctrl_event = zoom.MeetingAudioCtrlEventCallbacks(onHostRequestStartAudioCallback=self.on_host_request_start_audio_callback, onUserActiveAudioChangeCallback=self.on_user_active_audio_change_callback)
         self.audio_ctrl.SetEvent(self.audio_ctrl_event)
         # Raw audio input got borked in the Zoom SDK after 6.3.5.
         # This is work-around to get it to work again.
@@ -467,7 +471,8 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_image(self, png_image_bytes):
         if not self.on_virtual_camera_start_send_callback_called:
-            raise Exception("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            logger.error("on_virtual_camera_start_send_callback_called not called so cannot send raw image")
+            return
 
         if not self.suggested_video_cap:
             logger.error("suggested_video_cap is None so cannot send raw image")
@@ -534,7 +539,9 @@ class ZoomBotAdapter(BotAdapter):
 
     def send_raw_audio(self, bytes, sample_rate):
         if not self.on_mic_start_send_callback_called:
-            raise Exception("on_mic_start_send_callback_called not called so cannot send raw audio")
+            logger.error("on_mic_start_send_callback_called not called so cannot send raw audio")
+            return
+
         send_result = self.audio_raw_data_sender.send(bytes, sample_rate, zoom.ZoomSDKAudioChannel_Mono)
         if send_result != zoom.SDKERR_SUCCESS:
             logger.info(f"error with send_raw_audio send_result = {send_result}")
