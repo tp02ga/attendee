@@ -21,6 +21,7 @@ from bots.models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    ChatMessage,
     Credentials,
     CreditTransaction,
     Organization,
@@ -1089,7 +1090,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.webhook_subscription = WebhookSubscription.objects.create(
             project=self.project,
             url="https://example.com/webhook",
-            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE],
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE, WebhookTriggerTypes.CHAT_MESSAGES_UPDATE],
             is_active=True,
         )
 
@@ -1141,6 +1142,17 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Force caption processing by flushing
             controller.closed_caption_manager.flush_captions()
+
+            # Simulate chat message arrival
+            chat_message_data = {
+                "participant_uuid": "user1",
+                "message_uuid": "msg123",
+                "timestamp": int(current_time * 1000),  # Convert to milliseconds
+                "text": "Hello, this is a test chat message!",
+                "to_bot": False,
+                "additional_data": {"source": "test"}
+            }
+            controller.on_new_chat_message(chat_message_data)
 
         def simulate_join_flow():
             nonlocal current_time
@@ -1248,6 +1260,27 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertEqual(webhook_attempt.payload["speaker_name"], "Test User")
         self.assertEqual(webhook_attempt.payload["speaker_uuid"], "user1")
         self.assertIsNotNone(webhook_attempt.payload["transcription"])
+
+        # Verify chat message was created
+        chat_messages = ChatMessage.objects.filter(bot=self.bot)
+        self.assertGreater(chat_messages.count(), 0, "Expected at least one chat message to be created")
+        
+        # Verify the chat message has the correct content
+        chat_message = chat_messages.first()
+        self.assertEqual(chat_message.text, "Hello, this is a test chat message!")
+        self.assertEqual(chat_message.participant.full_name, "Test User")
+        self.assertEqual(chat_message.participant.uuid, "user1")
+
+        # Verify webhook delivery attempts were created for chat messages
+        chat_webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=self.bot, webhook_trigger_type=WebhookTriggerTypes.CHAT_MESSAGES_UPDATE)
+        self.assertGreater(chat_webhook_delivery_attempts.count(), 0, "Expected webhook delivery attempts for chat messages")
+
+        # Verify the chat message webhook payload contains the expected data
+        chat_webhook_attempt = chat_webhook_delivery_attempts.first()
+        self.assertIsNotNone(chat_webhook_attempt.payload)
+        self.assertIn("text", chat_webhook_attempt.payload)
+        self.assertIn("sender_name", chat_webhook_attempt.payload)
+        self.assertEqual(chat_webhook_attempt.payload["text"], "Hello, this is a test chat message!")
 
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
