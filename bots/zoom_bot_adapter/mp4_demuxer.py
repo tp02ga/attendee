@@ -1,4 +1,7 @@
 import threading
+import tempfile
+import os
+import urllib.request
 
 import gi
 
@@ -34,8 +37,33 @@ class MP4Demuxer:
         self._loop = GObject.MainLoop()
         self._thread = None
         self._queue_elements = {}  # Store references to queue elements
+        self._temp_file_path = None
 
+        self._download_file()
         self._build_pipeline()
+
+    # ------------------------------------------------------------------ #
+    #  File download                                                     #
+    # ------------------------------------------------------------------ #
+    def _download_file(self) -> None:
+        """
+        Download the file from URL to a temporary file.
+        """
+        print(f"Downloading MP4 from {self._url}...")
+        
+        # Create a temporary file
+        temp_fd, self._temp_file_path = tempfile.mkstemp(suffix='.mp4')
+        os.close(temp_fd)  # Close the file descriptor, we'll use the path
+        
+        try:
+            # Download the file
+            urllib.request.urlretrieve(self._url, self._temp_file_path)
+            print(f"Downloaded MP4 to {self._temp_file_path}")
+        except Exception as e:
+            print(f"Error downloading file: {e}")
+            if os.path.exists(self._temp_file_path):
+                os.unlink(self._temp_file_path)
+            raise
 
     # ------------------------------------------------------------------ #
     #  Public control API                                                #
@@ -66,12 +94,28 @@ class MP4Demuxer:
         if self._thread and self._thread.is_alive():
             self._thread.join()
         self._playing = False
+        
+        # Clean up temporary file
+        self._cleanup_temp_file()
 
     def is_playing(self) -> bool:
         """
         Returns True while the pipeline is running.
         """
         return self._playing
+
+    def _cleanup_temp_file(self) -> None:
+        """
+        Remove the temporary file if it exists.
+        """
+        if self._temp_file_path and os.path.exists(self._temp_file_path):
+            try:
+                os.unlink(self._temp_file_path)
+                print(f"Cleaned up temporary file: {self._temp_file_path}")
+            except Exception as e:
+                print(f"Error cleaning up temporary file: {e}")
+            finally:
+                self._temp_file_path = None
 
     # ------------------------------------------------------------------ #
     #  Internal helpers                                                  #
@@ -81,10 +125,11 @@ class MP4Demuxer:
         Create elements, link them, and attach callbacks.
         """
         launch = f"""
-            uridecodebin name=d uri={self._url}
+            filesrc location={self._temp_file_path} ! qtdemux name=d
 
                 d. ! queue name=video_queue                                 \
                         max-size-buffers=50 max-size-bytes=0 max-size-time=0 \
+                        ! h264parse ! avdec_h264                        \
                         ! videorate max-rate=25 drop-only=true          \
                         ! videoconvert                                  \
                         ! videoscale                                    \
@@ -94,6 +139,7 @@ class MP4Demuxer:
 
                 d. ! queue name=audio_queue                                 \
                         max-size-buffers=100 max-size-bytes=0 max-size-time=0 \
+                        ! aacparse ! avdec_aac                          \
                         ! audioconvert                                  \
                         ! audioresample                                 \
                         ! audio/x-raw,format=S16LE,channels=1,rate=8000 \
@@ -185,3 +231,9 @@ class MP4Demuxer:
         if t == Gst.MessageType.EOS or t == Gst.MessageType.ERROR:
             # Pipeline finished or hit error – shut down cleanly
             self.stop()
+
+    def __del__(self):
+        """
+        Destructor to ensure cleanup of temporary file.
+        """
+        self._cleanup_temp_file()
