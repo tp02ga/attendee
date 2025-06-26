@@ -182,7 +182,6 @@ class ZoomBotAdapter(BotAdapter):
             self.get_participant(joined_user_id)
             self.send_participant_event(joined_user_id, event_type=ParticipantEventTypes.JOIN)
 
-
     def on_user_left_callback(self, left_user_ids, _):
         logger.info(f"on_user_left_callback called. left_user_ids = {left_user_ids}")
         all_participant_ids = self.participants_ctrl.GetParticipantsList()
@@ -391,7 +390,7 @@ class ZoomBotAdapter(BotAdapter):
         except Exception as e:
             logger.error(f"Error processing chat message: {e}")
 
-    def send_participant_event(self, participant_id, event_type, event_data = {}):
+    def send_participant_event(self, participant_id, event_type, event_data={}):
         self.add_participant_event_callback({"participant_uuid": participant_id, "event_type": event_type, "event_data": event_data, "timestamp_ms": int(time.time() * 1000)})
 
     def on_join(self):

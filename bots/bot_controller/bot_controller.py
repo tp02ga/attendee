@@ -33,7 +33,6 @@ from bots.models import (
     MeetingTypes,
     Participant,
     ParticipantEvent,
-    ParticipantEventTypes,
     Recording,
     RecordingFormats,
     RecordingManager,
@@ -854,7 +853,7 @@ class BotController:
 
     def add_participant_event(self, event):
         logger.info(f"Adding participant event: {event}")
-        
+
         participant = self.adapter.get_participant(event["participant_uuid"])
 
         if participant is None:
@@ -872,7 +871,7 @@ class BotController:
             },
         )
 
-        participant_event =ParticipantEvent.objects.create(
+        participant_event = ParticipantEvent.objects.create(
             participant=participant,
             event_type=event["event_type"],
             event_data=event["event_data"],
