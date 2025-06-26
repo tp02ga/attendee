@@ -280,11 +280,7 @@ def create_mock_zoom_sdk():
     # Create a mock participants controller
     mock_participants_controller = MagicMock()
     mock_participants_controller.GetParticipantsList.return_value = [1, 2]  # Return test user ID
-    mock_participants_controller.GetUserByUserID.side_effect = lambda user_id: (
-        MockParticipant(1, "Bot User", "bot_persistent_id") if user_id == 1
-        else MockParticipant(2, "Test User", "test_persistent_id_123") if user_id == 2
-        else None
-    )
+    mock_participants_controller.GetUserByUserID.side_effect = lambda user_id: (MockParticipant(1, "Bot User", "bot_persistent_id") if user_id == 1 else MockParticipant(2, "Test User", "test_persistent_id_123") if user_id == 2 else None)
     mock_participants_controller.GetMySelfUser.return_value = MockParticipant(1, "Bot User", "bot_persistent_id")
 
     # Add participants controller to meeting service
