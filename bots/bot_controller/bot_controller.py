@@ -777,6 +777,7 @@ class BotController:
             defaults={
                 "user_uuid": message["participant_user_uuid"],
                 "full_name": message["participant_full_name"],
+                "is_the_bot": message["participant_is_the_bot"],
             },
         )
 
@@ -820,6 +821,7 @@ class BotController:
             defaults={
                 "user_uuid": message["participant_user_uuid"],
                 "full_name": message["participant_full_name"],
+                "is_the_bot": message["participant_is_the_bot"],
             },
         )
 
@@ -865,6 +867,7 @@ class BotController:
             defaults={
                 "user_uuid": participant["participant_user_uuid"],
                 "full_name": participant["participant_full_name"],
+                "is_the_bot": participant["participant_is_the_bot"],
             },
         )
 
@@ -874,6 +877,10 @@ class BotController:
             event_data=event["event_data"],
             timestamp_ms=event["timestamp_ms"],
         )
+
+        # Don't send webhook for the bot itself
+        if participant.is_the_bot:
+            return
 
         trigger_webhook(
             webhook_trigger_type=WebhookTriggerTypes.PARTICIPANT_EVENTS_JOIN_LEAVE,
@@ -898,6 +905,7 @@ class BotController:
             defaults={
                 "user_uuid": participant["participant_user_uuid"],
                 "full_name": participant["participant_full_name"],
+                "is_the_bot": participant["participant_is_the_bot"],
             },
         )
 

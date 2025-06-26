@@ -767,6 +767,8 @@ class UserManager {
     }
 
     convertUser(user) {
+        const currentUserId = window.callManager?.getCurrentUserId();
+        console.log('currentUserId', currentUserId, 'vs', user.details.id, 'cond1', !!currentUserId, 'cond2', user.details.id === currentUserId);
         return {
             deviceId: user.details.id,
             displayName: user.details.displayName,
@@ -774,6 +776,7 @@ class UserManager {
             profile: '',
             status: user.state,
             humanized_status: user.state === "active" ? "in_meeting" : "not_in_meeting",
+            isCurrentUser: (!!currentUserId) && (user.details.id === currentUserId)
         }
     }
 
@@ -810,7 +813,8 @@ class UserManager {
                 profile: user.profile,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
@@ -834,7 +838,8 @@ class UserManager {
                 profilePicture: user.profilePicture,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
@@ -2308,6 +2313,17 @@ class CallManager {
                 }
             }
         }
+    }
+
+    getCurrentUserId() {
+        this.setActiveCall();
+        if (!this.activeCall) {
+            return;
+        }
+
+        return this.activeCall.callerMri;
+        // We're using callerMri because it includes the 8: prefix. If callerMri stops working, we can easily use the thing below.
+        // return this.activeCall.currentUserSkypeIdentity?.id;
     }
 
     syncParticipants() {

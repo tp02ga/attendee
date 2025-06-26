@@ -993,6 +993,7 @@ class Participant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     object_id = models.CharField(max_length=255, unique=True, editable=False, blank=True, null=True)
+    is_the_bot = models.BooleanField(default=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["bot", "uuid"], name="unique_participant_per_bot")]
