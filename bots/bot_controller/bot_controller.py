@@ -157,6 +157,7 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
         )

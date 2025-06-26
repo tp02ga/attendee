@@ -21,6 +21,7 @@ import logging
 from gi.repository import GLib
 
 from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
+from bots.models import ParticipantEventTypes
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class ZoomBotAdapter(BotAdapter):
         wants_any_video_frames_callback,
         add_mixed_audio_chunk_callback,
         upsert_chat_message_callback,
+        add_participant_event_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         video_frame_size: tuple[int, int],
     ):
@@ -97,6 +99,7 @@ class ZoomBotAdapter(BotAdapter):
         self.add_video_frame_callback = add_video_frame_callback
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
         self.upsert_chat_message_callback = upsert_chat_message_callback
+        self.add_participant_event_callback = add_participant_event_callback
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id, self.meeting_password = parse_join_url(meeting_url)
@@ -177,6 +180,8 @@ class ZoomBotAdapter(BotAdapter):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
         for joined_user_id in joined_user_ids:
             self.get_participant(joined_user_id)
+            self.add_participant_event_callback({"participant_uuid": joined_user_id, "event_type": ParticipantEventTypes.JOIN, "event_data": {}, "timestamp_ms": int(time.time() * 1000)})
+
 
     def on_user_left_callback(self, left_user_ids, _):
         logger.info(f"on_user_left_callback called. left_user_ids = {left_user_ids}")
@@ -186,6 +191,9 @@ class ZoomBotAdapter(BotAdapter):
                 self.only_one_participant_in_meeting_at = time.time()
         else:
             self.only_one_participant_in_meeting_at = None
+
+        for left_user_id in left_user_ids:
+            self.add_participant_event_callback({"participant_uuid": left_user_id, "event_type": ParticipantEventTypes.LEAVE, "event_data": {}, "timestamp_ms": int(time.time() * 1000)})
 
     def on_host_request_start_audio_callback(self, handler):
         logger.info("on_host_request_start_audio_callback called. Accepting request.")
@@ -324,6 +332,7 @@ class ZoomBotAdapter(BotAdapter):
                 "participant_uuid": participant_id,
                 "participant_user_uuid": speaker_object.GetPersistentId(),
                 "participant_full_name": speaker_object.GetUserName(),
+                "participant_is_the_bot": speaker_object.GetUserID() == self.my_participant_id,
             }
             self._participant_cache[participant_id] = participant_info
             return participant_info
