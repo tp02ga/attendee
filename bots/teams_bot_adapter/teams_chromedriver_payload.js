@@ -768,7 +768,6 @@ class UserManager {
 
     convertUser(user) {
         const currentUserId = window.callManager?.getCurrentUserId();
-        console.log('currentUserId', currentUserId, 'vs', user.details.id, 'cond1', !!currentUserId, 'cond2', user.details.id === currentUserId);
         return {
             deviceId: user.details.id,
             displayName: user.details.displayName,

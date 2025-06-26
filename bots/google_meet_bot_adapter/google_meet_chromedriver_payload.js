@@ -544,6 +544,7 @@ class UserManager {
         this.allUsersMap = new Map();
         this.currentUsersMap = new Map();
         this.deviceOutputMap = new Map();
+        this.currentUserId = null;
 
         this.ws = ws;
     }
@@ -635,9 +636,15 @@ class UserManager {
                 7: 'removed_from_meeting'
             }
 
+            const { isCurrentUserString, ...userWithoutIsCurrentUserString } = user;
+            if (isCurrentUserString && this.currentUserId === null) {
+                this.currentUserId = user.deviceId;
+            }
+
             return {
-                ...user,
-                humanized_status: userStatusMap[user.status] || "unknown"
+                ...userWithoutIsCurrentUserString,
+                humanized_status: userStatusMap[user.status] || "unknown",
+                isCurrentUser: user.deviceId === this.currentUserId
             }
         })
         // Get the current user IDs before updating
@@ -658,7 +665,8 @@ class UserManager {
                 profile: user.profile,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
@@ -678,7 +686,8 @@ class UserManager {
                 profilePicture: user.profilePicture,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
