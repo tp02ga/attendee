@@ -196,7 +196,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
@@ -518,7 +518,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
@@ -664,7 +664,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption", "isFinal": 1}
@@ -1134,7 +1134,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         def simulate_caption_data_arrival():
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption from closed captions", "isFinal": 1}
@@ -1347,7 +1347,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants to keep the bot in the meeting
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Let the bot run for a bit to "record"
             time.sleep(3)
@@ -1442,7 +1442,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(3)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio to keep bot alive
             controller.adapter.last_audio_message_processed_time = current_time
