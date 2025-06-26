@@ -32,6 +32,8 @@ from bots.models import (
     CreditTransaction,
     MediaBlob,
     Organization,
+    ParticipantEvent,
+    ParticipantEventTypes,
     Project,
     Recording,
     RecordingFormats,
@@ -836,6 +838,9 @@ class TestZoomBot(TransactionTestCase):
                 mock_zoom_sdk_adapter.SDKERR_SUCCESS,
             )
 
+            # Simulate user joining
+            adapter.on_user_join_callback([2], [])
+
             # Wait for the video input manager to be set up
             time.sleep(2)
 
@@ -916,6 +921,9 @@ class TestZoomBot(TransactionTestCase):
 
             # Simulate chat message received
             adapter.on_chat_msg_notification_callback(mock_chat_msg_info, mock_chat_msg_info.GetContent())
+
+            # Simulate user leaving
+            adapter.on_user_leave_callback([2], [])
 
             # Simulate meeting ended
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
@@ -1087,6 +1095,12 @@ class TestZoomBot(TransactionTestCase):
 
         # Verify that the bot has participants
         self.assertEqual(self.bot.participants.count(), 1)
+
+        # Verify that the expected participant events were created
+        participant_events = ParticipantEvent.objects.filter(bot=self.bot)
+        self.assertEqual(participant_events.count(), 2)
+        self.assertEqual(participant_events[0].event_type, ParticipantEventTypes.JOINED)
+        self.assertEqual(participant_events[1].event_type, ParticipantEventTypes.LEFT)
 
         # Delete the bot data
         self.bot.delete_data()
