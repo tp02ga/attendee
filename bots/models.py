@@ -998,6 +998,7 @@ class Participant(models.Model):
         constraints = [models.UniqueConstraint(fields=["bot", "uuid"], name="unique_participant_per_bot")]
 
     OBJECT_ID_PREFIX = "par_"
+
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
@@ -1008,6 +1009,7 @@ class Participant(models.Model):
     def __str__(self):
         display_name = self.full_name or self.uuid
         return f"{display_name} in {self.bot.object_id}"
+
 
 class ParticipantEventTypes(models.IntegerChoices):
     JOIN = 1, "Join"
@@ -1022,6 +1024,7 @@ class ParticipantEventTypes(models.IntegerChoices):
         }
         return mapping.get(value)
 
+
 class ParticipantEvent(models.Model):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name="events")
     event_type = models.IntegerField(choices=ParticipantEventTypes.choices)
@@ -1030,14 +1033,16 @@ class ParticipantEvent(models.Model):
     event_data = models.JSONField(null=False, default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     timestamp_ms = models.BigIntegerField()
-    
+
     OBJECT_ID_PREFIX = "pe_"
+
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
             random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
+
 
 class RecordingStates(models.IntegerChoices):
     NOT_STARTED = 1, "Not Started"

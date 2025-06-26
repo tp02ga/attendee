@@ -15,5 +15,6 @@ def utterance_webhook_payload(utterance):
         "transcription": {"transcript": utterance.transcription.get("transcript")} if utterance.transcription else None,
     }
 
+
 def participant_event_webhook_payload(participant_event):
     return ParticipantEventSerializer(participant_event).data

@@ -32,6 +32,8 @@ from bots.models import (
     Credentials,
     MeetingTypes,
     Participant,
+    ParticipantEvent,
+    ParticipantEventTypes,
     Recording,
     RecordingFormats,
     RecordingManager,
@@ -42,7 +44,7 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
-from bots.webhook_payloads import chat_message_webhook_payload, utterance_webhook_payload
+from bots.webhook_payloads import chat_message_webhook_payload, participant_event_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
@@ -90,6 +92,7 @@ class BotController:
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -115,6 +118,7 @@ class BotController:
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -766,8 +770,6 @@ class BotController:
             raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
         return recordings_in_progress.first()
 
-    
-
     def save_closed_caption_utterance(self, message):
         participant, _ = Participant.objects.get_or_create(
             bot=self.bot_in_db,
@@ -847,18 +849,26 @@ class BotController:
     def on_new_chat_message(self, chat_message):
         GLib.idle_add(lambda: self.upsert_chat_message(chat_message))
 
-    def add_participant_event(self, participant, event):
+    def add_participant_event(self, event):
+        logger.info(f"Adding participant event: {event}")
+        
+        participant = self.adapter.get_participant(event["participant_uuid"])
+
+        if participant is None:
+            logger.warning(f"Warning: No participant found for participant event: {event}")
+            return
+
         # Create participant record if it doesn't exist
         participant, _ = Participant.objects.get_or_create(
             bot=self.bot_in_db,
-            uuid=participant["uuid"],
+            uuid=participant["participant_uuid"],
             defaults={
-                "user_uuid": participant["user_uuid"],
-                "full_name": participant["full_name"],
+                "user_uuid": participant["participant_user_uuid"],
+                "full_name": participant["participant_full_name"],
             },
         )
 
-        ParticipantEvent.objects.create(
+        participant_event =ParticipantEvent.objects.create(
             participant=participant,
             event_type=event["event_type"],
             event_data=event["event_data"],

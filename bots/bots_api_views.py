@@ -1165,7 +1165,7 @@ class ParticipantEventsView(GenericAPIView):
             before = request.query_params.get("before")
 
             # Query participant events for this bot
-            events_query = ParticipantEvent.objects.filter(participant__bot=bot).select_related('participant')
+            events_query = ParticipantEvent.objects.filter(participant__bot=bot).select_related("participant")
 
             # Filter by after if provided
             if after:

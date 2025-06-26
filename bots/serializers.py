@@ -22,7 +22,6 @@ from .models import (
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
-    ParticipantEvent,
     ParticipantEventTypes,
     Recording,
     RecordingFormats,
