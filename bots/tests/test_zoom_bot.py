@@ -279,8 +279,12 @@ def create_mock_zoom_sdk():
 
     # Create a mock participants controller
     mock_participants_controller = MagicMock()
-    mock_participants_controller.GetParticipantsList.return_value = [2]  # Return test user ID
-    mock_participants_controller.GetUserByUserID.return_value = MockParticipant(2, "Test User", "test_persistent_id_123")
+    mock_participants_controller.GetParticipantsList.return_value = [1, 2]  # Return test user ID
+    mock_participants_controller.GetUserByUserID.side_effect = lambda user_id: (
+        MockParticipant(1, "Bot User", "bot_persistent_id") if user_id == 1
+        else MockParticipant(2, "Test User", "test_persistent_id_123") if user_id == 2
+        else None
+    )
     mock_participants_controller.GetMySelfUser.return_value = MockParticipant(1, "Bot User", "bot_persistent_id")
 
     # Add participants controller to meeting service
@@ -838,9 +842,6 @@ class TestZoomBot(TransactionTestCase):
                 mock_zoom_sdk_adapter.SDKERR_SUCCESS,
             )
 
-            # Simulate user joining
-            adapter.on_user_join_callback([2], [])
-
             # Wait for the video input manager to be set up
             time.sleep(2)
 
@@ -923,7 +924,7 @@ class TestZoomBot(TransactionTestCase):
             adapter.on_chat_msg_notification_callback(mock_chat_msg_info, mock_chat_msg_info.GetContent())
 
             # Simulate user leaving
-            adapter.on_user_leave_callback([2], [])
+            adapter.on_user_left_callback([2], [])
 
             # Simulate meeting ended
             adapter.meeting_service_event.onMeetingStatusChangedCallback(
@@ -1094,13 +1095,21 @@ class TestZoomBot(TransactionTestCase):
         connection.close()
 
         # Verify that the bot has participants
-        self.assertEqual(self.bot.participants.count(), 1)
+        self.assertEqual(self.bot.participants.count(), 2)
+        bot_participant = self.bot.participants.get(user_uuid="bot_persistent_id")
+        self.assertEqual(bot_participant.full_name, "Bot User")
+        other_participant = self.bot.participants.get(user_uuid="test_persistent_id_123")
+        self.assertEqual(other_participant.full_name, "Test User")
 
         # Verify that the expected participant events were created
-        participant_events = ParticipantEvent.objects.filter(bot=self.bot)
+        participant_events = ParticipantEvent.objects.filter(participant__bot=self.bot, participant__user_uuid="test_persistent_id_123")
         self.assertEqual(participant_events.count(), 2)
-        self.assertEqual(participant_events[0].event_type, ParticipantEventTypes.JOINED)
-        self.assertEqual(participant_events[1].event_type, ParticipantEventTypes.LEFT)
+        self.assertEqual(participant_events[0].event_type, ParticipantEventTypes.JOIN)
+        self.assertEqual(participant_events[1].event_type, ParticipantEventTypes.LEAVE)
+
+        bot_participant_events = ParticipantEvent.objects.filter(participant__bot=self.bot, participant__user_uuid="bot_persistent_id")
+        self.assertEqual(bot_participant_events.count(), 1)
+        self.assertEqual(bot_participant_events[0].event_type, ParticipantEventTypes.JOIN)
 
         # Delete the bot data
         self.bot.delete_data()
