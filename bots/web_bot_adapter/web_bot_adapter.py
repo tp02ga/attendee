@@ -127,11 +127,11 @@ class WebBotAdapter(BotAdapter):
         self.participants_info[user["deviceId"]] = user
 
         if user_before.get("active") and not user["active"]:
-            self.add_participant_event(user, {"event_type": ParticipantEventTypes.LEAVE, "event_data": user})
+            self.add_participant_event(user, {"event_type": ParticipantEventTypes.LEAVE, "event_data": user, "timestamp_ms": int(time.time() * 1000)})
             return
 
         if not user_before.get("active") and user["active"]:
-            self.add_participant_event(user, {"event_type": ParticipantEventTypes.JOIN, "event_data": user})
+            self.add_participant_event(user, {"event_type": ParticipantEventTypes.JOIN, "event_data": user, "timestamp_ms": int(time.time() * 1000)})
             return
 
     def process_video_frame(self, message):

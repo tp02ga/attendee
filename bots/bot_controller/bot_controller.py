@@ -862,6 +862,13 @@ class BotController:
             participant=participant,
             event_type=event["event_type"],
             event_data=event["event_data"],
+            timestamp_ms=event["timestamp_ms"],
+        )
+
+        trigger_webhook(
+            webhook_trigger_type=WebhookTriggerTypes.PARTICIPANT_EVENTS_JOIN_LEAVE,
+            bot=self.bot_in_db,
+            payload=participant_event_webhook_payload(participant_event),
         )
 
         return
