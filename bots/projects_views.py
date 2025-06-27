@@ -27,7 +27,6 @@ from .models import (
     Credentials,
     CreditTransaction,
     Participant,
-    ParticipantEvent,
     ParticipantEventTypes,
     Project,
     RecordingStates,
