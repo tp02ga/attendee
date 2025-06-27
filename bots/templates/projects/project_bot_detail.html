@@ -172,7 +172,7 @@
             {% if recordings %}
                 {% for recording in recordings %}
                     <div class="recording-item">
-                        {% if recording.state == RecordingStates.COMPLETE %}
+                        {% if recording.state == RecordingStates.COMPLETE or recording.state == RecordingStates.IN_PROGRESS or recording.state == RecordingStates.PAUSED %}
                             <div class="recording-container">
                                 <div class="transcript-column">
                                     {% for utterance in recording.utterances %}
@@ -181,7 +181,9 @@
                                             <div class="utterance-content">
                                                 <div class="utterance-timestamp" role="button" style="cursor: pointer" 
                                                      onclick="seekVideo(this, {{ utterance.relative_timestamp_ms }})">
-                                                    {{ utterance.timestamp_display }} | 
+                                                    {% if utterance.timestamp_display %}
+                                                        {{ utterance.timestamp_display }} | 
+                                                    {% endif %}
                                                     {{ utterance.participant.full_name }}
                                                 </div>
                                                 <div class="utterance-text">
@@ -205,6 +207,13 @@
                                         {% endif %}
                                     {% endfor %}
 
+                                    <!-- Show progress message even when utterances exist -->
+                                    {% if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS %}
+                                        <div class="alert alert-info mt-3">
+                                            <i class="bi bi-clock-history"></i> Transcription in progress. Refresh the page to see the latest updates.
+                                        </div>
+                                    {% endif %}
+
                                     {% if recording.failed_utterances %}
                                         <div class="failed-utterances-column">
                                             <h5>Transcription errors</h5>
@@ -224,10 +233,26 @@
                                 </div>
                                 
                                 <div class="video-column">
-                                    <video preload="auto" width="100%" controls id="recording-video">
-                                        <source src="{{ recording.url }}">
-                                        Your browser does not support the video tag.
-                                    </video>
+                                    {% if recording.state == RecordingStates.COMPLETE %}
+                                        <video preload="auto" width="100%" controls id="recording-video">
+                                            <source src="{{ recording.url }}">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    {% else %}
+                                        <div class="d-flex align-items-center justify-content-center bg-light border rounded" style="height: 300px;">
+                                            <div class="text-center">
+                                                <span class="visually-hidden">Recording...</span>
+                                                <p class="text-muted mb-0">
+                                                    {% if recording.state == RecordingStates.IN_PROGRESS %}
+                                                        Recording in progress...
+                                                    {% elif recording.state == RecordingStates.PAUSED %}
+                                                        Recording paused...
+                                                    {% endif %}
+                                                </p>
+                                                <small class="text-muted">Media will be available when recording is finished.</small>
+                                            </div>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% else %}
