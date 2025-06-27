@@ -122,6 +122,12 @@
                 Event Timeline
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="chat-tab" data-bs-toggle="tab" 
+                    data-bs-target="#chat" type="button" role="tab">
+                Chat Messages
+            </button>
+        </li>
         {% if webhook_delivery_attempts %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="webhooks-tab" data-bs-toggle="tab" 
@@ -273,6 +279,32 @@
                 </div>
             {% else %}
                 <div class="alert alert-info">No events recorded.</div>
+            {% endif %}
+        </div>
+
+        <!-- Chat Messages Tab -->
+        <div class="tab-pane fade" id="chat" role="tabpanel">
+            {% if chat_messages %}
+                <div class="chat-messages-log">
+                    {% for message in chat_messages %}
+                        <div class="chat-message-item border rounded p-3 mb-3 bg-light">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="speaker-bar" style="background-color: {{ message.participant.uuid|participant_color }}; width: 4px; height: 100%; min-height: 40px; border-radius: 2px; flex-shrink: 0;"></div>
+                                <div class="message-content flex-grow-1">
+                                    <div class="message-header d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-semibold">{{ message.participant.full_name }}</span>
+                                        <span class="text-muted small">{{ message.created_at|date:"M d, Y H:i:s" }}</span>
+                                    </div>
+                                    <div class="message-text">
+                                        <div class="font-monospace" style="white-space: pre-wrap; line-height: 1.4;">{{ message.text }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">The bot did not record any chat messages.</div>
             {% endif %}
         </div>
 
