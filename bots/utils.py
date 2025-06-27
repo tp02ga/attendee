@@ -7,7 +7,6 @@ from tldextract import tldextract
 
 from .models import (
     MeetingTypes,
-    RecordingStates,
     TranscriptionProviders,
 )
 
