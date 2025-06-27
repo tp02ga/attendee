@@ -18,6 +18,10 @@
           "type": "page"
         },
         {
+          "path": "docs/participant_events.md",
+          "type": "page"
+        },
+        {
           "path": "docs/scheduled_bots.md",
           "type": "page"
         },
