@@ -172,6 +172,7 @@ class ZoomBotAdapter(BotAdapter):
 
         self.cannot_send_video_error_ticker = 0
         self.cannot_send_audio_error_ticker = 0
+        self.send_raw_audio_unmute_ticker = 0
 
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
@@ -543,6 +544,11 @@ class ZoomBotAdapter(BotAdapter):
         self.audio_raw_data_sender = sender
 
     def send_raw_audio(self, bytes, sample_rate):
+        # Let's periodically try to unmute the audio, in case someone muted us
+        if self.send_raw_audio_unmute_ticker % 500 == 0:
+            self.audio_ctrl.UnmuteAudio()
+        self.send_raw_audio_unmute_ticker += 1
+
         if not self.on_mic_start_send_callback_called:
             if self.cannot_send_audio_error_ticker % 500 == 0:
                 logger.error("on_mic_start_send_callback_called not called so cannot send raw audio")
