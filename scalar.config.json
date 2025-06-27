@@ -22,6 +22,10 @@
           "type": "page"
         },
         {
+          "path": "docs/signed_in_bots.md",
+          "type": "page"
+        },
+        {
           "path": "docs/faq.md",
           "type": "page"
         }
