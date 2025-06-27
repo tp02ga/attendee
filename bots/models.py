@@ -992,13 +992,57 @@ class Participant(models.Model):
     email = models.EmailField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    object_id = models.CharField(max_length=255, unique=True, editable=False, blank=True, null=True)
+    is_the_bot = models.BooleanField(default=False, db_default=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["bot", "uuid"], name="unique_participant_per_bot")]
 
+    OBJECT_ID_PREFIX = "par_"
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         display_name = self.full_name or self.uuid
         return f"{display_name} in {self.bot.object_id}"
+
+
+class ParticipantEventTypes(models.IntegerChoices):
+    JOIN = 1, "Join"
+    LEAVE = 2, "Leave"
+
+    @classmethod
+    def type_to_api_code(cls, value):
+        """Returns the API code for a given type value"""
+        mapping = {
+            cls.JOIN: "join",
+            cls.LEAVE: "leave",
+        }
+        return mapping.get(value)
+
+
+class ParticipantEvent(models.Model):
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name="events")
+    event_type = models.IntegerField(choices=ParticipantEventTypes.choices)
+    object_id = models.CharField(max_length=255, unique=True, editable=False)
+
+    event_data = models.JSONField(null=False, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    timestamp_ms = models.BigIntegerField()
+
+    OBJECT_ID_PREFIX = "pe_"
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
 
 
 class RecordingStates(models.IntegerChoices):
@@ -1667,6 +1711,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
     BOT_STATE_CHANGE = 1, "Bot State Change"
     TRANSCRIPT_UPDATE = 2, "Transcript Update"
     CHAT_MESSAGES_UPDATE = 3, "Chat Messages Update"
+    PARTICIPANT_EVENTS_JOIN_LEAVE = 4, "Participant Join/Leave"
     # add other event types here
 
     @classmethod
@@ -1675,6 +1720,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
             cls.BOT_STATE_CHANGE: "bot.state_change",
             cls.TRANSCRIPT_UPDATE: "transcript.update",
             cls.CHAT_MESSAGES_UPDATE: "chat_messages.update",
+            cls.PARTICIPANT_EVENTS_JOIN_LEAVE: "participant_events.join_leave",
         }
         return mapping.get(value)
 

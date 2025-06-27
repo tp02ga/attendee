@@ -25,6 +25,9 @@ from bots.models import (
     Credentials,
     CreditTransaction,
     Organization,
+    Participant,
+    ParticipantEvent,
+    ParticipantEventTypes,
     Project,
     Recording,
     RecordingStates,
@@ -196,7 +199,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
@@ -518,7 +521,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio by updating the last audio message processed time
             controller.adapter.last_audio_message_processed_time = current_time
@@ -664,7 +667,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption", "isFinal": 1}
@@ -1090,7 +1093,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.webhook_subscription = WebhookSubscription.objects.create(
             project=self.project,
             url="https://example.com/webhook",
-            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE, WebhookTriggerTypes.CHAT_MESSAGES_UPDATE],
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE, WebhookTriggerTypes.CHAT_MESSAGES_UPDATE, WebhookTriggerTypes.PARTICIPANT_EVENTS_JOIN_LEAVE],
             is_active=True,
         )
 
@@ -1132,10 +1135,21 @@ class TestGoogleMeetBot(TransactionTestCase):
         bot_thread.daemon = True
         bot_thread.start()
 
-        def simulate_caption_data_arrival():
-            # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+        def simulate_participants_joining():
+            # Simulate the bot joining the meeting
+            bot_participant_data = {"deviceId": "bot1", "fullName": "Test Bot", "active": True, "isCurrentUser": True}
+            controller.adapter.handle_participant_update(bot_participant_data)
 
+            # Simulate participant joining
+            participant_data = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
+            controller.adapter.handle_participant_update(participant_data)
+
+        def simulate_participants_leaving():
+            # Simulate participant leaving
+            participant_data = {"deviceId": "user1", "fullName": "Test User", "active": False, "isCurrentUser": False}
+            controller.adapter.handle_participant_update(participant_data)
+
+        def simulate_caption_data_arrival():
             # Simulate caption data arrival
             caption_data = {"captionId": "caption1", "deviceId": "user1", "text": "This is a test caption from closed captions", "isFinal": 1}
             controller.closed_caption_manager.upsert_caption(caption_data)
@@ -1157,6 +1171,8 @@ class TestGoogleMeetBot(TransactionTestCase):
         def simulate_join_flow():
             nonlocal current_time
 
+            simulate_participants_joining()
+
             simulate_caption_data_arrival()
 
             # Simulate receiving audio by updating the last audio message processed time
@@ -1164,6 +1180,8 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Sleep to allow caption processing
             time.sleep(3)
+
+            simulate_participants_leaving()
 
             # Trigger only one participant in meeting auto leave
             controller.adapter.only_one_participant_in_meeting_at = time.time() - 10000000000
@@ -1282,6 +1300,54 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertIn("sender_name", chat_webhook_attempt.payload)
         self.assertEqual(chat_webhook_attempt.payload["text"], "Hello, this is a test chat message!")
 
+        # Verify Bot Participant was created
+        bot_participant = Participant.objects.filter(bot=self.bot, uuid="bot1").first()
+        self.assertIsNotNone(bot_participant)
+        self.assertEqual(bot_participant.full_name, "Test Bot")
+        self.assertEqual(bot_participant.uuid, "bot1")
+        self.assertTrue(bot_participant.is_the_bot)
+
+        # Verify User Participant was created
+        user_participant = Participant.objects.filter(bot=self.bot, uuid="user1").first()
+        self.assertIsNotNone(user_participant)
+        self.assertEqual(user_participant.full_name, "Test User")
+        self.assertEqual(user_participant.uuid, "user1")
+        self.assertFalse(user_participant.is_the_bot)
+
+        # Verify Bot ParticipantEvent was created
+        bot_participant_events = ParticipantEvent.objects.filter(participant__bot=self.bot, participant__uuid="bot1")
+        self.assertGreater(bot_participant_events.count(), 0, "Expected at least one participant event to be created")
+        join_event = bot_participant_events.filter(event_type=ParticipantEventTypes.JOIN).first()
+        self.assertIsNotNone(join_event)
+        self.assertEqual(join_event.participant.full_name, "Test Bot")
+
+        # Verify ParticipantEvent was created
+        participant_events = ParticipantEvent.objects.filter(participant__bot=self.bot, participant__uuid="user1")
+        self.assertGreater(participant_events.count(), 0, "Expected at least one participant event to be created")
+        join_event = participant_events.filter(event_type=ParticipantEventTypes.JOIN).first()
+        self.assertIsNotNone(join_event)
+        self.assertEqual(join_event.participant.full_name, "Test User")
+
+        leave_event = participant_events.filter(event_type=ParticipantEventTypes.LEAVE).first()
+        self.assertIsNotNone(leave_event)
+        self.assertEqual(leave_event.participant.full_name, "Test User")
+
+        # Verify webhook for participant event was created
+        participant_webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=self.bot, webhook_trigger_type=WebhookTriggerTypes.PARTICIPANT_EVENTS_JOIN_LEAVE)
+        self.assertGreater(participant_webhook_delivery_attempts.count(), 0, "Expected webhook delivery attempts for participant events")
+
+        participant_webhook_attempts = participant_webhook_delivery_attempts.filter(payload__event_type="join").all()
+        self.assertEqual(len(participant_webhook_attempts), 1)
+        participant_webhook_attempt = participant_webhook_attempts[0]
+        self.assertIsNotNone(participant_webhook_attempt.payload)
+        self.assertEqual(participant_webhook_attempt.payload["event_type"], "join")
+        self.assertEqual(participant_webhook_attempt.payload["participant_name"], "Test User")
+
+        leave_webhook_attempt = participant_webhook_delivery_attempts.filter(payload__event_type="leave").first()
+        self.assertIsNotNone(leave_webhook_attempt)
+        self.assertEqual(leave_webhook_attempt.payload["event_type"], "leave")
+        self.assertEqual(leave_webhook_attempt.payload["participant_name"], "Test User")
+
         # Verify WebSocket media sending was enabled and performance.timeOrigin was queried
         mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
 
@@ -1347,7 +1413,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(2)
 
             # Add participants to keep the bot in the meeting
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Let the bot run for a bit to "record"
             time.sleep(3)
@@ -1442,7 +1508,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(3)
 
             # Add participants - simulate websocket message processing
-            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True}
+            controller.adapter.participants_info["user1"] = {"deviceId": "user1", "fullName": "Test User", "active": True, "isCurrentUser": False}
 
             # Simulate receiving audio to keep bot alive
             controller.adapter.last_audio_message_processed_time = current_time

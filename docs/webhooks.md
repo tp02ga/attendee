@@ -11,7 +11,7 @@ To create a webhook:
 1. Click on "Settings → Webhooks" in the sidebar
 2. Click "Create Webhook" 
 3. Provide an HTTPS URL that will receive webhook events
-4. Select the triggers you want to receive notifications for (we currently have two triggers: `bot.state_change` and `transcript.update`)
+4. Select the triggers you want to receive notifications for (we currently have four triggers: `bot.state_change`, `transcript.update`, `chat_messages.update` and `participant_events.join_leave`)
 5. Click "Create" to save your subscription
 
 ## Webhook Payload
@@ -23,7 +23,7 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
   "idempotency_key": < UUID that uniquely identifies this webhook delivery >,
   "bot_id": < Id of the bot associated with the webhook delivery >,
   "bot_metadata": < Any metadata associated with the bot >,
-  "trigger": < Trigger for the webhook. Currently, the two triggers are bot.state_change, which is fired whenever the bot changes its state and transcript.update which is fired when the transcript is updated. >,
+  "trigger": < Trigger for the webhook. Currently, the four triggers are bot.state_change, which is fired whenever the bot changes its state, transcript.update which is fired when the transcript is updated, chat_messages.update which is fired when a chat message is sent and participant_events.join_leave which is fired when a participant joins or leaves the meeting. >,
   "data": < Event-specific data >
 }
 ```
@@ -73,6 +73,40 @@ For webhooks triggered by `transcript.update`, the `data` field contains a singl
     "transcript": <The utterance text>,
     "words": <The word-level timestamps of the utterance if they exist>,
   },
+}
+```
+
+### Payload for `chat_messages.update` trigger
+
+For webhooks triggered by `chat_messages.update`, the `data` field contains a single chat message:
+
+```
+{
+  "id": <The ID of the chat message>,
+  "to": <Whether the message was sent to the bot or to everyone>,
+  "text": <The text of the chat message>,
+  "timestamp": <The timestamp of the chat message>,
+  "sender_name": <The name of the participant who sent the chat message>,
+  "sender_uuid": <The UUID of the participant who sent the chat message>,
+  "timestamp_ms": <The timestamp of the chat message in milliseconds>,
+  "additional_data": <Any additional data associated with the chat message>,
+  "sender_user_uuid": <The UUID of the participant's user account within the meeting platform>,
+}
+```
+
+### Payload for `participant_events.join_leave` trigger
+
+For webhooks triggered by `participant_events.join_leave`, the `data` field contains a single participant event:
+
+```
+{
+  "id": <The ID of the participant event>,
+  "participant_name": <The name of the participant who joined or left the meeting>,
+  "participant_uuid": <The UUID of the participant who joined or left the meeting>,
+  "participant_user_uuid": <The UUID of the participant's user account within the meeting platform>,
+  "event_type": <The type of event that occurred. Either "join" or "leave">,
+  "event_data": <Any additional data associated with the event. This is empty for join and leave events>,
+  "timestamp_ms": <The timestamp of the event in milliseconds>,
 }
 ```
 

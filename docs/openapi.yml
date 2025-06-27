@@ -548,6 +548,76 @@ paths:
           description: Invalid input
         '404':
           description: Bot not found
+  /api/v1/bots/{object_id}/participant_events:
+    get:
+      operationId: Get Participant Events
+      description: Returns the participant events (join/leave) for a bot. Results
+        are paginated using cursor pagination.
+      summary: Get participant events for a bot
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+          default: Token YOUR_API_KEY_HERE
+        description: API key for authentication
+        required: true
+      - in: header
+        name: Content-Type
+        schema:
+          type: string
+          default: application/json
+        description: Should always be application/json
+        required: true
+      - in: query
+        name: after
+        schema:
+          type: string
+          format: ISO 8601 datetime
+        description: Only return participant events created after this time. Useful
+          when polling for updates.
+        examples:
+          DateTimeExample:
+            value: '2024-01-18T12:34:56Z'
+            summary: DateTime Example
+      - in: query
+        name: before
+        schema:
+          type: string
+          format: ISO 8601 datetime
+        description: Only return participant events created before this time.
+        examples:
+          DateTimeExample:
+            value: '2024-01-18T13:34:56Z'
+            summary: DateTime Example
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor for pagination
+      - in: path
+        name: object_id
+        schema:
+          type: string
+        description: Bot ID
+        required: true
+        examples:
+          BotIDExample:
+            value: bot_xxxxxxxxxxx
+            summary: Bot ID Example
+      tags:
+      - Bots
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedParticipantEventList'
+          description: List of participant events
+        '404':
+          description: Bot not found
   /api/v1/bots/{object_id}/pause_recording:
     post:
       operationId: Pause Recording
@@ -937,7 +1007,7 @@ components:
         message:
           type: string
           minLength: 1
-          description: The message text to send.
+          description: The message text to send. Does not support emojis currently.
       required:
       - message
     BotImageRequest:
@@ -961,10 +1031,13 @@ components:
     ChatMessage:
       type: object
       properties:
-        object_id:
+        id:
           type: string
         text:
           type: string
+        timestamp_ms:
+          type: string
+          readOnly: true
         timestamp:
           type: integer
         to:
@@ -980,12 +1053,13 @@ components:
         additional_data: {}
       required:
       - additional_data
-      - object_id
+      - id
       - sender_name
       - sender_user_uuid
       - sender_uuid
       - text
       - timestamp
+      - timestamp_ms
       - to
     CreateBotRequest:
       type: object
@@ -1291,6 +1365,51 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChatMessage'
+    PaginatedParticipantEventList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantEvent'
+    ParticipantEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        participant_name:
+          type: string
+        participant_uuid:
+          type: string
+        participant_user_uuid:
+          type: string
+          nullable: true
+        event_type:
+          type: string
+          readOnly: true
+        event_data: {}
+        timestamp_ms:
+          type: integer
+      required:
+      - event_data
+      - event_type
+      - id
+      - participant_name
+      - participant_user_uuid
+      - participant_uuid
+      - timestamp_ms
     PatchedPatchBotRequest:
       type: object
       properties:
