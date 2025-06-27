@@ -16,7 +16,7 @@ You may need to rebuild the docker image. You can do this in one of two ways:
 
 2. Use the Makefile command: `make build`
 
-## Application emits errors when uploading files. 
+## Application emits errors when uploading files when running locally. 
 
 This may happen if the AWS_REGION is not set correctly. It currently defaults to `us-east-1`.  
 You can set this in the .env file.
