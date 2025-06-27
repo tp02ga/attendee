@@ -1684,6 +1684,7 @@ class WebhookSubscription(models.Model):
         return [WebhookTriggerTypes.BOT_STATE_CHANGE]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="bot_webhook_subscriptions", null=True, blank=True)
 
     OBJECT_ID_PREFIX = "webhook_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
