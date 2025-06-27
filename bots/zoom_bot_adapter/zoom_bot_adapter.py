@@ -543,11 +543,19 @@ class ZoomBotAdapter(BotAdapter):
     def on_mic_initialize_callback(self, sender):
         self.audio_raw_data_sender = sender
 
-    def send_raw_audio(self, bytes, sample_rate):
+    def periodically_unmute_audio(self):
         # Let's periodically try to unmute the audio, in case someone muted us
-        if self.send_raw_audio_unmute_ticker % 500 == 0:
-            self.audio_ctrl.UnmuteAudio()
+        if self.send_raw_audio_unmute_ticker % 1000 == 0 and self.my_participant_id is not None and self.audio_ctrl is not None:
+            if self.audio_ctrl.CanUnMuteBySelf():
+                unmute_result = self.audio_ctrl.UnMuteAudio(self.my_participant_id)
+                if unmute_result != zoom.SDKERR_SUCCESS:
+                    logger.info(f"Failed to unmute audio. unmute_result = {unmute_result}")
+            else:
+                logger.info("Cannot unmute audio by self")
         self.send_raw_audio_unmute_ticker += 1
+
+    def send_raw_audio(self, bytes, sample_rate):
+        self.periodically_unmute_audio()
 
         if not self.on_mic_start_send_callback_called:
             if self.cannot_send_audio_error_ticker % 500 == 0:
