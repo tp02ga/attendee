@@ -202,15 +202,14 @@
                                             </div>
                                         </div>
                                     {% empty %}
-                                        {% if not recording.failed_utterances %}
+                                        {% if not recording.failed_utterances and recording.state == RecordingStates.COMPLETE %}
                                             <div class="alert alert-info">No transcripts available.</div>
                                         {% endif %}
                                     {% endfor %}
 
-                                    <!-- Show progress message even when utterances exist -->
-                                    {% if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS %}
+                                    {% if recording.transcription_state == RecordingTranscriptionStates.IN_PROGRESS or recording.transcription_state == RecordingTranscriptionStates.NOT_STARTED %}
                                         <div class="alert alert-info mt-3">
-                                            <i class="bi bi-clock-history"></i> Transcription in progress. Refresh the page to see the latest updates.
+                                            Real-time transcription in progress. Refresh to see the latest updates.
                                         </div>
                                     {% endif %}
 
@@ -249,18 +248,19 @@
                                                         Recording paused...
                                                     {% endif %}
                                                 </p>
-                                                <small class="text-muted">Media will be available when recording is finished.</small>
+                                                <small class="text-muted">Media will be available when the recording is finished.</small>
                                             </div>
                                         </div>
                                     {% endif %}
                                 </div>
                             </div>
-                        {% else %}
-                            <div class="alert alert-warning">
-                                Recording status: 
-                                <span class="badge {% if recording.state == RecordingStates.FAILED %}bg-danger{% else %}bg-warning{% endif %}">
-                                    {{ recording.get_state_display }}
-                                </span>
+                        {% elif recording.state == RecordingStates.FAILED %}
+                            <div class="alert alert-danger">
+                                The recording failed.
+                            </div>
+                        {% elif recording.state == RecordingStates.NOT_STARTED %}
+                            <div class="alert alert-info">
+                                The recording has not started yet. Refresh the page to see the latest updates.
                             </div>
                         {% endif %}
                     </div>

@@ -465,8 +465,6 @@ def generate_recordings_json_for_bot_detail_view(bot):
     # Process recordings and utterances
     recordings_data = []
     for recording in bot.recordings.all():
-        if recording.state != RecordingStates.COMPLETE and recording.state != RecordingStates.IN_PROGRESS and recording.state != RecordingStates.PAUSED:
-            continue
         recordings_data.append(
             {
                 "state": recording.state,
