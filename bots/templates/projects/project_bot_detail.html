@@ -73,6 +73,19 @@
     .bold {
         font-weight: bold;
     }
+    /* Override Bootstrap tab colors */
+    .nav-link {
+        color: #6c757d !important; /* Light grey for non-active tabs */
+        border-right: 1px solid #dee2e6 !important; /* Add vertical separator */
+        border-radius: 0 !important; /* Remove rounded corners for cleaner separation */
+    }
+    .nav-link.active {
+        color: #0d6efd !important; /* Keep blue for active tab */
+        border-right: 1px solid #dee2e6 !important; /* Keep separator on active tab too */
+    }
+    .nav-item:last-child .nav-link {
+        border-right: none !important; /* Remove border from last tab */
+    }
 </style>
 
 <div class="container mt-4">
@@ -122,12 +135,6 @@
                 Event Timeline
             </button>
         </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="chat-tab" data-bs-toggle="tab" 
-                    data-bs-target="#chat" type="button" role="tab">
-                Chat Messages
-            </button>
-        </li>
         {% if webhook_delivery_attempts %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="webhooks-tab" data-bs-toggle="tab" 
@@ -141,6 +148,20 @@
             <button class="nav-link" id="metadata-tab" data-bs-toggle="tab" 
                     data-bs-target="#metadata" type="button" role="tab">
                 Metadata
+            </button>
+        </li>
+        {% endif %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="chat-tab" data-bs-toggle="tab" 
+                    data-bs-target="#chat" type="button" role="tab">
+                Chat Messages
+            </button>
+        </li>
+        {% if participants %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="participants-tab" data-bs-toggle="tab" 
+                    data-bs-target="#participants" type="button" role="tab">
+                Participants
             </button>
         </li>
         {% endif %}
@@ -436,6 +457,65 @@
                 <div class="alert alert-info">No metadata available for this bot.</div>
             {% endif %}
         </div>
+
+        <!-- Participants Tab -->
+        {% if participants %}
+        <div class="tab-pane fade" id="participants" role="tabpanel">
+            <div class="participants-list">
+                {% for participant in participants %}
+                    <div class="participant-item border rounded p-3 mb-3 bg-light">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="speaker-bar" style="background-color: {{ participant.uuid|participant_color }}; width: 4px; height: 100%; min-height: 40px; border-radius: 2px; flex-shrink: 0;"></div>
+                            <div class="participant-content flex-grow-1">
+                                <div class="participant-header d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-semibold">
+                                        {{ participant.full_name|default:participant.uuid }}
+                                    </span>
+                                    <span class="text-muted small">{{ participant.created_at|date:"M d, Y H:i:s" }}</span>
+                                </div>
+                                {% if participant.events.all %}
+                                    <div class="participant-events">
+                                        <div class="participant-events-timeline mt-3">
+                                            {% for event in participant.events.all %}
+                                                <div class="event-item d-flex align-items-start gap-3 py-2 border-bottom">
+                                                    <div class="event-icon">
+                                                        {% if event.event_type == ParticipantEventTypes.JOIN %}
+                                                            <i class="bi bi-box-arrow-in-right text-success"></i>
+                                                        {% elif event.event_type == ParticipantEventTypes.LEAVE %}
+                                                            <i class="bi bi-box-arrow-left text-danger"></i>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="event-content flex-grow-1">
+                                                        <div class="event-type fw-semibold">
+                                                            {% if event.event_type == ParticipantEventTypes.JOIN %}
+                                                                Joined
+                                                            {% elif event.event_type == ParticipantEventTypes.LEAVE %}
+                                                                Left
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="event-timestamp text-muted small">{{ event.created_at|date:"M d, Y H:i:s" }}</div>
+                                                        {% if event.event_data %}
+                                                            <div class="event-data mt-1">
+                                                                <small class="text-muted">
+                                                                    <pre class="small mb-0">{{ event.event_data|pprint }}</pre>
+                                                                </small>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>                                       
+                                    </div>
+                                {% else %}
+                                    <div class="text-muted small">No events recorded</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 <script>
