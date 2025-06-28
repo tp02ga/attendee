@@ -263,9 +263,15 @@
                                 The recording failed.
                             </div>
                         {% elif recording.state == RecordingStates.NOT_STARTED %}
-                            <div class="alert alert-info">
-                                The recording has not started yet. Refresh the page to see the latest updates.
-                            </div>
+                            {% if bot.state == BotStates.FATAL_ERROR or bot.state == BotStates.ENDED %}
+                                <div class="alert alert-info">
+                                    The recording is unavailable.
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    The recording has not started yet. Refresh the page to see the latest updates.
+                                </div>
+                            {% endif %}
                         {% endif %}
                     </div>
                 {% endfor %}
