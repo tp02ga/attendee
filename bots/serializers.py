@@ -4,7 +4,6 @@ import os
 from dataclasses import asdict
 
 import jsonschema
-from django.core.validators import URLValidator
 from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiExample,
