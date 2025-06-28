@@ -368,8 +368,8 @@ class BotController:
 
         if self.bot_in_db.rtmp_destination_url():
             self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
-        elif self.bot_in_db.websocket_audio_url():
-            self.pipeline_configuration = PipelineConfiguration.websocket_streaming_bot()
+        elif self.bot_in_db.websocket_mixed_audio_url():
+            self.pipeline_configuration = PipelineConfiguration.voice_agent()
         elif self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
             self.pipeline_configuration = PipelineConfiguration.audio_recorder_bot()
         else:
@@ -502,14 +502,7 @@ class BotController:
         self.websocket_audio_client = None
         if self.should_create_websocket_client():
             self.websocket_audio_client = BotWebsocketClient(
-                url=self.bot_in_db.websocket_audio_url(),
-                on_message_callback=self.on_message_from_websocket_audio,
-            )
-
-        self.websocket_audio_client = None
-        if self.should_create_websocket_client():
-            self.websocket_audio_client = BotWebsocketClient(
-                url=self.bot_in_db.websocket_audio_url(),
+                url=self.bot_in_db.websocket_mixed_audio_url(),
                 on_message_callback=self.on_message_from_websocket_audio,
             )
 

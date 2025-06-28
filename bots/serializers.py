@@ -401,6 +401,23 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
         return value
 
 
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "mixed_audio_url": {
+                "type": "string",
+                "description": "The URL of the audio websocket to use for the bot. Use this URL to both receive audio in real time and have the bot output audio in real time. It must start with ws:// or wss://.",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class WebsocketSettingsJSONField(serializers.JSONField):
+    pass
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -417,7 +434,6 @@ class CreateBotSerializer(serializers.Serializer):
     meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
     bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
-    audio_websocket_url = serializers.CharField(validators=[URLValidator(schemes=["ws", "wss"], message="Enter a valid websocket URL")], help_text="The URL of the audio websocket to use for the bot. It must start with ws:// or wss://.", required=False, default=None)
     metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
     bot_chat_message = BotChatMessageRequestSerializer(help_text="The chat message the bot sends after it joins the meeting", required=False, default=None)
     join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False, default=None)
@@ -563,6 +579,37 @@ class CreateBotSerializer(serializers.Serializer):
 
         if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
             raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
+
+        return value
+
+    websocket_settings = WebsocketSettingsJSONField(help_text="The websocket settings for the bot, e.g. {'mixed_audio_url': 'wss://example.com/audio'}", required=False, default=None)
+
+    WEBSOCKET_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "mixed_audio_url": {
+                "type": "string",
+                "description": "The URL of the audio websocket to use for the bot. It must start with ws:// or wss://.",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_websocket_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.WEBSOCKET_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # Validate websocket URL format if provided
+        mixed_audio_url = value.get("mixed_audio_url")
+        if mixed_audio_url:
+            if not (mixed_audio_url.lower().startswith("ws://") or mixed_audio_url.lower().startswith("wss://")):
+                raise serializers.ValidationError({"mixed_audio_url": "URL must start with ws:// or wss://"})
 
         return value
 
