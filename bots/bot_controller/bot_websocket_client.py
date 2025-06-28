@@ -34,14 +34,14 @@ class BotWebsocketClient:
         if self.websocket:
             raise Exception("Websocket already started")
 
-        logger.info("Starting websocket client")
+        logger.info("Starting BotWebsocketClient")
         self.websocket = connect(self.websocket_url)
 
         self.recv_loop_thread.start()
         self.send_loop_thread.start()
 
     def stop(self):
-        logger.info("Stopping websocket client")
+        logger.info("Stopping BotWebsocketClient")
         # This should trigger the recv_loop to exit
         self.websocket.close()
 
@@ -55,7 +55,7 @@ class BotWebsocketClient:
         self.send_queue.put(message)
 
     def send_loop(self):
-        logger.info("Send loop started")
+        logger.info("BotWebsocketClient send loop started")
         while self.websocket.state in [State.OPEN, State.CONNECTING]:
             try:
                 message = self.send_queue.get(timeout=1)
@@ -67,12 +67,12 @@ class BotWebsocketClient:
             try:
                 self.websocket.send(message_str)
             except OSError as e:
-                logger.info("OSError: Maybe Connection closed. Leaving loop: %s", e)
+                logger.info("BotWebsocketClient: OSError: Maybe Connection closed. Leaving loop: %s", e)
                 break
-        logger.info("Send loop exited")
+        logger.info("BotWebsocketClient send loop exited")
 
     def recv_loop(self):
-        logger.info("Recv loop started")
+        logger.info("BotWebsocketClient recv loop started")
         while True:
             try:
                 message = self.websocket.recv()
@@ -80,4 +80,4 @@ class BotWebsocketClient:
             except ConnectionClosed:
                 logger.info("Connection closed. Leaving loop.")
                 break
-        logger.info("Recv loop exited")
+        logger.info("BotWebsocketClient recv loop exited")

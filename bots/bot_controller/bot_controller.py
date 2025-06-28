@@ -50,6 +50,7 @@ from bots.webhook_payloads import chat_message_webhook_payload, participant_even
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
+from .realtime_audio_output_manager import RealtimeAudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .gstreamer_pipeline import GstreamerPipeline
@@ -314,6 +315,10 @@ class BotController:
             logger.info("Telling media recorder receiver to cleanup...")
             self.screen_and_audio_recorder.cleanup()
 
+        if self.realtime_audio_output_manager:
+            logger.info("Telling realtime audio output manager to cleanup...")
+            self.realtime_audio_output_manager.cleanup()
+
         if self.get_recording_file_location():
             logger.info("Telling file uploader to upload recording file...")
             file_uploader = FileUploader(
@@ -520,6 +525,11 @@ class BotController:
 
         self.audio_output_manager = AudioOutputManager(
             currently_playing_audio_media_request_finished_callback=self.currently_playing_audio_media_request_finished,
+            play_raw_audio_callback=self.adapter.send_raw_audio,
+            sleep_time_between_chunks_seconds=self.get_sleep_time_between_audio_output_chunks_seconds(),
+        )
+
+        self.realtime_audio_output_manager = RealtimeAudioOutputManager(
             play_raw_audio_callback=self.adapter.send_raw_audio,
             sleep_time_between_chunks_seconds=self.get_sleep_time_between_audio_output_chunks_seconds(),
         )
@@ -1017,7 +1027,7 @@ class BotController:
         if message["event_type"] == RealtimeBotEventTypes.AUDIO_CHUNK.name:
             chunk = b64decode(message["event_data"]["chunk"])
             sample_rate = message["event_data"]["sample_rate"]
-            self.adapter.send_raw_audio(chunk, sample_rate)
+            self.realtime_audio_output_manager.add_chunk(chunk, sample_rate)
         else:
             logger.info("Received unknown message from websocket: %s", message)
 
