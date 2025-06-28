@@ -23,10 +23,14 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    ChatMessage,
     Credentials,
     CreditTransaction,
+    Participant,
+    ParticipantEventTypes,
     Project,
     RecordingStates,
+    RecordingTranscriptionStates,
     Utterance,
     WebhookDeliveryAttempt,
     WebhookDeliveryAttemptStatus,
@@ -358,14 +362,24 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Get webhook delivery attempts for this bot
         webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related("webhook_subscription").order_by("-created_at")
 
+        # Get chat messages for this bot
+        chat_messages = ChatMessage.objects.filter(bot=bot).select_related("participant").order_by("created_at")
+
+        # Get participants and participant events for this bot
+        participants = Participant.objects.filter(bot=bot, is_the_bot=False).prefetch_related("events").order_by("created_at")
+
         context = self.get_project_context(object_id, project)
         context.update(
             {
                 "bot": bot,
                 "BotStates": BotStates,
                 "RecordingStates": RecordingStates,
+                "RecordingTranscriptionStates": RecordingTranscriptionStates,
                 "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
+                "chat_messages": chat_messages,
+                "participants": participants,
+                "ParticipantEventTypes": ParticipantEventTypes,
                 "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
                 "credits_consumed": -sum([t.credits_delta() for t in bot.credit_transactions.all()]) if bot.credit_transactions.exists() else None,
             }
