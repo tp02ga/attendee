@@ -22,6 +22,9 @@ from .models import (
     Project,
     Recording,
     TranscriptionTypes,
+    WebhookSecret,
+    WebhookSubscription,
+    WebhookTriggerTypes,
 )
 from .serializers import (
     CreateBotSerializer,
@@ -134,6 +137,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
     join_at = serializer.validated_data["join_at"]
+    webhook_subscriptions = serializer.validated_data["webhook_subscriptions"]
     initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
     settings = {
@@ -176,8 +180,116 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             except ValidationError as e:
                 return None, {"error": e.messages[0]}
 
+        # Create bot-level webhook subscriptions if provided
+        if webhook_subscriptions:
+            success, error = create_webhook_subscriptions(webhook_subscriptions, project, bot)
+            if not success:
+                return None, {"error": error}
+
         if bot.state == BotStates.READY:
             # Try to transition the state from READY to JOINING
             BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
 
         return bot, None
+
+
+def validate_webhook_data(url, triggers, project, bot=None, check_limits=True):
+    """
+    Validates webhook URL and triggers for both project-level and bot-level webhooks.
+    Returns error message and normalized triggers if validation succeeds.
+
+    Args:
+        url: The webhook URL
+        triggers: List of trigger types (strings or integers)
+        project: The Project instance
+        bot: Optional Bot instance for bot-level webhooks
+        check_limits: Whether to check webhook limits (default: True)
+
+    Returns:
+        tuple: (error_message, normalized_triggers)
+               error_message is None if validation succeeds
+               normalized_triggers is list of integers if validation succeeds
+    """
+    # Normalize triggers (convert strings to integers)
+    normalized_triggers = WebhookTriggerTypes.normalize_triggers(triggers)
+    if normalized_triggers is None:
+        invalid_triggers = [t for t in triggers if not isinstance(t, str) or WebhookTriggerTypes.api_code_to_trigger_type(t) is None]
+        return f"Invalid webhook trigger type: {invalid_triggers[0] if invalid_triggers else 'unknown'}", None
+
+    # Check if URL is valid
+    if not url.startswith("https://"):
+        return "webhook URL must start with https://", None
+
+    # Check for duplicate URLs
+    existing_webhook_query = WebhookSubscription.objects.filter(url=url, project=project)
+    if bot:
+        # For bot-level webhooks, check if URL already exists for this bot
+        if existing_webhook_query.filter(bot=bot).exists():
+            return "URL already subscribed for this bot", None
+    else:
+        # For project-level webhooks, check if URL already exists for project
+        if existing_webhook_query.filter(bot__isnull=True).exists():
+            return "URL already subscribed", None
+
+    # Webhook limit check (only if check_limits is True)
+    if check_limits:
+        if bot:
+            # For bot-level webhooks, check the limit per bot (max 2 per bot)
+            bot_level_webhooks = WebhookSubscription.objects.filter(project=project, bot=bot).count()
+            if bot_level_webhooks >= 2:
+                return "You have reached the maximum number of webhooks for this bot", None
+        else:
+            # For project-level webhooks, check the limit (only count project-level webhooks)
+            project_level_webhooks = WebhookSubscription.objects.filter(project=project, bot__isnull=True).count()
+            if project_level_webhooks >= 2:
+                return "You have reached the maximum number of webhooks", None
+
+    return None, normalized_triggers
+
+
+def create_webhook_subscriptions(webhook_data_list, project, bot=None, skip_validation=False):
+    """
+    Creates webhook subscriptions for a project or bot.
+
+    Args:
+        webhook_data_list: List of webhook data dictionaries with 'url' and 'triggers'
+        project: The Project instance
+        bot: Optional Bot instance for bot-level webhooks
+        skip_validation: If True, skip validation (assumes data is already validated)
+
+    Returns:
+        tuple: (success: bool, error_message: str or None)
+    """
+    if not webhook_data_list:
+        return True, None
+
+    if not skip_validation:
+        # Validate all webhooks first
+        for webhook_data in webhook_data_list:
+            url = webhook_data.get("url")
+            triggers = webhook_data.get("triggers", [])
+
+            error, normalized_triggers = validate_webhook_data(url, triggers, project, bot)
+            if error:
+                return False, error
+
+            # Store normalized triggers back to webhook_data for later use
+            webhook_data["normalized_triggers"] = normalized_triggers
+    else:
+        # If validation is skipped, use triggers as normalized_triggers
+        for webhook_data in webhook_data_list:
+            webhook_data["normalized_triggers"] = webhook_data["triggers"]
+
+    # Get or create webhook secret for the project
+    WebhookSecret.objects.get_or_create(project=project)
+
+    # Create all webhook subscriptions
+    for webhook_data in webhook_data_list:
+        WebhookSubscription.objects.create(
+            project=project,
+            bot=bot,
+            url=webhook_data["url"],
+            triggers=webhook_data["normalized_triggers"],  # Use normalized triggers
+        )
+
+    return True, None

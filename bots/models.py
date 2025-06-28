@@ -1678,6 +1678,36 @@ class WebhookTriggerTypes(models.IntegerChoices):
         }
         return mapping.get(value)
 
+    @classmethod
+    def api_code_to_trigger_type(cls, api_code):
+        """Convert API code string to trigger type integer."""
+        mapping = {
+            "bot.state_change": cls.BOT_STATE_CHANGE.value,
+            "transcript.update": cls.TRANSCRIPT_UPDATE.value,
+            "chat_messages.update": cls.CHAT_MESSAGES_UPDATE.value,
+        }
+        return mapping.get(api_code)
+
+    @classmethod
+    def normalize_triggers(cls, triggers):
+        """
+        Convert a list of trigger strings to integers.
+        """
+        normalized = []
+        for trigger in triggers:
+            if isinstance(trigger, str):
+                # Convert string to integer
+                trigger_value = cls.api_code_to_trigger_type(trigger)
+                if trigger_value is not None:
+                    normalized.append(trigger_value)
+                else:
+                    # Return None to indicate invalid trigger
+                    return None
+            else:
+                # Only strings are supported
+                return None
+        return normalized
+
 
 class WebhookSubscription(models.Model):
     def default_triggers():
