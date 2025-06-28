@@ -366,14 +366,24 @@ class BotController:
 
         self.automatic_leave_configuration = AutomaticLeaveConfiguration(**self.bot_in_db.automatic_leave_settings())
 
+        self.pipeline_configuration = self.get_pipeline_configuration()
+
+    def get_pipeline_configuration(self):
+        # This is sloppy, we won't be able to rely on these predefined configurations forever, but it will be ok for now
+
         if self.bot_in_db.rtmp_destination_url():
-            self.pipeline_configuration = PipelineConfiguration.rtmp_streaming_bot()
-        elif self.bot_in_db.websocket_mixed_audio_url():
-            self.pipeline_configuration = PipelineConfiguration.voice_agent()
-        elif self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
-            self.pipeline_configuration = PipelineConfiguration.audio_recorder_bot()
-        else:
-            self.pipeline_configuration = PipelineConfiguration.recorder_bot()
+            return PipelineConfiguration.rtmp_streaming_bot()
+
+        if self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
+            if self.bot_in_db.websocket_mixed_audio_url():
+                return PipelineConfiguration.audio_recorder_bot_with_websocket_audio()
+            else:
+                return PipelineConfiguration.audio_recorder_bot()
+
+        if self.bot_in_db.websocket_mixed_audio_url():
+            return PipelineConfiguration.recorder_bot_with_websocket_audio()
+
+        return PipelineConfiguration.recorder_bot()
 
     def get_gstreamer_sink_type(self):
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
