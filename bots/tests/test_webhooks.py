@@ -148,6 +148,9 @@ class WebhookSubscriptionTest(TransactionTestCase):
 
     def test_create_webhook_invalid_url(self):
         """Test webhook creation with invalid URL (non-HTTPS)"""
+        # Clear the existing webhooks to avoid hitting limits
+        WebhookSubscription.objects.filter(project=self.project).delete()
+
         webhook_data = {"url": "http://example.com/insecure", "triggers[]": [WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE)]}
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
@@ -162,8 +165,14 @@ class WebhookSubscriptionTest(TransactionTestCase):
 
     def test_create_webhook_duplicate_url(self):
         """Test webhook creation with already existing URL"""
+        # Clear existing webhooks first, then create one to test duplication
+        WebhookSubscription.objects.filter(project=self.project).delete()
+
+        # Create a webhook to test duplication against
+        WebhookSubscription.objects.create(project=self.project, url="https://example.com/webhook1", triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE])
+
         webhook_data = {
-            "url": "https://example.com/webhook1",  # This URL already exists from setUp
+            "url": "https://example.com/webhook1",  # This URL now exists
             "triggers[]": [WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE)],
         }
 
