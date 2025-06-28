@@ -1731,13 +1731,14 @@ class WebhookTriggerTypes(models.IntegerChoices):
             "bot.state_change": cls.BOT_STATE_CHANGE.value,
             "transcript.update": cls.TRANSCRIPT_UPDATE.value,
             "chat_messages.update": cls.CHAT_MESSAGES_UPDATE.value,
+            "participant_events.join_leave": cls.PARTICIPANT_EVENTS_JOIN_LEAVE.value,
         }
         return mapping.get(api_code)
 
     @classmethod
     def normalize_triggers(cls, triggers):
         """
-        Convert a list of trigger strings to integers.
+        Convert a list of trigger API code strings to integers.
         """
         normalized = []
         for trigger in triggers:
@@ -1750,7 +1751,7 @@ class WebhookTriggerTypes(models.IntegerChoices):
                     # Return None to indicate invalid trigger
                     return None
             else:
-                # Only strings are supported
+                # Only strings are supported (this is for API input validation)
                 return None
         return normalized
 

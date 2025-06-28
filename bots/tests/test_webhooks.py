@@ -120,7 +120,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
         webhook_data = {
             "url": "https://example.com/new-webhook",
             "triggers[]": [
-                WebhookTriggerTypes.BOT_STATE_CHANGE,
+                WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE),
             ],
         }
 
@@ -148,14 +148,14 @@ class WebhookSubscriptionTest(TransactionTestCase):
 
     def test_create_webhook_invalid_url(self):
         """Test webhook creation with invalid URL (non-HTTPS)"""
-        webhook_data = {"url": "http://example.com/insecure", "triggers[]": [WebhookTriggerTypes.BOT_STATE_CHANGE]}
+        webhook_data = {"url": "http://example.com/insecure", "triggers[]": [WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE)]}
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
         response = self.create_webhook_view.post(request, self.project.object_id)
 
         # Check for error response
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "URL must start with https://")
+        self.assertEqual(response.content.decode(), "webhook URL must start with https://")
 
         # Verify webhook wasn't created
         self.assertFalse(WebhookSubscription.objects.filter(url="http://example.com/insecure").exists())
@@ -164,7 +164,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
         """Test webhook creation with already existing URL"""
         webhook_data = {
             "url": "https://example.com/webhook1",  # This URL already exists from setUp
-            "triggers[]": [WebhookTriggerTypes.BOT_STATE_CHANGE],
+            "triggers[]": [WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE)],
         }
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
@@ -181,7 +181,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
         """Test webhook creation with invalid event type"""
         webhook_data = {
             "url": "https://example.com/new-webhook",
-            "triggers[]": [9999],  # Invalid event type
+            "triggers[]": [9999],  # Invalid event type integer
         }
 
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
@@ -189,7 +189,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
 
         # Check for error response
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "Invalid event type: 9999")
+        self.assertEqual(response.content.decode(), "Invalid webhook trigger type: 9999")
 
     def test_delete_webhook(self):
         """Test webhook deletion"""
@@ -228,7 +228,7 @@ class WebhookSubscriptionTest(TransactionTestCase):
         webhook_data = {
             "url": "https://example.com/new-webhook",
             "triggers[]": [
-                WebhookTriggerTypes.BOT_STATE_CHANGE,
+                WebhookTriggerTypes.trigger_type_to_api_code(WebhookTriggerTypes.BOT_STATE_CHANGE),
             ],
         }
         request = self._get_request(user=self.user, method="POST", post_data=webhook_data)
