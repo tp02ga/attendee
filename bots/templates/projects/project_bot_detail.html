@@ -265,7 +265,7 @@
                         {% elif recording.state == RecordingStates.NOT_STARTED %}
                             {% if bot.state == BotStates.FATAL_ERROR or bot.state == BotStates.ENDED %}
                                 <div class="alert alert-info">
-                                    The recording is unavailable because it never started.
+                                    The recording is unavailable.
                                 </div>
                             {% else %}
                                 <div class="alert alert-info">
