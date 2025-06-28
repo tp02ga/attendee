@@ -24,6 +24,10 @@
         border: 2px solid #007bff;
         border-radius: 50%;
     }
+    .timeline-container {
+        max-height: 700px;
+        overflow-y: auto;
+    }
     .recording-item {
         border-radius: 0.25rem;
         margin-bottom: 1rem;
@@ -272,6 +276,7 @@
 
         <!-- Timeline Tab -->
         <div class="tab-pane fade" id="timeline" role="tabpanel">
+            <div class="timeline-container">
             {% if bot.bot_events.all %}
                 <div class="timeline">
                     {% for event in bot.bot_events.all %}
@@ -304,15 +309,15 @@
                                             </video>
                                         {% elif screenshot.file.name|stringformat:"s"|slice:"-6:" == ".mhtml" %}
                                             <a href="{{ screenshot.url }}" 
-                                               class="btn btn-outline-secondary mb-2" 
-                                               target="_blank">
+                                                class="btn btn-outline-secondary mb-2" 
+                                                target="_blank">
                                                 Download MHTML
                                             </a>
                                         {% else %}
                                             <img src="{{ screenshot.url }}" 
-                                                 class="img-fluid mb-2" 
-                                                 alt="Debug Screenshot"
-                                                 style="max-width: 300px;">
+                                                class="img-fluid mb-2" 
+                                                alt="Debug Screenshot"
+                                                style="max-width: 300px;">
                                         {% endif %}
                                         {% if screenshot.metadata %}
                                             <pre class="small">{{ screenshot.metadata|pprint }}</pre>
@@ -326,6 +331,7 @@
             {% else %}
                 <div class="alert alert-info">No events recorded.</div>
             {% endif %}
+            </div>
         </div>
 
         <!-- Chat Messages Tab -->
