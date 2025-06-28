@@ -13,6 +13,8 @@ class ScreenAndAudioRecorder:
         self.screen_dimensions = (recording_dimensions[0] + 10, recording_dimensions[1] + 10)
         self.recording_dimensions = recording_dimensions
         self.audio_only = audio_only
+        self.paused = False
+        self.xterm_proc = None
 
     def start_recording(self, display_var):
         logger.info(f"Starting screen recorder for display {display_var} with dimensions {self.screen_dimensions} and file location {self.file_location}")
@@ -43,6 +45,41 @@ class ScreenAndAudioRecorder:
 
         logger.info(f"Starting FFmpeg command: {' '.join(ffmpeg_cmd)}")
         self.ffmpeg_proc = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+    # Pauses by muting the audio and showing a black xterm covering the entire screen
+    def pause_recording(self):
+        if self.paused:
+            return True  # Already paused, consider this success
+
+        try:
+            sw, sh = self.screen_dimensions
+
+            x, y = 0, 0
+
+            self.xterm_proc = subprocess.Popen(["xterm", "-bg", "black", "-fg", "black", "-geometry", f"{sw}x{sh}+{x}+{y}", "-xrm", "*borderWidth:0", "-xrm", "*scrollBar:false"])
+
+            subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "1"], check=True)
+            self.paused = True
+            return True
+        except Exception as e:
+            logger.error(f"Failed to pause recording: {e}")
+            return False
+
+    # Resumes by unmuting the audio and killing the xterm proc
+    def resume_recording(self):
+        if not self.paused:
+            return True
+
+        try:
+            self.xterm_proc.terminate()
+            self.xterm_proc.wait()
+            self.xterm_proc = None
+            subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "0"], check=True)
+            self.paused = False
+            return True
+        except Exception as e:
+            logger.error(f"Failed to resume recording: {e}")
+            return False
 
     def stop_recording(self):
         if not self.ffmpeg_proc:

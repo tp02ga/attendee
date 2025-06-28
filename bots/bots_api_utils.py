@@ -15,6 +15,7 @@ from .models import (
     BotEventTypes,
     BotMediaRequest,
     BotMediaRequestMediaTypes,
+    BotStates,
     Credentials,
     MediaBlob,
     MeetingTypes,
@@ -25,7 +26,6 @@ from .models import (
 from .serializers import (
     CreateBotSerializer,
 )
-from .tasks import run_bot
 from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 logger = logging.getLogger(__name__)
@@ -37,20 +37,6 @@ def send_sync_command(bot, command="sync"):
     channel = f"bot_{bot.id}"
     message = {"command": command}
     redis_client.publish(channel, json.dumps(message))
-
-
-def launch_bot(bot):
-    # If this instance is running in Kubernetes, use the Kubernetes pod creator
-    # which spins up a new pod for the bot
-    if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
-        from .bot_pod_creator import BotPodCreator
-
-        bot_pod_creator = BotPodCreator()
-        create_pod_result = bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=bot.k8s_pod_name(), bot_cpu_request=bot.cpu_request())
-        logger.info(f"Bot {bot.id} launched via Kubernetes: {create_pod_result}")
-    else:
-        # Default to launching bot via celery
-        run_bot.delay(bot.id)
 
 
 def create_bot_chat_message_request(bot, chat_message_data):
@@ -117,11 +103,12 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 class BotCreationSource(str, Enum):
     API = "api"
     DASHBOARD = "dashboard"
+    SCHEDULER = "scheduler"
 
 
 def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple[Bot | None, dict | None]:
     # Given them a small grace period before we start rejecting requests
-    if project.organization.credits() < -1:
+    if project.organization.out_of_credits():
         logger.error(f"Organization {project.organization.id} has insufficient credits. Please add credits in the Settings -> Billing page.")
         return None, {"error": "Organization has run out of credits. Please add more credits in the Settings -> Billing page."}
 
@@ -142,10 +129,13 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     recording_settings = serializer.validated_data["recording_settings"]
     debug_settings = serializer.validated_data["debug_settings"]
     automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
+    teams_settings = serializer.validated_data["teams_settings"]
     bot_image = serializer.validated_data["bot_image"]
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
     audio_websocket_url = serializer.validated_data["audio_websocket_url"]
+    join_at = serializer.validated_data["join_at"]
+    initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
     settings = {
         "transcription_settings": transcription_settings,
@@ -153,6 +143,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         "recording_settings": recording_settings,
         "debug_settings": debug_settings,
         "automatic_leave_settings": automatic_leave_settings,
+        "teams_settings": teams_settings,
     }
 
     if audio_websocket_url:
@@ -165,6 +156,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             name=bot_name,
             settings=settings,
             metadata=metadata,
+            join_at=join_at,
+            state=initial_state,
         )
 
         Recording.objects.create(
@@ -187,7 +180,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             except ValidationError as e:
                 return None, {"error": e.messages[0]}
 
-        # Try to transition the state from READY to JOINING
-        BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
+        if bot.state == BotStates.READY:
+            # Try to transition the state from READY to JOINING
+            BotEventManager.create_event(bot=bot, event_type=BotEventTypes.JOIN_REQUESTED, event_metadata={"source": source})
 
         return bot, None

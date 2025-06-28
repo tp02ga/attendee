@@ -14,7 +14,8 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic.list import ListView
 
-from .bots_api_utils import BotCreationSource, create_bot, launch_bot
+from .bots_api_utils import BotCreationSource, create_bot
+from .launch_bot_utils import launch_bot
 from .models import (
     ApiKey,
     Bot,
@@ -22,10 +23,14 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    ChatMessage,
     Credentials,
     CreditTransaction,
+    Participant,
+    ParticipantEventTypes,
     Project,
     RecordingStates,
+    RecordingTranscriptionStates,
     Utterance,
     WebhookDeliveryAttempt,
     WebhookDeliveryAttemptStatus,
@@ -166,8 +171,18 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
                 if not all(credentials_data.values()):
                     return HttpResponse("Missing required credentials data", status=400)
+            elif credential_type == Credentials.CredentialTypes.SARVAM:
+                credentials_data = {"api_key": request.POST.get("api_key")}
+
+                if not all(credentials_data.values()):
+                    return HttpResponse("Missing required credentials data", status=400)
             elif credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
                 credentials_data = {"service_account_json": request.POST.get("service_account_json")}
+
+                if not all(credentials_data.values()):
+                    return HttpResponse("Missing required credentials data", status=400)
+            elif credential_type == Credentials.CredentialTypes.TEAMS_BOT_LOGIN:
+                credentials_data = {"username": request.POST.get("username"), "password": request.POST.get("password")}
 
                 if not all(credentials_data.values()):
                     return HttpResponse("Missing required credentials data", status=400)
@@ -191,8 +206,12 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 return render(request, "projects/partials/openai_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.ASSEMBLY_AI:
                 return render(request, "projects/partials/assembly_ai_credentials.html", context)
+            elif credential.credential_type == Credentials.CredentialTypes.SARVAM:
+                return render(request, "projects/partials/sarvam_credentials.html", context)
             elif credential.credential_type == Credentials.CredentialTypes.GOOGLE_TTS:
                 return render(request, "projects/partials/google_tts_credentials.html", context)
+            elif credential.credential_type == Credentials.CredentialTypes.TEAMS_BOT_LOGIN:
+                return render(request, "projects/partials/teams_bot_login_credentials.html", context)
             else:
                 return HttpResponse("Cannot render the partial for this credential type", status=400)
 
@@ -217,6 +236,10 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
         assembly_ai_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.ASSEMBLY_AI).first()
 
+        sarvam_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.SARVAM).first()
+
+        teams_bot_login_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.TEAMS_BOT_LOGIN).first()
+
         context = self.get_project_context(object_id, project)
         context.update(
             {
@@ -232,6 +255,10 @@ class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 "openai_credential_type": Credentials.CredentialTypes.OPENAI,
                 "assembly_ai_credentials": assembly_ai_credentials.get_credentials() if assembly_ai_credentials else None,
                 "assembly_ai_credential_type": Credentials.CredentialTypes.ASSEMBLY_AI,
+                "sarvam_credentials": sarvam_credentials.get_credentials() if sarvam_credentials else None,
+                "sarvam_credential_type": Credentials.CredentialTypes.SARVAM,
+                "teams_bot_login_credentials": teams_bot_login_credentials.get_credentials() if teams_bot_login_credentials else None,
+                "teams_bot_login_credential_type": Credentials.CredentialTypes.TEAMS_BOT_LOGIN,
             }
         )
 
@@ -310,6 +337,9 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
         # Add flag to detect if create modal should be automatically opened
         context["open_create_modal"] = self.request.GET.get("open_create_modal") == "true"
 
+        # Check if any bots in the current page have a join_at value
+        context["has_scheduled_bots"] = any(bot.join_at is not None for bot in context["bots"])
+
         return context
 
 
@@ -332,14 +362,24 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Get webhook delivery attempts for this bot
         webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related("webhook_subscription").order_by("-created_at")
 
+        # Get chat messages for this bot
+        chat_messages = ChatMessage.objects.filter(bot=bot).select_related("participant").order_by("created_at")
+
+        # Get participants and participant events for this bot
+        participants = Participant.objects.filter(bot=bot, is_the_bot=False).prefetch_related("events").order_by("created_at")
+
         context = self.get_project_context(object_id, project)
         context.update(
             {
                 "bot": bot,
                 "BotStates": BotStates,
                 "RecordingStates": RecordingStates,
+                "RecordingTranscriptionStates": RecordingTranscriptionStates,
                 "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
+                "chat_messages": chat_messages,
+                "participants": participants,
+                "ParticipantEventTypes": ParticipantEventTypes,
                 "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
                 "credits_consumed": -sum([t.credits_delta() for t in bot.credit_transactions.all()]) if bot.credit_transactions.exists() else None,
             }
@@ -534,7 +574,9 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             if error:
                 return HttpResponse(json.dumps(error), status=400)
 
-            launch_bot(bot)
+            # If this is a scheduled bot, we don't want to launch it yet.
+            if bot.state == BotStates.JOINING:
+                launch_bot(bot)
 
             return HttpResponse("ok", status=200)
         except Exception as e:

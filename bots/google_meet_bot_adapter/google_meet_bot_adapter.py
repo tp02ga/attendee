@@ -35,4 +35,7 @@ class GoogleMeetBotAdapter(WebBotAdapter, GoogleMeetUIMethods):
         self.driver.execute_script(f"window.botOutputManager.playVideo({json.dumps(video_url)})")
 
     def send_chat_message(self, text):
-        self.driver.execute_script(f"window?.sendChatMessage('{text}')")
+        self.driver.execute_script(f"window?.sendChatMessage({json.dumps(text)})")
+
+    def get_staged_bot_join_delay_seconds(self):
+        return 5

@@ -388,6 +388,9 @@ class StyleManager {
         if (window.initialData.recordingView === 'gallery_view')
         {
             await this.openParticipantList();
+
+            // Sleep for half a second to let the panel close, so that opening the chat panel will work
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         await this.openChatPanel();
@@ -541,6 +544,7 @@ class UserManager {
         this.allUsersMap = new Map();
         this.currentUsersMap = new Map();
         this.deviceOutputMap = new Map();
+        this.currentUserId = null;
 
         this.ws = ws;
     }
@@ -632,9 +636,15 @@ class UserManager {
                 7: 'removed_from_meeting'
             }
 
+            const { isCurrentUserString, ...userWithoutIsCurrentUserString } = user;
+            if (isCurrentUserString && this.currentUserId === null) {
+                this.currentUserId = user.deviceId;
+            }
+
             return {
-                ...user,
-                humanized_status: userStatusMap[user.status] || "unknown"
+                ...userWithoutIsCurrentUserString,
+                humanized_status: userStatusMap[user.status] || "unknown",
+                isCurrentUser: user.deviceId === this.currentUserId
             }
         })
         // Get the current user IDs before updating
@@ -655,7 +665,8 @@ class UserManager {
                 profile: user.profile,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
@@ -675,7 +686,8 @@ class UserManager {
                 profilePicture: user.profilePicture,
                 status: user.status,
                 humanized_status: user.humanized_status,
-                parentDeviceId: user.parentDeviceId
+                parentDeviceId: user.parentDeviceId,
+                isCurrentUser: user.isCurrentUser
             });
         }
 
@@ -1194,6 +1206,7 @@ const messageTypes = [
             { name: 'fullName', fieldNumber: 2, type: 'string' },
             { name: 'profilePicture', fieldNumber: 3, type: 'string' },
             { name: 'status', fieldNumber: 4, type: 'varint' }, // in meeting = 1 vs not in meeting = 6. kicked out = 7?
+            { name: 'isCurrentUserString', fieldNumber: 7, type: 'string' }, // Presence of this string indicates that this is the current user. The string itself seems to be a random uuid
             { name: 'displayName', fieldNumber: 29, type: 'string' },
             { name: 'parentDeviceId', fieldNumber: 21, type: 'string' } // if this is present, then this is a screenshare device. The parentDevice is the person that is sharing
         ]
@@ -1600,18 +1613,29 @@ const handleAudioTrack = async (event) => {
                 }
 
                 const contributingSources = receiverManager.getContributingSources(receiver);
-                const usersForContributingSources = contributingSources.map(source => userManager.getUserByStreamId(source.source.toString())).filter(x => x);
+
+                const usersForContributingSourcesWithAudioLevel = contributingSources.map(source => {
+                    return {
+                        audioLevel: source?.audioLevel || 0, 
+                        user: userManager.getUserByStreamId(source.source.toString())
+                    }
+                }).filter(x => x.user).sort((a, b) => b.audioLevel - a.audioLevel);
+
+                const userForContributingSourceWithLoudestAudio = usersForContributingSourcesWithAudioLevel[0]?.user;
+
+
                 //console.log('contributingSources', contributingSources);
                 //console.log('deviceOutputMap', userManager.deviceOutputMap);
                 //console.log('usersForContributingSources', usersForContributingSources);
 
                 // Send audio data through websocket
-                if (usersForContributingSources.length === 1) {
-                    const firstUserId = usersForContributingSources[0]?.deviceId;
+                if (userForContributingSourceWithLoudestAudio) {
+                    const firstUserId = userForContributingSourceWithLoudestAudio?.deviceId;
                     if (firstUserId) {
                         ws.sendPerParticipantAudio(firstUserId, audioData);
                     }
                 }
+                
                 // Pass through the original frame
                 controller.enqueue(frame);
             } catch (error) {

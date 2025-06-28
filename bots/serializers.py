@@ -1,8 +1,10 @@
 import base64
 import json
+import os
 from dataclasses import asdict
 
 import jsonschema
+from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiExample,
     extend_schema_field,
@@ -11,7 +13,7 @@ from drf_spectacular.utils import (
 from django.core.validators import URLValidator
 from rest_framework import serializers
 
-from .bot_controller.automatic_leave_configuration import AutomaticLeaveConfiguration
+from .automatic_leave_configuration import AutomaticLeaveConfiguration
 from .models import (
     Bot,
     BotChatMessageToOptions,
@@ -21,6 +23,7 @@ from .models import (
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
+    ParticipantEventTypes,
     Recording,
     RecordingFormats,
     RecordingResolutions,
@@ -29,6 +32,17 @@ from .models import (
     RecordingViews,
     TranscriptionProviders,
 )
+
+
+def get_openai_model_enum():
+    """Get allowed OpenAI models including custom env var if set"""
+    default_models = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+    custom_model = os.getenv("OPENAI_MODEL_NAME")
+    if custom_model and custom_model not in default_models:
+        return default_models + [custom_model]
+    return default_models
+
+
 from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
 
 # Define the schema once
@@ -158,7 +172,7 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
@@ -178,7 +192,26 @@ class BotImageSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string", "description": "The language code to use for transcription. See here for available languages: https://www.assemblyai.com/docs/speech-to-text/pre-recorded-audio/supported-languages"},
                     "language_detection": {"type": "boolean", "description": "Whether to automatically detect the spoken language."},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
+                    },
+                },
+                "required": [],
                 "additionalProperties": False,
             },
         },
@@ -259,6 +292,24 @@ class MetadataJSONField(serializers.JSONField):
     {
         "type": "object",
         "properties": {
+            "use_login": {
+                "type": "boolean",
+                "description": "Whether to use Teams bot login credentials to sign in before joining the meeting. Requires Teams bot login credentials to be set for the project.",
+                "default": False,
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class TeamsSettingsJSONField(serializers.JSONField):
+    pass
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
             "silence_timeout_seconds": {
                 "type": "integer",
                 "description": "Number of seconds of continuous silence after which the bot should leave",
@@ -328,7 +379,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
         help_text="The UUID of the user to send the message to. Required if 'to' is 'specific_user'.",
     )
     to = serializers.ChoiceField(choices=BotChatMessageToOptions.values, help_text="Who to send the message to.", default=BotChatMessageToOptions.EVERYONE)
-    message = serializers.CharField(help_text="The message text to send.")
+    message = serializers.CharField(help_text="The message text to send. Does not support emojis currently.")
 
     def validate(self, data):
         to_value = data.get("to")
@@ -338,6 +389,16 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError({"to_user_uuid": "This field is required when sending to a specific user."})
 
         return data
+
+    def validate_message(self, value):
+        if len(value) > 10000:
+            raise serializers.ValidationError("Message must be less than 10000 characters")
+
+        """Validate that the message only contains characters in the Basic Multilingual Plane (BMP)."""
+        for char in value:
+            if ord(char) > 0xFFFF:
+                raise serializers.ValidationError("Message cannot contain emojis or rare script characters.")
+        return value
 
 
 @extend_schema_serializer(
@@ -364,6 +425,7 @@ class CreateBotSerializer(serializers.Serializer):
     )
     metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
     bot_chat_message = BotChatMessageRequestSerializer(help_text="The chat message the bot sends after it joins the meeting", required=False, default=None)
+    join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False, default=None)
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",
@@ -402,7 +464,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "model": {
                         "type": "string",
-                        "enum": ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+                        "enum": get_openai_model_enum(),
                         "description": "The OpenAI model to use for transcription",
                     },
                     "prompt": {
@@ -422,6 +484,8 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "language_code": {"type": "string"},
                     "language_detection": {"type": "boolean"},
+                    "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. See AssemblyAI docs for details."},
+                    "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal"], "description": "The speech model to use for transcription. See AssemblyAI docs for details."},
                 },
                 "required": [],
                 "additionalProperties": False,
@@ -433,6 +497,23 @@ class CreateBotSerializer(serializers.Serializer):
                     "teams_language": {
                         "type": "string",
                         "enum": ["ar-sa", "ar-ae", "bg-bg", "ca-es", "zh-cn", "zh-hk", "zh-tw", "hr-hr", "cs-cz", "da-dk", "nl-be", "nl-nl", "en-au", "en-ca", "en-in", "en-nz", "en-gb", "en-us", "et-ee", "fi-fi", "fr-ca", "fr-fr", "de-de", "de-ch", "el-gr", "he-il", "hi-in", "hu-hu", "id-id", "it-it", "ja-jp", "ko-kr", "lv-lv", "lt-lt", "nb-no", "pl-pl", "pt-br", "pt-pt", "ro-ro", "ru-ru", "sr-rs", "sk-sk", "sl-si", "es-mx", "es-es", "sv-se", "th-th", "tr-tr", "uk-ua", "vi-vn", "cy-gb"],
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            "sarvam": {
+                "type": "object",
+                "properties": {
+                    "model": {
+                        "type": "string",
+                        "enum": ["saarika:v2", "saarika:v2.5"],
+                        "description": "The Sarvam model to use for transcription",
+                    },
+                    "language_code": {
+                        "type": "string",
+                        "enum": ["unknown", "hi-IN", "bn-IN", "kn-IN", "ml-IN", "mr-IN", "od-IN", "pa-IN", "ta-IN", "te-IN", "en-IN", "gu-IN"],
+                        "description": "The language code to use for transcription",
                     },
                 },
                 "required": [],
@@ -570,6 +651,41 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
+    teams_settings = TeamsSettingsJSONField(
+        help_text="The Microsoft Teams-specific settings for the bot.",
+        required=False,
+        default={"use_login": False},
+    )
+
+    TEAMS_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "use_login": {"type": "boolean"},
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_teams_settings(self, value):
+        if value is None:
+            return value
+
+        # Define defaults
+        defaults = {"use_login": False}
+
+        try:
+            jsonschema.validate(instance=value, schema=self.TEAMS_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # If at least one attribute is provided, apply defaults for any missing attributes
+        if value:
+            for key, default_value in defaults.items():
+                if key not in value:
+                    value[key] = default_value
+
+        return value
+
     debug_settings = DebugSettingsJSONField(
         help_text="The debug settings for the bot, e.g. {'create_debug_recording': True}.",
         required=False,
@@ -652,6 +768,16 @@ class CreateBotSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Bot name cannot contain emojis or rare script characters.")
         return value
 
+    def validate_join_at(self, value):
+        """Validate that join_at cannot be in the past."""
+        if value is None:
+            return value
+
+        if value < timezone.now():
+            raise serializers.ValidationError("join_at cannot be in the past")
+
+        return value
+
 
 class BotSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
@@ -660,6 +786,7 @@ class BotSerializer(serializers.ModelSerializer):
     events = serializers.SerializerMethodField()
     transcription_state = serializers.SerializerMethodField()
     recording_state = serializers.SerializerMethodField()
+    join_at = serializers.DateTimeField()
 
     @extend_schema_field(
         {
@@ -735,6 +862,7 @@ class BotSerializer(serializers.ModelSerializer):
             "events",
             "transcription_state",
             "recording_state",
+            "join_at",
         ]
         read_only_fields = fields
 
@@ -843,8 +971,9 @@ class SpeechSerializer(serializers.Serializer):
 
 
 class ChatMessageSerializer(serializers.Serializer):
-    object_id = serializers.CharField()
+    id = serializers.CharField(source="object_id")
     text = serializers.CharField()
+    timestamp_ms = serializers.SerializerMethodField()
     timestamp = serializers.IntegerField()
     to = serializers.SerializerMethodField()
     sender_name = serializers.CharField(source="participant.full_name")
@@ -854,3 +983,44 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_to(self, obj):
         return ChatMessageToOptions.choices[obj.to - 1][1]
+
+    def get_timestamp_ms(self, obj):
+        return obj.timestamp * 1000
+
+
+class ParticipantEventSerializer(serializers.Serializer):
+    id = serializers.CharField(source="object_id")
+    participant_name = serializers.CharField(source="participant.full_name")
+    participant_uuid = serializers.CharField(source="participant.uuid")
+    participant_user_uuid = serializers.CharField(source="participant.user_uuid", allow_null=True)
+    event_type = serializers.SerializerMethodField()
+    event_data = serializers.JSONField()
+    timestamp_ms = serializers.IntegerField()
+
+    def get_event_type(self, obj):
+        return ParticipantEventTypes.type_to_api_code(obj.event_type)
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Update join_at",
+            value={
+                "join_at": "2025-06-13T12:00:00Z",
+            },
+            description="Example of updating the join_at time for a scheduled bot",
+        )
+    ]
+)
+class PatchBotSerializer(serializers.Serializer):
+    join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False)
+
+    def validate_join_at(self, value):
+        """Validate that join_at cannot be in the past."""
+        if value is None:
+            return value
+
+        if value < timezone.now():
+            raise serializers.ValidationError("join_at cannot be in the past")
+
+        return value
