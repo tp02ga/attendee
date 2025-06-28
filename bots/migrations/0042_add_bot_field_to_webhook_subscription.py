@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0040_alter_webhookdeliveryattempt_webhook_trigger_type'),
+        ('bots', '0041_participant_is_the_bot_participant_object_id_and_more'),
     ]
 
     operations = [
