@@ -7,7 +7,6 @@ import time
 import traceback
 from base64 import b64decode, b64encode
 from datetime import timedelta
-from enum import Enum
 
 import gi
 import redis
@@ -35,8 +34,8 @@ from bots.models import (
     Credentials,
     MeetingTypes,
     Participant,
-    RealtimeBotEventTypes,
     ParticipantEvent,
+    RealtimeBotEventTypes,
     Recording,
     RecordingFormats,
     RecordingManager,
@@ -163,32 +162,6 @@ class BotController:
             add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
-        )
-
-    def add_mixed_audio_chunk_callback(self, chunk: bytes, sample_rate: int, num_channels: int, timestamp: int):
-        if self.gstreamer_pipeline:
-            self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback(chunk)
-
-        if not self.websocket_audio_client:
-            return
-
-        if not self.websocket_audio_client.started():
-            logger.info("Starting websocket audio client...")
-            self.websocket_audio_client.start()
-
-        self.websocket_audio_client.send_async(
-            {
-                # .name to send the name instead of the integral value
-                "event_type": RealtimeBotEventTypes.AUDIO_CHUNK.name,
-                # We need to encode the chunk as base64 to send it
-                # to the websocket
-                "event_data": {
-                    "chunk": b64encode(chunk).decode("ascii"),
-                    "sample_rate": sample_rate,
-                    "num_channels": num_channels,
-                    "timestamp": timestamp,
-                },
-            }
         )
 
     def add_mixed_audio_chunk_callback(self, chunk: bytes, sample_rate: int, num_channels: int, timestamp: int):

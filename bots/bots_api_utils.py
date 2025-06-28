@@ -147,7 +147,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     }
 
     if audio_websocket_url:
-        settings["websocket_settings"] = { "audio_url": audio_websocket_url }
+        settings["websocket_settings"] = {"audio_url": audio_websocket_url}
 
     with transaction.atomic():
         bot = Bot.objects.create(
