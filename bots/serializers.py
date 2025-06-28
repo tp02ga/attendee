@@ -22,6 +22,7 @@ from .models import (
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
+    ParticipantEventTypes,
     Recording,
     RecordingFormats,
     RecordingResolutions,
@@ -1026,6 +1027,19 @@ class ChatMessageSerializer(serializers.Serializer):
 
     def get_timestamp_ms(self, obj):
         return obj.timestamp * 1000
+
+
+class ParticipantEventSerializer(serializers.Serializer):
+    id = serializers.CharField(source="object_id")
+    participant_name = serializers.CharField(source="participant.full_name")
+    participant_uuid = serializers.CharField(source="participant.uuid")
+    participant_user_uuid = serializers.CharField(source="participant.user_uuid", allow_null=True)
+    event_type = serializers.SerializerMethodField()
+    event_data = serializers.JSONField()
+    timestamp_ms = serializers.IntegerField()
+
+    def get_event_type(self, obj):
+        return ParticipantEventTypes.type_to_api_code(obj.event_type)
 
 
 @extend_schema_serializer(

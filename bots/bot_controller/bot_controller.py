@@ -32,6 +32,7 @@ from bots.models import (
     Credentials,
     MeetingTypes,
     Participant,
+    ParticipantEvent,
     Recording,
     RecordingFormats,
     RecordingManager,
@@ -42,7 +43,7 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
-from bots.webhook_payloads import chat_message_webhook_payload, utterance_webhook_payload
+from bots.webhook_payloads import chat_message_webhook_payload, participant_event_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 from .audio_output_manager import AudioOutputManager
@@ -90,6 +91,7 @@ class BotController:
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -115,6 +117,7 @@ class BotController:
             add_mixed_audio_chunk_callback=None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             add_encoded_mp4_chunk_callback=None,
             recording_view=self.bot_in_db.recording_view(),
@@ -153,6 +156,7 @@ class BotController:
             wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
             add_mixed_audio_chunk_callback=self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback,
             upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
         )
@@ -773,6 +777,7 @@ class BotController:
             defaults={
                 "user_uuid": message["participant_user_uuid"],
                 "full_name": message["participant_full_name"],
+                "is_the_bot": message["participant_is_the_bot"],
             },
         )
 
@@ -816,6 +821,7 @@ class BotController:
             defaults={
                 "user_uuid": message["participant_user_uuid"],
                 "full_name": message["participant_full_name"],
+                "is_the_bot": message["participant_is_the_bot"],
             },
         )
 
@@ -845,6 +851,45 @@ class BotController:
     def on_new_chat_message(self, chat_message):
         GLib.idle_add(lambda: self.upsert_chat_message(chat_message))
 
+    def add_participant_event(self, event):
+        logger.info(f"Adding participant event: {event}")
+
+        participant = self.adapter.get_participant(event["participant_uuid"])
+
+        if participant is None:
+            logger.warning(f"Warning: No participant found for participant event: {event}")
+            return
+
+        # Create participant record if it doesn't exist
+        participant, _ = Participant.objects.get_or_create(
+            bot=self.bot_in_db,
+            uuid=participant["participant_uuid"],
+            defaults={
+                "user_uuid": participant["participant_user_uuid"],
+                "full_name": participant["participant_full_name"],
+                "is_the_bot": participant["participant_is_the_bot"],
+            },
+        )
+
+        participant_event = ParticipantEvent.objects.create(
+            participant=participant,
+            event_type=event["event_type"],
+            event_data=event["event_data"],
+            timestamp_ms=event["timestamp_ms"],
+        )
+
+        # Don't send webhook for the bot itself
+        if participant.is_the_bot:
+            return
+
+        trigger_webhook(
+            webhook_trigger_type=WebhookTriggerTypes.PARTICIPANT_EVENTS_JOIN_LEAVE,
+            bot=self.bot_in_db,
+            payload=participant_event_webhook_payload(participant_event),
+        )
+
+        return
+
     def upsert_chat_message(self, chat_message):
         logger.info(f"Upserting chat message: {chat_message}")
 
@@ -860,6 +905,7 @@ class BotController:
             defaults={
                 "user_uuid": participant["participant_user_uuid"],
                 "full_name": participant["participant_full_name"],
+                "is_the_bot": participant["participant_is_the_bot"],
             },
         )
 

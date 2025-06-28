@@ -15,7 +15,7 @@ from websockets.sync.server import serve
 
 from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.bot_adapter import BotAdapter
-from bots.models import RecordingViews
+from bots.models import ParticipantEventTypes, RecordingViews
 from bots.utils import half_ceil, scale_i420
 
 from .debug_screen_recorder import DebugScreenRecorder
@@ -38,6 +38,7 @@ class WebBotAdapter(BotAdapter):
         add_encoded_mp4_chunk_callback,
         upsert_caption_callback,
         upsert_chat_message_callback,
+        add_participant_event_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         recording_view: RecordingViews,
         should_create_debug_recording: bool,
@@ -54,6 +55,7 @@ class WebBotAdapter(BotAdapter):
         self.add_encoded_mp4_chunk_callback = add_encoded_mp4_chunk_callback
         self.upsert_caption_callback = upsert_caption_callback
         self.upsert_chat_message_callback = upsert_chat_message_callback
+        self.add_participant_event_callback = add_participant_event_callback
         self.start_recording_screen_callback = start_recording_screen_callback
         self.stop_recording_screen_callback = stop_recording_screen_callback
         self.recording_view = recording_view
@@ -117,9 +119,22 @@ class WebBotAdapter(BotAdapter):
                 "participant_uuid": participant_id,
                 "participant_full_name": self.participants_info[participant_id]["fullName"],
                 "participant_user_uuid": None,
+                "participant_is_the_bot": self.participants_info[participant_id]["isCurrentUser"],
             }
 
         return None
+
+    def handle_participant_update(self, user):
+        user_before = self.participants_info.get(user["deviceId"], {"active": False})
+        self.participants_info[user["deviceId"]] = user
+
+        if user_before.get("active") and not user["active"]:
+            self.add_participant_event_callback({"participant_uuid": user["deviceId"], "event_type": ParticipantEventTypes.LEAVE, "event_data": {}, "timestamp_ms": int(time.time() * 1000)})
+            return
+
+        if not user_before.get("active") and user["active"]:
+            self.add_participant_event_callback({"participant_uuid": user["deviceId"], "event_type": ParticipantEventTypes.JOIN, "event_data": {}, "timestamp_ms": int(time.time() * 1000)})
+            return
 
     def process_video_frame(self, message):
         if self.recording_paused:
@@ -263,13 +278,13 @@ class WebBotAdapter(BotAdapter):
                         elif json_data.get("type") == "UsersUpdate":
                             for user in json_data["newUsers"]:
                                 user["active"] = user["humanized_status"] == "in_meeting"
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
                             for user in json_data["removedUsers"]:
                                 user["active"] = False
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
                             for user in json_data["updatedUsers"]:
                                 user["active"] = user["humanized_status"] == "in_meeting"
-                                self.participants_info[user["deviceId"]] = user
+                                self.handle_participant_update(user)
 
                                 if user["humanized_status"] == "removed_from_meeting" and user["fullName"] == self.display_name:
                                     # if this is the only participant with that name in the meeting, then we can assume that it was us who was removed

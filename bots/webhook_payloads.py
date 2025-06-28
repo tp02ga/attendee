@@ -1,4 +1,4 @@
-from bots.serializers import ChatMessageSerializer
+from bots.serializers import ChatMessageSerializer, ParticipantEventSerializer
 
 
 def chat_message_webhook_payload(chat_message):
@@ -14,3 +14,7 @@ def utterance_webhook_payload(utterance):
         "duration_ms": utterance.duration_ms,
         "transcription": {"transcript": utterance.transcription.get("transcript")} if utterance.transcription else None,
     }
+
+
+def participant_event_webhook_payload(participant_event):
+    return ParticipantEventSerializer(participant_event).data
