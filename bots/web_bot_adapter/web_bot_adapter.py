@@ -180,7 +180,7 @@ class WebBotAdapter(BotAdapter):
         if len(message) > 12:
             # Convert the float32 audio data to numpy array
             audio_data = np.frombuffer(message[4:], dtype=np.float32)
-            
+
             # Convert float32 to PCM 16-bit by multiplying by 32768.0
             audio_data = (audio_data * 32768.0).astype(np.int16)
 
@@ -189,7 +189,7 @@ class WebBotAdapter(BotAdapter):
                 self.last_audio_message_processed_time = time.time()
 
             if (self.wants_any_video_frames_callback is None or self.wants_any_video_frames_callback()) and self.send_frames:
-                self.add_mixed_audio_chunk_callback(chunk=audio_data.tobytes(), sample_rate=48000, num_channels=1, timestamp=time.time() * 1000)
+                self.add_mixed_audio_chunk_callback(chunk=audio_data.tobytes())
 
     def process_per_participant_audio_frame(self, message):
         if self.recording_paused:

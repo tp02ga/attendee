@@ -344,12 +344,12 @@ class Bot(models.Model):
 
         return f"{destination_url}/{stream_key}"
 
-    def websocket_mixed_audio_url(self):
+    def websocket_audio_url(self):
         """Websocket URL is used to send/receive audio chunks to/from the bot"""
         websocket_settings = self.settings.get("websocket_settings", {})
         if websocket_settings is None:
             return None
-        return websocket_settings.get("mixed_audio_url", None)
+        return websocket_settings.get("audio_url", None)
 
     def recording_format(self):
         recording_settings = self.settings.get("recording_settings", {})

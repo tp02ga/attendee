@@ -404,9 +404,9 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
     {
         "type": "object",
         "properties": {
-            "mixed_audio_url": {
+            "audio_url": {
                 "type": "string",
-                "description": "The URL of the audio websocket to use for the bot. Use this URL to both receive audio in real time and have the bot output audio in real time. It must start with ws:// or wss://.",
+                "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with ws:// or wss://.",
             },
         },
         "required": [],
@@ -581,14 +581,14 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
-    websocket_settings = WebsocketSettingsJSONField(help_text="The websocket settings for the bot, e.g. {'mixed_audio_url': 'wss://example.com/audio'}", required=False, default=None)
+    websocket_settings = WebsocketSettingsJSONField(help_text="The websocket settings for the bot, e.g. {'audio_url': 'wss://example.com/audio'}", required=False, default=None)
 
     WEBSOCKET_SETTINGS_SCHEMA = {
         "type": "object",
         "properties": {
-            "mixed_audio_url": {
+            "audio_url": {
                 "type": "string",
-                "description": "The URL of the audio websocket to use for the bot. It must start with ws:// or wss://.",
+                "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with ws:// or wss://.",
             },
         },
         "required": [],
@@ -605,10 +605,10 @@ class CreateBotSerializer(serializers.Serializer):
             raise serializers.ValidationError(e.message)
 
         # Validate websocket URL format if provided
-        mixed_audio_url = value.get("mixed_audio_url")
-        if mixed_audio_url:
-            if not (mixed_audio_url.lower().startswith("ws://") or mixed_audio_url.lower().startswith("wss://")):
-                raise serializers.ValidationError({"mixed_audio_url": "URL must start with ws:// or wss://"})
+        audio_url = value.get("audio_url")
+        if audio_url:
+            if not (audio_url.lower().startswith("ws://") or audio_url.lower().startswith("wss://")):
+                raise serializers.ValidationError({"audio_url": "URL must start with ws:// or wss://"})
 
         return value
 

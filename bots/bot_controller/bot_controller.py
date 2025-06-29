@@ -46,6 +46,7 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
+from bots.websocket_payloads import mixed_audio_websocket_payload
 from bots.webhook_payloads import chat_message_webhook_payload, participant_event_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
@@ -165,7 +166,7 @@ class BotController:
             video_frame_size=self.bot_in_db.recording_dimensions(),
         )
 
-    def add_mixed_audio_chunk_callback(self, chunk: bytes, sample_rate: int, num_channels: int, timestamp: int):
+    def add_mixed_audio_chunk_callback(self, chunk: bytes):
         if self.gstreamer_pipeline:
             self.gstreamer_pipeline.on_mixed_audio_raw_data_received_callback(chunk)
 
@@ -176,20 +177,9 @@ class BotController:
             logger.info("Starting websocket audio client...")
             self.websocket_audio_client.start()
 
-        self.websocket_audio_client.send_async(
-            {
-                # .name to send the name instead of the integral value
-                "event_type": RealtimeBotEventTypes.AUDIO_CHUNK.name,
-                # We need to encode the chunk as base64 to send it
-                # to the websocket
-                "event_data": {
-                    "chunk": b64encode(chunk).decode("ascii"),
-                    "sample_rate": sample_rate,
-                    "num_channels": num_channels,
-                    "timestamp": timestamp,
-                },
-            }
-        )
+        payload = mixed_audio_websocket_payload(chunk, self.mixed_audio_sample_rate())
+
+        self.websocket_audio_client.send_async(payload)
 
     def get_meeting_type(self):
         meeting_type = meeting_type_from_url(self.bot_in_db.meeting_url)
@@ -198,6 +188,15 @@ class BotController:
         return meeting_type
 
     def get_per_participant_audio_sample_rate(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == MeetingTypes.ZOOM:
+            return 32000
+        elif meeting_type == MeetingTypes.GOOGLE_MEET:
+            return 48000
+        elif meeting_type == MeetingTypes.TEAMS:
+            return 48000
+
+    def mixed_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
             return 32000
@@ -380,12 +379,12 @@ class BotController:
             return PipelineConfiguration.rtmp_streaming_bot()
 
         if self.bot_in_db.recording_type() == RecordingTypes.AUDIO_ONLY:
-            if self.bot_in_db.websocket_mixed_audio_url():
+            if self.bot_in_db.websocket_audio_url():
                 return PipelineConfiguration.audio_recorder_bot_with_websocket_audio()
             else:
                 return PipelineConfiguration.audio_recorder_bot()
 
-        if self.bot_in_db.websocket_mixed_audio_url():
+        if self.bot_in_db.websocket_audio_url():
             return PipelineConfiguration.recorder_bot_with_websocket_audio()
 
         return PipelineConfiguration.recorder_bot()
@@ -518,7 +517,7 @@ class BotController:
         self.websocket_audio_client = None
         if self.should_create_websocket_client():
             self.websocket_audio_client = BotWebsocketClient(
-                url=self.bot_in_db.websocket_mixed_audio_url(),
+                url=self.bot_in_db.websocket_audio_url(),
                 on_message_callback=self.on_message_from_websocket_audio,
             )
 
