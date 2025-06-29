@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from queue import Empty, SimpleQueue
-from threading import Thread
+from threading import Thread, Lock
 from typing import Callable
 
 from websockets import ConnectionClosed
@@ -39,6 +39,7 @@ class BotWebsocketClient:
         self._max_retries = 30
         self._retry_delay_s = 2
         self.dropped_message_ticker = 0
+        self._start_connection_lock = Lock()
 
     # --------------------------------------------------------------------- #
     #  Public helpers                                                       #
@@ -73,20 +74,24 @@ class BotWebsocketClient:
     #  Internal helpers                                                     #
     # --------------------------------------------------------------------- #
     def _start_connection_thread(self):
-        if self.connection_thread and self.connection_thread.is_alive():
-            logger.info("Connection thread already running")
-            return
-        self.connection_thread = Thread(target=self._connection_loop, daemon=True)
-        self.connection_thread.start()
+        with self._start_connection_lock:
+            if self.connection_state == self.CONNECTING:
+                logger.info("BotWebsocketClient connection thread already running")
+                return
+            if self.connection_thread and self.connection_thread.is_alive():
+                logger.info("BotWebsocketClient connection thread already running")
+                return
+            self.connection_state = self.CONNECTING
+            self.connection_thread = Thread(target=self._connection_loop, daemon=True)
+            self.connection_thread.start()
 
     def _connection_loop(self):
         retries = 0
-        self.connection_state = self.CONNECTING
         while self.connection_state == self.CONNECTING and retries < self._max_retries:
             try:
                 self.websocket = connect(self.websocket_url)
 
-                logger.info("Websocket connected, waiting for worker threads to finish")
+                logger.info("BotWebsocketClient websocket connected, waiting for worker threads to finish")
 
                 # if the worker threads are running, wait for them to finish
                 if self.recv_loop_thread and self.recv_loop_thread.is_alive():
@@ -95,7 +100,7 @@ class BotWebsocketClient:
                     self.send_loop_thread.join()
 
                 self.connection_state = self.CONNECTED
-                logger.info("Websocket connected, launching worker threads")
+                logger.info("BotWebsocketClient websocket connected, launching worker threads")
 
                 # Launch worker threads (fresh each time we reconnect)
                 self.recv_loop_thread = Thread(target=self.recv_loop, daemon=True)
@@ -106,7 +111,7 @@ class BotWebsocketClient:
             except Exception as e:
                 retries += 1
                 logger.warning(
-                    "Connect attempt %d/%d failed: %s",
+                    "BotWebsocketClient connection attempt %d/%d failed: %s",
                     retries,
                     self._max_retries,
                     e,
@@ -115,18 +120,18 @@ class BotWebsocketClient:
 
         # Handle case where we were stopped before we could connect
         if self.connection_state != self.CONNECTING:
-            logger.info("Connection loop exited because connection state is %s", self.connection_state)
+            logger.info("BotWebsocketClient connection loop exited because connection state is %s", self.connection_state)
             return
 
         # Exhausted retries
         self.connection_state = self.FAILED
-        logger.error("Failed to establish websocket connection after %d retries", self._max_retries)
+        logger.error("BotWebsocketClient failed to establish websocket connection after %d retries", self._max_retries)
 
     def _trigger_reconnect(self):
         if self.connection_state in [self.CONNECTING, self.FAILED, self.STOPPED]:
-            logger.info("Aborting websocket reconnect because connection state is %s", self.connection_state)
+            logger.info("BotWebsocketClient aborting websocket reconnect because connection state is %s", self.connection_state)
             return  # already trying or permanently failed
-        logger.info("Triggering websocket reconnect")
+        logger.info("BotWebsocketClient triggering websocket reconnect")
         self._start_connection_thread()
 
     # --------------------------------------------------------------------- #
