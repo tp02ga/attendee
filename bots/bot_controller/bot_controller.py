@@ -177,7 +177,7 @@ class BotController:
             logger.info("Starting websocket audio client...")
             self.websocket_audio_client.start()
 
-        payload = mixed_audio_websocket_payload(chunk, self.mixed_audio_sample_rate())
+        payload = mixed_audio_websocket_payload(chunk=chunk, sample_rate=self.mixed_audio_sample_rate(), bot_object_id=self.bot_in_db.object_id,)
 
         self.websocket_audio_client.send_async(payload)
 

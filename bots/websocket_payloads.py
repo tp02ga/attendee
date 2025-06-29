@@ -39,7 +39,7 @@ def _downsample(chunk: bytes, src_rate: int) -> bytes:
     return converted
 
 
-def mixed_audio_websocket_payload(chunk: bytes, sample_rate: int) -> dict:
+def mixed_audio_websocket_payload(chunk: bytes, sample_rate: int, bot_object_id: str) -> dict:
     """
     Down-sample (if needed) and package for websocket.
     """
@@ -47,6 +47,7 @@ def mixed_audio_websocket_payload(chunk: bytes, sample_rate: int) -> dict:
 
     return {
         "event_type": RealtimeBotEventTypes.AUDIO_CHUNK.name,
+        "bot_id": bot_object_id,
         "event_data": {
             "chunk": b64encode(chunk_16k).decode("ascii"),
             "timestamp_ms": int(time.time() * 1000),
