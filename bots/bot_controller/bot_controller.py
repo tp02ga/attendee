@@ -92,7 +92,7 @@ class BotController:
             meeting_url=self.bot_in_db.meeting_url,
             add_video_frame_callback=None,
             wants_any_video_frames_callback=None,
-            add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback,
+            add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback if self.pipeline_configuration.websocket_stream_audio else None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
             add_participant_event_callback=self.add_participant_event,
@@ -118,7 +118,7 @@ class BotController:
             meeting_url=self.bot_in_db.meeting_url,
             add_video_frame_callback=None,
             wants_any_video_frames_callback=None,
-            add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback,
+            add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback if self.pipeline_configuration.websocket_stream_audio else None,
             upsert_caption_callback=self.closed_caption_manager.upsert_caption,
             upsert_chat_message_callback=self.on_new_chat_message,
             add_participant_event_callback=self.add_participant_event,
@@ -425,10 +425,11 @@ class BotController:
             return False
 
     def should_create_websocket_client(self):
+        print(f"should_create_websocket_client: {self.pipeline_configuration.websocket_stream_audio}")
         return self.pipeline_configuration.websocket_stream_audio
 
     def should_create_screen_and_audio_recorder(self):
-        return not self.should_create_gstreamer_pipeline() and not self.should_create_websocket_client()
+        return not self.should_create_gstreamer_pipeline()
 
     def connect_to_redis(self):
         # Close both pubsub and client if they exist

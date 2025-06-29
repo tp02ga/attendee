@@ -34,7 +34,7 @@ class BotWebsocketClient:
         if self.websocket:
             raise Exception("Websocket already started")
 
-        logger.info("Starting BotWebsocketClient")
+        logger.info(f"Starting BotWebsocketClient for url {self.websocket_url}")
         self.websocket = connect(self.websocket_url)
 
         self.recv_loop_thread.start()
