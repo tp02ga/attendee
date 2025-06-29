@@ -68,6 +68,7 @@ class BotWebsocketClient:
             if self.dropped_message_ticker % 500 == 0:
                 logger.warning("BotWebsocketClient is not connected, it is in state %s, dropping message", self.connection_state)
             self.dropped_message_ticker += 1
+
     # --------------------------------------------------------------------- #
     #  Internal helpers                                                     #
     # --------------------------------------------------------------------- #
@@ -75,9 +76,7 @@ class BotWebsocketClient:
         if self.connection_thread and self.connection_thread.is_alive():
             logger.info("Connection thread already running")
             return
-        self.connection_thread = Thread(
-            target=self._connection_loop, daemon=True
-        )
+        self.connection_thread = Thread(target=self._connection_loop, daemon=True)
         self.connection_thread.start()
 
     def _connection_loop(self):
