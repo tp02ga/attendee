@@ -322,6 +322,10 @@ class BotController:
             logger.info("Telling realtime audio output manager to cleanup...")
             self.realtime_audio_output_manager.cleanup()
 
+        if self.websocket_audio_client:
+            logger.info("Telling websocket audio client to cleanup...")
+            self.websocket_audio_client.cleanup()
+
         if self.get_recording_file_location():
             logger.info("Telling file uploader to upload recording file...")
             file_uploader = FileUploader(

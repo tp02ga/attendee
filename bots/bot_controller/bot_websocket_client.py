@@ -51,7 +51,7 @@ class BotWebsocketClient:
         logger.info(f"Starting BotWebsocketClient for url {self.websocket_url}")
         self._start_connection_thread()
 
-    def stop(self):
+    def cleanup(self):
         logger.info("Stopping BotWebsocketClient")
         try:
             if self.websocket:
@@ -65,7 +65,7 @@ class BotWebsocketClient:
         if self.connection_state == self.CONNECTED:
             self.send_queue.put(message)
         else:
-            if self.dropped_message_ticker % 500 == 0:
+            if self.dropped_message_ticker % 1000 == 0:
                 logger.warning("BotWebsocketClient is not connected, it is in state %s, dropping message", self.connection_state)
             self.dropped_message_ticker += 1
 
