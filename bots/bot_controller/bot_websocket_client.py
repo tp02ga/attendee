@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from queue import Empty, SimpleQueue
-from threading import Thread, Lock
+from threading import Lock, Thread
 from typing import Callable
 
 from websockets import ConnectionClosed
