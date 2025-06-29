@@ -20,12 +20,19 @@ class RealtimeAudioOutputManager:
         self.bytes_per_sample = 2
         self.chunk_length_seconds = 0.1
         self.inner_chunk_buffer = b""
+        self.last_chunk_time = time.time()
 
     def add_chunk(self, chunk, sample_rate):
-        self.inner_chunk_buffer += chunk
-        if len(self.inner_chunk_buffer) >= self.bytes_per_sample * self.chunk_length_seconds * sample_rate:
-            self.add_chunk_inner(self.inner_chunk_buffer, sample_rate)
+        # If it's been a while since we had a chunk, there's probably some "residue" in the buffer. Clear it.
+        if time.time() - self.last_chunk_time > 0.15:
             self.inner_chunk_buffer = b""
+        self.last_chunk_time = time.time()
+
+        self.inner_chunk_buffer += chunk
+        chunk_size_bytes = int(self.bytes_per_sample * self.chunk_length_seconds * sample_rate)
+        while len(self.inner_chunk_buffer) >= chunk_size_bytes:
+            self.add_chunk_inner(self.inner_chunk_buffer[:chunk_size_bytes], sample_rate)
+            self.inner_chunk_buffer = self.inner_chunk_buffer[chunk_size_bytes:]
 
     def add_chunk_inner(self, chunk, sample_rate):
         """Add a single chunk of PCM audio to the stream buffer."""
