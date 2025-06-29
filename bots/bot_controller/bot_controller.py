@@ -5,7 +5,7 @@ import signal
 import threading
 import time
 import traceback
-from base64 import b64decode, b64encode
+from base64 import b64decode
 from datetime import timedelta
 
 import gi
@@ -46,9 +46,9 @@ from bots.models import (
     WebhookTriggerTypes,
 )
 from bots.utils import meeting_type_from_url
-from bots.websocket_payloads import mixed_audio_websocket_payload
 from bots.webhook_payloads import chat_message_webhook_payload, participant_event_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
+from bots.websocket_payloads import mixed_audio_websocket_payload
 
 from .audio_output_manager import AudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
