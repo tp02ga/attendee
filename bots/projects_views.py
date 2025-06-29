@@ -372,7 +372,6 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Get participants and participant events for this bot
         participants = Participant.objects.filter(bot=bot, is_the_bot=False).prefetch_related("events").order_by("created_at")
 
-
         context = self.get_project_context(object_id, project)
         context.update(
             {
