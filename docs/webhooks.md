@@ -2,7 +2,7 @@
 
 Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll the API.
 
-Webhooks support multiple event types including bot state changes, transcript updates, and chat message updates. These can be used to alert your server when a bot joins a meeting, starts recording, when a recording is available, or when real-time content is updated.
+Webhooks support multiple event types including bot state changes, transcript updates, chat message updates, and participant events. These can be used to alert your server when a bot joins a meeting, starts recording, when a recording is available, when real-time content is updated, or when participants join or leave meetings.
 
 Attendee supports two types of webhook subscriptions:
 - **Project-level webhooks**: Apply to all bots in a project (managed via UI)
@@ -20,13 +20,13 @@ To create a project-level webhook via the UI:
 
 ## Creating Bot-Level Webhooks
 
-Bot-level webhooks are created via API when creating a bot. Include a `webhook_subscriptions` field in your bot creation request:
+Bot-level webhooks are created via API when creating a bot. Include a `webhooks` field in your bot creation request:
 
 ```json
 {
   "meeting_url": "https://zoom.us/j/123456789",
   "bot_name": "My Bot with Webhooks",
-  "webhook_subscriptions": [
+  "webhooks": [
     {
       "url": "https://my-app.com/bot-webhook",
       "triggers": ["bot.state_change", "transcript.update"]
@@ -51,6 +51,7 @@ Bot-level webhooks are created via API when creating a bot. Include a `webhook_s
 | `bot.state_change` | Bot changes state (joins, leaves, starts recording, etc.) |
 | `transcript.update` | Real-time transcript updates during meeting |
 | `chat_messages.update` | Chat message updates in the meeting |
+| `participant_events.join_leave` | Participant join and leave events in the meeting |
 
 ## Webhook Delivery Priority
 

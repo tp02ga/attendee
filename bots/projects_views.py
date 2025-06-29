@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import ListView
 
-from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscriptions, validate_webhook_data
+from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription, validate_webhook_data
 from .launch_bot_utils import launch_bot
 from .models import (
     ApiKey,
@@ -355,8 +355,12 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Prefetch bot events with their debug screenshots
         bot.bot_events.prefetch_related("debug_screenshots")
 
-        # Get webhook delivery attempts for this bot
+        # Get webhook delivery attempts for this bot (both project-level and bot-specific)
         webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related("webhook_subscription").order_by("-created_at")
+
+        # Get webhook subscriptions for this bot (both project-level and bot-specific)
+        project_webhooks = WebhookSubscription.objects.filter(project=project, bot__isnull=True).order_by("-created_at")
+        bot_webhooks = WebhookSubscription.objects.filter(bot=bot).order_by("-created_at")
 
         context = self.get_project_context(object_id, project)
         context.update(
@@ -366,6 +370,8 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 "RecordingStates": RecordingStates,
                 "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
+                "project_webhooks": project_webhooks,
+                "bot_webhooks": bot_webhooks,
                 "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
                 "credits_consumed": -sum([t.credits_delta() for t in bot.credit_transactions.all()]) if bot.credit_transactions.exists() else None,
             }
@@ -409,23 +415,21 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 error = "URL already subscribed"
             return HttpResponse(error, status=400)
 
-        # Create webhook subscriptions using shared function
-        webhook_data = [{"url": url, "triggers": normalized_triggers}]
-        success, error = create_webhook_subscriptions(webhook_data, project, bot=None, skip_validation=True)
+        # Create webhook subscription using shared function
+        success, error = create_webhook_subscription(url, normalized_triggers, project, bot=None)
         if not success:
             return HttpResponse(error, status=400)
 
         # Get the project's webhook secret for response
         webhook_secret = WebhookSecret.objects.get(project=project)
 
-        # Render the success modal content
         return render(
             request,
             "projects/partials/webhook_subscription_created_modal.html",
             {
                 "secret": base64.b64encode(webhook_secret.get_secret()).decode("utf-8"),
                 "url": url,
-                "triggers": [WebhookTriggerTypes.trigger_type_to_api_code(x) for x in normalized_triggers],
+                "triggers": normalized_triggers,
             },
         )
 

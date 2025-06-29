@@ -348,6 +348,80 @@ class AutomaticLeaveSettingsJSONField(serializers.JSONField):
     pass
 
 
+def get_webhook_trigger_enum():
+    """Get available webhook trigger types from models"""
+    from .models import WebhookTriggerTypes
+
+    return list(WebhookTriggerTypes._get_mapping().values())
+
+
+@extend_schema_field(
+    {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The webhook URL (must be HTTPS)",
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": get_webhook_trigger_enum(),
+                    },
+                    "description": "List of webhook trigger types",
+                },
+            },
+            "required": ["url", "triggers"],
+            "additionalProperties": False,
+        },
+        "description": "List of webhook subscriptions for this bot",
+    }
+)
+class WebhooksJSONField(serializers.JSONField):
+    """Field for webhook subscriptions with validation"""
+
+    WEBHOOKS_SCHEMA = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "pattern": "^https://.*",
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": get_webhook_trigger_enum(),
+                    },
+                    "minItems": 1,
+                },
+            },
+            "required": ["url", "triggers"],
+            "additionalProperties": False,
+        },
+    }
+
+    def validate(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.WEBHOOKS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # Check bot-level webhook limit (max 2 per bot)
+        if value and len(value) > 2:
+            raise serializers.ValidationError("Maximum 2 webhooks allowed per bot")
+
+        return value
+
+
 @extend_schema_serializer(
     examples=[
         OpenApiExample(
@@ -419,8 +493,7 @@ class CreateBotSerializer(serializers.Serializer):
     metadata = MetadataJSONField(help_text="JSON object containing metadata to associate with the bot", required=False, default=None)
     bot_chat_message = BotChatMessageRequestSerializer(help_text="The chat message the bot sends after it joins the meeting", required=False, default=None)
     join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False, default=None)
-    webhook_subscriptions = serializers.ListField(
-        child=serializers.DictField(),
+    webhooks = WebhooksJSONField(
         help_text="List of webhook subscriptions to create for this bot. Each item should have 'url' and 'triggers' fields.",
         required=False,
         default=None,
@@ -774,48 +847,6 @@ class CreateBotSerializer(serializers.Serializer):
 
         if value < timezone.now():
             raise serializers.ValidationError("join_at cannot be in the past")
-
-        return value
-
-    def validate_webhook_subscriptions(self, value):
-        """Validate webhook subscriptions data"""
-        if value is None:
-            return value
-
-        if not isinstance(value, list):
-            raise serializers.ValidationError("webhook_subscriptions must be a list")
-
-        for webhook_data in value:
-            if not isinstance(webhook_data, dict):
-                raise serializers.ValidationError("Each webhook subscription must be a dictionary")
-
-            if "url" not in webhook_data:
-                raise serializers.ValidationError("Each webhook subscription must have a 'url' field")
-
-            if "triggers" not in webhook_data:
-                raise serializers.ValidationError("Each webhook subscription must have a 'triggers' field")
-
-            url = webhook_data["url"]
-            triggers = webhook_data["triggers"]
-
-            if not isinstance(url, str):
-                raise serializers.ValidationError("webhook url must be a string")
-
-            if not isinstance(triggers, list):
-                raise serializers.ValidationError("webhook triggers must be a list")
-
-            # Validate URL format
-            if not url.startswith("https://"):
-                raise serializers.ValidationError("webhook URL must start with https://")
-
-            # Validate triggers are strings and valid trigger types
-            from .models import WebhookTriggerTypes
-
-            for trigger in triggers:
-                if not isinstance(trigger, str):
-                    raise serializers.ValidationError("webhook triggers must be strings")
-                if WebhookTriggerTypes.api_code_to_trigger_type(trigger) is None:
-                    raise serializers.ValidationError(f"Invalid webhook trigger type: {trigger}")
 
         return value
 
