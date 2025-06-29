@@ -2,7 +2,9 @@ import logging
 import queue
 import threading
 import time
+
 import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,7 +67,7 @@ class RealtimeAudioOutputManager:
                 # Wait for audio chunk with timeout
                 chunk, sample_rate = self.audio_queue.get(timeout=1.0)
 
-                #Upsample the chunk to the output sample rate
+                # Upsample the chunk to the output sample rate
                 chunk_upsampled = self.upsample_chunk_to_output_sample_rate(chunk, sample_rate)
 
                 # Play the chunk
@@ -86,24 +88,24 @@ class RealtimeAudioOutputManager:
         # If sample rates are the same, no upsampling needed
         if sample_rate == self.output_sample_rate:
             return chunk
-        
+
         # Calculate upsampling ratio
-        ratio = self.output_sample_rate / sample_rate
-        
+        ratio = self.output_sample_rate // sample_rate
+
         # For simplicity, handle integer ratios (like 48khz/16khz = 3)
-        if ratio != int(ratio):
+        if self.output_sample_rate % sample_rate != 0:
             raise Exception(f"Upsampling ratio {ratio} is not an integer")
-        
+
         # If ratio is 1 or less, no upsampling needed
         if ratio <= 1:
-            return chunk
-        
+            raise Exception(f"Upsampling ratio {ratio} is not an integer")
+
         # Convert bytes to 16-bit samples (assuming 16-bit PCM)
         samples = np.frombuffer(chunk, dtype=np.int16)
-        
+
         # Repeat each sample 'ratio' times (e.g., [1,2,3] -> [111,222,333])
         upsampled_samples = np.repeat(samples, ratio)
-        
+
         # Convert back to bytes
         return upsampled_samples.tobytes()
 
