@@ -1104,18 +1104,16 @@ class BotController:
             screenshot_available = message.get("screenshot_path") is not None
             mhtml_file_available = message.get("mhtml_file_path") is not None
 
-            event_metadata = {
-                "step": message.get("step"),
-                "current_time": message.get("current_time").isoformat(),
-                "exception_type": message.get("exception_type"),
-                "exception_message": message.get("exception_message"),
-                "inner_exception_type": message.get("inner_exception_type"),
-            }
             new_bot_event = BotEventManager.create_event(
                 bot=self.bot_in_db,
                 event_type=BotEventTypes.FATAL_ERROR,
                 event_sub_type=BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND,
-                event_metadata=event_metadata,
+                event_metadata={
+                    "step": message.get("step"),
+                    "current_time": message.get("current_time").isoformat(),
+                    "exception_type": message.get("exception_type"),
+                    "inner_exception_type": message.get("inner_exception_type"),
+                },
             )
 
             logger.info(f"Created bot event for #{self.bot_in_db.object_id} for UI element not found. Exception info: {message}")
