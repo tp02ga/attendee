@@ -147,8 +147,8 @@ class BotWebsocketClient:
 
             try:
                 self.websocket.send(json.dumps(message))
-            except OSError as e:
-                logger.info("Send failed (%s). Leaving loop.", e)
+            except Exception as e:
+                logger.info("BotWebsocketClient send failed (%s). Leaving loop.", e)
                 break
 
         logger.info("BotWebsocketClient send loop exited")
@@ -161,7 +161,10 @@ class BotWebsocketClient:
                 message = self.websocket.recv()
                 self.on_message_callback(message)
             except ConnectionClosed:
-                logger.info("Connection closed. Leaving loop.")
+                logger.info("BotWebsocketClient connection closed. Leaving loop.")
+                break
+            except Exception as e:
+                logger.info("BotWebsocketClient recv failed (%s). Leaving loop.", e)
                 break
 
         logger.info("BotWebsocketClient recv loop exited")
