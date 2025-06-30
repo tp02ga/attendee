@@ -4,17 +4,22 @@ Attendee supports bidirectional realtime audio streaming through websockets. You
 
 ## Setup
 
-To enable realtime audio streaming, configure the `websocket_settings.audio_url` parameter when creating a bot:
+To enable realtime audio streaming, configure the `websocket_settings.audio` parameter when creating a bot:
 
 ```json
 {
   "meeting_url": "https://meet.google.com/abc-def-ghi",
   "bot_name": "Audio Bot",
   "websocket_settings": {
-    "audio_url": "wss://your-server.com/attendee-websocket"
+    "audio": {
+      "url": "wss://your-server.com/attendee-websocket",
+      "sample_rate": 16000
+    }
   }
 }
 ```
+
+The `sample_rate` can be `8000`, `16000`, or `24000` and defaults to `16000`. It determines the sample rate of the audio chunks you receive from Attendee.
 
 ## Websocket Message Format
 
@@ -28,12 +33,13 @@ Your WebSocket server will receive messages in this format.
   "trigger": "realtime_audio.mixed",
   "data": {
     "chunk": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAABACAAAGRLVEE...",
+    "sample_rate": 16000,
     "timestamp_ms": 1703123456789
   }
 }
 ```
 
-The `chunk` field is base64-encoded 16-bit PCM audio data (16 kHz, mono).
+The `chunk` field is base64-encoded 16-bit single channel PCM audio data at the frequency specified in the `sample_rate` field.
 
 ### Incoming Audio (Your Websocket Server → Attendee)
 
@@ -49,7 +55,7 @@ When you want the bot to speak audio in the meeting, send a message in this form
 }
 ```
 
-The `chunk` field is base64-encoded 16-bit PCM audio data (16 kHz, mono). For now the only supported sample rate is 16 kHz, but you still need to include the `sample_rate` field in the message.
+The `chunk` field is base64-encoded 16-bit single-channel PCM audio data. The sample rate can be `8000`, `16000` or `24000`.
 
 ## Integration with Voice Agent APIs
 

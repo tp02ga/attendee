@@ -404,10 +404,23 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
     {
         "type": "object",
         "properties": {
-            "audio_url": {
-                "type": "string",
-                "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with ws:// or wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
-            },
+            "audio": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
+                    },
+                    "sample_rate": {
+                        "type": "integer",
+                        "enum": [8000, 16000, 24000],
+                        "default": 16000,
+                        "description": "The sample rate of the audio to send. Can be 8000, 16000, or 24000. Defaults to 16000.",
+                    },
+                },
+                "required": ["url"],
+                "additionalProperties": False,
+            }
         },
         "required": [],
         "additionalProperties": False,
@@ -581,15 +594,26 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
-    websocket_settings = WebsocketSettingsJSONField(help_text="The websocket settings for the bot, e.g. {'audio_url': 'wss://example.com/audio'}", required=False, default=None)
+    websocket_settings = WebsocketSettingsJSONField(help_text="The websocket settings for the bot, e.g. {'audio': {'url': 'wss://example.com/audio', 'sample_rate': 16000}}", required=False, default=None)
 
     WEBSOCKET_SETTINGS_SCHEMA = {
         "type": "object",
         "properties": {
-            "audio_url": {
-                "type": "string",
-                "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with ws:// or wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
-            },
+            "audio": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
+                    },
+                    "sample_rate": {
+                        "type": "integer",
+                        "enum": [8000, 16000, 24000],
+                    },
+                },
+                "required": ["url"],
+                "additionalProperties": False,
+            }
         },
         "required": [],
         "additionalProperties": False,
@@ -599,16 +623,22 @@ class CreateBotSerializer(serializers.Serializer):
         if value is None:
             return value
 
+        # Set default sample rate before validation
+        if "audio" in value and value.get("audio"):
+            if "sample_rate" not in value["audio"]:
+                value["audio"]["sample_rate"] = 16000
+
         try:
             jsonschema.validate(instance=value, schema=self.WEBSOCKET_SETTINGS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
 
         # Validate websocket URL format if provided
-        audio_url = value.get("audio_url")
-        if audio_url:
-            if not (audio_url.lower().startswith("ws://") or audio_url.lower().startswith("wss://")):
-                raise serializers.ValidationError({"audio_url": "URL must start with ws:// or wss://"})
+        if "audio" in value and value.get("audio"):
+            audio_url = value.get("audio", {}).get("url")
+            if audio_url:
+                if not audio_url.lower().startswith("wss://"):
+                    raise serializers.ValidationError({"audio": {"url": "URL must start with wss://"}})
 
         return value
 

@@ -1,3 +1,4 @@
+import audioop
 import logging
 import queue
 import threading
@@ -6,6 +7,25 @@ import time
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+SAMPLE_WIDTH = 2  # 16-bit PCM
+CHANNELS = 1  # mono
+
+
+def _upsample(chunk: bytes, src_rate: int, dst_rate: int) -> bytes:
+    if src_rate == dst_rate:
+        return chunk  # nothing to do
+
+    # state None ⇒ filter state kept inside audioop (per-call ok for small chunks)
+    converted, _ = audioop.ratecv(
+        chunk,  # fragment
+        SAMPLE_WIDTH,  # width
+        CHANNELS,  # nchannels
+        src_rate,  # inrate
+        dst_rate,  # outrate
+        None,  # state
+    )
+    return converted
 
 
 class RealtimeAudioOutputManager:
@@ -68,10 +88,10 @@ class RealtimeAudioOutputManager:
                 chunk, sample_rate = self.audio_queue.get(timeout=1.0)
 
                 # Upsample the chunk to the output sample rate
-                chunk_upsampled, chunk_upsampled_sample_rate = self.upsample_chunk_to_output_sample_rate(chunk, sample_rate)
+                chunk_upsampled = self.upsample_chunk_to_output_sample_rate(chunk, sample_rate)
 
                 # Play the chunk
-                self.play_raw_audio_callback(bytes=chunk_upsampled, sample_rate=chunk_upsampled_sample_rate)
+                self.play_raw_audio_callback(bytes=chunk_upsampled, sample_rate=self.output_sample_rate)
 
                 # Sleep between chunks
                 time.sleep(self.sleep_time_between_chunks_seconds * self.chunk_length_seconds)
@@ -94,7 +114,9 @@ class RealtimeAudioOutputManager:
 
         # We can't upsample if the ratio is not an integer
         if self.output_sample_rate % sample_rate != 0 or ratio <= 1:
-            return chunk, sample_rate
+            # Use the python upsample function if we have to. Repeating the samples actually performs better
+            # but it only works when the ratio is an integer.
+            return _upsample(chunk, sample_rate, self.output_sample_rate)
 
         # Convert bytes to 16-bit samples (assuming 16-bit PCM)
         samples = np.frombuffer(chunk, dtype=np.int16)
@@ -103,7 +125,7 @@ class RealtimeAudioOutputManager:
         upsampled_samples = np.repeat(samples, ratio)
 
         # Convert back to bytes
-        return upsampled_samples.tobytes(), self.output_sample_rate
+        return upsampled_samples.tobytes()
 
     def cleanup(self):
         """Stop the audio output thread and clear the queue."""

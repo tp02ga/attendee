@@ -346,10 +346,14 @@ class Bot(models.Model):
 
     def websocket_audio_url(self):
         """Websocket URL is used to send/receive audio chunks to/from the bot"""
-        websocket_settings = self.settings.get("websocket_settings", {})
-        if websocket_settings is None:
-            return None
-        return websocket_settings.get("audio_url", None)
+        websocket_settings = self.settings.get("websocket_settings") or {}
+        websocket_audio_settings = websocket_settings.get("audio") or {}
+        return websocket_audio_settings.get("url")
+
+    def websocket_audio_sample_rate(self):
+        websocket_settings = self.settings.get("websocket_settings") or {}
+        websocket_audio_settings = websocket_settings.get("audio") or {}
+        return websocket_audio_settings.get("sample_rate", 16000)
 
     def recording_format(self):
         recording_settings = self.settings.get("recording_settings", {})
