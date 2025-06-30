@@ -546,7 +546,7 @@ class BotEventTypes(models.IntegerChoices):
         return mapping.get(value)
 
 
-class RealtimeBotEventTypes(models.IntegerChoices):
+class RealtimeTriggerTypes(models.IntegerChoices):
     MIXED_AUDIO_CHUNK = 101, "Mixed audio chunk"
     BOT_OUTPUT_AUDIO_CHUNK = 102, "Bot output audio chunk"
 

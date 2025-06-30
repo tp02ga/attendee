@@ -35,7 +35,7 @@ from bots.models import (
     MeetingTypes,
     Participant,
     ParticipantEvent,
-    RealtimeBotEventTypes,
+    RealtimeTriggerTypes,
     Recording,
     RecordingFormats,
     RecordingManager,
@@ -1033,7 +1033,7 @@ class BotController:
     def on_message_from_websocket_audio(self, message_json: str):
         try:
             message = json.loads(message_json)
-            if message["trigger"] == RealtimeBotEventTypes.type_to_api_code(RealtimeBotEventTypes.BOT_OUTPUT_AUDIO_CHUNK):
+            if message["trigger"] == RealtimeTriggerTypes.type_to_api_code(RealtimeTriggerTypes.BOT_OUTPUT_AUDIO_CHUNK):
                 chunk = b64decode(message["data"]["chunk"])
                 sample_rate = message["data"]["sample_rate"]
                 self.realtime_audio_output_manager.add_chunk(chunk, sample_rate)

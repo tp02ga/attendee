@@ -2,7 +2,7 @@ import logging
 import time
 from base64 import b64encode
 
-from bots.models import RealtimeBotEventTypes
+from bots.models import RealtimeTriggerTypes
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def mixed_audio_websocket_payload(chunk: bytes, sample_rate: int, bot_object_id:
     chunk_16k = _downsample(chunk, sample_rate)
 
     return {
-        "trigger": RealtimeBotEventTypes.type_to_api_code(RealtimeBotEventTypes.MIXED_AUDIO_CHUNK),
+        "trigger": RealtimeTriggerTypes.type_to_api_code(RealtimeTriggerTypes.MIXED_AUDIO_CHUNK),
         "bot_id": bot_object_id,
         "data": {
             "chunk": b64encode(chunk_16k).decode("ascii"),
