@@ -409,7 +409,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio for details on how to receive and send audio through the websocket connection.",
+                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
                     },
                     "sample_rate": {
                         "type": "integer",
@@ -604,7 +604,7 @@ class CreateBotSerializer(serializers.Serializer):
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio for details on how to receive and send audio through the websocket connection.",
+                        "description": "The URL of the websocket to use for receiving meeting audio in real time and having the bot output audio in real time. It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output for details on how to receive and send audio through the websocket connection.",
                     },
                     "sample_rate": {
                         "type": "integer",
