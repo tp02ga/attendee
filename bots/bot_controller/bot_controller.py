@@ -179,7 +179,8 @@ class BotController:
 
         payload = mixed_audio_websocket_payload(
             chunk=chunk,
-            sample_rate=self.mixed_audio_sample_rate(),
+            input_sample_rate=self.mixed_audio_sample_rate(),
+            output_sample_rate=self.bot_in_db.websocket_audio_sample_rate(),
             bot_object_id=self.bot_in_db.object_id,
         )
 
