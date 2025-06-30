@@ -68,10 +68,10 @@ class RealtimeAudioOutputManager:
                 chunk, sample_rate = self.audio_queue.get(timeout=1.0)
 
                 # Upsample the chunk to the output sample rate
-                chunk_upsampled = self.upsample_chunk_to_output_sample_rate(chunk, sample_rate)
+                chunk_upsampled, chunk_upsampled_sample_rate = self.upsample_chunk_to_output_sample_rate(chunk, sample_rate)
 
                 # Play the chunk
-                self.play_raw_audio_callback(bytes=chunk_upsampled, sample_rate=self.output_sample_rate)
+                self.play_raw_audio_callback(bytes=chunk_upsampled, sample_rate=chunk_upsampled_sample_rate)
 
                 # Sleep between chunks
                 time.sleep(self.sleep_time_between_chunks_seconds * self.chunk_length_seconds)
@@ -87,18 +87,14 @@ class RealtimeAudioOutputManager:
     def upsample_chunk_to_output_sample_rate(self, chunk, sample_rate):
         # If sample rates are the same, no upsampling needed
         if sample_rate == self.output_sample_rate:
-            return chunk
+            return chunk, sample_rate
 
         # Calculate upsampling ratio
         ratio = self.output_sample_rate // sample_rate
 
-        # For simplicity, handle integer ratios (like 48khz/16khz = 3)
-        if self.output_sample_rate % sample_rate != 0:
-            raise Exception(f"Upsampling ratio {ratio} is not an integer")
-
-        # If ratio is 1 or less, no upsampling needed
-        if ratio <= 1:
-            raise Exception(f"Upsampling ratio {ratio} is not an integer")
+        # We can't upsample if the ratio is not an integer
+        if self.output_sample_rate % sample_rate != 0 or ratio <= 1:
+            return chunk, sample_rate
 
         # Convert bytes to 16-bit samples (assuming 16-bit PCM)
         samples = np.frombuffer(chunk, dtype=np.int16)
@@ -107,7 +103,7 @@ class RealtimeAudioOutputManager:
         upsampled_samples = np.repeat(samples, ratio)
 
         # Convert back to bytes
-        return upsampled_samples.tobytes()
+        return upsampled_samples.tobytes(), self.output_sample_rate
 
     def cleanup(self):
         """Stop the audio output thread and clear the queue."""

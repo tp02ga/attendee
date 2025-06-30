@@ -1032,13 +1032,27 @@ class BotController:
             logger.info(f"Saved debug recording with ID {debug_screenshot.object_id}")
 
     def on_message_from_websocket_audio(self, message_json: str):
-        message = json.loads(message_json)
-        if message["event_type"] == RealtimeBotEventTypes.AUDIO_CHUNK.name:
-            chunk = b64decode(message["event_data"]["chunk"])
-            sample_rate = message["event_data"]["sample_rate"]
-            self.realtime_audio_output_manager.add_chunk(chunk, sample_rate)
-        else:
-            logger.info("Received unknown message from websocket: %s", message)
+        try:
+            message = json.loads(message_json)
+            if message["event_type"] == RealtimeBotEventTypes.BOT_OUTPUT_AUDIO_CHUNK.name:
+                chunk = b64decode(message["event_data"]["chunk"])
+                sample_rate = message["event_data"]["sample_rate"]
+                self.realtime_audio_output_manager.add_chunk(chunk, sample_rate)
+            else:
+                if not hasattr(self, "websocket_audio_error_ticker"):
+                    self.websocket_audio_error_ticker = 0
+
+                if self.websocket_audio_error_ticker % 1000 == 0:
+                    logger.error("Received unknown message from websocket: %s", message)
+                self.websocket_audio_error_ticker += 1
+        except Exception as e:
+            # Set the ticker to zero if its not an attribute
+            if not hasattr(self, "websocket_audio_error_ticker"):
+                self.websocket_audio_error_ticker = 0
+
+            if self.websocket_audio_error_ticker % 1000 == 0:
+                logger.error(f"Error processing message from websocket: {e}")
+            self.websocket_audio_error_ticker += 1
 
     def take_action_based_on_message_from_adapter(self, message):
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:

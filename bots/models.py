@@ -547,8 +547,8 @@ class BotEventTypes(models.IntegerChoices):
 
 
 class RealtimeBotEventTypes(models.IntegerChoices):
-    AUDIO_CHUNK = 1, "Audio chunk"
-    VIDEO_CHUNK = 2, "Video chunk"
+    MIXED_AUDIO_CHUNK = 1, "Mixed audio chunk"
+    BOT_OUTPUT_AUDIO_CHUNK = 2, "Bot output audio chunk"
 
 
 class BotEventSubTypes(models.IntegerChoices):
