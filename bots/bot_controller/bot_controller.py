@@ -1034,7 +1034,7 @@ class BotController:
     def on_message_from_websocket_audio(self, message_json: str):
         try:
             message = json.loads(message_json)
-            if message["event_type"] == RealtimeBotEventTypes.BOT_OUTPUT_AUDIO_CHUNK.name:
+            if message["event_type"] == RealtimeBotEventTypes.type_to_api_code(RealtimeBotEventTypes.BOT_OUTPUT_AUDIO_CHUNK):
                 chunk = b64decode(message["event_data"]["chunk"])
                 sample_rate = message["event_data"]["sample_rate"]
                 self.realtime_audio_output_manager.add_chunk(chunk, sample_rate)

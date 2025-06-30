@@ -547,8 +547,17 @@ class BotEventTypes(models.IntegerChoices):
 
 
 class RealtimeBotEventTypes(models.IntegerChoices):
-    MIXED_AUDIO_CHUNK = 1, "Mixed audio chunk"
-    BOT_OUTPUT_AUDIO_CHUNK = 2, "Bot output audio chunk"
+    MIXED_AUDIO_CHUNK = 101, "Mixed audio chunk"
+    BOT_OUTPUT_AUDIO_CHUNK = 102, "Bot output audio chunk"
+
+    @classmethod
+    def type_to_api_code(cls, value):
+        """Returns the API code for a given type value"""
+        mapping = {
+            cls.MIXED_AUDIO_CHUNK: "realtime_audio.mixed",
+            cls.BOT_OUTPUT_AUDIO_CHUNK: "realtime_audio.bot_output",
+        }
+        return mapping.get(value)
 
 
 class BotEventSubTypes(models.IntegerChoices):

@@ -46,7 +46,7 @@ def mixed_audio_websocket_payload(chunk: bytes, sample_rate: int, bot_object_id:
     chunk_16k = _downsample(chunk, sample_rate)
 
     return {
-        "event_type": RealtimeBotEventTypes.MIXED_AUDIO_CHUNK.name,
+        "event_type": RealtimeBotEventTypes.type_to_api_code(RealtimeBotEventTypes.MIXED_AUDIO_CHUNK),
         "bot_id": bot_object_id,
         "event_data": {
             "chunk": b64encode(chunk_16k).decode("ascii"),
