@@ -432,7 +432,6 @@ class BotController:
             return False
 
     def should_create_websocket_client(self):
-        print(f"should_create_websocket_client: {self.pipeline_configuration.websocket_stream_audio}")
         return self.pipeline_configuration.websocket_stream_audio
 
     def should_create_screen_and_audio_recorder(self):
