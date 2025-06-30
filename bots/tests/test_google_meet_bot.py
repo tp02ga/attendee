@@ -775,7 +775,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         mock_time.return_value = current_time
 
         # Configure bot for websocket audio streaming
-        self.bot.settings = {"websocket_settings": {"audio_url": "wss://example.com/audio-stream"}}
+        self.bot.settings = {"websocket_settings": {"audio": {"url": "wss://example.com/audio-stream"}}}
         self.bot.save()
 
         # Configure the mock uploader
