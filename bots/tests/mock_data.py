@@ -1,7 +1,9 @@
-import time
 import os
+import time
 from unittest.mock import MagicMock
+
 import numpy as np
+
 
 class MockVideoFrame:
     def __init__(self):
@@ -85,6 +87,7 @@ class MockF32AudioFrame:
 
     def GetBuffer(self):
         return self.buffer
+
 
 # Simulate video data arrival
 # Create a mock video message in the format expected by process_video_frame

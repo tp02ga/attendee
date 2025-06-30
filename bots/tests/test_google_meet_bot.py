@@ -6,14 +6,11 @@ import time
 from base64 import b64encode
 from unittest.mock import MagicMock, call, patch
 
-import kubernetes
 import numpy as np
 from django.db import connection
 from django.test.testcases import TransactionTestCase
-from django.utils import timezone
 from selenium.common.exceptions import TimeoutException
 
-from bots.bot_adapter import BotAdapter
 from bots.bot_controller import BotController
 from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods
 from bots.models import (
@@ -22,13 +19,9 @@ from bots.models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
-    ChatMessage,
     Credentials,
     CreditTransaction,
     Organization,
-    Participant,
-    ParticipantEvent,
-    ParticipantEventTypes,
     Project,
     Recording,
     RecordingStates,
@@ -42,8 +35,8 @@ from bots.models import (
     WebhookSubscription,
     WebhookTriggerTypes,
 )
-from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRetryableException
-from bots.tests.mock_data import create_mock_video_frame, create_mock_file_uploader, create_mock_google_meet_driver, create_mock_display
+from bots.tests.mock_data import create_mock_file_uploader, create_mock_google_meet_driver
+from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException
 
 
 class TestGoogleMeetBot(TransactionTestCase):
@@ -756,7 +749,6 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Close the database connection since we're in a thread
         connection.close()
 
-
     @patch("bots.models.Bot.create_debug_recording", return_value=False)
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
@@ -783,11 +775,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         mock_time.return_value = current_time
 
         # Configure bot for websocket audio streaming
-        self.bot.settings = {
-            "websocket_settings": {
-                "audio_url": "wss://example.com/audio-stream"
-            }
-        }
+        self.bot.settings = {"websocket_settings": {"audio_url": "wss://example.com/audio-stream"}}
         self.bot.save()
 
         # Configure the mock uploader
@@ -816,10 +804,12 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Store sent messages for verification
         sent_messages = []
+
         def capture_sent_message(message):
             sent_messages.append(message)
+
         mock_websocket_client.send_async.side_effect = capture_sent_message
-        
+
         MockBotWebsocketClient.return_value = mock_websocket_client
 
         # Create bot controller
@@ -844,8 +834,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             # Test outgoing audio streaming - simulate mixed audio chunk
             sample_rate = 48000  # 48kHz sample rate
             duration_ms = 20  # 20 milliseconds
-            num_samples = int(sample_rate * duration_ms / 1000)
-            
+
             # Generate test audio data (sine wave)
             t = np.arange(0, duration_ms / 1000, 1 / sample_rate)
             sine_wave = 0.5 * np.sin(2 * np.pi * 440 * t)  # 440Hz tone
@@ -854,7 +843,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
             # Simulate mixed audio chunk being sent to websocket
             controller.add_mixed_audio_chunk_callback(pcm_data)
-            
+
             # Allow time for processing
             time.sleep(1)
 
@@ -865,7 +854,7 @@ class TestGoogleMeetBot(TransactionTestCase):
                 "data": {
                     "chunk": b64encode(pcm_data).decode("ascii"),
                     "sample_rate": sample_rate,
-                }
+                },
             }
 
             # Simulate receiving the message through the websocket callback
@@ -876,10 +865,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             time.sleep(3)
 
             # Test invalid message handling
-            invalid_message = {
-                "trigger": "unknown_trigger",
-                "data": {}
-            }
+            invalid_message = {"trigger": "unknown_trigger", "data": {}}
             controller.on_message_from_websocket_audio(json.dumps(invalid_message))
 
             # Test malformed JSON handling
@@ -909,12 +895,12 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify websocket client was created and configured correctly
         MockBotWebsocketClient.assert_called_once()
         websocket_call_args = MockBotWebsocketClient.call_args
-        self.assertEqual(websocket_call_args[1]['url'], "wss://example.com/audio-stream")
-        self.assertIsNotNone(websocket_call_args[1]['on_message_callback'])
+        self.assertEqual(websocket_call_args[1]["url"], "wss://example.com/audio-stream")
+        self.assertIsNotNone(websocket_call_args[1]["on_message_callback"])
 
         # Verify outgoing audio messages were sent
         self.assertGreater(len(sent_messages), 0, "Expected audio messages to be sent via websocket")
-        
+
         # Verify the structure of sent audio messages
         audio_message = sent_messages[0]
         self.assertEqual(audio_message["trigger"], "realtime_audio.mixed")
@@ -925,6 +911,7 @@ class TestGoogleMeetBot(TransactionTestCase):
 
         # Verify the audio chunk is properly base64 encoded
         from base64 import b64decode
+
         decoded_chunk = b64decode(audio_message["data"]["chunk"])
         self.assertGreater(len(decoded_chunk), 0)
 
@@ -934,7 +921,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         # Verify that the adapter's send raw audio method was called
         # This verifies that incoming websocket audio was processed and sent to the adapter
         self.assertGreater(len(send_raw_audio_calls), 0, "Expected adapter.send_raw_audio to be called for incoming websocket audio")
-        
+
         # Verify the structure of the send_raw_audio call
         audio_call = send_raw_audio_calls[0]
         self.assertIn("bytes", audio_call, "send_raw_audio should be called with bytes parameter")
@@ -973,10 +960,7 @@ class TestGoogleMeetBot(TransactionTestCase):
         self.assertEqual(post_processing_completed_event.new_state, BotStates.ENDED)
 
         # Verify WebSocket media sending was enabled
-        mock_driver.execute_script.assert_has_calls([
-            call("window.ws?.enableMediaSending();"), 
-            call("return performance.timeOrigin;")
-        ])
+        mock_driver.execute_script.assert_has_calls([call("window.ws?.enableMediaSending();"), call("return performance.timeOrigin;")])
 
         # Verify file uploader was used
         mock_uploader.upload_file.assert_called_once()

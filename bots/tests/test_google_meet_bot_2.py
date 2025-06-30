@@ -1,20 +1,15 @@
-import datetime
-import json
 import os
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
 
 import kubernetes
-import numpy as np
 from django.db import connection
 from django.test.testcases import TransactionTestCase
 from django.utils import timezone
-from selenium.common.exceptions import TimeoutException
 
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller import BotController
-from bots.google_meet_bot_adapter.google_meet_ui_methods import GoogleMeetUIMethods
 from bots.models import (
     Bot,
     BotEventManager,
@@ -23,7 +18,6 @@ from bots.models import (
     BotStates,
     ChatMessage,
     Credentials,
-    CreditTransaction,
     Organization,
     Participant,
     ParticipantEvent,
@@ -31,7 +25,6 @@ from bots.models import (
     Project,
     Recording,
     RecordingStates,
-    RecordingTranscriptionStates,
     RecordingTypes,
     TranscriptionProviders,
     TranscriptionTypes,
@@ -41,37 +34,8 @@ from bots.models import (
     WebhookSubscription,
     WebhookTriggerTypes,
 )
-from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiRetryableException
-from bots.tests.mock_data import create_mock_video_frame, create_mock_file_uploader, create_mock_google_meet_driver, create_mock_display
-
-def create_mock_file_uploader():
-    mock_file_uploader = MagicMock()
-    mock_file_uploader.upload_file.return_value = None
-    mock_file_uploader.wait_for_upload.return_value = None
-    mock_file_uploader.delete_file.return_value = None
-    mock_file_uploader.key = "test-recording-key"
-    return mock_file_uploader
-
-
-def create_mock_google_meet_driver():
-    mock_driver = MagicMock()
-    mock_driver.execute_script.side_effect = [
-        None,  # First call (window.ws.enableMediaSending())
-        12345,  # Second call (performance.timeOrigin)
-    ]
-
-    # Make save_screenshot actually create an empty PNG file
-    def mock_save_screenshot(filepath):
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        # Create empty file
-        with open(filepath, "wb") as f:
-            # Write minimal valid PNG file bytes
-            f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
-        return filepath
-
-    mock_driver.save_screenshot.side_effect = mock_save_screenshot
-    return mock_driver
+from bots.tests.mock_data import create_mock_file_uploader, create_mock_google_meet_driver
+from bots.web_bot_adapter.ui_methods import UiRetryableException
 
 
 class TestGoogleMeetBot2(TransactionTestCase):
