@@ -17,10 +17,6 @@ CHANNELS = 1  # mono
 
 
 def _downsample(chunk: bytes, src_rate: int, dst_rate: int) -> bytes:
-    """
-    Fast, band-limited 48 k, 32 k → 16 k converter.
-    Falls back to passthrough if src_rate already 16 k.
-    """
     if src_rate == dst_rate:
         return chunk  # nothing to do
 
