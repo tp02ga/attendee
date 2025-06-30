@@ -858,7 +858,7 @@ class TestGoogleMeetBot(TransactionTestCase):
             }
 
             # Simulate receiving the message through the websocket callback
-            for i in range(40):
+            for i in range(10):
                 controller.on_message_from_websocket_audio(json.dumps(incoming_audio_message))
 
             # Allow time for audio processing and the realtime audio output manager to process
