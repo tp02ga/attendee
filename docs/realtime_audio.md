@@ -16,11 +16,11 @@ To enable realtime audio streaming, configure the `websocket_settings.audio_url`
 }
 ```
 
-## Audio Format Specifications
+## Websocket Message Format
 
 ### Outgoing Audio (Attendee → Your Websocket Server)
 
-Your WebSocket server will receive messages in this format, which follows the format for webhooks.
+Your WebSocket server will receive messages in this format.
 
 ```json
 {
@@ -33,7 +33,7 @@ Your WebSocket server will receive messages in this format, which follows the fo
 }
 ```
 
-The `chunk` field is a base64-encoded 16-bit PCM audio data (16 kHz, mono).
+The `chunk` field is base64-encoded 16-bit PCM audio data (16 kHz, mono).
 
 ### Incoming Audio (Your Websocket Server → Attendee)
 
@@ -49,7 +49,7 @@ When you want the bot to speak audio in the meeting, send a message in this form
 }
 ```
 
-The `chunk` field is a chunk of audio data in the format of 16-bit PCM audio data (16 kHz, mono). For now the only supported sample rate is 16 kHz.
+The `chunk` field is base64-encoded 16-bit PCM audio data (16 kHz, mono). For now the only supported sample rate is 16 kHz, but you still need to include the `sample_rate` field in the message.
 
 ## Integration with Voice Agent APIs
 
@@ -66,5 +66,8 @@ Connect directly to OpenAI's realtime API by forwarding audio chunks. The 16 kHz
 
 Attendee will automatically retry to connect to your websocket server if the connection is lost or the initial connection attempt fails. We will retry up to 30 times with a 2 second delay between retries.
 
+## Error Messages
+
+Currently, we don't give any feedback on errors with the websocket connection or invalid message formats. We plan to improve this in the future.
 
 
