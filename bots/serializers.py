@@ -415,7 +415,7 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
                         "type": "integer",
                         "enum": [8000, 16000, 24000],
                         "default": 16000,
-                        "description": "The sample rate of the audio. Can be 8000, 16000, or 24000. Defaults to 16000.",
+                        "description": "The sample rate of the audio to send. Can be 8000, 16000, or 24000. Defaults to 16000.",
                     },
                 },
                 "required": ["url"],
