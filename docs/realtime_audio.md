@@ -62,10 +62,10 @@ The `chunk` field is base64-encoded 16-bit single-channel PCM audio data. The sa
 The realtime audio streaming can be easily integrated with voice agent APIs and services:
 
 ### Deepgram Voice Agent API
-Connect directly to Deepgram's voice agent WebSocket API by forwarding audio chunks. The 16 kHz PCM format is compatible with Deepgram's real-time streaming requirements. See an example app showing how to integrate with Deepgram's voice agent API [here](https://github.com/attendee-labs/voice-agent-example).
+Connect directly to Deepgram's voice agent WebSocket API by forwarding audio chunks. Set an output sample rate of `16000` to be compatible with Deepgram's real-time streaming requirements. See an example app showing how to integrate with Deepgram's voice agent API [here](https://github.com/attendee-labs/voice-agent-example).
 
 ### OpenAI Realtime API
-Connect directly to OpenAI's realtime API by forwarding audio chunks. The 16 kHz PCM format is compatible with OpenAI's real-time streaming requirements.
+Connect directly to OpenAI's realtime API by forwarding audio chunks. Set an output sample rate of `24000` to be compatible with OpenAI's real-time streaming requirements.
 
 ## Code Samples
 
