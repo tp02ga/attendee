@@ -1,13 +1,12 @@
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import Organization
-from bots.bots_api_utils import BotCreationSource, create_bot, validate_meeting_url_and_credentials, create_webhook_subscription
-from bots.models import Bot, BotEventTypes, BotStates, Project, WebhookTriggerTypes
-from bots.models import WebhookSubscription
-from django.core.exceptions import ValidationError
+from bots.bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription, validate_meeting_url_and_credentials
+from bots.models import Bot, BotEventTypes, BotStates, Project, WebhookSubscription, WebhookTriggerTypes
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
@@ -89,7 +88,6 @@ class TestCreateBot(TestCase):
         error_message = str(bot_image_errors[0])
         self.assertEqual(error_message, "Data is not a valid PNG image. This site can generate base64 encoded PNG images to test with: https://png-pixel.com")
 
-
     def test_with_too_many_webhooks(self):
         bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "webhooks": [{"url": "https://example.com", "triggers": ["bot.state_change"]}, {"url": "https://example2.com", "triggers": ["bot.state_change"]}, {"url": "https://example3.com", "triggers": ["bot.state_change"]}]}, source=BotCreationSource.API, project=self.project)
         self.assertIsNone(bot)
@@ -121,6 +119,7 @@ class TestCreateBot(TestCase):
         self.assertEqual(Bot.objects.count(), 0)
         self.assertIsNotNone(error)
         self.assertEqual(error, {"error": "URL already subscribed for this bot"})
+
 
 class TestCreateWebhookSubscription(TestCase):
     def setUp(self):

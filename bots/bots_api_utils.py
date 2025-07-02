@@ -174,7 +174,6 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             if bot_image:
                 create_bot_media_request_for_image(bot, bot_image)
 
-
             if bot_chat_message:
                 create_bot_chat_message_request(bot, bot_chat_message)
 
