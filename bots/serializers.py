@@ -383,43 +383,7 @@ def get_webhook_trigger_enum():
 class WebhooksJSONField(serializers.JSONField):
     """Field for webhook subscriptions with validation"""
 
-    WEBHOOKS_SCHEMA = {
-        "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "pattern": "^https://.*",
-                },
-                "triggers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "enum": get_webhook_trigger_enum(),
-                    },
-                    "minItems": 1,
-                },
-            },
-            "required": ["url", "triggers"],
-            "additionalProperties": False,
-        },
-    }
-
-    def validate(self, value):
-        if value is None:
-            return value
-
-        try:
-            jsonschema.validate(instance=value, schema=self.WEBHOOKS_SCHEMA)
-        except jsonschema.exceptions.ValidationError as e:
-            raise serializers.ValidationError(e.message)
-
-        # Check bot-level webhook limit (max 2 per bot)
-        if value and len(value) > 2:
-            raise serializers.ValidationError("Maximum 2 webhooks allowed per bot")
-
-        return value
+    pass
 
 
 @extend_schema_serializer(
@@ -528,6 +492,40 @@ class CreateBotSerializer(serializers.Serializer):
         required=False,
         default=None,
     )
+
+    WEBHOOKS_SCHEMA = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "pattern": "^https://.*",
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": get_webhook_trigger_enum(),
+                    },
+                    "minItems": 1,
+                },
+            },
+            "required": ["url", "triggers"],
+            "additionalProperties": False,
+        },
+    }
+
+    def validate_webhooks(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.WEBHOOKS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        return value
 
     transcription_settings = TranscriptionSettingsJSONField(
         help_text="The transcription settings for the bot, e.g. {'deepgram': {'language': 'en'}}",

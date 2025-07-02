@@ -417,12 +417,7 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         url = request.POST.get("url")
         triggers = request.POST.getlist("triggers[]")
 
-        # Check for project-level specific webhook limit (preserve original behavior)
-        if WebhookSubscription.objects.filter(project=project, bot__isnull=True).count() >= 2:
-            return HttpResponse("You have reached the maximum number of webhooks", status=400)
-
-        # Use shared validation function (skip limit check since we handle it above)
-        error, normalized_triggers = validate_webhook_data(url, triggers, project, bot=None, check_limits=False)
+        error, normalized_triggers = validate_webhook_data(url, triggers, project, bot=None)
         if error:
             # Map specific error messages for project-level webhooks to maintain backward compatibility
             if "URL already subscribed for this bot" in error:
