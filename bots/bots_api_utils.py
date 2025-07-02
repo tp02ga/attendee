@@ -136,6 +136,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     bot_image = serializer.validated_data["bot_image"]
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
+    websocket_settings = serializer.validated_data["websocket_settings"]
     join_at = serializer.validated_data["join_at"]
     webhook_subscriptions = serializer.validated_data["webhooks"]
     initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
@@ -147,6 +148,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         "debug_settings": debug_settings,
         "automatic_leave_settings": automatic_leave_settings,
         "teams_settings": teams_settings,
+        "websocket_settings": websocket_settings,
     }
 
     with transaction.atomic():

@@ -1244,6 +1244,35 @@ components:
           required: []
           description: 'The transcription settings for the bot, e.g. {''deepgram'':
             {''language'': ''en''}}'
+        websocket_settings:
+          type: object
+          properties:
+            audio:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: The URL of the websocket to use for receiving meeting
+                    audio in real time and having the bot output audio in real time.
+                    It must start with wss://. See https://docs.attendee.dev/guides/realtime-audio-input-and-output
+                    for details on how to receive and send audio through the websocket
+                    connection.
+                sample_rate:
+                  type: integer
+                  enum:
+                  - 8000
+                  - 16000
+                  - 24000
+                  default: 16000
+                  description: The sample rate of the audio to send. Can be 8000,
+                    16000, or 24000. Defaults to 16000.
+              required:
+              - url
+              additionalProperties: false
+          required: []
+          additionalProperties: false
+          description: 'The websocket settings for the bot, e.g. {''audio'': {''url'':
+            ''wss://example.com/audio'', ''sample_rate'': 16000}}'
         rtmp_settings:
           type: object
           properties:
