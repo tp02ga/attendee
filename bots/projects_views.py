@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django.views.generic import ListView
+from django.core.exceptions import ValidationError
 
 from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription
 from .launch_bot_utils import launch_bot
@@ -412,9 +413,10 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         triggers = request.POST.getlist("triggers[]")
 
         # Create webhook subscription using shared function
-        success, error = create_webhook_subscription(url, triggers, project, bot=None)
-        if not success:
-            return HttpResponse(error, status=400)
+        try:
+            create_webhook_subscription(url, triggers, project, bot=None)
+        except ValidationError as e:
+            return HttpResponse(e.messages[0], status=400)
 
         # Get the project's webhook secret for response
         webhook_secret = WebhookSecret.objects.get(project=project)
