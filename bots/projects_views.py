@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import ListView
 
-from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription, validate_webhook_data
+from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription
 from .launch_bot_utils import launch_bot
 from .models import (
     ApiKey,
