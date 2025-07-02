@@ -359,12 +359,8 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         # Prefetch bot events with their debug screenshots
         bot.bot_events.prefetch_related("debug_screenshots")
 
-        # Get webhook delivery attempts for this bot (both project-level and bot-specific)
+        # Get webhook delivery attempts for this bot (from both project-level and bot-specific webhook subscriptions)
         webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(bot=bot).select_related("webhook_subscription").order_by("-created_at")
-
-        # Get webhook subscriptions for this bot (both project-level and bot-specific)
-        project_webhooks = WebhookSubscription.objects.filter(project=project, bot__isnull=True).order_by("-created_at")
-        bot_webhooks = WebhookSubscription.objects.filter(bot=bot).order_by("-created_at")
 
         # Get chat messages for this bot
         chat_messages = ChatMessage.objects.filter(bot=bot).select_related("participant").order_by("created_at")
@@ -381,8 +377,6 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 "RecordingTranscriptionStates": RecordingTranscriptionStates,
                 "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
-                "project_webhooks": project_webhooks,
-                "bot_webhooks": bot_webhooks,
                 "chat_messages": chat_messages,
                 "participants": participants,
                 "ParticipantEventTypes": ParticipantEventTypes,
@@ -399,7 +393,7 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         context = self.get_project_context(object_id, project)
         # Only show project-level webhooks, not bot-level ones
-        context["webhooks"] = WebhookSubscription.objects.filter(project=project, bot__isnull=True).order_by("-created_at")
+        context["webhooks"] = project.webhook_subscriptions.filter(bot__isnull=True).order_by("-created_at")
         context["webhook_options"] = [trigger_type for trigger_type in WebhookTriggerTypes]
         return render(request, "projects/project_webhooks.html", context)
 
