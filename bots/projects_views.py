@@ -417,15 +417,8 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         url = request.POST.get("url")
         triggers = request.POST.getlist("triggers[]")
 
-        error, normalized_triggers = validate_webhook_data(url, triggers, project, bot=None)
-        if error:
-            # Map specific error messages for project-level webhooks to maintain backward compatibility
-            if "URL already subscribed for this bot" in error:
-                error = "URL already subscribed"
-            return HttpResponse(error, status=400)
-
         # Create webhook subscription using shared function
-        success, error = create_webhook_subscription(url, normalized_triggers, project, bot=None)
+        success, error = create_webhook_subscription(url, triggers, project, bot=None)
         if not success:
             return HttpResponse(error, status=400)
 
@@ -438,7 +431,7 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             {
                 "secret": base64.b64encode(webhook_secret.get_secret()).decode("utf-8"),
                 "url": url,
-                "triggers": normalized_triggers,
+                "triggers": triggers,
             },
         )
 

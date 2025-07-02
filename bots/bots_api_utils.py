@@ -233,7 +233,7 @@ def validate_webhook_data(url, triggers, project, bot=None):
         return "webhook URL must start with https://", None
 
     # Check for duplicate URLs
-    existing_webhook_query = WebhookSubscription.objects.filter(url=url, project=project)
+    existing_webhook_query = project.webhook_subscriptions.filter(url=url)
     if bot:
         # For bot-level webhooks, check if URL already exists for this bot
         if existing_webhook_query.filter(bot=bot).exists():
