@@ -15,12 +15,9 @@ def trigger_webhook(webhook_trigger_type, bot, payload):
     """
     from bots.models import WebhookDeliveryAttempt
 
-    # First, check for bot-level webhook subscriptions
-    bot_subscriptions = bot.bot_webhook_subscriptions.filter(triggers__contains=[webhook_trigger_type], is_active=True)
-
-    # If bot has specific webhook subscriptions, use those exclusively
-    if bot_subscriptions.exists():
-        subscriptions = bot_subscriptions
+    # If bot has any bot-level webhook subscriptions, use those exclusively
+    if bot.bot_webhook_subscriptions.exists():
+        subscriptions = bot.bot_webhook_subscriptions.filter(triggers__contains=[webhook_trigger_type], is_active=True)
     else:
         # Otherwise, fall back to project-level webhook subscriptions
         subscriptions = bot.project.webhook_subscriptions.filter(

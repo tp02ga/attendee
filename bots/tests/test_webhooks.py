@@ -277,9 +277,7 @@ class WebhookDeliveryTest(TransactionTestCase):
         self.webhook_subscription = WebhookSubscription.objects.create(
             project=self.project,
             url="https://example.com/webhook",
-            triggers=[
-                WebhookTriggerTypes.BOT_STATE_CHANGE,
-            ],
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE, WebhookTriggerTypes.TRANSCRIPT_UPDATE],
         )
         # Create webhook secret
         self.webhook_secret = WebhookSecret.objects.create(project=self.project)
@@ -423,6 +421,10 @@ class WebhookDeliveryTest(TransactionTestCase):
         self.assertEqual(delivery_attempt.payload, test_payload)
         self.assertEqual(delivery_attempt.status, WebhookDeliveryAttemptStatus.SUCCESS)
 
+        # Test that triggering a webhook for a transcript update does not go through at all, since there is no bot-level webhook for it
+        num_attempts = trigger_webhook(WebhookTriggerTypes.TRANSCRIPT_UPDATE, self.bot, test_payload)
+        self.assertEqual(num_attempts, 0)
+
         # Test fallback behavior - delete bot-level webhook and verify project-level webhook is used
         bot_webhook.delete()
         WebhookDeliveryAttempt.objects.all().delete()
@@ -444,3 +446,7 @@ class WebhookDeliveryTest(TransactionTestCase):
         self.assertEqual(delivery_attempt.bot, self.bot)
         self.assertEqual(delivery_attempt.payload, test_payload)
         self.assertEqual(delivery_attempt.status, WebhookDeliveryAttemptStatus.SUCCESS)
+
+        # Test that triggering a webhook for a transcript update does go through, since it uses the project-level webhook
+        num_attempts = trigger_webhook(WebhookTriggerTypes.TRANSCRIPT_UPDATE, self.bot, test_payload)
+        self.assertEqual(num_attempts, 1)
