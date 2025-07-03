@@ -1764,35 +1764,6 @@ class WebhookTriggerTypes(models.IntegerChoices):
         api_code_to_trigger = {api_code: trigger_type.value for trigger_type, api_code in mapping.items()}
         return api_code_to_trigger.get(api_code)
 
-    @classmethod
-    def normalize_triggers(cls, triggers):
-        """
-        Convert a list of trigger identifiers (API code strings or integers) to integers.
-        Supports both string API codes (for API usage) and integer values (for UI backward compatibility).
-        """
-        normalized = []
-        for trigger in triggers:
-            if isinstance(trigger, str):
-                # Convert string API code to integer
-                trigger_value = cls.api_code_to_trigger_type(trigger)
-                if trigger_value is not None:
-                    normalized.append(trigger_value)
-                else:
-                    # Return None to indicate invalid trigger
-                    return None
-            elif isinstance(trigger, int):
-                # Integer trigger value - validate it's a valid enum value
-                valid_values = [trigger_type.value for trigger_type in cls]
-                if trigger in valid_values:
-                    normalized.append(trigger)
-                else:
-                    # Return None to indicate invalid trigger
-                    return None
-            else:
-                # Unsupported type
-                return None
-        return normalized
-
 
 class WebhookSubscription(models.Model):
     def default_triggers():
