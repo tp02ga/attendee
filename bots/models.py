@@ -333,7 +333,7 @@ class Bot(models.Model):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("teams_language", None)
 
     def meeting_closed_captions_merge_consecutive_captions(self):
-        return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("merge_consecutive_captions", True)
+        return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("merge_consecutive_captions", False)
 
     def teams_use_bot_login(self):
         return self.settings.get("teams_settings", {}).get("use_login", False)
