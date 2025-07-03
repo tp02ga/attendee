@@ -379,3 +379,68 @@ class WebhookDeliveryTest(TransactionTestCase):
         self.assertIsNone(attempt.response_body_list[0]["status_code"])
         self.assertIsNone(attempt.succeeded_at)
         self.assertEqual(attempt.attempt_count, 0)
+
+    @patch("bots.tasks.deliver_webhook_task.requests.post")
+    def test_bot_webhook_prioritization(self, mock_post):
+        """Test that bot-level webhooks are prioritized over project-level webhooks"""
+        from bots.webhook_utils import trigger_webhook
+
+        # Mock successful webhook delivery
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "OK"
+
+        # Create project-level webhook subscription (already exists from setUp)
+        project_webhook = self.webhook_subscription
+
+        # Create bot-level webhook subscription for the same trigger
+        bot_webhook = WebhookSubscription.objects.create(
+            project=self.project,
+            bot=self.bot,
+            url="https://example.com/bot-webhook",
+            triggers=[WebhookTriggerTypes.BOT_STATE_CHANGE],
+        )
+
+        # Clear any existing delivery attempts
+        WebhookDeliveryAttempt.objects.all().delete()
+
+        # Trigger webhook - should only use bot-level webhook
+        test_payload = {"test": "bot_priority_data"}
+        num_attempts = trigger_webhook(WebhookTriggerTypes.BOT_STATE_CHANGE, self.bot, test_payload)
+
+        # Should only create 1 delivery attempt (for bot-level webhook only)
+        self.assertEqual(num_attempts, 1)
+        self.assertEqual(WebhookDeliveryAttempt.objects.count(), 1)
+
+        # Get the delivery attempt and call the delivery task
+        delivery_attempt = WebhookDeliveryAttempt.objects.first()
+        deliver_webhook.apply(args=[delivery_attempt.id])
+
+        # Refresh and verify the delivery attempt was created for the bot-level webhook, not project-level
+        delivery_attempt.refresh_from_db()
+        self.assertEqual(delivery_attempt.webhook_subscription, bot_webhook)
+        self.assertNotEqual(delivery_attempt.webhook_subscription, project_webhook)
+        self.assertEqual(delivery_attempt.bot, self.bot)
+        self.assertEqual(delivery_attempt.payload, test_payload)
+        self.assertEqual(delivery_attempt.status, WebhookDeliveryAttemptStatus.SUCCESS)
+
+        # Test fallback behavior - delete bot-level webhook and verify project-level webhook is used
+        bot_webhook.delete()
+        WebhookDeliveryAttempt.objects.all().delete()
+
+        # Trigger webhook again - should now use project-level webhook
+        num_attempts = trigger_webhook(WebhookTriggerTypes.BOT_STATE_CHANGE, self.bot, test_payload)
+
+        # Should create 1 delivery attempt for project-level webhook
+        self.assertEqual(num_attempts, 1)
+        self.assertEqual(WebhookDeliveryAttempt.objects.count(), 1)
+
+        # Get the delivery attempt and call the delivery task
+        delivery_attempt = WebhookDeliveryAttempt.objects.first()
+        deliver_webhook.apply(args=[delivery_attempt.id])
+
+        # Refresh and verify the delivery attempt was created for the project-level webhook
+        delivery_attempt.refresh_from_db()
+        self.assertEqual(delivery_attempt.webhook_subscription, project_webhook)
+        self.assertEqual(delivery_attempt.bot, self.bot)
+        self.assertEqual(delivery_attempt.payload, test_payload)
+        self.assertEqual(delivery_attempt.status, WebhookDeliveryAttemptStatus.SUCCESS)
