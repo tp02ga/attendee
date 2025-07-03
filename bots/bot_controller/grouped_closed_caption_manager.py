@@ -34,23 +34,24 @@ class CaptionEntry:
     def mark_upserted_to_db(self):
         self.last_upsert_to_db_at = datetime.utcnow()
 
+
 class CaptionEntryGroup:
     def __init__(self, key: str, caption_data: dict):
         self.caption_entries: Dict[str, CaptionEntry] = {key: CaptionEntry(caption_data)}
         self.device_id: Optional[str] = caption_data["deviceId"]
         self.last_upsert_to_db_at: Optional[datetime] = None
-        
+
     def merge_caption_entry(self, key: str, caption_data: dict):
         self.caption_entries[key] = CaptionEntry(caption_data)
-        
+
     @property
     def modified_at(self):
         return max(entry.modified_at for entry in self.caption_entries.values())
-    
+
     @property
     def created_at(self):
         return min(entry.created_at for entry in self.caption_entries.values())
-    
+
     def mark_upserted_to_db(self):
         self.last_upsert_to_db_at = datetime.utcnow()
         for entry in self.caption_entries.values():
@@ -71,6 +72,7 @@ class CaptionEntryGroup:
 
     def get_text(self):
         return " ".join(entry.caption_data.get("text", "") for entry in sorted(self.caption_entries.values(), key=lambda x: x.created_at))
+
 
 class GroupedClosedCaptionManager:
     def __init__(self, *, save_utterance_callback, get_participant_callback):
@@ -99,7 +101,7 @@ class GroupedClosedCaptionManager:
             if group.modified_at + timedelta(seconds=1) > datetime.utcnow():
                 group.merge_caption_entry(key, caption_data)
                 return
-        
+
         # If no opportunity to merge, create a new group
         self.caption_entry_groups[key] = CaptionEntryGroup(key, caption_data)
 

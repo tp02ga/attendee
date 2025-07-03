@@ -52,8 +52,8 @@ from bots.websocket_payloads import mixed_audio_websocket_payload
 
 from .audio_output_manager import AudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
-from .grouped_closed_caption_manager import GroupedClosedCaptionManager
 from .file_uploader import FileUploader
+from .grouped_closed_caption_manager import GroupedClosedCaptionManager
 from .gstreamer_pipeline import GstreamerPipeline
 from .per_participant_non_streaming_audio_input_manager import PerParticipantNonStreamingAudioInputManager
 from .per_participant_streaming_audio_input_manager import PerParticipantStreamingAudioInputManager
