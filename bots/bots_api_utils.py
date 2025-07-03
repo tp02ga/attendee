@@ -303,7 +303,7 @@ def create_webhook_subscriptions(webhook_data_list, project, bot=None):
 
     # Create all webhook subscriptions
     for webhook_data in webhook_data_list:
-        url = webhook_data.get("url")
+        url = webhook_data.get("url", "")
         triggers = webhook_data.get("triggers", [])
 
         create_webhook_subscription(url, triggers, project, bot)

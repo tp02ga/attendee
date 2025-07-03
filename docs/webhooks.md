@@ -2,7 +2,7 @@
 
 Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll the API.
 
-Webhooks support multiple event types including bot state changes, transcript updates, chat message updates, and participant events. These can be used to alert your server when a bot joins a meeting, starts recording, when a recording is available, when real-time content is updated, or when participants join or leave meetings.
+Webhooks support multiple event types including bot state changes, transcript updates, chat message updates, and participant events. These can be used to alert your server when a bot joins a meeting, starts recording, when a recording is available, when the transcript is updated, or when participants join or leave meetings.
 
 Attendee supports two types of webhook subscriptions:
 - **Project-level webhooks**: Apply to all bots in a project (managed via UI)
