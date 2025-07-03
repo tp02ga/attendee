@@ -1092,6 +1092,31 @@ components:
           format: date-time
           description: The time the bot should join the meeting. ISO 8601 format,
             e.g. 2025-06-13T12:00:00Z
+        webhooks:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                description: The webhook URL (must be HTTPS)
+              triggers:
+                type: array
+                items:
+                  type: string
+                  enum:
+                  - bot.state_change
+                  - transcript.update
+                  - chat_messages.update
+                  - participant_events.join_leave
+                description: List of webhook trigger types
+                uniqueItems: true
+            required:
+            - url
+            - triggers
+            additionalProperties: false
+          description: List of webhook subscriptions to create for this bot. Each
+            item should have 'url' and 'triggers' fields.
         transcription_settings:
           type: object
           properties:

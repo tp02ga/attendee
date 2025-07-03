@@ -183,6 +183,10 @@ class Bot(models.Model):
             # Delete all chat messages
             self.chat_messages.all().delete()
 
+            # Delete all webhook delivery attempts that have a trigger other than BOT_STATE_CHANGE, since these contain sensitive data
+            webhook_delivery_attempts_with_sensitive_data = self.webhook_delivery_attempts.exclude(webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE)
+            webhook_delivery_attempts_with_sensitive_data.delete()
+
             BotEventManager.create_event(bot=self, event_type=BotEventTypes.DATA_DELETED)
 
     def set_heartbeat(self):
@@ -1740,14 +1744,25 @@ class WebhookTriggerTypes(models.IntegerChoices):
     # add other event types here
 
     @classmethod
-    def trigger_type_to_api_code(cls, value):
-        mapping = {
+    def _get_mapping(cls):
+        """Get the trigger type to API code mapping"""
+        return {
             cls.BOT_STATE_CHANGE: "bot.state_change",
             cls.TRANSCRIPT_UPDATE: "transcript.update",
             cls.CHAT_MESSAGES_UPDATE: "chat_messages.update",
             cls.PARTICIPANT_EVENTS_JOIN_LEAVE: "participant_events.join_leave",
         }
-        return mapping.get(value)
+
+    @classmethod
+    def trigger_type_to_api_code(cls, value):
+        return cls._get_mapping().get(value)
+
+    @classmethod
+    def api_code_to_trigger_type(cls, api_code):
+        """Convert API code string to trigger type integer."""
+        mapping = cls._get_mapping()
+        api_code_to_trigger = {api_code: trigger_type.value for trigger_type, api_code in mapping.items()}
+        return api_code_to_trigger.get(api_code)
 
 
 class WebhookSubscription(models.Model):
@@ -1755,6 +1770,7 @@ class WebhookSubscription(models.Model):
         return [WebhookTriggerTypes.BOT_STATE_CHANGE]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="webhook_subscriptions")
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="bot_webhook_subscriptions", null=True, blank=True)
 
     OBJECT_ID_PREFIX = "webhook_"
     object_id = models.CharField(max_length=32, unique=True, editable=False)
