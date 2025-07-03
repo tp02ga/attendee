@@ -183,6 +183,10 @@ class Bot(models.Model):
             # Delete all chat messages
             self.chat_messages.all().delete()
 
+            # Delete all webhook delivery attempts that have a trigger other than BOT_STATE_CHANGE, since these contain sensitive data
+            webhook_delivery_attempts_with_sensitive_data = self.webhook_delivery_attempts.exclude(webhook_trigger_type=WebhookTriggerTypes.BOT_STATE_CHANGE)
+            webhook_delivery_attempts_with_sensitive_data.delete()
+
             BotEventManager.create_event(bot=self, event_type=BotEventTypes.DATA_DELETED)
 
     def set_heartbeat(self):

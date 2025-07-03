@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.test import TransactionTestCase
 from django.test.utils import override_settings
 
-from bots.models import Bot, BotDebugScreenshot, BotEvent, WebhookSubscription, BotEventTypes, BotStates, ChatMessage, ChatMessageToOptions, Organization, Participant, Project, Recording, RecordingStates, Utterance, WebhookSubscription, WebhookTriggerTypes, WebhookDeliveryAttempt
+from bots.models import Bot, BotDebugScreenshot, BotEvent, BotEventTypes, BotStates, ChatMessage, ChatMessageToOptions, Organization, Participant, Project, Recording, RecordingStates, Utterance, WebhookSubscription, WebhookTriggerTypes
 
 
 def mock_file_field_delete_sets_name_to_none(instance, save=True):
