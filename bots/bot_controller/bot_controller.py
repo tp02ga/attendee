@@ -53,6 +53,7 @@ from bots.websocket_payloads import mixed_audio_websocket_payload
 from .audio_output_manager import AudioOutputManager
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
+from .grouped_closed_caption_manager import GroupedClosedCaptionManager
 from .gstreamer_pipeline import GstreamerPipeline
 from .per_participant_non_streaming_audio_input_manager import PerParticipantNonStreamingAudioInputManager
 from .per_participant_streaming_audio_input_manager import PerParticipantStreamingAudioInputManager
@@ -492,10 +493,16 @@ class BotController:
         )
 
         # Only used for adapters that can provide closed captions
-        self.closed_caption_manager = ClosedCaptionManager(
-            save_utterance_callback=self.save_closed_caption_utterance,
-            get_participant_callback=self.get_participant,
-        )
+        if self.bot_in_db.meeting_closed_captions_merge_consecutive_captions():
+            self.closed_caption_manager = GroupedClosedCaptionManager(
+                save_utterance_callback=self.save_closed_caption_utterance,
+                get_participant_callback=self.get_participant,
+            )
+        else:
+            self.closed_caption_manager = ClosedCaptionManager(
+                save_utterance_callback=self.save_closed_caption_utterance,
+                get_participant_callback=self.get_participant,
+            )
 
         self.rtmp_client = None
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:

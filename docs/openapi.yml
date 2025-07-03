@@ -1190,6 +1190,12 @@ components:
                     ''en-us''). This will change the closed captions language for
                     everyone in the meeting, not just the bot. See here for available
                     languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing'
+                merge_consecutive_captions:
+                  type: boolean
+                  description: The captions from Google Meet can end in the middle
+                    of a sentence, which is not ideal. This setting deals with that
+                    by merging consecutive captions for a given speaker that occur
+                    close together in time. Turned off by default.
               additionalProperties: false
             openai:
               type: object
