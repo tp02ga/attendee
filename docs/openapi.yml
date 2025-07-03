@@ -1190,6 +1190,10 @@ components:
                     ''en-us''). This will change the closed captions language for
                     everyone in the meeting, not just the bot. See here for available
                     languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing'
+                merge_consecutive_captions:
+                  type: boolean
+                  description: Whether to merge consecutive captions for a given speaker
+                    that occur close together in time.
               additionalProperties: false
             openai:
               type: object
