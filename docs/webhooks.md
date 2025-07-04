@@ -54,7 +54,6 @@ When a bot has both project-level and bot-level webhooks configured, the bot-lev
 
 ## Webhook Limits and Validation
 
-### Limits
 - **Maximum**: 2 webhooks per project or per bot
 - **URL Format**: Must start with `https://`
 - **Uniqueness**: Same URL cannot be used multiple times for the same bot/project
