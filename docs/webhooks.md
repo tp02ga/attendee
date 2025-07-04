@@ -42,7 +42,7 @@ Bot-level webhooks are created via API when creating a bot. Include a `webhooks`
 ### Bot-Level Webhook Fields
 
 - `url` (required): HTTPS URL to receive webhook events
-- `triggers` (required): Array of webhook trigger strings: `["bot.state_change", "transcript.update", "chat_messages.update"]`
+- `triggers` (required): Array of webhook trigger strings: `["bot.state_change", "transcript.update", "chat_messages.update", "participant_events.join_leave"]`
 
 ### Available Webhook Triggers
 
@@ -60,7 +60,6 @@ When a bot has both project-level and bot-level webhooks configured:
 1. **Bot has bot-level webhooks** → Use bot-level webhooks exclusively
 2. **Bot has no bot-level webhooks** → Use project-level webhooks
 
-```
 
 ## Webhook Limits and Validation
 
@@ -189,23 +188,11 @@ For webhooks triggered by `participant_events.join_leave`, the `data` field cont
 
 Go to the 'Bots' page and navigate to a Bot which was created after you created your webhook. You should see a 'Webhooks' tab on the page. Clicking it will show a list of all the webhook deliveries for that bot, whether they succeeded and the response from your server.
 
-## UI and Management
-
-### Project-Level Webhooks
-- **Managed via**: Attendee web UI (Settings → Webhooks)
-- **Visibility**: Shown in project webhook management pages
-- **Apply to**: All bots in the project (unless bot has specific webhooks)
-
-### Bot-Level Webhooks
-- **Managed via**: API only (during bot creation)
-- **Visibility**: Hidden from project webhook management UI
-- **Apply to**: Specific bot only
-
 ## Verifying Webhooks
 
 To ensure the webhook requests are coming from Attendee, we sign each request with a secret key. You can verify this signature to confirm the authenticity of the request.
 
-- Each project has a single webhook secret used for both project and bot-level webhooks
+- Each project has a single webhook secret used for both project and bot-level webhooks. You can get the secret key in the Settings → Webhooks page.
 - The signature is included in the `X-Webhook-Signature` header of each webhook request
 
 ## Webhook Retry Policy
