@@ -64,29 +64,9 @@ When a bot has both project-level and bot-level webhooks configured:
 ## Webhook Limits and Validation
 
 ### Limits
-- **Maximum**: 2 webhooks per project (combined project-level and bot-level)
+- **Maximum**: 2 webhooks per project or per bot
 - **URL Format**: Must start with `https://`
 - **Uniqueness**: Same URL cannot be used multiple times for the same bot/project
-
-### Common Validation Errors
-
-```json
-{
-  "error": "webhook URL must start with https://"
-}
-
-{
-  "error": "URL already subscribed for this bot"
-}
-
-{
-  "error": "You have reached the maximum number of webhooks"
-}
-
-{
-  "error": "Invalid webhook trigger type: invalid.trigger"
-}
-```
 
 ## Webhook Payload
 
