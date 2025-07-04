@@ -160,9 +160,9 @@ Go to the 'Bots' page and navigate to a Bot which was created after you created 
 
 ## Verifying Webhooks
 
-To ensure the webhook requests are coming from Attendee, we sign each request with a secret key. You can verify this signature to confirm the authenticity of the request.
+To ensure the webhook requests are coming from Attendee, we sign each request with a secret. You can verify this signature to confirm the authenticity of the request.
 
-- Each project has a single webhook secret used for both project and bot-level webhooks. You can get the secret key in the Settings → Webhooks page.
+- Each project has a single webhook secret used for both project and bot-level webhooks. You can get the secret in the Settings → Webhooks page.
 - The signature is included in the `X-Webhook-Signature` header of each webhook request
 
 ## Webhook Retry Policy
