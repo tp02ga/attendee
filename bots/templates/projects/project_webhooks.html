@@ -16,7 +16,6 @@
           hx-post="{% url 'projects:create-webhook' project.object_id %}"
           hx-target="#webhookSubscribeResult"
           hx-swap="innerHTML"
-          hx-on::after-request="this.reset()"
           hx-on::response-error="handleFormError(event)"
         >
           {% csrf_token %}
@@ -209,6 +208,17 @@
     errorDiv.textContent = errorMessage;
     errorDiv.classList.remove('d-none');
   }
+
+  // Reset form when modal is opened
+  document.getElementById('createWebhookModal').addEventListener('shown.bs.modal', function () {
+    const form = this.querySelector('form');
+    form.reset();
+    
+    // Hide all validation messages
+    document.getElementById('url-validation-message').classList.add('d-none');
+    document.getElementById('trigger-validation-message').classList.add('d-none');
+    document.getElementById('server-error-message').classList.add('d-none');
+  });
 
   function validateForm(event) {
     let isValid = true;
