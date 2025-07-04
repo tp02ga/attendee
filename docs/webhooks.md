@@ -2,11 +2,11 @@
 
 Webhooks send your server real-time updates when something important happens in Attendee, so that you don't need to poll the API.
 
-Webhooks support multiple event types including bot state changes, transcript updates, chat message updates, and participant events. These can be used to alert your server when a bot joins a meeting, starts recording, when a recording is available, when the transcript is updated, or when participants join or leave meetings.
+They can alert your server when a bot joins a meeting, starts recording, when a recording is available, when a chat message is sent, when the transcript is updated, or when participants join or leave meetings.
 
-Attendee supports two types of webhook subscriptions:
-- **Project-level webhooks**: Apply to all bots in a project (managed via UI)
-- **Bot-level webhooks**: Apply to specific bots only (managed via API)
+Attendee supports two types of webhooks:
+- **Project-level webhooks**: Apply to all bots in a project (created via UI)
+- **Bot-level webhooks**: Apply to specific bots only (created via API)
 
 ## Creating Project-Level Webhooks
 
@@ -20,7 +20,7 @@ To create a project-level webhook via the UI:
 
 ## Creating Bot-Level Webhooks
 
-Bot-level webhooks are created via API when creating a bot. Include a `webhooks` field in your bot creation request:
+Bot-level webhooks are created via the API when creating a bot. Include a `webhooks` field in your bot creation request:
 
 ```json
 {
@@ -38,11 +38,6 @@ Bot-level webhooks are created via API when creating a bot. Include a `webhooks`
   ]
 }
 ```
-
-### Bot-Level Webhook Fields
-
-- `url` (required): HTTPS URL to receive webhook events
-- `triggers` (required): Array of webhook trigger strings: `["bot.state_change", "transcript.update", "chat_messages.update", "participant_events.join_leave"]`
 
 ### Available Webhook Triggers
 
