@@ -50,11 +50,7 @@ Bot-level webhooks are created via the API when creating a bot. Include a `webho
 
 ## Webhook Delivery Priority
 
-When a bot has both project-level and bot-level webhooks configured:
-
-1. **Bot has bot-level webhooks** → Use bot-level webhooks exclusively
-2. **Bot has no bot-level webhooks** → Use project-level webhooks
-
+When a bot has both project-level and bot-level webhooks configured, the bot-level webhooks will be used instead of the project-level webhooks.
 
 ## Webhook Limits and Validation
 
