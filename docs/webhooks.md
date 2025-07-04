@@ -46,7 +46,7 @@ Bot-level webhooks are created via the API when creating a bot. Include a `webho
 | `bot.state_change` | Bot changes state (joins, leaves, starts recording, etc.) |
 | `transcript.update` | Real-time transcript updates during meeting |
 | `chat_messages.update` | Chat message updates in the meeting |
-| `participant_events.join_leave` | Participant join and leave events in the meeting |
+| `participant_events.join_leave` | A participant joins or leaves the meeting |
 
 ## Webhook Delivery Priority
 
