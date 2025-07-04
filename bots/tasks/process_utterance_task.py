@@ -283,7 +283,7 @@ def get_transcription_via_openai(utterance):
         return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code, "response_text": response.text}
 
     result = response.json()
-    logger.info("OpenAI transcription completed successfully")
+    logger.info(f"OpenAI transcription completed successfully for utterance {utterance.id}. Last 3 digits of API key: {openai_credentials['api_key'][-3:]}")
 
     # Format the response to match our expected schema
     transcription = {"transcript": result.get("text", "")}
