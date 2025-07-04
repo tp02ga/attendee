@@ -68,7 +68,7 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
   "bot_id": < Id of the bot associated with the webhook delivery >,
   "bot_metadata": < Any metadata associated with the bot >,
   "trigger": < Trigger for the webhook. Currently, the four triggers are bot.state_change, which is fired whenever the bot changes its state, transcript.update which is fired when the transcript is updated, chat_messages.update which is fired when a chat message is sent and participant_events.join_leave which is fired when a participant joins or leaves the meeting. >,
-  "data": < Event-specific data >
+  "data": < Trigger-specific data >
 }
 ```
 
