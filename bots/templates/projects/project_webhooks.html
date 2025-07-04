@@ -17,6 +17,7 @@
           hx-target="#webhookSubscribeResult"
           hx-swap="innerHTML"
           hx-on::after-request="this.reset()"
+          hx-on::response-error="handleFormError(event)"
         >
           {% csrf_token %}
           <div class="mb-3">
@@ -56,6 +57,7 @@
               </div>
             </div>
           </div>
+          <div id="server-error-message" class="alert alert-danger d-none mb-3"></div>
           <button id="submitBtn" type="submit" class="btn btn-primary" onclick="validateForm(event)">
             Create
           </button>
@@ -201,8 +203,19 @@
 </div>
 
 <script>
+  function handleFormError(event) {
+    const errorMessage = event.detail.xhr.responseText;
+    const errorDiv = document.getElementById('server-error-message');
+    errorDiv.textContent = errorMessage;
+    errorDiv.classList.remove('d-none');
+  }
+
   function validateForm(event) {
     let isValid = true;
+    
+    // Hide server error message when revalidating
+    const serverErrorMessage = document.getElementById('server-error-message');
+    serverErrorMessage.classList.add('d-none');
     
     // Validate triggers
     const checkboxes = document.querySelectorAll('.trigger-checkbox:checked');
