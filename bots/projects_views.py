@@ -449,10 +449,10 @@ class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 # Create the user
                 user = User.objects.create_user(
                     email=email,
-                    username=str(uuid.uuid4()),  # Generate random username
+                    username=str(uuid.uuid4()),
                     organization=request.user.organization,
                     invited_by=request.user,
-                    is_active=True  # User will be activated after email verification
+                    is_active=True
                 )
                 
                 # Send verification email

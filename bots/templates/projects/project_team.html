@@ -44,7 +44,7 @@
                   <td>{{ user.email }}</td>
                   <td>{{ user.date_joined|date:"M d, Y" }}</td>
                   <td>
-                    {% if user.is_active %}
+                    {% if user.last_login %}
                       <span class="badge bg-success">Active</span>
                     {% else %}
                       <span class="badge bg-warning">Pending</span>
