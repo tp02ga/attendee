@@ -95,6 +95,11 @@ urlpatterns = [
         projects_views.CheckoutSuccessView.as_view(),
         name="checkout-success",
     ),
+    path(
+        "<str:object_id>/team/",
+        projects_views.ProjectTeamView.as_view(),
+        name="project-team",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",
