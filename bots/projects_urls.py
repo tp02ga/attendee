@@ -36,9 +36,9 @@ urlpatterns = [
         name="project-credentials",
     ),
     path(
-        "<str:object_id>/project-and-team",
-        projects_views.ProjectProjectAndTeamView.as_view(),
-        name="project-project-and-team",
+        "<str:object_id>/project",
+        projects_views.ProjectProjectView.as_view(),
+        name="project-project",
     ),
     path(
         "<str:object_id>/edit",

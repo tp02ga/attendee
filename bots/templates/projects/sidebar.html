@@ -100,13 +100,13 @@
                             </a>
                             {% endif %}
                             <a class="nav-link ps-4" 
-                               hx-get="{% url 'projects:project-project-and-team' project.object_id %}" 
+                               hx-get="{% url 'projects:project-project' project.object_id %}" 
                                hx-select="#content"
                                hx-target="#content"
                                hx-swap="outerHTML"
                                hx-push-url="true"
                                onclick="setActiveLink(this)">
-                                <i class="bi bi-people"></i> Project & Team
+                                <i class="bi bi-people"></i> Project
                             </a>
                             {% if charge_credits_for_bots_setting %}
                             <a class="nav-link ps-4"

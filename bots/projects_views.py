@@ -404,11 +404,11 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_webhooks.html", context)
 
 
-class ProjectProjectAndTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         context = self.get_project_context(object_id, project)
-        return render(request, "projects/project_project_and_team.html", context)
+        return render(request, "projects/project_project.html", context)
 
 
 class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
