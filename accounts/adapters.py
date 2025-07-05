@@ -15,12 +15,14 @@ class StandardAccountAdapter(DefaultAccountAdapter):
         if they were invited by someone else.
         """
         # Call the parent method to handle the confirmation
-        super().confirm_email(request, email_address)
+        confirm_email_response = super().confirm_email(request, email_address)
         
         # Log in the user if they were invited and not already authenticated
         user = email_address.user
         if user.invited_by and not request.user.is_authenticated:
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+
+        return confirm_email_response
 
 class NoNewUsersAccountAdapter(StandardAccountAdapter):
     def is_open_for_signup(self, request):
