@@ -100,6 +100,11 @@ urlpatterns = [
         projects_views.ProjectTeamView.as_view(),
         name="project-team",
     ),
+    path(
+        "<str:object_id>/team/invite/",
+        projects_views.InviteUserView.as_view(),
+        name="invite-user",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",
