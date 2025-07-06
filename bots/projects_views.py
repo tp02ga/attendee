@@ -6,6 +6,7 @@ import os
 import uuid
 
 import stripe
+from allauth.account.utils import send_email_confirmation
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
@@ -15,10 +16,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django.views.generic import ListView
-from allauth.account.models import EmailAddress
-from allauth.account.utils import send_email_confirmation
 
 from accounts.models import User
+
 from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription
 from .launch_bot_utils import launch_bot
 from .models import (
@@ -418,12 +418,12 @@ class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
-        
+
         # Get all users in the organization with invited_by data
-        users = request.user.organization.users.select_related('invited_by').all()
-        
+        users = request.user.organization.users.select_related("invited_by").all()
+
         context = self.get_project_context(object_id, project)
-        context['users'] = users
+        context["users"] = users
         return render(request, "projects/project_team.html", context)
 
 
@@ -434,7 +434,7 @@ class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_team.html", context)
 
     def post(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
         email = request.POST.get("email")
 
         if not email:
@@ -447,14 +447,8 @@ class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         try:
             with transaction.atomic():
                 # Create the user
-                user = User.objects.create_user(
-                    email=email,
-                    username=str(uuid.uuid4()),
-                    organization=request.user.organization,
-                    invited_by=request.user,
-                    is_active=True
-                )
-                
+                user = User.objects.create_user(email=email, username=str(uuid.uuid4()), organization=request.user.organization, invited_by=request.user, is_active=True)
+
                 # Send verification email
                 send_email_confirmation(request, user, email=email)
 
