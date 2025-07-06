@@ -44,7 +44,9 @@
                   <td>{{ user.email }}</td>
                   <td>{{ user.date_joined|date:"M d, Y" }}</td>
                   <td>
-                    {% if user.last_login %}
+                    {% if not user.is_active %}
+                      <span class="badge bg-danger">Disabled</span>
+                    {% elif user.last_login %}
                       <span class="badge bg-success">Active</span>
                     {% else %}
                       <span class="badge bg-warning">Pending</span>
@@ -86,7 +88,7 @@
           <div class="mb-3">
             <label for="inviteEmail" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="inviteEmail" name="email" required placeholder="Enter email address">
-            <div class="form-text">This user will have access to all the projects in your organization.</div>
+            <div class="form-text">This user will have access to all the projects in your account.</div>
           </div>
           <div id="inviteError" class="alert alert-danger d-none" role="alert"></div>
         </div>
