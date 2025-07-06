@@ -19,6 +19,8 @@ class StandardAccountAdapter(DefaultAccountAdapter):
         confirm_email_response = super().confirm_email(request, email_address)
 
         # Log in the user if they were invited and not already authenticated
+        # Even though we set ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION to True, django will not log the user
+        # in because they are coming from a different machine then the one that sent the email.
         user = email_address.user
         if user.invited_by and not request.user.is_authenticated:
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")

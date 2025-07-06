@@ -86,7 +86,7 @@
           <div class="mb-3">
             <label for="inviteEmail" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="inviteEmail" name="email" required placeholder="Enter email address">
-            <div class="form-text">An invitation will be sent to this email address.</div>
+            <div class="form-text">This user will have access to all the projects in your organization.</div>
           </div>
           <div id="inviteError" class="alert alert-danger d-none" role="alert"></div>
         </div>
@@ -103,105 +103,109 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const inviteForm = document.getElementById('inviteUserForm');
-  const submitBtn = document.getElementById('inviteSubmitBtn');
-  const spinner = submitBtn.querySelector('.spinner-border');
-  const inviteError = document.getElementById('inviteError');
-  const successAlert = document.getElementById('successAlert');
-  const errorAlert = document.getElementById('errorAlert');
-  
-  function showAlert(type, message) {
-    const alert = type === 'success' ? successAlert : errorAlert;
-    const messageElement = type === 'success' ? 
-      document.getElementById('successMessage') : 
-      document.getElementById('errorMessage');
+    function initializeInviteForm() {
+    const inviteForm = document.getElementById('inviteUserForm');
+    const submitBtn = document.getElementById('inviteSubmitBtn');
+    const spinner = submitBtn.querySelector('.spinner-border');
+    const inviteError = document.getElementById('inviteError');
+    const successAlert = document.getElementById('successAlert');
+    const errorAlert = document.getElementById('errorAlert');
     
-    messageElement.textContent = message;
-    alert.classList.remove('d-none');
-    
-    // Scroll to top to show alert
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-  
-  function hideInlineError() {
-    inviteError.classList.add('d-none');
-  }
-  
-  function showInlineError(message) {
-    inviteError.textContent = message;
-    inviteError.classList.remove('d-none');
-  }
-  
-  function setLoading(loading) {
-    if (loading) {
-      submitBtn.disabled = true;
-      spinner.classList.remove('d-none');
-    } else {
-      submitBtn.disabled = false;
-      spinner.classList.add('d-none');
+    function showAlert(type, message) {
+        const alert = type === 'success' ? successAlert : errorAlert;
+        const messageElement = type === 'success' ? 
+        document.getElementById('successMessage') : 
+        document.getElementById('errorMessage');
+        
+        messageElement.textContent = message;
+        alert.classList.remove('d-none');
+        
+        // Scroll to top to show alert
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }
-  
-  inviteForm.addEventListener('submit', function(e) {
-    e.preventDefault();
     
-    hideInlineError();
-    setLoading(true);
+    function hideInlineError() {
+        inviteError.classList.add('d-none');
+    }
     
-    const formData = new FormData(inviteForm);
+    function showInlineError(message) {
+        inviteError.textContent = message;
+        inviteError.classList.remove('d-none');
+    }
     
-    fetch(inviteForm.action, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-      }
-    })
-    .then(response => {
-      if (response.ok) {
-        return response.text().then(text => ({ success: true, message: text }));
-      } else {
-        return response.text().then(text => ({ success: false, message: text }));
-      }
-    })
-    .then(result => {
-      setLoading(false);
-      
-      if (result.success) {
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('inviteUserModal'));
-        modal.hide();
+    function setLoading(loading) {
+        if (loading) {
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        } else {
+        submitBtn.disabled = false;
+        spinner.classList.add('d-none');
+        }
+    }
+    
+    inviteForm.addEventListener('submit', function(e) {
+        e.preventDefault();
         
-        // Reset form
-        inviteForm.reset();
+        hideInlineError();
+        setLoading(true);
         
-        // Show success alert
-        showAlert('success', result.message);
+        const formData = new FormData(inviteForm);
         
-        // Refresh page after short delay to show updated team list
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        // Show error in modal
-        showInlineError(result.message);
-      }
-    })
-    .catch(error => {
-      setLoading(false);
-      console.error('Error:', error);
-      showInlineError('An unexpected error occurred. Please try again.');
+        fetch(inviteForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+        }
+        })
+        .then(response => {
+        if (response.ok) {
+            return response.text().then(text => ({ success: true, message: text }));
+        } else {
+            return response.text().then(text => ({ success: false, message: text }));
+        }
+        })
+        .then(result => {
+        setLoading(false);
+        
+        if (result.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('inviteUserModal'));
+            modal.hide();
+            
+            // Reset form
+            inviteForm.reset();
+            
+            // Show success alert
+            showAlert('success', result.message);
+            
+            // Refresh page after short delay to show updated team list
+            setTimeout(() => {
+            window.location.reload();
+            }, 2000);
+        } else {
+            // Show error in modal
+            showInlineError(result.message);
+        }
+        })
+        .catch(error => {
+        setLoading(false);
+        console.error('Error:', error);
+        showInlineError('An unexpected error occurred. Please try again.');
+        });
     });
-  });
-  
-  // Hide alerts when modal is opened
-  document.getElementById('inviteUserModal').addEventListener('show.bs.modal', function() {
-    successAlert.classList.add('d-none');
-    errorAlert.classList.add('d-none');
-    hideInlineError();
-  });
-});
+    
+    // Hide alerts when modal is opened
+    document.getElementById('inviteUserModal').addEventListener('show.bs.modal', function() {
+        successAlert.classList.add('d-none');
+        errorAlert.classList.add('d-none');
+        hideInlineError();
+    });
+    };
+
+    // Call when HTMX content is loaded
+    document.addEventListener('htmx:afterSwap', initializeInviteForm);
+    document.addEventListener('DOMContentLoaded', initializeInviteForm);
 </script>
 
 {% endblock %}
