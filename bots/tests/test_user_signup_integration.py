@@ -1,8 +1,14 @@
 import re
+import uuid
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialLogin, SocialToken
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from django.contrib.sites.models import Site
 from django.core import mail
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import User
@@ -212,3 +218,91 @@ class UserSignupIntegrationTest(TransactionTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, "We are sorry, but the sign up is currently closed")
             self.assertContains(response, "Sign Up Closed")
+
+
+@override_settings(
+    SOCIALACCOUNT_LOGIN_ON_GET=True,  # auto-log users in on GET callback
+    LOGIN_REDIRECT_URL="/",  # where allauth should send us after login
+)
+class GoogleSocialLoginHappyPathTest(TransactionTestCase):
+    """End-to-end happy-path test for Google OAuth2 login"""
+
+    def setUp(self):
+        self.client = Client()
+
+        # Minimal SocialApp so allauth recognises the provider for this site
+        self.social_app = SocialApp.objects.create(
+            provider="google",
+            name="Google",
+            client_id="dummy-client-id",
+            secret="dummy-secret",
+        )
+        self.social_app.sites.add(Site.objects.get_current())
+
+    @patch.object(
+        OAuth2Client,
+        "get_access_token",
+        return_value={"access_token": "dummy-token", "expires_in": 3600, "token_type": "Bearer"},
+    )
+    @patch("allauth.socialaccount.providers.google.views.GoogleOAuth2Adapter.complete_login")
+    def test_google_social_login_success(self, mocked_complete_login, mocked_get_access_token):
+        """
+        Simulate a full OAuth2 login flow and assert:
+        * user & SocialAccount are created
+        * user ends up authenticated
+        * redirected to LOGIN_REDIRECT_URL
+        """
+
+        # ----------  Arrange mock SocialLogin  ----------
+        email = "socialuser@example.com"
+        uid = f"google-oauth2-{uuid.uuid4()}"
+
+        user = User(email=email)
+
+        social_account = SocialAccount(
+            provider="google",
+            uid=uid,
+            extra_data={"email": email, "name": "Social User"},
+        )
+
+        token = SocialToken(token="dummy-token", app=self.social_app, account=social_account)
+
+        sociallogin = SocialLogin(user=user, account=social_account, token=token)
+
+        # Tell Allauth the e-mail is verified and primary
+        sociallogin.email_addresses.append(EmailAddress(email=email, verified=True, primary=True))
+
+        mocked_complete_login.return_value = sociallogin
+
+        # ----------  Step 1: user clicks “Sign in with Google”  ----------
+        start_url = reverse("google_login")  # /accounts/google/login/
+        resp = self.client.get(start_url)
+
+        # allauth should redirect us to Google’s auth endpoint
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("accounts.google.com", resp["Location"])
+
+        # Allauth has built the Google URL; grab the “state” it stored
+        parsed = urlparse(resp["Location"])
+        state = parse_qs(parsed.query)["state"][0]
+
+        # ----------  Step 2: Google redirects back with code+state  ----------
+        callback_url = reverse("google_callback")  # /accounts/google/login/callback/
+        resp = self.client.get(callback_url, {"state": state, "code": "dummy"})
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "/")  # LOGIN_REDIRECT_URL
+
+        # ----------  Assertions  ----------
+        # user exists & is authenticated in session
+        db_user = User.objects.get(email=email)
+        self.assertIn("_auth_user_id", self.client.session)
+        self.assertEqual(str(db_user.pk), self.client.session["_auth_user_id"])
+
+        # SocialAccount linked correctly
+        self.assertTrue(SocialAccount.objects.filter(user=db_user, provider="google", uid=uid).exists())
+
+        # Accessing home should work
+        home_resp = self.client.get("/")
+        self.assertEqual(home_resp.status_code, 302)
+        self.assertRedirects(home_resp, reverse("projects:project-dashboard", kwargs={"object_id": db_user.organization.projects.first().object_id}))
