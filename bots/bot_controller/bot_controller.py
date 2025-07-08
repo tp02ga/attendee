@@ -1072,6 +1072,16 @@ class BotController:
             self.cleanup()
             return
 
+        if message.get("message") == BotAdapter.Messages.COULD_NOT_CONNECT_TO_MEETING:
+            logger.info("Received message that could not connect to meeting")
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.COULD_NOT_JOIN,
+                event_sub_type=BotEventSubTypes.COULD_NOT_JOIN_UNABLE_TO_CONNECT_TO_MEETING,
+            )
+            self.cleanup()
+            return
+
         if message.get("message") == BotAdapter.Messages.MEETING_NOT_FOUND:
             logger.info("Received message that meeting not found")
             BotEventManager.create_event(
