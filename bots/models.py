@@ -613,7 +613,7 @@ class BotEventSubTypes(models.IntegerChoices):
     COULD_NOT_JOIN_MEETING_LOGIN_REQUIRED = 18, "Bot could not join meeting - Login required. Use signed in bots: https://docs.attendee.dev/guides/signed-in-bots to resolve."
     COULD_NOT_JOIN_MEETING_BOT_LOGIN_ATTEMPT_FAILED = 19, "Bot could not join meeting - Bot login attempt failed"
     FATAL_ERROR_OUT_OF_CREDITS = 20, "Fatal error - Out of credits"
-    COULD_NOT_JOIN_UNABLE_TO_CONNECT_TO_MEETING = 21, "Bot could not join meeting - Unable to connect to meeting"
+    COULD_NOT_JOIN_UNABLE_TO_CONNECT_TO_MEETING = 21, "Bot could not join meeting - Unable to connect to meeting. This usually means the meeting password in the URL is incorrect."
 
     @classmethod
     def sub_type_to_api_code(cls, value):

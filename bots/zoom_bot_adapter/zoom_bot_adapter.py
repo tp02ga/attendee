@@ -177,6 +177,12 @@ class ZoomBotAdapter(BotAdapter):
         self.cannot_send_audio_error_ticker = 0
         self.send_raw_audio_unmute_ticker = 0
 
+        # The Zoom Linux SDK has a bug where if the meeting password is incorrect, it will not return an error
+        # it will just get stuck in the connecting state. So we assume if we have been in the connecting state for
+        # more than 10 seconds, we should send a message to the bot controller that we could not connect to the meeting
+        # https://devforum.zoom.us/t/linux-sdk-gets-stuck-in-meeting-status-connecting-when-the-provided-password-is-incorrect/130441
+        self.stuck_in_connecting_state_timeout = 60
+
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
         for joined_user_id in joined_user_ids:
@@ -705,9 +711,23 @@ class ZoomBotAdapter(BotAdapter):
         logger.info(f"Waiting for host to start meeting. If host doesn't start meeting in {wait_time} seconds, we'll give up")
         GLib.timeout_add_seconds(wait_time, self.leave_meeting_if_not_started_yet)
 
+    def give_up_if_still_in_connecting_state(self):
+        if self.meeting_status != zoom.MEETING_STATUS_CONNECTING:
+            return
+
+        logger.info(f"We've been in the connecting state for more than {self.stuck_in_connecting_state_timeout} seconds, going to return could not connect to meeting message")
+        self.send_message_callback({"message": self.Messages.COULD_NOT_CONNECT_TO_MEETING})
+
+    def wait_to_get_out_of_connecting_state(self):
+        logger.info(f"Set a timeout to abort if we're still in the connecting state after {self.stuck_in_connecting_state_timeout} seconds")
+        GLib.timeout_add_seconds(self.stuck_in_connecting_state_timeout, self.give_up_if_still_in_connecting_state)
+
     def meeting_status_changed(self, status, iResult):
         logger.info(f"meeting_status_changed called. status = {status}, iResult={iResult}")
         self.meeting_status = status
+
+        if status == zoom.MEETING_STATUS_CONNECTING:
+            self.wait_to_get_out_of_connecting_state()
 
         if status == zoom.MEETING_STATUS_WAITINGFORHOST:
             self.wait_for_host_to_start_meeting_then_give_up()
