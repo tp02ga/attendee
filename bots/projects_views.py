@@ -9,7 +9,7 @@ import stripe
 from allauth.account.utils import send_email_confirmation
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
 from django.http import HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import ListView
 
-from accounts.models import User
+from accounts.models import User, UserRole
 
 from .bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription
 from .launch_bot_utils import launch_bot
@@ -48,6 +48,27 @@ from .utils import generate_recordings_json_for_bot_detail_view
 
 logger = logging.getLogger(__name__)
 
+def get_project_for_user(user, project_object_id):
+    project = get_object_or_404(Project, object_id=project_object_id, organization=user.organization)
+    # If you're an admin you can access any project in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=project, user=user).exists():
+        raise PermissionDenied
+    return project
+
+def get_webhook_subscription_for_user(user, webhook_subscription_object_id):
+    webhook_subscription = get_object_or_404(WebhookSubscription, object_id=webhook_subscription_object_id, project__organization=user.organization)
+    # If you're an admin you can access any webhook subscription in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=webhook_subscription.project, user=user).exists():
+        raise PermissionDenied
+    return webhook_subscription
+
+def get_api_key_for_user(user, api_key_object_id):
+    api_key = get_object_or_404(ApiKey, object_id=api_key_object_id, project__organization=user.organization)
+    # If you're an admin you can access any api key in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=api_key.project, user=user).exists():
+        raise PermissionDenied
+    return api_key
+
 
 class ProjectUrlContextMixin:
     def get_project_context(self, object_id, project):
@@ -60,7 +81,7 @@ class ProjectUrlContextMixin:
 class ProjectDashboardView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         try:
-            project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+            project = get_project_for_user(user=request.user, project_object_id=object_id)
         except:
             return redirect("/")
 
@@ -92,7 +113,7 @@ class ProjectDashboardView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectApiKeysView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
         context = self.get_project_context(object_id, project)
         context["api_keys"] = ApiKey.objects.filter(project=project).order_by("-created_at")
         return render(request, "projects/project_api_keys.html", context)
@@ -100,7 +121,7 @@ class ProjectApiKeysView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class CreateApiKeyView(LoginRequiredMixin, View):
     def post(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
         name = request.POST.get("name")
 
         if not name:
@@ -118,11 +139,7 @@ class CreateApiKeyView(LoginRequiredMixin, View):
 
 class DeleteApiKeyView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def delete(self, request, object_id, key_object_id):
-        api_key = get_object_or_404(
-            ApiKey,
-            object_id=key_object_id,
-            project__organization=request.user.organization,
-        )
+        api_key = get_api_key_for_user(user=request.user, api_key_object_id=key_object_id)
         api_key.delete()
         context = self.get_project_context(object_id, api_key.project)
         context["api_keys"] = ApiKey.objects.filter(project=api_key.project).order_by("-created_at")
@@ -136,7 +153,7 @@ class RedirectToDashboardView(LoginRequiredMixin, View):
 
 class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         try:
             credential_type = int(request.POST.get("credential_type"))
@@ -226,7 +243,7 @@ class CreateCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectCredentialsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Try to get existing credentials
         zoom_credentials = Credentials.objects.filter(project=project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
@@ -276,7 +293,7 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
 
         # Start with the base queryset
         queryset = Bot.objects.filter(project=project)
@@ -330,7 +347,7 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
         context.update(self.get_project_context(self.kwargs["object_id"], project))
 
         # Add BotStates for the template
@@ -350,7 +367,7 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
 
 class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id, bot_object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         try:
             bot = Bot.objects.get(object_id=bot_object_id, project=project)
@@ -395,7 +412,7 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Get or create webhook secret for the project
         webhook_secret, created = WebhookSecret.objects.get_or_create(project=project)
@@ -410,14 +427,14 @@ class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
         context = self.get_project_context(object_id, project)
         return render(request, "projects/project_project.html", context)
 
 
 class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Get all users in the organization with invited_by data
         users = request.user.organization.users.select_related("invited_by").all()
@@ -429,12 +446,12 @@ class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
         context = self.get_project_context(object_id, project)
         return render(request, "projects/project_team.html", context)
 
     def post(self, request, object_id):
-        get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        get_project_for_user(user=request.user, project_object_id=object_id)
         email = request.POST.get("email")
 
         if not email:
@@ -462,7 +479,7 @@ class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
         url = request.POST.get("url")
         triggers = request.POST.getlist("triggers[]")
 
@@ -488,11 +505,7 @@ class CreateWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
 class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def delete(self, request, object_id, webhook_object_id):
-        webhook = get_object_or_404(
-            WebhookSubscription,
-            object_id=webhook_object_id,
-            project__organization=request.user.organization,
-        )
+        webhook = get_webhook_subscription_for_user(user=request.user, webhook_subscription_object_id=webhook_object_id)
         webhook.delete()
         context = self.get_project_context(object_id, webhook.project)
         context["webhooks"] = WebhookSubscription.objects.filter(project=webhook.project, bot__isnull=True).order_by("-created_at")
@@ -506,12 +519,12 @@ class ProjectBillingView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
         return CreditTransaction.objects.filter(organization=project.organization).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        project = get_object_or_404(Project, object_id=self.kwargs["object_id"], organization=self.request.user.organization)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
         context.update(self.get_project_context(self.kwargs["object_id"], project))
         return context
 
@@ -601,7 +614,7 @@ class CreateCheckoutSessionView(LoginRequiredMixin, ProjectUrlContextMixin, View
 class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         try:
-            project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+            project = get_project_for_user(user=request.user, project_object_id=object_id)
 
             data = {
                 "meeting_url": request.POST.get("meeting_url"),
@@ -640,7 +653,7 @@ class CreateProjectView(LoginRequiredMixin, View):
 
 class EditProjectView(LoginRequiredMixin, View):
     def put(self, request, object_id):
-        project = get_object_or_404(Project, object_id=object_id, organization=request.user.organization)
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Parse the request body properly for PUT requests
         put_data = QueryDict(request.body)
