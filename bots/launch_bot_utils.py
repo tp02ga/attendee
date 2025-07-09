@@ -14,9 +14,9 @@ def launch_bot(bot):
 
         bot_pod_creator = BotPodCreator()
         create_pod_result = bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=bot.k8s_pod_name(), bot_cpu_request=bot.cpu_request())
-        logger.info(f"Bot {bot.id} launched via Kubernetes: {create_pod_result}")
+        logger.info(f"Bot {bot.object_id} ({bot.id}) launched via Kubernetes: {create_pod_result}")
         if not create_pod_result.get("created"):
-            logger.error(f"Bot {bot.id} failed to launch via Kubernetes.")
+            logger.error(f"Bot {bot.object_id} ({bot.id}) failed to launch via Kubernetes.")
             try:
                 BotEventManager.create_event(
                     bot=bot,
