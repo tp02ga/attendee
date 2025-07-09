@@ -1,7 +1,8 @@
+import json
 import logging
 import os
-import json
-from bots.models import BotEventManager, BotEventTypes, BotEventSubTypes
+
+from bots.models import BotEventManager, BotEventSubTypes, BotEventTypes
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def launch_bot(bot):
                     },
                 )
             except Exception as e:
-                logger.error(f"Failed to create fatal error {event_sub_type} event for bot {bot.id}: {str(e)}")
+                logger.error(f"Failed to create fatal error bot not launched event for bot {bot.object_id} ({bot.id}): {str(e)}")
     else:
         # Default to launching bot via celery
         from .tasks.run_bot_task import run_bot
