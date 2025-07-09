@@ -120,7 +120,7 @@ class BotResourceSnapshotTaker:
         now = timezone.now()
 
         # If it is more than 45 seconds since the last snapshot, sample the cpu usage.
-        if self._first_cpu_usage_millicores is None and (now - self._last_snapshot_time) > datetime.timedelta(seconds=45):
+        if self._first_cpu_usage_millicores is None and (now - self._last_snapshot_time) > datetime.timedelta(seconds=30):
             try:
                 self._first_cpu_usage_millicores = get_cpu_usage_millicores()
                 self._first_cpu_usage_sample_time = now
