@@ -1788,6 +1788,31 @@ const handleVideoTrack = async (event) => {
     const audioDataQueue = [];
     const ACTIVE_SPEAKER_LATENCY_MS = 2000;
     
+    // Start continuous background processing of the audio queue
+    const processAudioQueue = () => {
+        while (audioDataQueue.length > 0 && 
+            Date.now() - audioDataQueue[0].audioArrivalTime >= ACTIVE_SPEAKER_LATENCY_MS) {
+            const { audioData, audioArrivalTime } = audioDataQueue.shift();
+
+            // Get the dominant speaker and assume that's who the participant speaking is
+            const dominantSpeakerId = dominantSpeakerManager.getLastSpeakerIdForTimestampMs(audioArrivalTime);
+
+            // Send audio data through websocket
+            if (dominantSpeakerId) {
+                ws.sendPerParticipantAudio(dominantSpeakerId, audioData);
+            }
+        }
+    };
+
+    // Set up background processing every 100ms
+    const queueProcessingInterval = setInterval(processAudioQueue, 100);
+    
+    // Clean up interval when track ends
+    event.track.addEventListener('ended', () => {
+        clearInterval(queueProcessingInterval);
+        console.log('Audio track ended, cleared queue processing interval');
+    });
+    
     try {
       // Create processor to get raw frames
       const processor = new MediaStreamTrackProcessor({ track: event.track });
@@ -1871,23 +1896,11 @@ const handleVideoTrack = async (event) => {
                       return;
                   }
 
+                  // Add to queue with timestamp - the background thread will process it
                   audioDataQueue.push({
                     audioArrivalTime: Date.now(),
                     audioData: audioData
                   });
-
-                  while (audioDataQueue.length > 0 && 
-                    Date.now() - audioDataQueue[0].audioArrivalTime >= ACTIVE_SPEAKER_LATENCY_MS) {
-                    const { audioData } = audioDataQueue.shift();
-
-                    // Get the dominant speaker and assume that's who the participant speaking is
-                    const dominantSpeakerId = dominantSpeakerManager.getLastSpeakerIdForTimestampMs(audioDataQueue[0].audioArrivalTime);
-
-                    // Send audio data through websocket
-                    if (dominantSpeakerId) {
-                        ws.sendPerParticipantAudio(dominantSpeakerId, audioData);
-                    }
-                  }
 
                   // Pass through the original frame
                   controller.enqueue(frame);
@@ -1898,6 +1911,8 @@ const handleVideoTrack = async (event) => {
           },
           flush() {
               console.log('Transform stream flush called');
+              // Clear the interval when the stream ends
+              clearInterval(queueProcessingInterval);
           }
       });
   
@@ -1915,14 +1930,20 @@ const handleVideoTrack = async (event) => {
                   if (error.name !== 'AbortError') {
                       console.error('Pipeline error:', error);
                   }
+                  // Clear the interval on error
+                  clearInterval(queueProcessingInterval);
               });
       } catch (error) {
           console.error('Stream pipeline error:', error);
           abortController.abort();
+          // Clear the interval on error
+          clearInterval(queueProcessingInterval);
       }
   
     } catch (error) {
         console.error('Error setting up audio interceptor:', error);
+        // Clear the interval on error
+        clearInterval(queueProcessingInterval);
     }
   };
   

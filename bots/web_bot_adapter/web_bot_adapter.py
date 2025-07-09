@@ -201,7 +201,7 @@ class WebBotAdapter(BotAdapter):
             participant_id_length = int.from_bytes(message[4:5], byteorder="little")
             participant_id = message[5 : 5 + participant_id_length].decode("utf-8")
 
-            logger.info(f"process_per_participant_audio_frame {len(message)} {participant_id}")
+            #logger.info(f"process_per_participant_audio_frame {len(message)} {participant_id}")
 
             # Convert the float32 audio data to numpy array
             audio_data = np.frombuffer(message[(5 + participant_id_length) :], dtype=np.float32)
