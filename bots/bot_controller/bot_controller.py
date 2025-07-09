@@ -51,6 +51,7 @@ from bots.webhook_utils import trigger_webhook
 from bots.websocket_payloads import mixed_audio_websocket_payload
 
 from .audio_output_manager import AudioOutputManager
+from .bot_resource_snapshot_taker import BotResourceSnapshotTaker
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .grouped_closed_caption_manager import GroupedClosedCaptionManager
@@ -556,6 +557,8 @@ class BotController:
             play_video_callback=self.adapter.send_video,
         )
 
+        self.bot_resource_snapshot_taker = BotResourceSnapshotTaker(self.bot_in_db)
+
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()
 
@@ -829,6 +832,10 @@ class BotController:
 
             # For staged bots, check if its time to join
             self.join_if_staged_and_time_to_join()
+
+            # Take a resource snapshot if needed
+            self.bot_resource_snapshot_taker.save_snapshot_if_needed()
+
             return True
 
         except Exception as e:
