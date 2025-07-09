@@ -51,6 +51,7 @@ from bots.webhook_utils import trigger_webhook
 from bots.websocket_payloads import mixed_audio_websocket_payload
 
 from .audio_output_manager import AudioOutputManager
+from .bot_resource_snapshot_taker import BotResourceSnapshotTaker
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .grouped_closed_caption_manager import GroupedClosedCaptionManager
@@ -62,7 +63,6 @@ from .realtime_audio_output_manager import RealtimeAudioOutputManager
 from .rtmp_client import RTMPClient
 from .screen_and_audio_recorder import ScreenAndAudioRecorder
 from .video_output_manager import VideoOutputManager
-from .bot_resource_snapshot_taker import BotResourceSnapshotTaker
 
 gi.require_version("GLib", "2.0")
 from gi.repository import GLib

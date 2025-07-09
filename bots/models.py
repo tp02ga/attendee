@@ -1714,7 +1714,6 @@ class BotDebugScreenshot(models.Model):
     def __str__(self):
         return f"Debug Screenshot {self.object_id} for event {self.bot_event}"
 
-    
 
 class WebhookSecret(models.Model):
     _secret = models.BinaryField(
@@ -1858,6 +1857,6 @@ class BotResourceSnapshot(models.Model):
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="resource_snapshots")
     data = models.JSONField(null=False, default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return f"Resource snapshot for {self.bot.object_id} at {self.created_at}"
