@@ -1,5 +1,7 @@
 import logging
 import os
+import json
+from bots.models import BotEventManager, BotEventTypes, BotEventSubTypes
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +15,19 @@ def launch_bot(bot):
         bot_pod_creator = BotPodCreator()
         create_pod_result = bot_pod_creator.create_bot_pod(bot_id=bot.id, bot_name=bot.k8s_pod_name(), bot_cpu_request=bot.cpu_request())
         logger.info(f"Bot {bot.id} launched via Kubernetes: {create_pod_result}")
+        if not create_pod_result.get("created"):
+            logger.error(f"Bot {bot.id} failed to launch via Kubernetes.")
+            try:
+                BotEventManager.create_event(
+                    bot=bot,
+                    event_type=BotEventTypes.FATAL_ERROR,
+                    event_sub_type=BotEventSubTypes.FATAL_ERROR_BOT_NOT_LAUNCHED,
+                    event_metadata={
+                        "create_pod_result": json.dumps(create_pod_result),
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Failed to create fatal error {event_sub_type} event for bot {bot.id}: {str(e)}")
     else:
         # Default to launching bot via celery
         from .tasks.run_bot_task import run_bot
