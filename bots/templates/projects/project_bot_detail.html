@@ -169,6 +169,14 @@
             </button>
         </li>
         {% endif %}
+        {% if resource_snapshots %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="resource-tab" data-bs-toggle="tab" 
+                    data-bs-target="#resource" type="button" role="tab">
+                Resource Usage
+            </button>
+        </li>
+        {% endif %}
     </ul>
     <div class="tab-content">
         <!-- Recordings Tab -->
@@ -550,6 +558,36 @@
                         </div>
                     </div>
                 {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Resource Usage Tab -->
+        {% if resource_snapshots %}
+        <div class="tab-pane fade" id="resource" role="tabpanel">
+            <div class="mb-3">
+                <p><strong>Maximum RAM Usage:</strong> {{ max_ram_usage }} MB</p>
+                <p><strong>Maximum CPU Usage:</strong> {{ max_cpu_usage }} millicores</p>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>RAM Usage (MB)</th>
+                            <th>CPU Usage (millicores)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for snapshot in resource_snapshots %}
+                            <tr>
+                                <td>{{ snapshot.created_at|date:"M d, Y H:i:s" }}</td>
+                                <td>{{ snapshot.data.ram_usage_megabytes|default:"-" }}</td>
+                                <td>{{ snapshot.data.cpu_usage_millicores|default:"-" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
         {% endif %}

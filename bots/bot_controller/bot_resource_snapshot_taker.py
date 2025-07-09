@@ -119,7 +119,7 @@ class BotResourceSnapshotTaker:
 
         now = timezone.now()
 
-        # If it is more than 45 seconds since the last snapshot, sample the cpu usage.
+        # If it is more than 30 seconds since the last snapshot, sample the cpu usage.
         if self._first_cpu_usage_millicores is None and (now - self._last_snapshot_time) > datetime.timedelta(seconds=30):
             try:
                 self._first_cpu_usage_millicores = get_cpu_usage_millicores()
@@ -132,6 +132,9 @@ class BotResourceSnapshotTaker:
         if (now - self._last_snapshot_time) < datetime.timedelta(minutes=1):
             return
 
+        # Update the last snapshot time in memory for subsequent checks
+        self._last_snapshot_time = now
+        
         try:
             ram_usage_megabytes = container_memory_mib()
         except Exception as e:
@@ -159,6 +162,3 @@ class BotResourceSnapshotTaker:
         BotResourceSnapshot.objects.create(bot=self.bot, data=snapshot_data)
 
         logger.info(f"Saved resource snapshot for bot {self.bot.object_id}: {snapshot_data}")
-
-        # Update the last snapshot time in memory for subsequent checks
-        self._last_snapshot_time = now
