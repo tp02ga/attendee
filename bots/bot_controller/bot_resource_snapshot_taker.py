@@ -51,6 +51,53 @@ def container_memory_mib() -> int:
     return working_set // (1024 * 1024)
 
 
+def _detect_cpu_files():
+    """
+    Return (usage_path, scale) where:
+      * usage_path is a Path that yields a growing CPU-usage counter
+      * scale converts that counter’s units into millicores/second
+        (10**6 for cgroup v1 nanoseconds, 10**3 for v2 microseconds)
+    """
+    # unified cgroup v2 mount has this file
+    if Path("/sys/fs/cgroup/cgroup.controllers").exists():
+        return Path("/sys/fs/cgroup/cpu.stat"), 1_000  # µs
+    # legacy cgroup v1 layout
+    return Path("/sys/fs/cgroup/cpuacct/cpuacct.usage"), 1_000_000  # ns
+
+
+def _read_cpu_usage(path: Path, scale: int) -> int:
+    """
+    Read the cumulative CPU usage, already divided by *scale* so that
+    1 unit = 1 millicore×second.
+    """
+    if "cpu.stat" in str(path):
+        # cgroup v2 – grab `usage_usec` (first field of cpu.stat)
+        with path.open() as fh:
+            for line in fh:
+                if line.startswith("usage_usec"):
+                    return int(line.split()[1]) // scale  # µs → mcore·s
+        raise RuntimeError("usage_usec not found in cpu.stat")
+    # cgroup v1 – cpuacct.usage (ns)
+    return int(path.read_text().strip()) // scale  # ns → mcore·s
+
+
+def get_cpu_usage_millicores():
+    usage_file, scale = _detect_cpu_files()
+    return _read_cpu_usage(usage_file, scale)
+
+
+def pod_cpu_millicores(window_seconds: int, u0: int, u1: int) -> int:
+    """
+    Sample the container’s CPU counter twice `window` seconds apart and
+    return the average use in **millicores**.
+    """
+
+    delta_mcore_seconds = max(u1 - u0, 0)
+    logger.info(f"delta_mcore_seconds: {delta_mcore_seconds}")
+    logger.info(f"window_seconds: {window_seconds}")
+    return delta_mcore_seconds // window_seconds  # average over the window
+
+
 class BotResourceSnapshotTaker:
     """
     A class to handle taking snapshots of bot resource usage (CPU, RAM).
@@ -64,7 +111,9 @@ class BotResourceSnapshotTaker:
         minimize database queries.
         """
         self.bot = bot
-        self._last_snapshot_time = None
+        self._last_snapshot_time = timezone.now()
+        self._first_cpu_usage_millicores = None
+        self._first_cpu_usage_sample_time = None
 
     def save_snapshot_if_needed(self):
         if not self.bot.save_resource_snapshots():
@@ -72,23 +121,46 @@ class BotResourceSnapshotTaker:
 
         now = timezone.now()
 
-        # Don't take a snapshot if it's been less than 2 minutes since the last snapshot.
-        if self._last_snapshot_time:
-            if (now - self._last_snapshot_time) < datetime.timedelta(minutes=2):
+        # If it is more than 45 seconds since the last snapshot, sample the cpu usage.
+        if self._first_cpu_usage_millicores is None and (now - self._last_snapshot_time) > datetime.timedelta(seconds=45):
+            try:
+                self._first_cpu_usage_millicores = get_cpu_usage_millicores()
+                self._first_cpu_usage_sample_time = now
+            except Exception as e:
+                logger.error(f"Error getting first cpu usage for bot {self.bot.object_id}: {e}")
                 return
+
+        # Don't take a snapshot if it's been less than 1 minutes since the last snapshot.
+        if (now - self._last_snapshot_time) < datetime.timedelta(minutes=1):
+            return
 
         try:
             ram_usage_megabytes = container_memory_mib()
         except Exception as e:
             # Could log this error, but for now we will just skip taking the snapshot.
-            logger.error(f"Error getting resource usage for bot {self.bot.object_id}: {e}")
+            logger.error(f"Error getting memory usage for bot {self.bot.object_id}: {e}")
             return
+
+        if self._first_cpu_usage_millicores is not None:
+            try:
+                second_cpu_usage_millicores = get_cpu_usage_millicores()
+                cpu_usage_millicores_delta = second_cpu_usage_millicores - self._first_cpu_usage_millicores
+                cpu_usage_millicores_delta_seconds = (now - self._first_cpu_usage_sample_time).total_seconds()
+                cpu_usage_millicores_delta_per_second = pod_cpu_millicores(cpu_usage_millicores_delta_seconds, self._first_cpu_usage_millicores, second_cpu_usage_millicores)
+                self._first_cpu_usage_millicores = None
+                self._first_cpu_usage_sample_time = None
+            except Exception as e:
+                logger.error(f"Error getting second cpu usage for bot {self.bot.object_id}: {e}")
+                return
 
         snapshot_data = {
             "ram_usage_megabytes": ram_usage_megabytes,
+            "cpu_usage_millicores": cpu_usage_millicores_delta_per_second,
         }
 
         BotResourceSnapshot.objects.create(bot=self.bot, data=snapshot_data)
+
+        logger.info(f"Saved resource snapshot for bot {self.bot.object_id}: {snapshot_data}")
 
         # Update the last snapshot time in memory for subsequent checks
         self._last_snapshot_time = now
