@@ -391,6 +391,9 @@ class Bot(models.Model):
             recording_settings = {}
         return recording_settings.get("view", RecordingViews.SPEAKER_VIEW)
 
+    def save_resource_snapshots(self):
+        return os.getenv("SAVE_BOT_RESOURCE_SNAPSHOTS", "false") == "true"
+
     def create_debug_recording(self):
         from bots.utils import meeting_type_from_url
 
@@ -1711,6 +1714,7 @@ class BotDebugScreenshot(models.Model):
     def __str__(self):
         return f"Debug Screenshot {self.object_id} for event {self.bot_event}"
 
+    
 
 class WebhookSecret(models.Model):
     _secret = models.BinaryField(
@@ -1848,3 +1852,12 @@ class ChatMessage(models.Model):
             random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
             self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
         super().save(*args, **kwargs)
+
+
+class BotResourceSnapshot(models.Model):
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="resource_snapshots")
+    data = models.JSONField(null=False, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Resource snapshot for {self.bot.object_id} at {self.created_at}"
