@@ -93,9 +93,7 @@ def pod_cpu_millicores(window_seconds: int, u0: int, u1: int) -> int:
     """
 
     delta_mcore_seconds = max(u1 - u0, 0)
-    logger.info(f"delta_mcore_seconds: {delta_mcore_seconds}")
-    logger.info(f"window_seconds: {window_seconds}")
-    return delta_mcore_seconds // window_seconds  # average over the window
+    return int(delta_mcore_seconds / window_seconds)  # average over the window
 
 
 class BotResourceSnapshotTaker:
