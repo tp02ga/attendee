@@ -355,18 +355,17 @@ class StyleManager {
 class DominantSpeakerManager {
     constructor() {
         this.dominantSpeakerStreamId = null;
+        this.captionAudioTimes = [];
     }
 
-    getLastSpeakerForTimestampMs(timestampMs) {
-        // iterate in reverse order
-        for (let i = this.captionAudioTimes.length - 1; i >= 0; i--) {
-            const captionAudioTime = this.captionAudioTimes[i];
-            if (captionAudioTime.timestampMs <= timestampMs) {
-                return captionAudioTime.speakerId;
-            }
+    getLastSpeakerIdForTimestampMs(timestampMs) {
+        // Find the caption audio times that are before timestampMs
+        const captionAudioTimesBeforeTimestampMs = this.captionAudioTimes.filter(captionAudioTime => captionAudioTime.timestampMs <= timestampMs);
+        if (captionAudioTimesBeforeTimestampMs.length === 0) {
+            return null;
         }
-
-        return null;
+        // Return the caption audio time with the highest timestampMs
+        return captionAudioTimesBeforeTimestampMs.reduce((max, captionAudioTime) => captionAudioTime.timestampMs > max.timestampMs ? captionAudioTime : max).speakerId;
     }
 
     addCaptionAudioTime(timestampMs, speakerId) {
@@ -1508,14 +1507,20 @@ const processDominantSpeakerHistoryMessage = (item) => {
     realConsole?.log('newDominantSpeakerParticipant', dominantSpeakerManager.getDominantSpeaker());
 }
 
+function convertTimestampAudioSentToUnixTimeMs(timestampAudioSent) {
+    const fractional_seconds_since_1900 = timestampAudioSent / 10000000;
+    const fractional_seconds_since_1970 = fractional_seconds_since_1900 - 2_208_988_800;
+    return Math.floor(fractional_seconds_since_1970 * 1000);
+}
+
 const processClosedCaptionData = (item) => {
     if (!window.initialData.collectCaptions)
     {
+        const timeStampAudioSentUnixMs = convertTimestampAudioSentToUnixTimeMs(item.timestampAudioSent);
+        dominantSpeakerManager.addCaptionAudioTime(timeStampAudioSentUnixMs, item.userId);
         return;
     }
 
-
-    realConsole?.log('processClosedCaptionData', item);
     if (!window.ws) {
         return;
     }
@@ -1876,11 +1881,11 @@ const handleVideoTrack = async (event) => {
                     const { audioData } = audioDataQueue.shift();
 
                     // Get the dominant speaker and assume that's who the participant speaking is
-                    const dominantSpeaker = dominantSpeakerManager.getDominantSpeaker();
+                    const dominantSpeakerId = dominantSpeakerManager.getLastSpeakerIdForTimestampMs(audioDataQueue[0].audioArrivalTime);
 
                     // Send audio data through websocket
-                    if (dominantSpeaker) {
-                        ws.sendPerParticipantAudio(dominantSpeaker.id, audioData);
+                    if (dominantSpeakerId) {
+                        ws.sendPerParticipantAudio(dominantSpeakerId, audioData);
                     }
                   }
 
