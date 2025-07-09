@@ -134,7 +134,9 @@ class BotResourceSnapshotTaker:
 
         # Update the last snapshot time in memory for subsequent checks
         self._last_snapshot_time = now
-        
+        ram_usage_megabytes = None
+        cpu_usage_millicores_delta_per_second = None
+
         try:
             ram_usage_megabytes = container_memory_mib()
         except Exception as e:
@@ -145,7 +147,6 @@ class BotResourceSnapshotTaker:
         if self._first_cpu_usage_millicores is not None:
             try:
                 second_cpu_usage_millicores = get_cpu_usage_millicores()
-                cpu_usage_millicores_delta = second_cpu_usage_millicores - self._first_cpu_usage_millicores
                 cpu_usage_millicores_delta_seconds = (now - self._first_cpu_usage_sample_time).total_seconds()
                 cpu_usage_millicores_delta_per_second = pod_cpu_millicores(cpu_usage_millicores_delta_seconds, self._first_cpu_usage_millicores, second_cpu_usage_millicores)
                 self._first_cpu_usage_millicores = None
@@ -153,6 +154,10 @@ class BotResourceSnapshotTaker:
             except Exception as e:
                 logger.error(f"Error getting second cpu usage for bot {self.bot.object_id}: {e}")
                 return
+
+        if ram_usage_megabytes is None or cpu_usage_millicores_delta_per_second is None:
+            logger.error(f"Error getting resource usage for bot {self.bot.object_id}: {ram_usage_megabytes} or {cpu_usage_millicores_delta_per_second} was None")
+            return
 
         snapshot_data = {
             "ram_usage_megabytes": ram_usage_megabytes,

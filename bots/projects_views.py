@@ -375,7 +375,7 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
         # Get resource snapshots for this bot
         resource_snapshots = bot.resource_snapshots.all().order_by("created_at")
-        
+
         # Calculate maximum values from resource snapshots
         max_ram_usage = 0
         max_cpu_usage = 0
@@ -384,7 +384,7 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 data = snapshot.data
                 ram_usage = data.get("ram_usage_megabytes", 0)
                 cpu_usage = data.get("cpu_usage_millicores", 0)
-                
+
                 if ram_usage > max_ram_usage:
                     max_ram_usage = ram_usage
                 if cpu_usage > max_cpu_usage:
