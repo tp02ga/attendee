@@ -1,8 +1,12 @@
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Organization
-from bots.bots_api_utils import BotCreationSource, create_bot, validate_meeting_url_and_credentials
-from bots.models import Project
+from bots.bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription, validate_meeting_url_and_credentials
+from bots.models import Bot, BotEventTypes, BotStates, Project, WebhookSubscription, WebhookTriggerTypes
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
@@ -47,11 +51,106 @@ class TestCreateBot(TestCase):
         self.assertIsNotNone(bot.recordings.first())
         self.assertIsNotNone(bot.media_requests.first())
         self.assertIsNone(error)
-        self.assertEqual(bot.bot_events.first().metadata["source"], BotCreationSource.API)
+        events = bot.bot_events
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(events.first().metadata["source"], BotCreationSource.API)
+        self.assertEqual(events.first().event_type, BotEventTypes.JOIN_REQUESTED)
 
-    def create_bot_with_google_meet_url_with_http(self):
+    def test_create_bot_with_google_meet_url_with_http(self):
         bot, error = create_bot(data={"meeting_url": "http://meet.google.com/abc-defg-hij", "bot_name": "Test Bot"}, source=BotCreationSource.DASHBOARD, project=self.project)
-        self.assertIsNotNone(bot)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
         self.assertIsNotNone(error)
-        self.assertEqual(error, {"error": "Google Meet URL must start with https://meet.google.com/"})
-        self.assertEqual(bot.bot_events.first().metadata["source"], BotCreationSource.DASHBOARD)
+        self.assertEqual(error, {"meeting_url": ["Google Meet URL must start with https://meet.google.com/"]})
+
+    def test_create_scheduled_bot(self):
+        """Test creating a bot with join_at timestamp"""
+        future_time = timezone.now() + timedelta(hours=1)
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Scheduled Test Bot", "join_at": future_time.isoformat()}, source=BotCreationSource.API, project=self.project)
+
+        self.assertIsNotNone(bot)
+        self.assertIsNone(error)
+        self.assertEqual(bot.state, BotStates.SCHEDULED)
+        self.assertIsNotNone(bot.join_at)
+        self.assertEqual(bot.join_at.replace(microsecond=0), future_time.replace(microsecond=0))
+        self.assertIsNotNone(bot.recordings.first())
+
+        # Verify no events are created for scheduled bots
+        events = bot.bot_events
+        self.assertEqual(events.count(), 0)
+
+    def test_create_bot_with_invalid_image(self):
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "bot_image": {"type": "image/png", "data": "iVBORAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}}, source=BotCreationSource.API, project=self.project)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
+        self.assertIsNotNone(error)
+        bot_image_errors = error["bot_image"]["non_field_errors"]
+        error_message = str(bot_image_errors[0])
+        self.assertEqual(error_message, "Data is not a valid PNG image. This site can generate base64 encoded PNG images to test with: https://png-pixel.com")
+
+    def test_with_too_many_webhooks(self):
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "webhooks": [{"url": "https://example.com", "triggers": ["bot.state_change"]}, {"url": "https://example2.com", "triggers": ["bot.state_change"]}, {"url": "https://example3.com", "triggers": ["bot.state_change"]}]}, source=BotCreationSource.API, project=self.project)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
+        self.assertIsNotNone(error)
+        self.assertEqual(error, {"error": "You have reached the maximum number of webhooks for a single bot"})
+
+    def test_with_invalid_webhook_trigger(self):
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "webhooks": [{"url": "https://example.com", "triggers": ["invalid_trigger"]}]}, source=BotCreationSource.API, project=self.project)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
+        self.assertIsNotNone(error)
+        self.assertIn("webhooks", error)
+        self.assertIsInstance(error["webhooks"], list)
+        self.assertIn("'invalid_trigger' is not one of", str(error["webhooks"][0]))
+
+    def test_with_invalid_webhook_url(self):
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "webhooks": [{"url": "http://example.com", "triggers": ["bot.state_change"]}]}, source=BotCreationSource.API, project=self.project)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
+        self.assertIsNotNone(error)
+        self.assertIn("webhooks", error)
+        self.assertIsInstance(error["webhooks"], list)
+        self.assertIn("does not match '^https://.*'", str(error["webhooks"][0]))
+
+    def test_with_duplicate_webhook_url(self):
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "webhooks": [{"url": "https://example.com", "triggers": ["bot.state_change"]}, {"url": "https://example.com", "triggers": ["bot.state_change"]}]}, source=BotCreationSource.API, project=self.project)
+        self.assertIsNone(bot)
+        self.assertEqual(Bot.objects.count(), 0)
+        self.assertIsNotNone(error)
+        self.assertEqual(error, {"error": "URL already subscribed for this bot"})
+
+
+class TestCreateWebhookSubscription(TestCase):
+    def setUp(self):
+        organization = Organization.objects.create(name="Test Organization")
+        self.project = Project.objects.create(name="Test Project", organization=organization)
+
+    def test_create_webhook_subscription(self):
+        self.assertEqual(WebhookSubscription.objects.count(), 0)
+        create_webhook_subscription("https://example.com", ["bot.state_change"], self.project)
+        webhook_subscription = WebhookSubscription.objects.get(url="https://example.com")
+        self.assertEqual(webhook_subscription.triggers, [WebhookTriggerTypes.BOT_STATE_CHANGE])
+        self.assertEqual(webhook_subscription.project, self.project)
+        self.assertIsNone(webhook_subscription.bot)
+        self.assertEqual(webhook_subscription.is_active, True)
+        self.assertEqual(WebhookSubscription.objects.count(), 1)
+
+    def test_create_webhook_subscription_with_invalid_url(self):
+        with self.assertRaises(ValidationError):
+            create_webhook_subscription("http://example.com", ["bot.state_change"], self.project)
+
+    def test_create_webhook_subscription_with_invalid_triggers(self):
+        with self.assertRaises(ValidationError):
+            create_webhook_subscription("https://example.com", ["invalid_trigger"], self.project)
+
+    def test_create_webhook_subscription_with_duplicate_url(self):
+        create_webhook_subscription("https://example.com", ["bot.state_change"], self.project)
+        with self.assertRaises(ValidationError):
+            create_webhook_subscription("https://example.com", ["bot.state_change"], self.project)
+
+    def test_create_webhook_subscription_with_too_many_webhooks(self):
+        for i in range(2):
+            create_webhook_subscription(f"https://example{i}.com", ["bot.state_change"], self.project)
+        with self.assertRaises(ValidationError):
+            create_webhook_subscription("https://example3.com", ["bot.state_change"], self.project)
