@@ -122,7 +122,9 @@ class BotStates(models.IntegerChoices):
         }
         return mapping.get(value)
 
-    POST_MEETING_STATES = [BotStates.FATAL_ERROR, BotStates.ENDED, BotStates.DATA_DELETED]
+    @classmethod
+    def post_meeting_states(cls):
+        return [cls.FATAL_ERROR, cls.ENDED, cls.DATA_DELETED]
 
 
 class RecordingFormats(models.TextChoices):
@@ -160,7 +162,7 @@ class Bot(models.Model):
     last_heartbeat_timestamp = models.IntegerField(null=True, blank=True)
 
     join_at = models.DateTimeField(null=True, blank=True, help_text="The time the bot should join the meeting")
-    deduplication_key = models.CharField(max_length=255, null=True, blank=True, help_text="Optional key for deduplicating bots")
+    deduplication_key = models.CharField(max_length=1024, null=True, blank=True, help_text="Optional key for deduplicating bots")
 
     def delete_data(self):
         # Check if bot is in a state where the data deleted event can be created
@@ -438,7 +440,7 @@ class Bot(models.Model):
 
         # Within a project, we don't want to allow bots that aren't in apost-meeting state with the same deduplication key.
         constraints = [
-            models.UniqueConstraint(fields=["project", "deduplication_key"], name="unique_bot_deduplication_key", condition=~models.Q(state__in=BotStates.POST_MEETING_STATES)),
+            models.UniqueConstraint(fields=["project", "deduplication_key"], name="unique_bot_deduplication_key", condition=~models.Q(state__in=BotStates.post_meeting_states())),
         ]
 
 
@@ -840,7 +842,7 @@ class BotEventManager:
 
     @classmethod
     def is_post_meeting_state(cls, state: int):
-        return state in BotStates.POST_MEETING_STATES
+        return state in BotStates.post_meeting_states()
 
     @classmethod
     def bot_event_type_should_incur_charges(cls, event_type: int):
@@ -852,7 +854,7 @@ class BotEventManager:
     def get_post_meeting_states_q_filter(cls):
         """Returns a Q object to filter for post meeting states"""
         q_filter = models.Q()
-        for state in BotStates.POST_MEETING_STATES:
+        for state in BotStates.post_meeting_states():
             q_filter |= models.Q(state=state)
         return q_filter
 
