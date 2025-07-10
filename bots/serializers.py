@@ -469,13 +469,14 @@ class BotChatMessageRequestSerializer(serializers.Serializer):
 class WebsocketSettingsJSONField(serializers.JSONField):
     pass
 
+
 @extend_schema_field(
     {
         "type": "object",
         "properties": {
             "zoom_tokens_url": {
                 "type": "string",
-                "description": "URL endpoint that returns Zoom authentication tokens that will be used for the bot when it joins the meeting. The server will make a POST request to this URL and expects a JSON response with format: {\"zak_token\": \"<zak_token>\", \"join_token\": \"<join_token>\", \"app_privilege_token\": \"<app_privilege_token>\"}.",
+                "description": 'URL endpoint that returns Zoom authentication tokens that will be used for the bot when it joins the meeting. The server will make a POST request to this URL and expects a JSON response with format: {"zak_token": "<zak_token>", "join_token": "<join_token>", "app_privilege_token": "<app_privilege_token>"}.',
             },
         },
         "required": [],
