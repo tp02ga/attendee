@@ -647,7 +647,7 @@ class TestZoomBot(TransactionTestCase):
         bot_thread.join(timeout=15)
 
         # Refresh the bot from the database
-        time.sleep(5)
+        time.sleep(3)
         self.bot.refresh_from_db()
 
         # Assert that the heartbeat timestamp was set

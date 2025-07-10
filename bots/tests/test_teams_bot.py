@@ -140,7 +140,7 @@ class TestTeamsBot(TransactionTestCase):
             mock_attempt_to_join.side_effect = Exception("random exception")
 
             def save_screenshot_mock(path):
-                with open(path, "w") as f:
+                with open(path, "w"):
                     pass
 
             mock_driver.save_screenshot.side_effect = save_screenshot_mock

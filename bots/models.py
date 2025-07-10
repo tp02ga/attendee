@@ -393,7 +393,7 @@ class Bot(models.Model):
 
     def save_resource_snapshots(self):
         save_resource_snapshots_env_var_value = os.getenv("SAVE_BOT_RESOURCE_SNAPSHOTS", "false")
-        return save_resource_snapshots_env_var_value == "true" or save_resource_snapshots_env_var_value == True
+        return str(save_resource_snapshots_env_var_value).lower() == "true"
 
     def create_debug_recording(self):
         from bots.utils import meeting_type_from_url
