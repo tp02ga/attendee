@@ -140,7 +140,7 @@ class TestCreateBot(TestCase):
         )
         self.assertIsNone(bot2)
         self.assertIsNotNone(error2)
-        self.assertEqual(error2, {"error": "A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."})
+        self.assertEqual(error2, {"error": "Deduplication key already in use. A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."})
 
     def test_create_bot_with_duplicate_deduplication_key_different_projects(self):
         """Test that duplicate deduplication keys are allowed in different projects."""
