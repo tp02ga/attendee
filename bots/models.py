@@ -710,7 +710,6 @@ class BotEvent(models.Model):
 
 
 class BotEventManager:
-
     # Define valid state transitions for each event type
     VALID_TRANSITIONS = {
         BotEventTypes.JOIN_REQUESTED: {
