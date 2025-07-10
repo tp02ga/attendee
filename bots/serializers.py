@@ -496,6 +496,12 @@ class CreateBotSerializer(serializers.Serializer):
         default=None,
     )
 
+    callback_settings = CallbackSettingsJSONField(
+        help_text="Callback urls for the bot to call when it needs to fetch certain data.",
+        required=False,
+        default=None,
+    )
+
     WEBHOOKS_SCHEMA = {
         "type": "array",
         "items": {
@@ -528,6 +534,34 @@ class CreateBotSerializer(serializers.Serializer):
             jsonschema.validate(instance=value, schema=self.WEBHOOKS_SCHEMA)
         except jsonschema.exceptions.ValidationError as e:
             raise serializers.ValidationError(e.message)
+
+        return value
+
+    CALLBACK_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "zoom_tokens_url": {
+                "type": "string",
+                "pattern": "^https://.*",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_callback_settings(self, value):
+        if value is None:
+            return value
+
+        try:
+            jsonschema.validate(instance=value, schema=self.CALLBACK_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # Validate that zoom_tokens_url is a proper HTTPS URL
+        zoom_tokens_url = value.get("zoom_tokens_url")
+        if zoom_tokens_url and not zoom_tokens_url.lower().startswith("https://"):
+            raise serializers.ValidationError({"zoom_tokens_url": "URL must start with https://"})
 
         return value
 
@@ -1177,3 +1211,20 @@ class PatchBotSerializer(serializers.Serializer):
             raise serializers.ValidationError("join_at cannot be in the past")
 
         return value
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
+            "zoom_tokens_url": {
+                "type": "string",
+                "description": "URL endpoint that returns Zoom authentication tokens that will be used for the bot when it joins the meeting. The server will make a POST request to this URL and expects a JSON response with format: {\"zak_token\": \"<zak_token>\", \"join_token\": \"<join_token>\", \"app_privilege_token\": \"<app_privilege_token>\"}.",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class CallbackSettingsJSONField(serializers.JSONField):
+    pass

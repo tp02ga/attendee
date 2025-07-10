@@ -45,6 +45,7 @@ from bots.models import (
     Utterance,
     WebhookTriggerTypes,
 )
+from bots.external_callback_utils import get_zoom_tokens
 from bots.utils import meeting_type_from_url
 from bots.webhook_payloads import chat_message_webhook_payload, participant_event_webhook_payload, utterance_webhook_payload
 from bots.webhook_utils import trigger_webhook
@@ -149,6 +150,10 @@ class BotController:
 
         add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
 
+        zoom_tokens = {}
+        if self.bot_in_db.zoom_tokens_callback_url():
+            zoom_tokens = get_zoom_tokens(self.bot_in_db)
+
         return ZoomBotAdapter(
             use_one_way_audio=self.pipeline_configuration.transcribe_audio,
             use_mixed_audio=self.pipeline_configuration.record_audio or self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.websocket_stream_audio,
@@ -166,6 +171,7 @@ class BotController:
             add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
+            zoom_tokens=zoom_tokens,
         )
 
     def add_mixed_audio_chunk_callback(self, chunk: bytes):

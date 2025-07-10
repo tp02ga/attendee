@@ -88,6 +88,7 @@ class ZoomBotAdapter(BotAdapter):
         add_participant_event_callback,
         automatic_leave_configuration: AutomaticLeaveConfiguration,
         video_frame_size: tuple[int, int],
+        zoom_tokens: dict,
     ):
         self.use_one_way_audio = use_one_way_audio
         self.use_mixed_audio = use_mixed_audio
@@ -100,6 +101,7 @@ class ZoomBotAdapter(BotAdapter):
         self.wants_any_video_frames_callback = wants_any_video_frames_callback
         self.upsert_chat_message_callback = upsert_chat_message_callback
         self.add_participant_event_callback = add_participant_event_callback
+        self.zoom_tokens = zoom_tokens
 
         self._jwt_token = generate_jwt(zoom_client_id, zoom_client_secret)
         self.meeting_id, self.meeting_password = parse_join_url(meeting_url)
@@ -668,6 +670,15 @@ class ZoomBotAdapter(BotAdapter):
         param.isAudioOff = False
         param.isAudioRawDataStereo = False
         param.isMyVoiceInMix = False
+
+        # If we have tokens, we can use them to join the meeting
+        if self.zoom_tokens.get("zak_token"):
+            param.userZAK = self.zoom_tokens.get("zak_token")
+        if self.zoom_tokens.get("join_token"):
+            param.join_token = self.zoom_tokens.get("join_token")
+        if self.zoom_tokens.get("app_privilege_token"):
+            param.app_privilege_token = self.zoom_tokens.get("app_privilege_token")
+
         param.eAudioRawdataSamplingRate = zoom.AudioRawdataSamplingRate.AudioRawdataSamplingRate_32K
 
         join_result = self.meeting_service.Join(join_param)
