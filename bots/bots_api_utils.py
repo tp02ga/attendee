@@ -194,7 +194,8 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         return None, {"error": e.messages[0]}
     except Exception as e:
         if isinstance(e, IntegrityError) and "unique_bot_deduplication_key" in str(e):
-            return None, {"error": "A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."}
+            logger.error(f"IntegrityError due to unique_bot_deduplication_key constraint violation creating bot: {e}")
+            return None, {"error": "Deduplication key already in use. A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."}
 
         logger.error(f"Error creating bot: {e}")
         return None, {"error": str(e)}
