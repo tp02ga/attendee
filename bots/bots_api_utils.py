@@ -138,6 +138,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     metadata = serializer.validated_data["metadata"]
     websocket_settings = serializer.validated_data["websocket_settings"]
     join_at = serializer.validated_data["join_at"]
+    deduplication_key = serializer.validated_data["deduplication_key"]
     webhook_subscriptions = serializer.validated_data["webhooks"]
     initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
@@ -160,6 +161,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
                 settings=settings,
                 metadata=metadata,
                 join_at=join_at,
+                deduplication_key=deduplication_key,
                 state=initial_state,
             )
 
