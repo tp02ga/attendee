@@ -6,7 +6,7 @@ from django.db import connection
 from django.test import TransactionTestCase
 
 from bots.bot_controller.bot_controller import BotController
-from bots.models import Bot, BotEventManager, BotEventTypes, BotEventSubTypes, BotStates, Organization, Project, Recording, RecordingTypes, TranscriptionProviders, TranscriptionTypes
+from bots.models import Bot, BotEventManager, BotEventSubTypes, BotEventTypes, BotStates, Organization, Project, Recording, RecordingTypes, TranscriptionProviders, TranscriptionTypes
 from bots.teams_bot_adapter.teams_ui_methods import UiTeamsBlockingUsException
 
 
@@ -111,7 +111,6 @@ class TestTeamsBot(TransactionTestCase):
             # Close the database connection since we're in a thread
             connection.close()
 
-
     @patch("bots.web_bot_adapter.web_bot_adapter.Display")
     @patch("bots.web_bot_adapter.web_bot_adapter.webdriver.Chrome")
     @patch("bots.bot_controller.bot_controller.FileUploader")
@@ -143,6 +142,7 @@ class TestTeamsBot(TransactionTestCase):
             def save_screenshot_mock(path):
                 with open(path, "w") as f:
                     pass
+
             mock_driver.save_screenshot.side_effect = save_screenshot_mock
 
             # Run the bot in a separate thread since it has an event loop
@@ -171,7 +171,7 @@ class TestTeamsBot(TransactionTestCase):
             last_bot_event = self.bot.bot_events.last()
             self.assertEqual(last_bot_event.event_type, BotEventTypes.FATAL_ERROR)
             self.assertEqual(last_bot_event.event_sub_type, BotEventSubTypes.FATAL_ERROR_UI_ELEMENT_NOT_FOUND)
-            self.assertEqual(last_bot_event.metadata.get('step'), 'unknown')
-            self.assertEqual(last_bot_event.metadata.get('exception_type'), 'Exception')
+            self.assertEqual(last_bot_event.metadata.get("step"), "unknown")
+            self.assertEqual(last_bot_event.metadata.get("exception_type"), "Exception")
             self.assertEqual(self.bot.state, BotStates.FATAL_ERROR)
             print("last_bot_event", last_bot_event.__dict__)
