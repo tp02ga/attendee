@@ -371,7 +371,7 @@ class Bot(models.Model):
         callback_settings = self.settings.get("callback_settings", {})
         if callback_settings is None:
             callback_settings = {}
-        return callback_settings.get("zoom_tokens_callback_url", None)
+        return callback_settings.get("zoom_tokens_url", None)
 
     def recording_format(self):
         recording_settings = self.settings.get("recording_settings", {})
