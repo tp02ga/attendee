@@ -1092,6 +1092,12 @@ components:
           format: date-time
           description: The time the bot should join the meeting. ISO 8601 format,
             e.g. 2025-06-13T12:00:00Z
+        deduplication_key:
+          type: string
+          minLength: 1
+          description: Optional key for deduplicating bots. If a bot with this key
+            already exists in a non-terminal state, the new bot will not be created
+            and an error will be returned.
         webhooks:
           type: array
           items:
