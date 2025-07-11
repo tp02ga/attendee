@@ -476,7 +476,7 @@ class WebsocketSettingsJSONField(serializers.JSONField):
         "properties": {
             "zoom_tokens_url": {
                 "type": "string",
-                "description": 'URL endpoint that returns Zoom authentication tokens that will be used for the bot when it joins the meeting. The server will make a POST request to this URL and expects a JSON response with format: {"zak_token": "<zak_token>", "join_token": "<join_token>", "app_privilege_token": "<app_privilege_token>"}.',
+                "description": 'URL of an endpoint on your server that returns Zoom authentication tokens the bot will use when it joins the meeting. Our server will make a POST request to this URL with information about the bot and expects a JSON response with the format: {"zak_token": "<zak_token>", "join_token": "<join_token>", "app_privilege_token": "<app_privilege_token>"}. Not every token needs to be provided, i.e. you can reply with {"zak_token": "<zak_token>"}.',
             },
         },
         "required": [],
