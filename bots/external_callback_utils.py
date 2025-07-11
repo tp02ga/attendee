@@ -3,6 +3,9 @@ from typing import Dict, Optional
 
 import requests
 
+from bots.models import WebhookSecret
+from bots.webhook_utils import sign_payload
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +60,13 @@ def make_callback_request(url: str, bot, callback_type: str, additional_data: Op
     if additional_data:
         callback_data.update(additional_data)
 
+    # Get or create webhook secret for signing
+    WebhookSecret.objects.get_or_create(project=bot.project)
+    active_secret = bot.project.webhook_secrets.filter().order_by("-created_at").first()
+
+    # Sign the payload
+    signature = sign_payload(callback_data, active_secret.get_secret())
+
     try:
         logger.info(f"Making {callback_type} callback request for bot {bot.object_id} to {url}")
 
@@ -66,6 +76,7 @@ def make_callback_request(url: str, bot, callback_type: str, additional_data: Op
             headers={
                 "Content-Type": "application/json",
                 "User-Agent": "Attendee-Callback/1.0",
+                "X-Webhook-Signature": signature,
             },
             timeout=30,  # 30-second timeout
         )
