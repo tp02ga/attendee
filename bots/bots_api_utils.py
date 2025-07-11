@@ -140,6 +140,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     join_at = serializer.validated_data["join_at"]
     deduplication_key = serializer.validated_data["deduplication_key"]
     webhook_subscriptions = serializer.validated_data["webhooks"]
+    callback_settings = serializer.validated_data["callback_settings"]
     initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
     settings = {
@@ -150,6 +151,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         "automatic_leave_settings": automatic_leave_settings,
         "teams_settings": teams_settings,
         "websocket_settings": websocket_settings,
+        "callback_settings": callback_settings,
     }
 
     try:
