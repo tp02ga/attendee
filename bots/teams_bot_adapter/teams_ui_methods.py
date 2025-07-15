@@ -69,7 +69,6 @@ class TeamsUIMethods:
         else:
             logger.info("Camera button is already off, not clicking it")
 
-
     def is_teams_live_meeting(self):
         return "teams.live.com" in self.driver.current_url
 
