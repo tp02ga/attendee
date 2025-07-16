@@ -848,8 +848,22 @@ class BotController:
             logger.info(f"Error in timeout callback: {e}")
             logger.info("Traceback:")
             logger.info(traceback.format_exc())
-            self.cleanup()
+            self.handle_exception_in_timeout_callback(e)
             return False
+
+    def handle_exception_in_timeout_callback(self, e):
+        try:
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_ATTENDEE_INTERNAL_ERROR,
+                event_metadata={"error": str(e)},
+            )
+        except Exception as e:
+            logger.info(f"Error in handle_exception_in_timeout_callback: {e}")
+            logger.info("Traceback:")
+            logger.info(traceback.format_exc())
+        self.cleanup()
 
     def get_recording_in_progress(self):
         recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
