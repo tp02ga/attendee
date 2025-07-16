@@ -648,7 +648,7 @@ class CreateBotSerializer(serializers.Serializer):
             "meeting_closed_captions": {
                 "type": "object",
                 "properties": {
-                    "google_meet_language": {"type": "string"},
+                    "google_meet_language": {"type": "string", "enum": ["af-ZA", "sq-AL", "am-ET", "ar-EG", "ar-x-LEVANT", "ar-x-MAGHREBI", "ar-x-GULF", "ar-AE", "hy-AM", "az-AZ", "eu-ES", "bn-BD", "bg-BG", "my-MM", "ca-ES", "cmn-Hans-CN", "cmn-Hant-TW", "cs-CZ", "nl-NL", "en-US", "en-AU", "en-IN", "en-PH", "en-GB", "et-EE", "fil-PH", "fi-FI", "fr-FR", "fr-CA", "gl-ES", "ka-GE", "de-DE", "el-GR", "gu-IN", "iw-IL", "hi-IN", "hu-HU", "is-IS", "id-ID", "it-IT", "ja-JP", "jv-ID", "kn-IN", "kk-KZ", "km-KH", "rw-RW", "ko-KR", "lo-LA", "lv-LV", "lt-LT", "mk-MK", "ms-MY", "ml-IN", "mr-IN", "mn-MN", "ne-NP", "nso-ZA", "nb-NO", "fa-IR", "pl-PL", "pt-BR", "pt-PT", "ro-RO", "ru-RU", "sr-RS", "st-ZA", "si-LK", "sk-SK", "sl-SI", "es-MX", "es-ES", "su-ID", "sw", "ss-latn-ZA", "sv-SE", "ta-IN", "te-IN", "th-TH", "ve-ZA", "tn-latn-ZA", "tr-TR", "uk-UA", "ur-PK", "uz-UZ", "vi-VN", "xh-ZA", "ts-ZA", "zu-ZA"]},
                     "teams_language": {
                         "type": "string",
                         "enum": ["ar-sa", "ar-ae", "bg-bg", "ca-es", "zh-cn", "zh-hk", "zh-tw", "hr-hr", "cs-cz", "da-dk", "nl-be", "nl-nl", "en-au", "en-ca", "en-in", "en-nz", "en-gb", "en-us", "et-ee", "fi-fi", "fr-ca", "fr-fr", "de-de", "de-ch", "el-gr", "he-il", "hi-in", "hu-hu", "id-id", "it-it", "ja-jp", "ko-kr", "lv-lv", "lt-lt", "nb-no", "pl-pl", "pt-br", "pt-pt", "ro-ro", "ru-ru", "sr-rs", "sk-sk", "sl-si", "es-mx", "es-es", "sv-se", "th-th", "tr-tr", "uk-ua", "vi-vn", "cy-gb"],
