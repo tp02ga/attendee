@@ -1465,7 +1465,15 @@ const processClosedCaptionData = (item) => {
         isFinal: item.isFinal
     };
 
-    window.ws.sendClosedCaptionUpdate(itemConverted);
+    // It turns out that the item.timestampAudioSent can change for a given caption entry.
+    // The correct thing to do then is keep track of a caption entry. Update that caption entry until we 
+    // see a caption entry come through where isFinal is true.
+    // After that we create a new caption entry to keep track of.
+    // However, this more complicated than simply not sending anything to the backend until we see isFinal is true.
+    // So we will do that for now.
+
+    if (item.isFinal)
+        window.ws.sendClosedCaptionUpdate(itemConverted);
 }
 
 const handleMainChannelEvent = (event) => {
