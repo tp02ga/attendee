@@ -1,10 +1,12 @@
 ZoomMtg.preLoadWasm()
 ZoomMtg.prepareWebSDK()
 
+var zoomInitialData = window.zoomInitialData;
+
 var authEndpoint = ''
-var sdkKey = ''
-var meetingNumber = 1
-var passWord = '.1'
+var sdkKey = zoomInitialData.sdkKey;
+var meetingNumber = zoomInitialData.meetingNumber;
+var passWord = zoomInitialData.meetingPassword;
 var role = 0
 var userName = 'Zoom Web Bot'
 var userEmail = ''
@@ -15,7 +17,7 @@ var registrantToken = ''
 var zakToken = ''
 
 function joinMeeting() {
-    const signature = '';
+    const signature = zoomInitialData.signature;
     startMeeting(signature);
 }
 

@@ -456,6 +456,7 @@ class WebBotAdapter(BotAdapter):
         # Combine them ensuring libraries load first
         combined_code = f"""
             {initial_data_code}
+            {self.subclass_specific_initial_data_code()}
             {libraries_code}
             {payload_code}
         """
@@ -729,3 +730,7 @@ class WebBotAdapter(BotAdapter):
 
     def send_chat_message(self, text):
         logger.info("send_chat_message not supported in web bots")
+
+    # Sub-classes can override this to add class-specific initial data code
+    def subclass_specific_initial_data_code(self):
+        return ""

@@ -343,6 +343,9 @@ class Bot(models.Model):
     def teams_use_bot_login(self):
         return self.settings.get("teams_settings", {}).get("use_login", False)
 
+    def use_zoom_web_adapter(self):
+        return True
+
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
         if not rtmp_settings:
