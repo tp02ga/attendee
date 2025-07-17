@@ -1449,22 +1449,54 @@ const processDominantSpeakerHistoryMessage = (item) => {
     realConsole?.log('newDominantSpeakerParticipant', dominantSpeakerManager.getDominantSpeaker());
 }
 
+class UtteranceIdGenerator {
+    constructor(generate = () => crypto.randomUUID()) {
+      this._activeIds = new Map();  // Map<speakerKey, utteranceId>
+      this._generate = generate;    // Injectable for tests
+    }
+  
+    /**
+     * @param {string} speakerKey  – any stable identifier for the speaker
+     * @param {boolean} isFinal    – true only on the last chunk of an utterance
+     * @returns {string}           – the utteranceId to attach to this chunk
+     */
+    next(speakerKey = 'default', isFinal = false) {
+      // Reuse or create
+      let id = this._activeIds.get(speakerKey);
+      if (!id) {
+        id = this._generate();
+        // Only keep it around if more chunks are expected
+        if (!isFinal) this._activeIds.set(speakerKey, id);
+      } else if (isFinal) {
+        // Utterance ends: remove from the map after returning the same ID
+        this._activeIds.delete(speakerKey);
+      }
+  
+      return id;
+    }
+  
+    /** Optional: free all state (e.g., when a call ends) */
+    dispose() {
+      this._activeIds.clear();
+    }
+}
+
+const utteranceIdGenerator = new UtteranceIdGenerator();
+
 const processClosedCaptionData = (item) => {
     realConsole?.log('processClosedCaptionData', item);
     if (!window.ws) {
         return;
     }
 
-    const captionId = item.id.split("/")[0] + ":" + item.timestampAudioSent.toString();
-
     const itemConverted = {
         deviceId: item.userId,
-        captionId: captionId,
+        captionId: utteranceIdGenerator.next(item.userId, item.isFinal),
         text: item.text,
         audioTimestamp: item.timestampAudioSent,
         isFinal: item.isFinal
     };
-
+    
     window.ws.sendClosedCaptionUpdate(itemConverted);
 }
 
