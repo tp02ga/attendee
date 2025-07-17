@@ -21,6 +21,8 @@ function joinMeeting() {
     startMeeting(signature);
 }
 
+<div class="join-audio-by-voip"><button tabindex="0" type="button" class="zm-btn join-audio-by-voip__join-btn zm-btn--primary zm-btn__outline--white zm-btn--lg" aria-label="">Join Audio by Computer<span class="loading" style="display: none;"></span></button></div>
+
 function startMeeting(signature) {
 
   document.getElementById('zmmtg-root').style.display = 'block'
@@ -31,8 +33,8 @@ function startMeeting(signature) {
     leaveOnPageUnload: true,
     disableZoomLogo: true,
     disablePreview: true,
-    disableJoinAudio: true,
-    isSupportAV: false,
+    //disableJoinAudio: true,
+    //isSupportAV: false,
     success: (success) => {
         console.log(success)
         ZoomMtg.join({
