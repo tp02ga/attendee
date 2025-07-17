@@ -21,8 +21,6 @@ function joinMeeting() {
     startMeeting(signature);
 }
 
-
-
 function startMeeting(signature) {
 
   document.getElementById('zmmtg-root').style.display = 'block'
@@ -47,7 +45,19 @@ function startMeeting(signature) {
         tk: registrantToken,
         zak: zakToken,
         success: (success) => {
-            console.log(success)
+            console.log(success);
+            /*
+            We don't need to do this because user events include the self attribute.
+            ZoomMtg.getCurrentUser({
+                success: (currentUser) => {
+                    console.log('ZoomMtg.getCurrentUser()', currentUser);
+                    currentUser = currentUser.result.currentUser;
+                },
+                error: (error) => {
+                    console.log('ZoomMtg.getCurrentUser() error', error);
+                }
+            })
+            */
         },
         error: (error) => {
             console.log(error)
@@ -76,28 +86,43 @@ function startMeeting(signature) {
     });
 
     ZoomMtg.inMeetingServiceListener('onUserJoin', function (data) {
-    console.log('onUserJoin', data);
+        console.log('onUserJoin', data);
+        const dataWithState = {
+            ...data,
+            state: 'active'
+        }
+        window.userManager.singleUserSynced(dataWithState);
     });
 
     ZoomMtg.inMeetingServiceListener('onUserLeave', function (data) {
-    console.log('onUserLeave', data);
-    // reasonCode Return the reason the current user left.
-    const reasonCode = {
-        OTHER: 0, // Other reason.
-        HOST_ENDED_MEETING: 1, // Host ended the meeting.
-        SELF_LEAVE_FROM_IN_MEETING: 2, // User (self) left from being in the meeting.
-        SELF_LEAVE_FROM_WAITING_ROOM: 3, // User (self) left from the waiting room.
-        SELF_LEAVE_FROM_WAITING_FOR_HOST_START: 4, // User (self) left from waiting for host to start the meeting.
-        MEETING_TRANSFER: 5, // The meeting was transferred to another end to open.
-        KICK_OUT_FROM_MEETING: 6, // Removed from meeting by host or co-host.
-        KICK_OUT_FROM_WAITING_ROOM: 7, // Removed from waiting room by host or co-host.
-        LEAVE_FROM_DISCLAIMER: 8, // User click cancel in disclaimer dialog 
-    };
+        console.log('onUserLeave', data);
+        // reasonCode Return the reason the current user left.
+        const reasonCode = {
+            OTHER: 0, // Other reason.
+            HOST_ENDED_MEETING: 1, // Host ended the meeting.
+            SELF_LEAVE_FROM_IN_MEETING: 2, // User (self) left from being in the meeting.
+            SELF_LEAVE_FROM_WAITING_ROOM: 3, // User (self) left from the waiting room.
+            SELF_LEAVE_FROM_WAITING_FOR_HOST_START: 4, // User (self) left from waiting for host to start the meeting.
+            MEETING_TRANSFER: 5, // The meeting was transferred to another end to open.
+            KICK_OUT_FROM_MEETING: 6, // Removed from meeting by host or co-host.
+            KICK_OUT_FROM_WAITING_ROOM: 7, // Removed from waiting room by host or co-host.
+            LEAVE_FROM_DISCLAIMER: 8, // User click cancel in disclaimer dialog 
+        };
 
+        const dataWithState = {
+            ...data,
+            state: 'inactive'
+        }
+        window.userManager.singleUserSynced(dataWithState);
     });
 
     ZoomMtg.inMeetingServiceListener('onUserUpdate', function (data) {
-    console.log('onUserUpdate', data);
+        console.log('onUserUpdate', data);
+        const dataWithState = {
+            ...data,
+            state: 'active'
+        }
+        window.userManager.singleUserSynced(dataWithState);
     });
 }
 
