@@ -24,3 +24,6 @@ class ZoomWebUIMethods:
                 ],
             },
         )
+
+    def click_leave_button(self):
+        self.driver.execute_script("leaveMeeting()")

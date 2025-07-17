@@ -101,3 +101,7 @@ function startMeeting(signature) {
 
 // When dom loads call the joinMeeting function
 document.addEventListener('DOMContentLoaded', joinMeeting);
+
+function leaveMeeting() {
+    ZoomMtg.leaveMeeting({});
+}
