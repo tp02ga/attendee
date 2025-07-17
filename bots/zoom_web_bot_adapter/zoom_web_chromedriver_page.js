@@ -21,7 +21,7 @@ function joinMeeting() {
     startMeeting(signature);
 }
 
-<div class="join-audio-by-voip"><button tabindex="0" type="button" class="zm-btn join-audio-by-voip__join-btn zm-btn--primary zm-btn__outline--white zm-btn--lg" aria-label="">Join Audio by Computer<span class="loading" style="display: none;"></span></button></div>
+
 
 function startMeeting(signature) {
 
@@ -100,9 +100,6 @@ function startMeeting(signature) {
     console.log('onUserUpdate', data);
     });
 }
-
-// When dom loads call the joinMeeting function
-document.addEventListener('DOMContentLoaded', joinMeeting);
 
 function leaveMeeting() {
     ZoomMtg.leaveMeeting({});
