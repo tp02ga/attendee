@@ -93,6 +93,11 @@ function startMeeting(signature) {
                 }
             })
             */
+            // We are ready to send chat messages once we join
+            window.ws.sendJson({
+                type: 'ChatStatusChange',
+                change: 'ready_to_send'
+            });
         },
         error: (error) => {
             console.log(error)
@@ -203,3 +208,17 @@ function startMeeting(signature) {
 function leaveMeeting() {
     ZoomMtg.leaveMeeting({});
 }
+
+function sendChatMessage(text) {
+    ZoomMtg.sendChat({
+        message: text,
+        success: (success) => {
+            console.log('sendChatMessage success', success);
+        },
+        error: (error) => {
+            console.log('sendChatMessage error', error);
+        }
+    });
+}
+
+window.sendChatMessage = sendChatMessage;

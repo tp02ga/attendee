@@ -102,8 +102,7 @@ class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
         return
 
     def send_chat_message(self, text):
-        logger.info(f"send_chat_message called with text = {text}. This is not supported for zoom web")
-        return
+        self.driver.execute_script(f"window?.sendChatMessage({json.dumps(text)})")
 
     def get_staged_bot_join_delay_seconds(self):
         return 5
