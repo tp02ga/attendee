@@ -203,6 +203,27 @@ function startMeeting(signature) {
         }
         window.userManager.singleUserSynced(dataWithState);
     });
+
+
+
+    ZoomMtg.inMeetingServiceListener('onMediaCapturePermissionChange', function (permissionChange) {
+        console.log('onMediaCapturePermissionChange', permissionChange);
+
+        if (permissionChange.allow)
+        {
+            ZoomMtg.mediaCapture({record: "start", success: (success) => {
+                console.log('mediaCapture success', success);
+            }, error: (error) => {
+                console.log('mediaCapture error', error);
+            }});
+
+            window.ws.sendJson({
+                type: 'RecordingPermissionChange',
+                change: 'granted'
+            });
+        }
+        
+    });
 }
 
 function leaveMeeting() {
@@ -222,3 +243,14 @@ function sendChatMessage(text) {
 }
 
 window.sendChatMessage = sendChatMessage;
+
+function askForMediaCapturePermission() {
+    // Ask for media capture permission
+    ZoomMtg.mediaCapturePermission({operate: "request", success: (success) => {
+        console.log('mediaCapturePermission success', success);
+    }, error: (error) => {
+        console.log('mediaCapturePermission error', error);
+    }});
+}
+
+window.askForMediaCapturePermission = askForMediaCapturePermission;

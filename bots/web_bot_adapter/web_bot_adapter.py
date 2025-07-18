@@ -92,6 +92,7 @@ class WebBotAdapter(BotAdapter):
 
         self.silence_detection_activated = False
         self.joined_at = None
+        self.recording_permission_granted_at = None
 
         self.ready_to_send_chat_messages = False
 
@@ -303,6 +304,10 @@ class WebBotAdapter(BotAdapter):
                                 self.handle_removed_from_meeting()
                             if json_data.get("change") == "meeting_ended":
                                 self.handle_meeting_ended()
+
+                        elif json_data.get("type") == "RecordingPermissionChange":
+                            if json_data.get("change") == "granted":
+                                self.after_bot_can_record_meeting()
 
                 elif message_type == 2:  # VIDEO
                     self.process_video_frame(message)
@@ -571,14 +576,25 @@ class WebBotAdapter(BotAdapter):
 
             sleep(1)
 
-        self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
-        self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
 
+        self.after_bot_joined_meeting()
+        self.subclass_specific_after_bot_joined_meeting()
+        
+
+    def after_bot_joined_meeting(self):
+        self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
+        self.joined_at = time.time()
+        self.update_only_one_participant_in_meeting_at()
+
+    def after_bot_can_record_meeting(self):
+        if self.recording_permission_granted_at is not None:
+            return
+
+        self.recording_permission_granted_at = time.time()
+        self.send_message_callback({"message": self.Messages.BOT_RECORDING_PERMISSION_GRANTED})
         self.send_frames = True
         self.driver.execute_script("window.ws?.enableMediaSending();")
         self.first_buffer_timestamp_ms_offset = self.driver.execute_script("return performance.timeOrigin;")
-        self.joined_at = time.time()
-        self.update_only_one_participant_in_meeting_at()
 
         if self.start_recording_screen_callback:
             sleep(2)
@@ -587,6 +603,7 @@ class WebBotAdapter(BotAdapter):
             self.start_recording_screen_callback(self.display_var_for_debug_recording)
 
         self.media_sending_enable_timestamp_ms = time.time() * 1000
+
 
     def leave(self):
         if self.left_meeting:
@@ -734,3 +751,7 @@ class WebBotAdapter(BotAdapter):
     # Sub-classes can override this to add class-specific initial data code
     def subclass_specific_initial_data_code(self):
         return ""
+
+    # Sub-classes can override this to add class-specific after bot joined meeting code
+    def subclass_specific_after_bot_joined_meeting(self):
+        pass

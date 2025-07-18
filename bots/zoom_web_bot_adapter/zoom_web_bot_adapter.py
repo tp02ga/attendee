@@ -116,3 +116,6 @@ class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
                 meetingPassword: {json.dumps(self.meeting_password)},
             }}
         """
+
+    def subclass_specific_after_bot_joined_meeting(self):
+        self.driver.execute_script("window?.askForMediaCapturePermission()")
