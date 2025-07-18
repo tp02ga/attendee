@@ -104,6 +104,15 @@ function startMeeting(signature) {
     }
     })
 
+    ZoomMtg.inMeetingServiceListener('onActiveSpeaker', function (data) {
+        console.log('onActiveSpeaker', data);
+        // Use active speaker events to determine if we are silent or not
+        window.ws.sendJson({
+            type: 'SilenceStatus',
+            isSilent: false
+        });
+    });
+
     ZoomMtg.inMeetingServiceListener('onJoinSpeed', function (data) {
         console.log('onJoinSpeed', data);
     });
@@ -118,8 +127,24 @@ function startMeeting(signature) {
         transcriptMessageFinalizationManager.addMessage(item);
     });
 
-    ZoomMtg.inMeetingServiceListener('onReceiveChatMsg', function (data) {
-    console.log('onReceiveChatMsg', data);
+    ZoomMtg.inMeetingServiceListener('onReceiveChatMsg', function (chatMessage) {
+        console.log('onReceiveChatMsg', chatMessage);
+
+        try {
+            window.ws.sendJson({
+                type: 'ChatMessage',
+                message_uuid: chatMessage.content.messageId,
+                participant_uuid: chatMessage.senderId,
+                timestamp: Math.floor(parseInt(chatMessage.content.t) / 1000),
+                text: chatMessage.content.text,
+            });
+        }
+        catch (error) {
+            window.ws.sendJson({
+                type: 'ChatMessageError',
+                error: error.message
+            });
+        }
     });
 
     ZoomMtg.inMeetingServiceListener('onUserJoin', function (data) {
