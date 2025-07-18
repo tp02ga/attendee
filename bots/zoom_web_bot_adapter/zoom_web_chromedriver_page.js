@@ -16,6 +16,40 @@ var leaveUrl = 'https://zoom.us'
 var registrantToken = ''
 var zakToken = ''
 
+class TranscriptMessageFinalizationManager {
+    constructor() {
+      this._activeMessages = new Map();  // Map<userId, message>
+    }
+
+    sendMessage(message) {
+        const messageConverted = {
+            deviceId: message.userId,
+            captionId: message.msgId,
+            text: message.text,
+            isFinal: !!message.done
+        };
+        
+        window.ws.sendClosedCaptionUpdate(messageConverted);
+    }
+  
+    addMessage(message) {
+        const existingMessageForUser = this._activeMessages.get(message.userId);
+        if (existingMessageForUser) {
+            if (existingMessageForUser.msgId !== message.msgId) {
+                // If there is an existing active message for this user with a different messageId, then we need to finalize the old message
+                this.sendMessage({...existingMessageForUser, done: true});
+                this._activeMessages.delete(message.userId);
+            }
+        }
+        this._activeMessages.set(message.userId, message);
+        this.sendMessage(message);
+        if (message.done)
+            this._activeMessages.delete(message.userId);
+    }
+}
+
+const transcriptMessageFinalizationManager = new TranscriptMessageFinalizationManager();
+
 function joinMeeting() {
     const signature = zoomInitialData.signature;
     startMeeting(signature);
@@ -81,14 +115,7 @@ function startMeeting(signature) {
     ZoomMtg.inMeetingServiceListener('onReceiveTranscriptionMsg', function (item) {
         console.log('onReceiveTranscriptionMsg', item);
 
-        const itemConverted = {
-            deviceId: item.userId,
-            captionId: item.msgId,
-            text: item.text,
-            isFinal: !!item.done
-        };
-        
-        window.ws.sendClosedCaptionUpdate(itemConverted);
+        transcriptMessageFinalizationManager.addMessage(item);
     });
 
     ZoomMtg.inMeetingServiceListener('onReceiveChatMsg', function (data) {

@@ -59,12 +59,22 @@ class ZoomWebUIMethods:
         
         # Then see if it created a modal to select the caption language. If so, just click the save button
         try:
-            save_button = WebDriverWait(self.driver, 3).until(
+            save_button = WebDriverWait(self.driver, 2).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'zm-btn--primary') and contains(text(), 'Save')]"))
             )
             self.driver.execute_script("arguments[0].click();", save_button)
         except TimeoutException:
-            # No modal appeared or Save button not found within 3 seconds, continue
+            # No modal appeared or Save button not found within 2 seconds, continue
+            pass
+
+        # Then see if it created a modal to confirm that the meeting is being transcribed.
+        try:
+            save_button = WebDriverWait(self.driver, 2).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'zm-btn--primary') and contains(text(), 'OK')]"))
+            )
+            self.driver.execute_script("arguments[0].click();", save_button)
+        except TimeoutException:
+            # No modal appeared or OK button not found within 2 seconds, continue
             pass
 
         self.ready_to_show_bot_image()
