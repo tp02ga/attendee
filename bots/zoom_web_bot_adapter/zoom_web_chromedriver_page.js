@@ -31,6 +31,7 @@ function startMeeting(signature) {
     leaveOnPageUnload: true,
     disableZoomLogo: true,
     disablePreview: true,
+    //isSupportCC: true,
     //disableJoinAudio: true,
     //isSupportAV: false,
     success: (success) => {
@@ -77,8 +78,17 @@ function startMeeting(signature) {
         console.log('onMeetingStatus', data);
     });
 
-    ZoomMtg.inMeetingServiceListener('onReceiveTranscriptionMsg', function (data) {
-    console.log('onReceiveTranscriptionMsg', data);
+    ZoomMtg.inMeetingServiceListener('onReceiveTranscriptionMsg', function (item) {
+        console.log('onReceiveTranscriptionMsg', item);
+
+        const itemConverted = {
+            deviceId: item.userId,
+            captionId: item.msgId,
+            text: item.text,
+            isFinal: !!item.done
+        };
+        
+        window.ws.sendClosedCaptionUpdate(itemConverted);
     });
 
     ZoomMtg.inMeetingServiceListener('onReceiveChatMsg', function (data) {
@@ -87,6 +97,10 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onUserJoin', function (data) {
         console.log('onUserJoin', data);
+        if (!data.userId) {
+            console.log('onUserJoin: no userId, skipping');
+            return;
+        }
         const dataWithState = {
             ...data,
             state: 'active'
@@ -96,6 +110,10 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onUserLeave', function (data) {
         console.log('onUserLeave', data);
+        if (!data.userId) {
+            console.log('onUserLeave: no userId, skipping');
+            return;
+        }
         // reasonCode Return the reason the current user left.
         const reasonCode = {
             OTHER: 0, // Other reason.
@@ -118,6 +136,10 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onUserUpdate', function (data) {
         console.log('onUserUpdate', data);
+        if (!data.userId) {
+            console.log('onUserUpdate: no userId, skipping');
+            return;
+        }
         const dataWithState = {
             ...data,
             state: 'active'
