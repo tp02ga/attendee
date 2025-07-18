@@ -60,53 +60,84 @@ function startMeeting(signature) {
   document.getElementById('zmmtg-root').style.display = 'block'
 
     ZoomMtg.init({
-    leaveUrl: leaveUrl,
-    patchJsMedia: true,
-    leaveOnPageUnload: true,
-    disableZoomLogo: true,
-    disablePreview: true,
-    //isSupportCC: true,
-    //disableJoinAudio: true,
-    //isSupportAV: false,
-    success: (success) => {
-        console.log(success)
-        ZoomMtg.join({
-        signature: signature,
-        sdkKey: sdkKey,
-        meetingNumber: meetingNumber,
-        passWord: passWord,
-        userName: userName,
-        userEmail: userEmail,
-        tk: registrantToken,
-        zak: zakToken,
+        leaveUrl: leaveUrl,
+        patchJsMedia: true,
+        leaveOnPageUnload: true,
+        disableZoomLogo: true,
+        disablePreview: true,
+        //isSupportCC: true,
+        //disableJoinAudio: true,
+        //isSupportAV: false,
         success: (success) => {
-            console.log(success);
-            /*
-            We don't need to do this because user events include the self attribute.
-            ZoomMtg.getCurrentUser({
-                success: (currentUser) => {
-                    console.log('ZoomMtg.getCurrentUser()', currentUser);
-                    currentUser = currentUser.result.currentUser;
-                },
-                error: (error) => {
-                    console.log('ZoomMtg.getCurrentUser() error', error);
+            console.log('startMeeting success');
+            console.log(success)
+
+            // Hacky interception of the console.log emitted by the SDK to handle join failure errors
+            // There doesn't seem to be any way to get them through the SDK's listeners or callbacks.
+            const rawConsoleError = console.log;
+            console.log = function firstArgIsMsg(msg, code, reason, ...rest) {
+                try {
+                    if (
+                        typeof msg === 'string' &&
+                        msg.startsWith('join error code:') &&
+                        typeof code === 'number' &&
+                        typeof reason === 'string'
+                    )
+                        handleJoinFailureFromConsoleIntercept(code, reason);
                 }
+                catch (error) {
+                }
+                // still print through to the real console
+                rawConsoleError.apply(console, [msg, code, reason, ...rest]);
+            };
+
+            ZoomMtg.join({
+            signature: signature,
+            sdkKey: sdkKey,
+            meetingNumber: meetingNumber,
+            passWord: passWord,
+            userName: userName,
+            userEmail: userEmail,
+            tk: registrantToken,
+            zak: zakToken,
+            success: (success) => {
+                console.log('join success');
+                console.log(success);
+
+                /*
+                We don't need to do this because user events include the self attribute.
+                ZoomMtg.getCurrentUser({
+                    success: (currentUser) => {
+                        console.log('ZoomMtg.getCurrentUser()', currentUser);
+                        currentUser = currentUser.result.currentUser;
+                    },
+                    error: (error) => {
+                        console.log('ZoomMtg.getCurrentUser() error', error);
+                    }
+                })
+                */
+                // We are ready to send chat messages once we join
+                window.ws.sendJson({
+                    type: 'ChatStatusChange',
+                    change: 'ready_to_send'
+                });
+            },
+            error: (error) => {
+                console.log('join error');
+                console.log(error);
+
+                window.ws.sendJson({
+                    type: 'MeetingStatusChange',
+                    change: 'failed_to_join',
+                    reason: error
+                });
+            },
             })
-            */
-            // We are ready to send chat messages once we join
-            window.ws.sendJson({
-                type: 'ChatStatusChange',
-                change: 'ready_to_send'
-            });
         },
         error: (error) => {
+            console.log('startMeeting error');
             console.log(error)
-        },
-        })
-    },
-    error: (error) => {
-        console.log(error)
-    }
+        }
     })
 
     ZoomMtg.inMeetingServiceListener('onActiveSpeaker', function (data) {
@@ -223,6 +254,18 @@ function startMeeting(signature) {
             });
         }
         
+    });
+}
+
+function handleJoinFailureFromConsoleIntercept(code, reason) {
+    window.ws.sendJson({
+        type: 'MeetingStatusChange',
+        change: 'failed_to_join',
+        reason: {
+            errorCode: code,
+            errorMessage: reason,
+            method: 'join'
+        }
     });
 }
 

@@ -119,3 +119,24 @@ class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
 
     def subclass_specific_after_bot_joined_meeting(self):
         self.driver.execute_script("window?.askForMediaCapturePermission()")
+
+    def subclass_specific_handle_failed_to_join(self, reason):
+        if reason.get("method") != "join":
+            return
+
+        # Special case for external meeting issue
+        if reason.get("errorCode") == 4011:
+            self.send_message_callback(
+                {
+                    "message": self.Messages.ZOOM_MEETING_STATUS_FAILED_UNABLE_TO_JOIN_EXTERNAL_MEETING,
+                    "zoom_result_code": str(reason.get("errorCode")) + ": " + str(reason.get("errorMessage")),
+                }
+            )
+            return
+
+        self.send_message_callback(
+                {
+                    "message": self.Messages.ZOOM_MEETING_STATUS_FAILED,
+                    "zoom_result_code": str(reason.get("errorCode")) + ": " + str(reason.get("errorMessage")),
+                }
+            )

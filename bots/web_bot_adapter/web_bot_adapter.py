@@ -230,6 +230,10 @@ class WebBotAdapter(BotAdapter):
         self.left_meeting = True
         self.send_message_callback({"message": self.Messages.MEETING_ENDED})
 
+    def handle_failed_to_join(self, reason):
+        logger.info(f"failed to join meeting with reason {reason}")
+        self.subclass_specific_handle_failed_to_join(reason)
+
     def handle_caption_update(self, json_data):
         if self.recording_paused:
             return
@@ -304,6 +308,8 @@ class WebBotAdapter(BotAdapter):
                                 self.handle_removed_from_meeting()
                             if json_data.get("change") == "meeting_ended":
                                 self.handle_meeting_ended()
+                            if json_data.get("change") == "failed_to_join":
+                                self.handle_failed_to_join(json_data.get("reason"))
 
                         elif json_data.get("type") == "RecordingPermissionChange":
                             if json_data.get("change") == "granted":
@@ -754,4 +760,8 @@ class WebBotAdapter(BotAdapter):
 
     # Sub-classes can override this to add class-specific after bot joined meeting code
     def subclass_specific_after_bot_joined_meeting(self):
+        pass
+
+    # Sub-classes can override this to handle class-specific failed to join issues
+    def subclass_specific_handle_failed_to_join(self, reason):
         pass
