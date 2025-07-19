@@ -42,7 +42,7 @@ def get_openai_model_enum():
     return default_models
 
 
-from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
+from .utils import is_valid_png, meeting_type_from_url, transcription_provider_from_bot_creation_data
 
 # Define the schema once
 BOT_IMAGE_SCHEMA = {
@@ -720,9 +720,13 @@ class CreateBotSerializer(serializers.Serializer):
         meeting_type = meeting_type_from_url(meeting_url)
         use_zoom_web_adapter = self.initial_data.get("zoom_settings", {}).get("sdk", "native") == "web"
 
+        # Set a default transcription_settings value if nothing given
         if value is None:
             if meeting_type == MeetingTypes.ZOOM:
-                value = {"deepgram": {"language": "multi"}}
+                if use_zoom_web_adapter:
+                    value = {"meeting_closed_captions": {}}
+                else:
+                    value = {"deepgram": {"language": "multi"}}
             elif meeting_type == MeetingTypes.GOOGLE_MEET:
                 value = {"meeting_closed_captions": {}}
             elif meeting_type == MeetingTypes.TEAMS:
@@ -739,16 +743,18 @@ class CreateBotSerializer(serializers.Serializer):
         if "deepgram" in value and ("language" not in value["deepgram"] or value["deepgram"]["language"] is None):
             value["deepgram"]["language"] = "multi"
 
+        initial_data_with_value = {**self.initial_data, "transcription_settings": value}
+
         if meeting_type == MeetingTypes.TEAMS:
-            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+            if transcription_provider_from_bot_creation_data(initial_data_with_value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
 
         if meeting_type == MeetingTypes.ZOOM and use_zoom_web_adapter:
-            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+            if transcription_provider_from_bot_creation_data(initial_data_with_value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Zoom when using the web SDK. Please set 'zoom_settings.sdk' to 'native' in the bot creation request."})
 
         if meeting_type == MeetingTypes.ZOOM and not use_zoom_web_adapter:
-            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+            if transcription_provider_from_bot_creation_data(initial_data_with_value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom when using the native SDK. Please set 'zoom_settings.sdk' to 'web' in the bot creation request."})
 
         if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):

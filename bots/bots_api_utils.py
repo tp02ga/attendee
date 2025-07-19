@@ -29,7 +29,7 @@ from .models import (
 from .serializers import (
     CreateBotSerializer,
 )
-from .utils import meeting_type_from_url, transcription_provider_from_meeting_url_and_transcription_settings
+from .utils import meeting_type_from_url, transcription_provider_from_bot_creation_data
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
                 bot=bot,
                 recording_type=bot.recording_type(),
                 transcription_type=TranscriptionTypes.NON_REALTIME,
-                transcription_provider=transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, transcription_settings),
+                transcription_provider=transcription_provider_from_bot_creation_data(serializer.validated_data),
                 is_default_recording=True,
             )
 
