@@ -133,6 +133,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     debug_settings = serializer.validated_data["debug_settings"]
     automatic_leave_settings = serializer.validated_data["automatic_leave_settings"]
     teams_settings = serializer.validated_data["teams_settings"]
+    zoom_settings = serializer.validated_data["zoom_settings"]
     bot_image = serializer.validated_data["bot_image"]
     bot_chat_message = serializer.validated_data["bot_chat_message"]
     metadata = serializer.validated_data["metadata"]
@@ -150,6 +151,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
         "debug_settings": debug_settings,
         "automatic_leave_settings": automatic_leave_settings,
         "teams_settings": teams_settings,
+        "zoom_settings": zoom_settings,
         "websocket_settings": websocket_settings,
         "callback_settings": callback_settings,
     }

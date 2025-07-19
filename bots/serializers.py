@@ -315,6 +315,25 @@ class TeamsSettingsJSONField(serializers.JSONField):
     {
         "type": "object",
         "properties": {
+            "sdk": {
+                "type": "string",
+                "enum": ["web", "native"],
+                "description": "The Zoom SDK to use for the bot. Use 'web' when you need closed caption based transcription.",
+                "default": "native",
+            },
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+)
+class ZoomSettingsJSONField(serializers.JSONField):
+    pass
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "properties": {
             "silence_timeout_seconds": {
                 "type": "integer",
                 "description": "Number of seconds of continuous silence after which the bot should leave",
@@ -703,6 +722,7 @@ class CreateBotSerializer(serializers.Serializer):
     def validate_transcription_settings(self, value):
         meeting_url = self.initial_data.get("meeting_url")
         meeting_type = meeting_type_from_url(meeting_url)
+        use_zoom_web_adapter = self.initial_data.get("zoom_settings", {}).get("sdk", "native") == "web"
 
         if value is None:
             if meeting_type == MeetingTypes.ZOOM:
@@ -727,9 +747,13 @@ class CreateBotSerializer(serializers.Serializer):
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
 
-        #if meeting_type == MeetingTypes.ZOOM:
-         #   if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
-         #       raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
+        if meeting_type == MeetingTypes.ZOOM and use_zoom_web_adapter:
+            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+                raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Zoom when using the web SDK. Please set 'zoom_settings.sdk' to 'native' in the bot creation request."})
+
+        if meeting_type == MeetingTypes.ZOOM and not use_zoom_web_adapter:
+            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+                raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom when using the native SDK. Please set 'zoom_settings.sdk' to 'web' in the bot creation request."})
 
         if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
             raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
@@ -899,6 +923,41 @@ class CreateBotSerializer(serializers.Serializer):
 
         return value
 
+    zoom_settings = ZoomSettingsJSONField(
+        help_text="The Zoom-specific settings for the bot. Use 'web' SDK when you want closed caption based transcription.",
+        required=False,
+        default={"sdk": "native"},
+    )
+
+    ZOOM_SETTINGS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "sdk": {"type": "string", "enum": ["web", "native"]},
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+    def validate_zoom_settings(self, value):
+        if value is None:
+            return value
+
+        # Define defaults
+        defaults = {"sdk": "native"}
+
+        try:
+            jsonschema.validate(instance=value, schema=self.ZOOM_SETTINGS_SCHEMA)
+        except jsonschema.exceptions.ValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+        # If at least one attribute is provided, apply defaults for any missing attributes
+        if value:
+            for key, default_value in defaults.items():
+                if key not in value:
+                    value[key] = default_value
+
+        return value
+
     debug_settings = DebugSettingsJSONField(
         help_text="The debug settings for the bot, e.g. {'create_debug_recording': True}.",
         required=False,
@@ -990,6 +1049,25 @@ class CreateBotSerializer(serializers.Serializer):
             raise serializers.ValidationError("join_at cannot be in the past")
 
         return value
+
+    def validate(self, data):
+        """Validate that no unexpected fields are provided."""
+        # Get all the field names defined in this serializer
+        expected_fields = set(self.fields.keys())
+        
+        # Get all the fields provided in the input data
+        provided_fields = set(self.initial_data.keys())
+        
+        # Check for unexpected fields
+        unexpected_fields = provided_fields - expected_fields
+        
+        if unexpected_fields:
+            raise serializers.ValidationError(
+                f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. "
+                f"Allowed fields are: {', '.join(sorted(expected_fields))}"
+            )
+        
+        return data
 
 
 class BotSerializer(serializers.ModelSerializer):
