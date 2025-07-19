@@ -65,6 +65,7 @@ function startMeeting(signature) {
         leaveOnPageUnload: true,
         disableZoomLogo: true,
         disablePreview: true,
+        enableWaitingRoomPreview: false,
         //isSupportCC: true,
         //disableJoinAudio: true,
         //isSupportAV: false,
@@ -75,7 +76,11 @@ function startMeeting(signature) {
             // Hacky interception of the console.log emitted by the SDK to handle join failure errors
             // There doesn't seem to be any way to get them through the SDK's listeners or callbacks.
             const rawConsoleError = console.log;
-            console.log = function firstArgIsMsg(msg, code, reason, ...rest) {
+            console.log = function firstArgIsMsg(...args) {
+                const msg = args[0];
+                const code = args[1];
+                const reason = args[2];
+
                 try {
                     if (
                         typeof msg === 'string' &&
@@ -88,7 +93,7 @@ function startMeeting(signature) {
                 catch (error) {
                 }
                 // still print through to the real console
-                rawConsoleError.apply(console, [msg, code, reason, ...rest]);
+                rawConsoleError.apply(console, args);
             };
 
             ZoomMtg.join({
@@ -116,11 +121,6 @@ function startMeeting(signature) {
                     }
                 })
                 */
-                // We are ready to send chat messages once we join
-                window.ws.sendJson({
-                    type: 'ChatStatusChange',
-                    change: 'ready_to_send'
-                });
             },
             error: (error) => {
                 console.log('join error');
@@ -151,6 +151,19 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onJoinSpeed', function (data) {
         console.log('onJoinSpeed', data);
+        // This means that the user was initially in the waiting room
+        if (data.level == 6) {
+            console.log('onJoinSpeed: level 6, user was in waiting room');
+        }
+        //joinMeeting
+        // Level 13 means "user start join audio" which means we actually got into the meeting and are out of the waiting room
+        if (data.level == 13)
+        {
+            window.ws.sendJson({
+                type: 'ChatStatusChange',
+                change: 'ready_to_send'
+            });
+        }
     });
 
     ZoomMtg.inMeetingServiceListener('onMeetingStatus', function (data) {
