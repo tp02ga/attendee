@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException
+from bots.web_bot_adapter.ui_methods import UiCouldNotJoinMeetingWaitingForHostException, UiCouldNotJoinMeetingWaitingRoomTimeoutException, UiCouldNotLocateElementException, UiIncorrectPasswordException
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,21 @@ class ZoomWebUIMethods:
                 logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
                 raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", step)
 
+    def check_if_passcode_incorrect(self):
+        passcode_incorrect_element = None
+        try:
+            passcode_incorrect_element = self.driver.find_element(
+                By.XPATH,
+                '//*[contains(text(), "Passcode wrong")]',
+            )
+        except:
+            return
+
+        if passcode_incorrect_element and passcode_incorrect_element.is_displayed():
+            logger.info("Passcode incorrect. Raising UiIncorrectPasswordException")
+            raise UiIncorrectPasswordException("Passcode incorrect")
+
+
     def click_join_audio_button(self):
         num_attempts_to_look_for_join_audio_button = (self.automatic_leave_configuration.waiting_room_timeout_seconds + self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds) * 10
         logger.info("Waiting for join audio button...")
@@ -132,6 +147,8 @@ class ZoomWebUIMethods:
                 self.driver.execute_script("arguments[0].click();", join_audio_button)
                 return
             except TimeoutException as e:
+                self.check_if_passcode_incorrect()
+
                 previous_is_waiting_for_host_to_start_meeting = is_waiting_for_host_to_start_meeting
                 try:
                     is_waiting_for_host_to_start_meeting = self.driver.find_element(
@@ -140,8 +157,6 @@ class ZoomWebUIMethods:
                     ).is_displayed()
                 except:
                     is_waiting_for_host_to_start_meeting = False
-
-                logger.info(f"is_waiting_for_host_to_start_meeting={is_waiting_for_host_to_start_meeting}")
 
                 # If we switch from waiting for the host to start the meeting to waiting to be admitted to the meeting, then we need to reset the timeout
                 if previous_is_waiting_for_host_to_start_meeting != is_waiting_for_host_to_start_meeting:
