@@ -236,7 +236,10 @@ class BotController:
     def get_per_participant_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return 32000
+            if self.bot_in_db.use_zoom_web_adapter():
+                return 48000
+            else:
+                return 32000
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return 48000
         elif meeting_type == MeetingTypes.TEAMS:
@@ -245,7 +248,10 @@ class BotController:
     def mixed_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return 32000
+            if self.bot_in_db.use_zoom_web_adapter():
+                return 48000
+            else:
+                return 32000
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return 48000
         elif meeting_type == MeetingTypes.TEAMS:
@@ -254,7 +260,10 @@ class BotController:
     def get_audio_format(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return GstreamerPipeline.AUDIO_FORMAT_PCM
+            if self.bot_in_db.use_zoom_web_adapter():
+                return GstreamerPipeline.AUDIO_FORMAT_FLOAT
+            else:
+                return GstreamerPipeline.AUDIO_FORMAT_PCM
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return GstreamerPipeline.AUDIO_FORMAT_FLOAT
         elif meeting_type == MeetingTypes.TEAMS:
