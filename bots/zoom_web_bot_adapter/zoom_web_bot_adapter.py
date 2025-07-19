@@ -1,23 +1,23 @@
-import logging
 import json
-import re
-from urllib.parse import urlparse, parse_qs
-from datetime import datetime
-import jwt
+import logging
 import os
+import re
+from datetime import datetime
+from urllib.parse import parse_qs, urlparse
 
-from selenium.webdriver.common.keys import Keys
+import jwt
 
 from bots.web_bot_adapter import WebBotAdapter
 from bots.zoom_web_bot_adapter.zoom_web_ui_methods import ZoomWebUIMethods
 
 logger = logging.getLogger(__name__)
 
+
 def zoom_meeting_sdk_signature(
     meeting_number: str | int,
     role: int,
     *,
-    expiration_seconds: int = 2 * 60 * 60,      # default 2 h
+    expiration_seconds: int = 2 * 60 * 60,  # default 2 h
     video_webrtc_mode: int | None = None,
     sdk_key: str | None = None,
     sdk_secret: str | None = None,
@@ -39,7 +39,7 @@ def zoom_meeting_sdk_signature(
     {"signature": "<jwt>", "sdkKey": "<sdk_key>"}
     """
 
-    sdk_key    = sdk_key    or os.getenv("ZOOM_MEETING_SDK_KEY")
+    sdk_key = sdk_key or os.getenv("ZOOM_MEETING_SDK_KEY")
     sdk_secret = sdk_secret or os.getenv("ZOOM_MEETING_SDK_SECRET")
     if not sdk_key or not sdk_secret:
         raise RuntimeError("SDK key/secret missing (env vars or arguments)")
@@ -48,12 +48,12 @@ def zoom_meeting_sdk_signature(
     exp = iat + expiration_seconds
 
     payload = {
-        "appKey":   sdk_key,
-        "sdkKey":   sdk_key,
-        "mn":       str(meeting_number),
-        "role":     role,
-        "iat":      iat,
-        "exp":      exp,
+        "appKey": sdk_key,
+        "sdkKey": sdk_key,
+        "mn": str(meeting_number),
+        "role": role,
+        "iat": iat,
+        "exp": exp,
         "tokenExp": exp,
     }
     if video_webrtc_mode is not None:
@@ -61,6 +61,7 @@ def zoom_meeting_sdk_signature(
 
     token = jwt.encode(payload, sdk_secret, algorithm="HS256")
     return {"signature": token, "sdkKey": sdk_key}
+
 
 def parse_join_url(join_url):
     # Parse the URL into components
@@ -75,6 +76,7 @@ def parse_join_url(join_url):
     password = query_params.get("pwd", [None])[0]
 
     return (meeting_id, password)
+
 
 class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
     def __init__(
@@ -135,8 +137,8 @@ class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
             return
 
         self.send_message_callback(
-                {
-                    "message": self.Messages.ZOOM_MEETING_STATUS_FAILED,
-                    "zoom_result_code": str(reason.get("errorCode")) + ": " + str(reason.get("errorMessage")),
-                }
-            )
+            {
+                "message": self.Messages.ZOOM_MEETING_STATUS_FAILED,
+                "zoom_result_code": str(reason.get("errorCode")) + ": " + str(reason.get("errorMessage")),
+            }
+        )

@@ -582,10 +582,8 @@ class WebBotAdapter(BotAdapter):
 
             sleep(1)
 
-
         self.after_bot_joined_meeting()
         self.subclass_specific_after_bot_joined_meeting()
-        
 
     def after_bot_joined_meeting(self):
         self.send_message_callback({"message": self.Messages.BOT_JOINED_MEETING})
@@ -609,7 +607,6 @@ class WebBotAdapter(BotAdapter):
             self.start_recording_screen_callback(self.display_var_for_debug_recording)
 
         self.media_sending_enable_timestamp_ms = time.time() * 1000
-
 
     def leave(self):
         if self.left_meeting:

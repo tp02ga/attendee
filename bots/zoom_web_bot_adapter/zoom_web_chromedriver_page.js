@@ -15,6 +15,7 @@ var zakToken = ''
 var leaveUrl = 'https://zoom.us'
 var registrantToken = ''
 var zakToken = ''
+var userEnteredMeeting = false;
 
 class TranscriptMessageFinalizationManager {
     constructor() {
@@ -159,6 +160,7 @@ function startMeeting(signature) {
         // Level 13 means "user start join audio" which means we actually got into the meeting and are out of the waiting room
         if (data.level == 13)
         {
+            userEnteredMeeting = true;
             window.ws.sendJson({
                 type: 'ChatStatusChange',
                 change: 'ready_to_send'
@@ -171,10 +173,12 @@ function startMeeting(signature) {
 
         // 3 means disconnected
         if (data.meetingStatus === 3) {
-            window.ws.sendJson({
-                type: 'MeetingStatusChange',
-                change: 'meeting_ended'
-            });
+            // Only send the message if we've got into the meeting
+            if (userEnteredMeeting)
+                window.ws.sendJson({
+                    type: 'MeetingStatusChange',
+                    change: 'meeting_ended'
+                });
         }
     });
 
