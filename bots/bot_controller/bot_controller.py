@@ -173,6 +173,7 @@ class BotController:
             video_frame_size=self.bot_in_db.recording_dimensions(),
             zoom_client_id=zoom_oauth_credentials["client_id"],
             zoom_client_secret=zoom_oauth_credentials["client_secret"],
+            zoom_closed_captions_language=self.bot_in_db.zoom_closed_captions_language(),
         )
 
     def get_zoom_bot_adapter(self):

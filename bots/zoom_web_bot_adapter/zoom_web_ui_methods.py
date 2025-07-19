@@ -4,6 +4,7 @@ import time
 
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -60,6 +61,8 @@ class ZoomWebUIMethods:
         your_caption_settings_grouping_show_captions_button = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[aria-label='Your caption settings grouping Show Captions']")))
         logger.info("Your caption settings grouping Show Captions button found, clicking")
         self.driver.execute_script("arguments[0].click();", your_caption_settings_grouping_show_captions_button)
+
+        self.set_zoom_closed_captions_language()
 
         # Then see if it created a modal to select the caption language. If so, just click the save button
         try:
@@ -179,3 +182,67 @@ class ZoomWebUIMethods:
                     "click_join_audio_button",
                     e,
                 )
+
+    def set_zoom_closed_captions_language(self):
+        if not self.zoom_closed_captions_language:
+            return
+
+        logger.info(f"Setting closed captions language to {self.zoom_closed_captions_language}")
+        
+        # Find the transcription language input element
+        try:
+            logger.info("Waiting for transcription language input")
+            language_input = None
+            try:
+                language_input = WebDriverWait(self.driver, 2).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input"))
+                )
+            except TimeoutException:
+                logger.warning("Could not find transcription language input element")
+            
+            if not language_input:
+                language_input = self.retrieve_language_input_from_bottom_panel()
+            logger.info("Transcription language input found, focusing and typing language")
+            
+            # Focus on the input element and type the language
+            language_input.click()
+            language_input.clear()  # Clear any existing text
+            language_input.send_keys(self.zoom_closed_captions_language)
+            language_input.send_keys(Keys.RETURN)  # Press Enter
+            
+            logger.info(f"Successfully set closed captions language to {self.zoom_closed_captions_language}")
+        except TimeoutException:
+            logger.warning("Could not find transcription language input element")
+        except Exception as e:
+            logger.warning(f"Error setting transcription language: {e}")
+
+    def retrieve_language_input_from_bottom_panel(self):
+        # Then find a button with the arial-label "More meeting control " and click it
+        logger.info("Waiting for more meeting control button")
+        more_meeting_control_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[aria-label='More meeting control']")))
+        logger.info("More meeting control button found, clicking")
+        self.driver.execute_script("arguments[0].click();", more_meeting_control_button)
+
+        # Then find an <a> tag with the arial label "Captions" and click it
+        logger.info("Waiting for captions button")
+        captions_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[aria-label='Captions']")))
+        logger.info("Captions button found, clicking")
+        self.driver.execute_script("arguments[0].click();", captions_button)
+
+        # Then find an <a> tag with the arial label "Your caption settings grouping Show Captions" and click it
+        logger.info("Waiting for your caption settings grouping Host controls grouping My Caption Language")
+        host_controls_grouping_my_caption_language_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[aria-label='Host controls grouping My Caption Language']")))
+        logger.info("Host controls grouping My Caption Language button found, clicking")
+        self.driver.execute_script("arguments[0].click();", host_controls_grouping_my_caption_language_button)
+
+        # Find the <span> tag with the text Arabic and click it
+        logger.info("Waiting for English button")
+        english_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.XPATH, "//span[text()='English']")))
+        logger.info("English button found, clicking")
+        self.driver.execute_script("arguments[0].click();", english_button)
+
+        language_input = WebDriverWait(self.driver, 1).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input"))
+        )
+
+        return language_input

@@ -163,6 +163,11 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "string",
                         "description": "The language code for Teams closed captions (e.g. 'en-us'). This will change the closed captions language for everyone in the meeting, not just the bot. See here for available languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing",
                     },
+                    "zoom_language": {
+                        "type": "string",
+                        "enum": ['Arabic', 'Cantonese', 'Chinese (Simplified)', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'French (Canada)', 'German', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Malay', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Spanish', 'Swedish', 'Tagalog', 'Tamil', 'Telugu', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese'],
+                        "description": "The language to use for Zoom closed captions. (e.g. 'Spanish'). This will change the closed captions language for everyone in the meeting, not just the bot."
+                    },
                     "merge_consecutive_captions": {"type": "boolean", "description": "The captions from Google Meet can end in the middle of a sentence, which is not ideal. This setting deals with that by merging consecutive captions for a given speaker that occur close together in time. Turned off by default."},
                 },
                 "additionalProperties": False,
@@ -653,6 +658,10 @@ class CreateBotSerializer(serializers.Serializer):
                         "type": "string",
                         "enum": ["ar-sa", "ar-ae", "bg-bg", "ca-es", "zh-cn", "zh-hk", "zh-tw", "hr-hr", "cs-cz", "da-dk", "nl-be", "nl-nl", "en-au", "en-ca", "en-in", "en-nz", "en-gb", "en-us", "et-ee", "fi-fi", "fr-ca", "fr-fr", "de-de", "de-ch", "el-gr", "he-il", "hi-in", "hu-hu", "id-id", "it-it", "ja-jp", "ko-kr", "lv-lv", "lt-lt", "nb-no", "pl-pl", "pt-br", "pt-pt", "ro-ro", "ru-ru", "sr-rs", "sk-sk", "sl-si", "es-mx", "es-es", "sv-se", "th-th", "tr-tr", "uk-ua", "vi-vn", "cy-gb"],
                     },
+                    "zoom_language": {
+                        "type": "string",
+                        "enum": ['Arabic', 'Cantonese', 'Chinese (Simplified)', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'French (Canada)', 'German', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Malay', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Spanish', 'Swedish', 'Tagalog', 'Tamil', 'Telugu', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese'],
+                    },
                     "merge_consecutive_captions": {"type": "boolean", "description": "The captions from Google Meet can end in the middle of a sentence, which is not ideal. This setting deals with that by merging consecutive captions for a given speaker that occur close together in time. Turned off by default."},
                 },
                 "required": [],
@@ -718,9 +727,9 @@ class CreateBotSerializer(serializers.Serializer):
             if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
 
-        if meeting_type == MeetingTypes.ZOOM:
-            if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
-                raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
+        #if meeting_type == MeetingTypes.ZOOM:
+         #   if transcription_provider_from_meeting_url_and_transcription_settings(meeting_url, value) == TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
+         #       raise serializers.ValidationError({"transcription_settings": "Closed caption based transcription is not supported for Zoom. Please use Deepgram to transcribe Zoom meetings."})
 
         if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
             raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
