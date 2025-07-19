@@ -134,7 +134,6 @@ class ZoomWebUIMethods:
             logger.info("Passcode incorrect. Raising UiIncorrectPasswordException")
             raise UiIncorrectPasswordException("Passcode incorrect")
 
-
     def click_join_audio_button(self):
         num_attempts_to_look_for_join_audio_button = (self.automatic_leave_configuration.waiting_room_timeout_seconds + self.automatic_leave_configuration.wait_for_host_to_start_meeting_timeout_seconds) * 10
         logger.info("Waiting for join audio button...")
@@ -188,28 +187,26 @@ class ZoomWebUIMethods:
             return
 
         logger.info(f"Setting closed captions language to {self.zoom_closed_captions_language}")
-        
+
         # Find the transcription language input element
         try:
             logger.info("Waiting for transcription language input")
             language_input = None
             try:
-                language_input = WebDriverWait(self.driver, 2).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input"))
-                )
+                language_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input")))
             except TimeoutException:
                 logger.warning("Could not find transcription language input element")
-            
+
             if not language_input:
                 language_input = self.retrieve_language_input_from_bottom_panel()
             logger.info("Transcription language input found, focusing and typing language")
-            
+
             # Focus on the input element and type the language
             language_input.click()
             language_input.clear()  # Clear any existing text
             language_input.send_keys(self.zoom_closed_captions_language)
             language_input.send_keys(Keys.RETURN)  # Press Enter
-            
+
             logger.info(f"Successfully set closed captions language to {self.zoom_closed_captions_language}")
         except TimeoutException:
             logger.warning("Could not find transcription language input element")
@@ -241,8 +238,6 @@ class ZoomWebUIMethods:
         logger.info("English button found, clicking")
         self.driver.execute_script("arguments[0].click();", english_button)
 
-        language_input = WebDriverWait(self.driver, 1).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input"))
-        )
+        language_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input")))
 
         return language_input

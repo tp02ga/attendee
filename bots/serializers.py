@@ -163,11 +163,7 @@ class BotImageSerializer(serializers.Serializer):
                         "type": "string",
                         "description": "The language code for Teams closed captions (e.g. 'en-us'). This will change the closed captions language for everyone in the meeting, not just the bot. See here for available languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing",
                     },
-                    "zoom_language": {
-                        "type": "string",
-                        "enum": ['Arabic', 'Cantonese', 'Chinese (Simplified)', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'French (Canada)', 'German', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Malay', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Spanish', 'Swedish', 'Tagalog', 'Tamil', 'Telugu', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese'],
-                        "description": "The language to use for Zoom closed captions. (e.g. 'Spanish'). This will change the closed captions language for everyone in the meeting, not just the bot."
-                    },
+                    "zoom_language": {"type": "string", "enum": ["Arabic", "Cantonese", "Chinese (Simplified)", "Czech", "Danish", "Dutch", "English", "Estonian", "Finnish", "French", "French (Canada)", "German", "Hebrew", "Hindi", "Hungarian", "Indonesian", "Italian", "Japanese", "Korean", "Malay", "Persian", "Polish", "Portuguese", "Romanian", "Russian", "Spanish", "Swedish", "Tagalog", "Tamil", "Telugu", "Thai", "Turkish", "Ukrainian", "Vietnamese"], "description": "The language to use for Zoom closed captions. (e.g. 'Spanish'). This will change the closed captions language for everyone in the meeting, not just the bot."},
                     "merge_consecutive_captions": {"type": "boolean", "description": "The captions from Google Meet can end in the middle of a sentence, which is not ideal. This setting deals with that by merging consecutive captions for a given speaker that occur close together in time. Turned off by default."},
                 },
                 "additionalProperties": False,
@@ -679,7 +675,7 @@ class CreateBotSerializer(serializers.Serializer):
                     },
                     "zoom_language": {
                         "type": "string",
-                        "enum": ['Arabic', 'Cantonese', 'Chinese (Simplified)', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'French (Canada)', 'German', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Malay', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Spanish', 'Swedish', 'Tagalog', 'Tamil', 'Telugu', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese'],
+                        "enum": ["Arabic", "Cantonese", "Chinese (Simplified)", "Czech", "Danish", "Dutch", "English", "Estonian", "Finnish", "French", "French (Canada)", "German", "Hebrew", "Hindi", "Hungarian", "Indonesian", "Italian", "Japanese", "Korean", "Malay", "Persian", "Polish", "Portuguese", "Romanian", "Russian", "Spanish", "Swedish", "Tagalog", "Tamil", "Telugu", "Thai", "Turkish", "Ukrainian", "Vietnamese"],
                     },
                     "merge_consecutive_captions": {"type": "boolean", "description": "The captions from Google Meet can end in the middle of a sentence, which is not ideal. This setting deals with that by merging consecutive captions for a given speaker that occur close together in time. Turned off by default."},
                 },
@@ -1054,19 +1050,16 @@ class CreateBotSerializer(serializers.Serializer):
         """Validate that no unexpected fields are provided."""
         # Get all the field names defined in this serializer
         expected_fields = set(self.fields.keys())
-        
+
         # Get all the fields provided in the input data
         provided_fields = set(self.initial_data.keys())
-        
+
         # Check for unexpected fields
         unexpected_fields = provided_fields - expected_fields
-        
+
         if unexpected_fields:
-            raise serializers.ValidationError(
-                f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. "
-                f"Allowed fields are: {', '.join(sorted(expected_fields))}"
-            )
-        
+            raise serializers.ValidationError(f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. Allowed fields are: {', '.join(sorted(expected_fields))}")
+
         return data
 
 
