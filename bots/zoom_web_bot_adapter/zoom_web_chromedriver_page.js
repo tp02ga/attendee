@@ -168,6 +168,14 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onMeetingStatus', function (data) {
         console.log('onMeetingStatus', data);
+
+        // 3 means disconnected
+        if (data.meetingStatus === 3) {
+            window.ws.sendJson({
+                type: 'MeetingStatusChange',
+                change: 'meeting_ended'
+            });
+        }
     });
 
     ZoomMtg.inMeetingServiceListener('onReceiveTranscriptionMsg', function (item) {
