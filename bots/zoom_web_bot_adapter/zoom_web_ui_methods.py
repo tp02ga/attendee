@@ -94,6 +94,13 @@ class ZoomWebUIMethods:
     def click_leave_button(self):
         self.driver.execute_script("leaveMeeting()")
 
+    def click_cancel_join_button(self):
+        cancel_join_button = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "button.leave-btn"))
+        )
+        logger.info("Cancel join button found, clicking")
+        self.driver.execute_script("arguments[0].click();", cancel_join_button)
+
     def check_if_waiting_room_timeout_exceeded(self, waiting_room_timeout_started_at, step):
         waiting_room_timeout_exceeded = time.time() - waiting_room_timeout_started_at > self.automatic_leave_configuration.waiting_room_timeout_seconds
         if waiting_room_timeout_exceeded:
@@ -101,6 +108,12 @@ class ZoomWebUIMethods:
             if len(self.participants_info) > 1:
                 logger.info("Waiting room timeout exceeded, but there is more than one participant in the meeting. Not aborting join attempt.")
                 return
+
+            try:
+                self.click_cancel_join_button()
+            except Exception:
+                logger.info("Error clicking cancel join button, but not a fatal error")
+
             self.abort_join_attempt()
             logger.info("Waiting room timeout exceeded. Raising UiCouldNotJoinMeetingWaitingRoomTimeoutException")
             raise UiCouldNotJoinMeetingWaitingRoomTimeoutException("Waiting room timeout exceeded", step)

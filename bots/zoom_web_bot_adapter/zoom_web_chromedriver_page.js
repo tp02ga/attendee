@@ -211,10 +211,7 @@ function startMeeting(signature) {
 
     ZoomMtg.inMeetingServiceListener('onUserLeave', function (data) {
         console.log('onUserLeave', data);
-        if (!data.userId) {
-            console.log('onUserLeave: no userId, skipping');
-            return;
-        }
+
         // reasonCode Return the reason the current user left.
         const reasonCode = {
             OTHER: 0, // Other reason.
@@ -227,6 +224,16 @@ function startMeeting(signature) {
             KICK_OUT_FROM_WAITING_ROOM: 7, // Removed from waiting room by host or co-host.
             LEAVE_FROM_DISCLAIMER: 8, // User click cancel in disclaimer dialog 
         };
+
+        if (!data.userId) {
+            if (data.reasonCode == reasonCode.KICK_OUT_FROM_MEETING || data.reasonCode == reasonCode.OTHER || data.reasonCode == reasonCode.KICK_OUT_FROM_WAITING_ROOM || data.reasonCode == reasonCode.HOST_ENDED_MEETING) {
+                window.ws.sendJson({
+                    type: 'MeetingStatusChange',
+                    change: 'removed_from_meeting'
+                });
+            }
+            return;
+        }
 
         const dataWithState = {
             ...data,
