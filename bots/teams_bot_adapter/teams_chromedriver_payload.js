@@ -1500,50 +1500,55 @@ const processClosedCaptionData = (item) => {
     window.ws.sendClosedCaptionUpdate(itemConverted);
 }
 
-const handleMainChannelEvent = (event) => {
-    //realConsole?.log('handleMainChannelEvent', event);
-    const decodedData = new Uint8Array(event.data);
-
-    const jsonRawString = new TextDecoder().decode(decodedData);
-    //realConsole?.log('handleMainChannelEvent jsonRawString', jsonRawString);
-    
-    // Find the start of the JSON data (looking for '[' or '{' character)
+const decodeMainChannelData = (data) => {
+    const decodedData = new Uint8Array(data);
     for (let i = 0; i < decodedData.length; i++) {
         if (decodedData[i] === 91 || decodedData[i] === 123) { // ASCII code for '[' or '{'
+            const candidateJsonString = new TextDecoder().decode(decodedData.slice(i));
             try {
-                // Extract and parse the JSON portion
-                const jsonString = new TextDecoder().decode(decodedData.slice(i));
-                const parsedData = JSON.parse(jsonString);
-                //realConsole?.log('handleMainChannelEvent parsedData', parsedData);
-                // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
-                // it corresponds to active speaker
-                if (Array.isArray(parsedData)) {
-                    for (const item of parsedData) {
-                        // This is a dominant speaker history message
-                        if (item.type === 'dsh') {
-                            processDominantSpeakerHistoryMessage(item);
-                        }
-                    }
-                }
-                else
-                {
-                    if (parsedData.recognitionResults) {
-                        for(const item of parsedData.recognitionResults) {
-                            processClosedCaptionData(item);
-                        }
-                    }
-                }
-                return;
-            } catch (e) {
+                return JSON.parse(candidateJsonString);
+            }
+            catch(e) {
                 if (e instanceof SyntaxError) {
                     // If JSON parsing fails, continue looking for the next '[' or '{' character
                     // as binary data may contain bytes that coincidentally match these character codes
                     continue;
                 }
                 realConsole?.error('Failed to parse main channel data:', e);
-                return;
+                return;            
+            }        
+        }
+    }
+}
+
+const handleMainChannelEvent = (event) => {
+    try {
+        const parsedData = decodeMainChannelData(event.data);
+        if (!parsedData) {
+            realConsole?.error('handleMainChannelEvent: Failed to parse main channel data, returning, data:', data);
+            return;
+        }
+        realConsole?.log('handleMainChannelEvent parsedData', parsedData);
+        // When you see this parsedData [{"history":[1053,2331],"type":"dsh"}]
+        // it corresponds to active speaker
+        if (Array.isArray(parsedData)) {
+            for (const item of parsedData) {
+                // This is a dominant speaker history message
+                if (item.type === 'dsh') {
+                    processDominantSpeakerHistoryMessage(item);
+                }
             }
         }
+        else
+        {
+            if (parsedData.recognitionResults) {
+                for(const item of parsedData.recognitionResults) {
+                    processClosedCaptionData(item);
+                }
+            }
+        }
+    } catch (e) {
+        realConsole?.error('handleMainChannelEvent: Failed to parse main channel data:', e);
     }
 }
 
@@ -1559,39 +1564,26 @@ const processSourceRequest = (item) => {
 }
 
 const handleMainChannelSend = (data) => {
-    const decodedData = new Uint8Array(data);
 
-    const jsonRawString = new TextDecoder().decode(decodedData);
-    
-    // Find the start of the JSON data (looking for '[' or '{' character)
-    for (let i = 0; i < decodedData.length; i++) {
-        if (decodedData[i] === 91 || decodedData[i] === 123) { // ASCII code for '[' or '{'
-            try {
-                // Extract and parse the JSON portion
-                const jsonString = new TextDecoder().decode(decodedData.slice(i));
-                const parsedData = JSON.parse(jsonString);
-                realConsole?.log('handleMainChannelSend parsedData', parsedData);
-                // if it is an array
-                if (Array.isArray(parsedData)) {
-                    for (const item of parsedData) {
-                        // This is a source request. It means the teams client is asking for the server to start serving a source from one of the streams
-                        // that the server provides to the client
-                        if (item.type === 'sr') {
-                            processSourceRequest(item);
-                        }
-                    }
+    try {
+        const parsedData = decodeMainChannelData(data);
+        if (!parsedData) {
+            realConsole?.error('handleMainChannelSend: Failed to parse main channel data, returning, data:', data);
+            return;
+        }
+        realConsole?.log('handleMainChannelSend parsedData', parsedData);  
+        // if it is an array
+        if (Array.isArray(parsedData)) {
+            for (const item of parsedData) {
+                // This is a source request. It means the teams client is asking for the server to start serving a source from one of the streams
+                // that the server provides to the client
+                if (item.type === 'sr') {
+                    processSourceRequest(item);
                 }
-                return;
-            } catch (e) {
-                if (e instanceof SyntaxError) {
-                    // If JSON parsing fails, continue looking for the next '[' or '{' character
-                    // as binary data may contain bytes that coincidentally match these character codes
-                    continue;
-                }
-                realConsole?.error('Failed to parse main channel data:', e);
-                return;
             }
         }
+    } catch (e) {
+        realConsole?.error('handleMainChannelSend: Failed to parse main channel data:', e);
     }
 }
 
