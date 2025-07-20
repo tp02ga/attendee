@@ -66,43 +66,17 @@ class TestCreateBot(TestCase):
 
     def test_create_bot_with_explicit_transcription_settings(self):
         """Test creating bots with explicit transcription settings for different providers and meeting types"""
-        
+
         # Test Google Meet bot with Assembly AI transcription settings
-        bot, error = create_bot(
-            data={
-                "meeting_url": "https://meet.google.com/abc-defg-hij", 
-                "bot_name": "Test Bot",
-                "transcription_settings": {
-                    "assembly_ai": {
-                        "language_code": "en",
-                        "speech_model": "best"
-                    }
-                }
-            }, 
-            source=BotCreationSource.API, 
-            project=self.project
-        )
+        bot, error = create_bot(data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "transcription_settings": {"assembly_ai": {"language_code": "en", "speech_model": "best"}}}, source=BotCreationSource.API, project=self.project)
         self.assertIsNotNone(bot)
         self.assertIsNotNone(bot.recordings.first())
         self.assertIsNone(error)
         self.assertEqual(bot.recordings.first().transcription_provider, TranscriptionProviders.ASSEMBLY_AI)
-        
+
         # Test Zoom bot with explicit closed captions (requires credentials and web SDK)
         Credentials.objects.create(project=self.project, credential_type=Credentials.CredentialTypes.ZOOM_OAUTH)
-        bot2, error2 = create_bot(
-            data={
-                "meeting_url": "https://zoom.us/j/987654321", 
-                "bot_name": "Zoom CC Test Bot",
-                "zoom_settings": {"sdk": "web"},
-                "transcription_settings": {
-                    "meeting_closed_captions": {
-                        "zoom_language": "Spanish"
-                    }
-                }
-            }, 
-            source=BotCreationSource.API, 
-            project=self.project
-        )
+        bot2, error2 = create_bot(data={"meeting_url": "https://zoom.us/j/987654321", "bot_name": "Zoom CC Test Bot", "zoom_settings": {"sdk": "web"}, "transcription_settings": {"meeting_closed_captions": {"zoom_language": "Spanish"}}}, source=BotCreationSource.API, project=self.project)
         self.assertIsNotNone(bot2)
         self.assertIsNotNone(bot2.recordings.first())
         self.assertIsNone(error2)
