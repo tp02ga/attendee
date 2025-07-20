@@ -125,6 +125,11 @@ class ZoomWebBotAdapter(WebBotAdapter, ZoomWebUIMethods):
         self.driver.execute_script("window?.askForMediaCapturePermission()")
 
     def subclass_specific_handle_failed_to_join(self, reason):
+        # Special case for removed from waiting room
+        if reason.get("method") == "removed_from_waiting_room":
+            self.send_request_to_join_denied_message()
+            return
+
         if reason.get("method") != "join":
             return
 

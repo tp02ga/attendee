@@ -238,7 +238,17 @@ function startMeeting(signature) {
         };
 
         if (!data.userId) {
-            if (data.reasonCode == reasonCode.KICK_OUT_FROM_MEETING || data.reasonCode == reasonCode.OTHER || data.reasonCode == reasonCode.KICK_OUT_FROM_WAITING_ROOM || data.reasonCode == reasonCode.HOST_ENDED_MEETING) {
+            if (data.reasonCode == reasonCode.KICK_OUT_FROM_WAITING_ROOM) {
+                window.ws.sendJson({
+                    type: 'MeetingStatusChange',
+                    change: 'failed_to_join',
+                    reason: {
+                        method: 'removed_from_waiting_room'
+                    }
+                });
+            }
+
+            if (data.reasonCode == reasonCode.KICK_OUT_FROM_MEETING || data.reasonCode == reasonCode.OTHER || data.reasonCode == reasonCode.HOST_ENDED_MEETING) {
                 window.ws.sendJson({
                     type: 'MeetingStatusChange',
                     change: 'removed_from_meeting'
