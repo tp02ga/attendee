@@ -46,7 +46,7 @@ class ZoomWebUIMethods:
 
         # Then find a button with the arial-label "More meeting control " and click it
         logger.info("Waiting for more meeting control button")
-        more_meeting_control_button = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[aria-label='More meeting control']")))
+        more_meeting_control_button = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div[aria-label='More meeting control ']")))
         logger.info("More meeting control button found, clicking")
         self.driver.execute_script("arguments[0].click();", more_meeting_control_button)
 
@@ -216,7 +216,7 @@ class ZoomWebUIMethods:
     def retrieve_language_input_from_bottom_panel(self):
         # Then find a button with the arial-label "More meeting control " and click it
         logger.info("Waiting for more meeting control button")
-        more_meeting_control_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[aria-label='More meeting control']")))
+        more_meeting_control_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div[aria-label='More meeting control ']")))
         logger.info("More meeting control button found, clicking")
         self.driver.execute_script("arguments[0].click();", more_meeting_control_button)
 
@@ -232,11 +232,11 @@ class ZoomWebUIMethods:
         logger.info("Host controls grouping My Caption Language button found, clicking")
         self.driver.execute_script("arguments[0].click();", host_controls_grouping_my_caption_language_button)
 
-        # Find the <span> tag with the text Arabic and click it
-        logger.info("Waiting for English button")
-        english_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.XPATH, "//span[text()='English']")))
-        logger.info("English button found, clicking")
-        self.driver.execute_script("arguments[0].click();", english_button)
+        # Find the first unchecked element in the transcription list and click it
+        logger.info("Waiting for first unchecked transcription option")
+        first_unchecked_option = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transcription-list')]//*[@aria-checked='false'][1]")))
+        logger.info("First unchecked transcription option found, clicking")
+        self.driver.execute_script("arguments[0].click();", first_unchecked_option)
 
         language_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "input.transcription-language__input")))
 
