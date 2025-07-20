@@ -926,7 +926,7 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     zoom_settings = ZoomSettingsJSONField(
-        help_text="The Zoom-specific settings for the bot. Use 'web' SDK when you want closed caption based transcription.",
+        help_text="The Zoom-specific settings for the bot.",
         required=False,
         default={"sdk": "native"},
     )
