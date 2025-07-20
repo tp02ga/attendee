@@ -337,11 +337,17 @@ class Bot(models.Model):
     def teams_closed_captions_language(self):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("teams_language", None)
 
+    def zoom_closed_captions_language(self):
+        return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("zoom_language", None)
+
     def meeting_closed_captions_merge_consecutive_captions(self):
         return self.settings.get("transcription_settings", {}).get("meeting_closed_captions", {}).get("merge_consecutive_captions", False)
 
     def teams_use_bot_login(self):
         return self.settings.get("teams_settings", {}).get("use_login", False)
+
+    def use_zoom_web_adapter(self):
+        return self.settings.get("zoom_settings", {}).get("sdk", "native") == "web"
 
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
@@ -411,7 +417,7 @@ class Bot(models.Model):
 
         # Temporarily enabling this for all google meet meetings
         bot_meeting_type = meeting_type_from_url(self.meeting_url)
-        if (bot_meeting_type == MeetingTypes.GOOGLE_MEET or bot_meeting_type == MeetingTypes.TEAMS) and not self.recording_type() == RecordingTypes.AUDIO_ONLY:
+        if (bot_meeting_type == MeetingTypes.GOOGLE_MEET or bot_meeting_type == MeetingTypes.TEAMS or (bot_meeting_type == MeetingTypes.ZOOM and self.use_zoom_web_adapter)) and not self.recording_type() == RecordingTypes.AUDIO_ONLY:
             return True
 
         debug_settings = self.settings.get("debug_settings", {})
