@@ -1525,7 +1525,7 @@ const handleMainChannelEvent = (event) => {
     try {
         const parsedData = decodeMainChannelData(event.data);
         if (!parsedData) {
-            realConsole?.error('handleMainChannelEvent: Failed to parse main channel data, returning, data:', data);
+            realConsole?.error('handleMainChannelEvent: Failed to parse main channel data, returning, data:', event.data);
             return;
         }
         realConsole?.log('handleMainChannelEvent parsedData', parsedData);
