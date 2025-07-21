@@ -19,11 +19,10 @@ To provide the callback URL, include the following in your bot creation request:
 
 ```json
 {
-  "settings": {
     "callback_settings": {
-      "zoom_tokens_url": "https://your-server.com/zoom-tokens-callback"
-    }
-  }
+        "zoom_tokens_url": "https://your-server.com/zoom-tokens-callback"
+    },
+    ...other bot creation parameters...
 }
 ```
 
@@ -31,10 +30,10 @@ Attendee will make a POST request to the callback URL with the following data in
 
 ```json
 {
-  "bot_id": "bot_12345",
-  "bot_metadata": {},
+  "bot_id": "the bot id",
+  "bot_metadata": "any metadata you passed in the bot creation request",
   "callback_type": "zoom_tokens",
-  "meeting_url": "https://zoom.us/j/123456789"
+  "meeting_url": "the meeting URL"
 }
 ```
 
