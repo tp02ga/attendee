@@ -18,15 +18,12 @@ To provide the ZAK token to your bot, you must provide a callback URL in the bot
 To provide the callback URL, include the following in your bot creation request:
 
 ```json
-{
-    "callback_settings": {
+"callback_settings": {
         "zoom_tokens_url": "https://your-server.com/zoom-tokens-callback"
-    },
-    ...other bot creation parameters...
 }
 ```
 
-Attendee will make a POST request to the callback URL with the following data in the body:
+Attendee will make a POST request to the callback URL with this data in the body:
 
 ```json
 {
