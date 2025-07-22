@@ -745,10 +745,6 @@ class CreateBotSerializer(serializers.Serializer):
 
         initial_data_with_value = {**self.initial_data, "transcription_settings": value}
 
-        if meeting_type == MeetingTypes.TEAMS:
-            if transcription_provider_from_bot_creation_data(initial_data_with_value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
-                raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Teams. Please use Meeting Closed Captions to transcribe Teams meetings."})
-
         if meeting_type == MeetingTypes.ZOOM and use_zoom_web_adapter:
             if transcription_provider_from_bot_creation_data(initial_data_with_value) != TranscriptionProviders.CLOSED_CAPTION_FROM_PLATFORM:
                 raise serializers.ValidationError({"transcription_settings": "API-based transcription is not supported for Zoom when using the web SDK. Please set 'zoom_settings.sdk' to 'native' in the bot creation request."})
