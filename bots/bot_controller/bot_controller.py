@@ -988,7 +988,7 @@ class BotController:
             audio_blob=message["audio_data"],
             audio_format=Utterance.AudioFormat.PCM,
             timestamp_ms=message["timestamp_ms"],
-            duration_ms=len(message["audio_data"]) / 64,
+            duration_ms=len(message["audio_data"]) / ((message["sample_rate"] / 1000) * 2),
             sample_rate=message["sample_rate"],
         )
 
