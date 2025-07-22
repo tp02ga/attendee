@@ -1507,14 +1507,12 @@ const processDominantSpeakerHistoryMessage = (item) => {
     realConsole?.log('newDominantSpeakerParticipant', dominantSpeakerManager.getDominantSpeaker());
 }
 
-<<<<<<< HEAD
 function convertTimestampAudioSentToUnixTimeMs(timestampAudioSent) {
     const fractional_seconds_since_1900 = timestampAudioSent / 10000000;
     const fractional_seconds_since_1970 = fractional_seconds_since_1900 - 2_208_988_800;
     return Math.floor(fractional_seconds_since_1970 * 1000);
 }
 
-=======
 class UtteranceIdGenerator {
     constructor(generate = () => crypto.randomUUID()) {
       this._activeIds = new Map();  // Map<speakerKey, utteranceId>
@@ -1549,7 +1547,6 @@ class UtteranceIdGenerator {
 
 const utteranceIdGenerator = new UtteranceIdGenerator();
 
->>>>>>> api-based-transcription-for-ms-teams
 const processClosedCaptionData = (item) => {
     if (!window.initialData.collectCaptions)
     {
