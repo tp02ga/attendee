@@ -17,6 +17,7 @@ from bots.automatic_leave_configuration import AutomaticLeaveConfiguration
 from bots.bot_adapter import BotAdapter
 from bots.bot_controller.bot_websocket_client import BotWebsocketClient
 from bots.bots_api_utils import BotCreationSource
+from bots.external_callback_utils import get_zoom_tokens
 from bots.models import (
     Bot,
     BotChatMessageRequestManager,
@@ -51,6 +52,7 @@ from bots.webhook_utils import trigger_webhook
 from bots.websocket_payloads import mixed_audio_websocket_payload
 
 from .audio_output_manager import AudioOutputManager
+from .bot_resource_snapshot_taker import BotResourceSnapshotTaker
 from .closed_caption_manager import ClosedCaptionManager
 from .file_uploader import FileUploader
 from .grouped_closed_caption_manager import GroupedClosedCaptionManager
@@ -139,9 +141,7 @@ class BotController:
             teams_bot_login_credentials=teams_bot_login_credentials.get_credentials() if teams_bot_login_credentials and self.bot_in_db.teams_use_bot_login() else None,
         )
 
-    def get_zoom_bot_adapter(self):
-        from bots.zoom_bot_adapter import ZoomBotAdapter
-
+    def get_zoom_oauth_credentials(self):
         zoom_oauth_credentials_record = self.bot_in_db.project.credentials.filter(credential_type=Credentials.CredentialTypes.ZOOM_OAUTH).first()
         if not zoom_oauth_credentials_record:
             raise Exception("Zoom OAuth credentials not found")
@@ -150,7 +150,46 @@ class BotController:
         if not zoom_oauth_credentials:
             raise Exception("Zoom OAuth credentials data not found")
 
+        return zoom_oauth_credentials
+
+    def get_zoom_web_bot_adapter(self):
+        from bots.zoom_web_bot_adapter import ZoomWebBotAdapter
+
+        zoom_oauth_credentials = self.get_zoom_oauth_credentials()
+
+        return ZoomWebBotAdapter(
+            display_name=self.bot_in_db.name,
+            send_message_callback=self.on_message_from_adapter,
+            add_audio_chunk_callback=None,
+            meeting_url=self.bot_in_db.meeting_url,
+            add_video_frame_callback=None,
+            wants_any_video_frames_callback=None,
+            add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback if self.pipeline_configuration.websocket_stream_audio else None,
+            upsert_caption_callback=self.closed_caption_manager.upsert_caption,
+            upsert_chat_message_callback=self.on_new_chat_message,
+            add_participant_event_callback=self.add_participant_event,
+            automatic_leave_configuration=self.automatic_leave_configuration,
+            add_encoded_mp4_chunk_callback=None,
+            recording_view=self.bot_in_db.recording_view(),
+            should_create_debug_recording=self.bot_in_db.create_debug_recording(),
+            start_recording_screen_callback=self.screen_and_audio_recorder.start_recording,
+            stop_recording_screen_callback=self.screen_and_audio_recorder.stop_recording,
+            video_frame_size=self.bot_in_db.recording_dimensions(),
+            zoom_client_id=zoom_oauth_credentials["client_id"],
+            zoom_client_secret=zoom_oauth_credentials["client_secret"],
+            zoom_closed_captions_language=self.bot_in_db.zoom_closed_captions_language(),
+        )
+
+    def get_zoom_bot_adapter(self):
+        from bots.zoom_bot_adapter import ZoomBotAdapter
+
+        zoom_oauth_credentials = self.get_zoom_oauth_credentials()
+
         add_audio_chunk_callback = self.per_participant_audio_input_manager().add_chunk
+
+        zoom_tokens = {}
+        if self.bot_in_db.zoom_tokens_callback_url():
+            zoom_tokens = get_zoom_tokens(self.bot_in_db)
 
         return ZoomBotAdapter(
             use_one_way_audio=self.pipeline_configuration.transcribe_audio,
@@ -169,6 +208,7 @@ class BotController:
             add_participant_event_callback=self.add_participant_event,
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
+            zoom_tokens=zoom_tokens,
         )
 
     def add_mixed_audio_chunk_callback(self, chunk: bytes):
@@ -200,7 +240,10 @@ class BotController:
     def get_per_participant_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return 32000
+            if self.bot_in_db.use_zoom_web_adapter():
+                return 48000
+            else:
+                return 32000
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return 48000
         elif meeting_type == MeetingTypes.TEAMS:
@@ -209,7 +252,10 @@ class BotController:
     def mixed_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return 32000
+            if self.bot_in_db.use_zoom_web_adapter():
+                return 48000
+            else:
+                return 32000
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return 48000
         elif meeting_type == MeetingTypes.TEAMS:
@@ -218,7 +264,10 @@ class BotController:
     def get_audio_format(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return GstreamerPipeline.AUDIO_FORMAT_PCM
+            if self.bot_in_db.use_zoom_web_adapter():
+                return GstreamerPipeline.AUDIO_FORMAT_FLOAT
+            else:
+                return GstreamerPipeline.AUDIO_FORMAT_PCM
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return GstreamerPipeline.AUDIO_FORMAT_FLOAT
         elif meeting_type == MeetingTypes.TEAMS:
@@ -233,7 +282,10 @@ class BotController:
     def get_bot_adapter(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return self.get_zoom_bot_adapter()
+            if self.bot_in_db.use_zoom_web_adapter():
+                return self.get_zoom_web_bot_adapter()
+            else:
+                return self.get_zoom_bot_adapter()
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return self.get_google_meet_bot_adapter()
         elif meeting_type == MeetingTypes.TEAMS:
@@ -431,7 +483,10 @@ class BotController:
         # so we don't need to create a gstreamer pipeline here
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
-            return True
+            if self.bot_in_db.use_zoom_web_adapter():
+                return False
+            else:
+                return True
         elif meeting_type == MeetingTypes.GOOGLE_MEET:
             return False
         elif meeting_type == MeetingTypes.TEAMS:
@@ -559,6 +614,8 @@ class BotController:
             check_if_currently_playing_video_media_request_is_still_playing_callback=self.adapter.is_sent_video_still_playing,
             play_video_callback=self.adapter.send_video,
         )
+
+        self.bot_resource_snapshot_taker = BotResourceSnapshotTaker(self.bot_in_db)
 
         # Create GLib main loop
         self.main_loop = GLib.MainLoop()
@@ -833,14 +890,32 @@ class BotController:
 
             # For staged bots, check if its time to join
             self.join_if_staged_and_time_to_join()
+
+            # Take a resource snapshot if needed
+            self.bot_resource_snapshot_taker.save_snapshot_if_needed()
+
             return True
 
         except Exception as e:
             logger.info(f"Error in timeout callback: {e}")
             logger.info("Traceback:")
             logger.info(traceback.format_exc())
-            self.cleanup()
+            self.handle_exception_in_timeout_callback(e)
             return False
+
+    def handle_exception_in_timeout_callback(self, e):
+        try:
+            BotEventManager.create_event(
+                bot=self.bot_in_db,
+                event_type=BotEventTypes.FATAL_ERROR,
+                event_sub_type=BotEventSubTypes.FATAL_ERROR_ATTENDEE_INTERNAL_ERROR,
+                event_metadata={"error": str(e)},
+            )
+        except Exception as e:
+            logger.info(f"Error in handle_exception_in_timeout_callback: {e}")
+            logger.info("Traceback:")
+            logger.info(traceback.format_exc())
+        self.cleanup()
 
     def get_recording_in_progress(self):
         recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
@@ -916,8 +991,13 @@ class BotController:
             participant=participant,
             audio_blob=message["audio_data"],
             audio_format=Utterance.AudioFormat.PCM,
+<<<<<<< HEAD
             timestamp_ms=message["timestamp_ms"] - 2000,
             duration_ms=len(message["audio_data"]) / 64,
+=======
+            timestamp_ms=message["timestamp_ms"],
+            duration_ms=len(message["audio_data"]) / ((message["sample_rate"] / 1000) * 2),
+>>>>>>> api-based-transcription-for-ms-teams
             sample_rate=message["sample_rate"],
         )
 
