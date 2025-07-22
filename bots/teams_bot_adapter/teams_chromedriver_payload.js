@@ -1921,10 +1921,11 @@ const handleVideoTrack = async (event) => {
                       });
                   }
   
-                  // If the audioData buffer is all zeros, then we don't want to send it
-                  if (audioData.every(value => value === 0)) {
-                      return;
-                  }
+                  // If the audioData buffer is all zeros, we still want to send it. It's only one mixed audio stream.
+                  // It seems to help with the transcription.
+                  //if (audioData.every(value => value === 0)) {
+                  //    return;
+                  //}
 
                   // Add to queue with timestamp - the background thread will process it
                   audioDataQueue.push({
