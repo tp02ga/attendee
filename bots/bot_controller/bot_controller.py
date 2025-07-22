@@ -237,6 +237,12 @@ class BotController:
             raise Exception(f"Could not determine meeting type for meeting url {self.bot_in_db.meeting_url}")
         return meeting_type
 
+    def get_per_participant_audio_utterance_delay_ms(self):
+        meeting_type = self.get_meeting_type()
+        if meeting_type == MeetingTypes.TEAMS:
+            return 2000
+        return 0
+
     def get_per_participant_audio_sample_rate(self):
         meeting_type = self.get_meeting_type()
         if meeting_type == MeetingTypes.ZOOM:
@@ -985,13 +991,14 @@ class BotController:
         if recording_in_progress is None:
             logger.warning("Warning: No recording in progress found so cannot save individual audio utterance.")
             return
+
         utterance = Utterance.objects.create(
             source=Utterance.Sources.PER_PARTICIPANT_AUDIO,
             recording=recording_in_progress,
             participant=participant,
             audio_blob=message["audio_data"],
             audio_format=Utterance.AudioFormat.PCM,
-            timestamp_ms=message["timestamp_ms"],
+            timestamp_ms=message["timestamp_ms"] - self.get_per_participant_audio_utterance_delay_ms(),
             duration_ms=len(message["audio_data"]) / ((message["sample_rate"] / 1000) * 2),
             sample_rate=message["sample_rate"],
         )
