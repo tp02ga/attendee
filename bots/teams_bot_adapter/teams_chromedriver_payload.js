@@ -1549,10 +1549,18 @@ const utteranceIdGenerator = new UtteranceIdGenerator();
 
 const processClosedCaptionData = (item) => {
     realConsole?.log('processClosedCaptionData', item);
-    if (!window.initialData.collectCaptions)
+
+    // If we're collecting per participant audio, we actually need the caption data because it's the most accurate
+    // way to estimate when someone started speaking.
+    if (window.initialData.sendPerParticipantAudio)
     {
         const timeStampAudioSentUnixMs = convertTimestampAudioSentToUnixTimeMs(item.timestampAudioSent);
         dominantSpeakerManager.addCaptionAudioTime(timeStampAudioSentUnixMs, item.userId);
+    }
+
+    // If we don't need the captions, we can leave.
+    if (!window.initialData.collectCaptions)
+    {
         return;
     }
 
