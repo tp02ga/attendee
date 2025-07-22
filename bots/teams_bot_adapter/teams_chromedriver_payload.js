@@ -1548,6 +1548,7 @@ class UtteranceIdGenerator {
 const utteranceIdGenerator = new UtteranceIdGenerator();
 
 const processClosedCaptionData = (item) => {
+    realConsole?.log('processClosedCaptionData', item);
     if (!window.initialData.collectCaptions)
     {
         const timeStampAudioSentUnixMs = convertTimestampAudioSentToUnixTimeMs(item.timestampAudioSent);
