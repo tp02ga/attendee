@@ -1853,10 +1853,6 @@ const handleVideoTrack = async (event) => {
       const readable = processor.readable;
       const writable = generator.writable;
   
-      const firstStreamId = event.streams[0]?.id;
-  
-      const receiver = event.receiver;
-  
       // Transform stream to intercept frames
       const transformStream = new TransformStream({
           async transform(frame, controller) {
