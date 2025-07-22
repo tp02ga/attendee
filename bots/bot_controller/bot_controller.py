@@ -991,13 +991,8 @@ class BotController:
             participant=participant,
             audio_blob=message["audio_data"],
             audio_format=Utterance.AudioFormat.PCM,
-<<<<<<< HEAD
-            timestamp_ms=message["timestamp_ms"] - 2000,
-            duration_ms=len(message["audio_data"]) / 64,
-=======
             timestamp_ms=message["timestamp_ms"],
             duration_ms=len(message["audio_data"]) / ((message["sample_rate"] / 1000) * 2),
->>>>>>> api-based-transcription-for-ms-teams
             sample_rate=message["sample_rate"],
         )
 
