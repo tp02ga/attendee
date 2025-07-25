@@ -1092,6 +1092,12 @@ components:
           format: date-time
           description: The time the bot should join the meeting. ISO 8601 format,
             e.g. 2025-06-13T12:00:00Z
+        deduplication_key:
+          type: string
+          minLength: 1
+          description: Optional key for deduplicating bots. If a bot with this key
+            already exists in a non-terminal state, the new bot will not be created
+            and an error will be returned.
         webhooks:
           type: array
           items:
@@ -1117,6 +1123,22 @@ components:
             additionalProperties: false
           description: List of webhook subscriptions to create for this bot. Each
             item should have 'url' and 'triggers' fields.
+        callback_settings:
+          type: object
+          properties:
+            zoom_tokens_url:
+              type: string
+              description: 'URL of an endpoint on your server that returns Zoom authentication
+                tokens the bot will use when it joins the meeting. Our server will
+                make a POST request to this URL with information about the bot and
+                expects a JSON response with the format: {"zak_token": "<zak_token>",
+                "join_token": "<join_token>", "app_privilege_token": "<app_privilege_token>"}.
+                Not every token needs to be provided, i.e. you can reply with {"zak_token":
+                "<zak_token>"}.'
+          required: []
+          additionalProperties: false
+          description: Callback urls for the bot to call when it needs to fetch certain
+            data.
         transcription_settings:
           type: object
           properties:
@@ -1190,6 +1212,46 @@ components:
                     ''en-us''). This will change the closed captions language for
                     everyone in the meeting, not just the bot. See here for available
                     languages and codes: https://docs.google.com/spreadsheets/d/1F-1iLJ_4btUZJkZcD2m5sF3loqGbB0vTzgOubwQTb5o/edit?usp=sharing'
+                zoom_language:
+                  type: string
+                  enum:
+                  - Arabic
+                  - Cantonese
+                  - Chinese (Simplified)
+                  - Czech
+                  - Danish
+                  - Dutch
+                  - English
+                  - Estonian
+                  - Finnish
+                  - French
+                  - French (Canada)
+                  - German
+                  - Hebrew
+                  - Hindi
+                  - Hungarian
+                  - Indonesian
+                  - Italian
+                  - Japanese
+                  - Korean
+                  - Malay
+                  - Persian
+                  - Polish
+                  - Portuguese
+                  - Romanian
+                  - Russian
+                  - Spanish
+                  - Swedish
+                  - Tagalog
+                  - Tamil
+                  - Telugu
+                  - Thai
+                  - Turkish
+                  - Ukrainian
+                  - Vietnamese
+                  description: The language to use for Zoom closed captions. (e.g.
+                    'Spanish'). This will change the closed captions language for
+                    everyone in the meeting, not just the bot.
                 merge_consecutive_captions:
                   type: boolean
                   description: The captions from Google Meet can end in the middle
@@ -1357,6 +1419,22 @@ components:
           default:
             use_login: false
           description: The Microsoft Teams-specific settings for the bot.
+        zoom_settings:
+          type: object
+          properties:
+            sdk:
+              type: string
+              enum:
+              - web
+              - native
+              description: The Zoom SDK to use for the bot. Use 'web' when you need
+                closed caption based transcription.
+              default: native
+          required: []
+          additionalProperties: false
+          default:
+            sdk: native
+          description: The Zoom-specific settings for the bot.
         debug_settings:
           type: object
           properties:

@@ -49,7 +49,7 @@ def get_transcription(utterance, recording):
     soft_time_limit=3600,
     autoretry_for=(Exception,),
     retry_backoff=True,  # Enable exponential backoff
-    max_retries=5,
+    max_retries=6,
 )
 def process_utterance(self, utterance_id):
     utterance = Utterance.objects.get(id=utterance_id)
@@ -259,6 +259,13 @@ def get_transcription_via_openai(utterance):
     if not openai_credentials:
         return None, {"reason": TranscriptionFailureReasons.CREDENTIALS_NOT_FOUND}
 
+    # If the audio blob is less than 80ms in duration, just return an empty transcription
+    # Audio clips this short are almost never generated, it almost certainly didn't have any speech
+    # and if we send it to the openai api, it will fail with a corrupted file error
+    if utterance.duration_ms < 80:
+        logger.info(f"OpenAI transcription skipped for utterance {utterance.id} because it's less than 80ms in duration")
+        return {"transcript": ""}, None
+
     # Convert PCM audio to MP3
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate)
 
@@ -283,7 +290,7 @@ def get_transcription_via_openai(utterance):
         return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "status_code": response.status_code, "response_text": response.text}
 
     result = response.json()
-    logger.info(f"OpenAI transcription completed successfully for utterance {utterance.id}. Last 3 digits of API key: {openai_credentials['api_key'][-3:]}")
+    logger.info(f"OpenAI transcription completed successfully for utterance {utterance.id}.")
 
     # Format the response to match our expected schema
     transcription = {"transcript": result.get("text", "")}
