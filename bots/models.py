@@ -17,7 +17,7 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-from accounts.models import Organization
+from accounts.models import Organization, User
 from bots.webhook_utils import trigger_webhook
 
 # Create your models here.
@@ -43,9 +43,11 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+
 class ProjectAccess(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="project_accesses")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="project_accesses")
+
 
 class ApiKey(models.Model):
     name = models.CharField(max_length=255)

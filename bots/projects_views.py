@@ -34,6 +34,7 @@ from .models import (
     Participant,
     ParticipantEventTypes,
     Project,
+    ProjectAccess,
     RecordingStates,
     RecordingTranscriptionStates,
     Utterance,
@@ -48,12 +49,14 @@ from .utils import generate_recordings_json_for_bot_detail_view
 
 logger = logging.getLogger(__name__)
 
+
 def get_project_for_user(user, project_object_id):
     project = get_object_or_404(Project, object_id=project_object_id, organization=user.organization)
     # If you're an admin you can access any project in the organization
     if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=project, user=user).exists():
         raise PermissionDenied
     return project
+
 
 def get_webhook_subscription_for_user(user, webhook_subscription_object_id):
     webhook_subscription = get_object_or_404(WebhookSubscription, object_id=webhook_subscription_object_id, project__organization=user.organization)
@@ -62,12 +65,31 @@ def get_webhook_subscription_for_user(user, webhook_subscription_object_id):
         raise PermissionDenied
     return webhook_subscription
 
+
 def get_api_key_for_user(user, api_key_object_id):
     api_key = get_object_or_404(ApiKey, object_id=api_key_object_id, project__organization=user.organization)
     # If you're an admin you can access any api key in the organization
     if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=api_key.project, user=user).exists():
         raise PermissionDenied
     return api_key
+
+
+class AdminRequiredMixin(LoginRequiredMixin):
+    """
+    Mixin for class-based views that can only be accessed by admin users.
+    Inherits from LoginRequiredMixin to ensure user is authenticated first.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        # First check if user is authenticated (handled by LoginRequiredMixin)
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        # Then check if user is admin
+        if request.user.role != UserRole.ADMIN:
+            raise PermissionDenied("Only administrators can access this resource.")
+
+        return super().dispatch(request, *args, **kwargs)
 
 
 class ProjectUrlContextMixin:
@@ -464,7 +486,7 @@ class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_team.html", context)
 
 
-class InviteUserView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
         context = self.get_project_context(object_id, project)
@@ -654,7 +676,7 @@ class CreateBotView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             return HttpResponse(str(e), status=400)
 
 
-class CreateProjectView(LoginRequiredMixin, View):
+class CreateProjectView(AdminRequiredMixin, View):
     def post(self, request):
         name = request.POST.get("name")
 
@@ -671,7 +693,7 @@ class CreateProjectView(LoginRequiredMixin, View):
         return redirect("bots:project-dashboard", object_id=project.object_id)
 
 
-class EditProjectView(LoginRequiredMixin, View):
+class EditProjectView(AdminRequiredMixin, View):
     def put(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 

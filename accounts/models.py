@@ -28,6 +28,7 @@ class UserRole(models.TextChoices):
     ADMIN = "admin"
     REGULAR_USER = "regular_user"
 
+
 class User(AbstractUser):
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, null=False, related_name="users")
     invited_by = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="invited_users")
