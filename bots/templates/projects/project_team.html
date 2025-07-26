@@ -247,7 +247,7 @@
         if (roleToggle.checked) {
             // Admin role selected
             roleLabel.textContent = 'Administrator';
-            roleDescription.textContent = 'This user will have access to all projects in your account.';
+            roleDescription.textContent = 'This user will be able to create projects, edit billing, invite teammates and have access to all projects in your account.';
             projectAccessSection.style.display = 'none';
             projectSelectionError.classList.add('d-none');
             // Clear all project selections
@@ -410,7 +410,7 @@
             if (editRoleToggle.checked) {
                 // Admin role selected
                 editRoleLabel.textContent = 'Administrator';
-                editRoleDescription.textContent = 'This user will have access to all projects in your account.';
+                editRoleDescription.textContent = 'This user will be able to create projects, edit billing, invite teammates and have access to all projects in your account.';
                 editProjectAccessSection.style.display = 'none';
                 editProjectSelectionError.classList.add('d-none');
                 // Clear all project selections
@@ -570,17 +570,8 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
                     modal.hide();
                     
-                    // Show success alert
-                    document.getElementById('successMessage').textContent = result.message;
-                    successAlert.classList.remove('d-none');
-                    
-                    // Scroll to top to show alert
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    
-                    // Refresh page after short delay to show updated team list
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
+                    // Refresh page immediately without showing success alert
+                    window.location.reload();
                 } else {
                     // Show error in modal
                     showEditInlineError(result.message);
