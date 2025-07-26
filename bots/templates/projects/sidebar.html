@@ -30,12 +30,14 @@
                                     {% endif %}
                                 </li>
                             {% endfor %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" style="font-size: 0.9rem; max-width: 100%;" onclick="createNewProject()">
-                                    <i class="bi bi-plus-lg me-2"></i> Create new project
-                                </a>
-                            </li>
+                            {% if user.role == UserRole.ADMIN %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" style="font-size: 0.9rem; max-width: 100%;" onclick="createNewProject()">
+                                        <i class="bi bi-plus-lg me-2"></i> Create new project
+                                    </a>
+                                </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
