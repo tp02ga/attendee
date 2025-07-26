@@ -17,7 +17,7 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-from accounts.models import Organization, User
+from accounts.models import Organization, User, UserRole
 from bots.webhook_utils import trigger_webhook
 
 # Create your models here.
@@ -32,6 +32,12 @@ class Project(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def accessible_to(cls, user):
+        if user.role == UserRole.ADMIN:
+            return cls.objects.filter(organization=user.organization)
+        return cls.objects.filter(organization=user.organization).filter(project_accesses__user=user)
 
     def save(self, *args, **kwargs):
         if not self.object_id:

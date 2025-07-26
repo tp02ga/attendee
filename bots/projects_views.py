@@ -96,6 +96,7 @@ class ProjectUrlContextMixin:
         return {
             "project": project,
             "charge_credits_for_bots_setting": settings.CHARGE_CREDITS_FOR_BOTS,
+            "user_projects": Project.accessible_to(self.request.user),
         }
 
 

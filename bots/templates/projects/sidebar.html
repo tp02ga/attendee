@@ -21,7 +21,7 @@
                             </div>
                         </button>
                         <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="currentProjectDropdown">
-                            {% for proj in request.user.organization.projects.all|dictsort:"id" %}
+                            {% for proj in user_projects|dictsort:"id" %}
                                 <li>
                                     {% if proj.object_id == project.object_id %}
                                     <a class="dropdown-item text-truncate active" style="font-size: 0.9rem; max-width: 100%; background-color: rgba(0, 0, 0, 0.09);">{{ proj.name }}</a>
