@@ -39,6 +39,11 @@ class Project(models.Model):
             return cls.objects.filter(organization=user.organization)
         return cls.objects.filter(organization=user.organization).filter(project_accesses__user=user)
 
+    def users_with_access(self):
+        return self.organization.users.filter(
+            Q(project_accesses__project=self) | Q(role=UserRole.ADMIN)
+        )
+
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string

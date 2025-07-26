@@ -97,6 +97,7 @@ class ProjectUrlContextMixin:
             "project": project,
             "charge_credits_for_bots_setting": settings.CHARGE_CREDITS_FOR_BOTS,
             "user_projects": Project.accessible_to(self.request.user),
+            "UserRole": UserRole,
         }
 
 
@@ -471,6 +472,7 @@ class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
         context = self.get_project_context(object_id, project)
+        context["users_with_access"] = project.users_with_access()
         return render(request, "projects/project_project.html", context)
 
 
