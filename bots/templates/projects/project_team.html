@@ -34,6 +34,7 @@
               <tr>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Project Access</th>
                 <th>Date Joined</th>
                 <th>Status</th>
                 <th>Invited By</th>
@@ -49,6 +50,15 @@
                       <span class="badge bg-primary">Administrator</span>
                     {% else %}
                       <span class="badge bg-secondary">Regular User</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if user.role == 'admin' %}
+                      <span class="badge bg-light text-dark">All</span>
+                    {% else %}
+                      {% for access in user.project_accesses.all %}
+                        <span class="badge bg-light text-dark">{{ access.project.name }}</span>
+                      {% endfor %}
                     {% endif %}
                   </td>
                   <td>{{ user.date_joined|date:"M d, Y" }}</td>
@@ -75,6 +85,7 @@
                               data-user-email="{{ user.email }}"
                               data-user-role="{{ user.role }}"
                               data-user-active="{{ user.is_active|yesno:'true,false' }}"
+                              {% if user.role != 'admin' %}data-user-project-access="{% for access in user.project_accesses.all %}{{ access.project.object_id }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}
                               data-bs-toggle="modal" 
                               data-bs-target="#editUserModal">
                         <i class="fas fa-edit"></i> Edit
@@ -486,6 +497,7 @@
                 const userEmail = this.dataset.userEmail;
                 const userRole = this.dataset.userRole;
                 const userActive = this.dataset.userActive === 'true';
+                const userProjectAccess = this.dataset.userProjectAccess || '';
                 
                 // Populate modal with user data
                 document.getElementById('editUserId').value = userId;
@@ -500,33 +512,14 @@
                 // Clear all project checkboxes first
                 editProjectCheckboxes.forEach(checkbox => checkbox.checked = false);
                 
-                // Fetch and populate current project access for regular users
-                if (userRole !== 'admin') {
-                    // Fetch current project access via API
-                    fetch(`${editForm.action}?user_id=${userId}`, {
-                        method: 'GET',
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                // Populate current project access for regular users
+                if (userRole !== 'admin' && userProjectAccess) {
+                    const projectIds = userProjectAccess.split(',').filter(id => id.trim());
+                    projectIds.forEach(projectId => {
+                        const checkbox = document.getElementById(`edit_project_${projectId.trim()}`);
+                        if (checkbox) {
+                            checkbox.checked = true;
                         }
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            return response.json();
-                        }
-                        throw new Error('Failed to fetch user data');
-                    })
-                    .then(userData => {
-                        // Check the appropriate project checkboxes
-                        userData.current_project_access.forEach(projectId => {
-                            const checkbox = document.getElementById(`edit_project_${projectId}`);
-                            if (checkbox) {
-                                checkbox.checked = true;
-                            }
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching user project access:', error);
-                        // Continue without project data - user can manually select
                     });
                 }
                 

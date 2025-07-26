@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 import math
 import os
@@ -478,8 +477,8 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 
-        # Get all users in the organization with invited_by data
-        users = request.user.organization.users.select_related("invited_by").order_by("id")
+        # Get all users in the organization with invited_by data and their project access
+        users = request.user.organization.users.select_related("invited_by").prefetch_related("project_accesses__project").order_by("id")
 
         context = self.get_project_context(object_id, project)
         context["users"] = users
@@ -489,40 +488,6 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
 
 class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
-    def get(self, request, object_id):
-        """Get current user data including project access for the edit modal"""
-        project = get_project_for_user(user=request.user, project_object_id=object_id)
-        
-        user_id = request.GET.get("user_id")
-        if not user_id:
-            return HttpResponse("User ID is required", status=400)
-
-        try:
-            user_to_edit = User.objects.get(
-                id=user_id, 
-                organization=request.user.organization
-            )
-        except User.DoesNotExist:
-            return HttpResponse("User not found", status=400)
-
-        # Get user's current project access
-        current_project_access = []
-        if user_to_edit.role != UserRole.ADMIN:
-            current_project_access = list(
-                ProjectAccess.objects.filter(user=user_to_edit)
-                .values_list('project__object_id', flat=True)
-            )
-
-        response_data = {
-            "user_id": user_to_edit.id,
-            "email": user_to_edit.email,
-            "role": user_to_edit.role,
-            "is_active": user_to_edit.is_active,
-            "current_project_access": current_project_access
-        }
-
-        return HttpResponse(json.dumps(response_data), content_type='application/json')
-
     def post(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
         
