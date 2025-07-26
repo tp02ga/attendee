@@ -479,13 +479,127 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Get all users in the organization with invited_by data
-        users = request.user.organization.users.select_related("invited_by").all()
+        users = request.user.organization.users.select_related("invited_by").order_by("id")
 
         context = self.get_project_context(object_id, project)
         context["users"] = users
         # Needed for the checkbox list for choosing which products a user can access
         context["projects"] = request.user.organization.projects.all()
         return render(request, "projects/project_team.html", context)
+
+
+class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id):
+        """Get current user data including project access for the edit modal"""
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+        
+        user_id = request.GET.get("user_id")
+        if not user_id:
+            return HttpResponse("User ID is required", status=400)
+
+        try:
+            user_to_edit = User.objects.get(
+                id=user_id, 
+                organization=request.user.organization
+            )
+        except User.DoesNotExist:
+            return HttpResponse("User not found", status=400)
+
+        # Get user's current project access
+        current_project_access = []
+        if user_to_edit.role != UserRole.ADMIN:
+            current_project_access = list(
+                ProjectAccess.objects.filter(user=user_to_edit)
+                .values_list('project__object_id', flat=True)
+            )
+
+        response_data = {
+            "user_id": user_to_edit.id,
+            "email": user_to_edit.email,
+            "role": user_to_edit.role,
+            "is_active": user_to_edit.is_active,
+            "current_project_access": current_project_access
+        }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/json')
+
+    def post(self, request, object_id):
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+        
+        user_id = request.POST.get("user_id")
+        is_admin = request.POST.get("is_admin") == "true"
+        is_active = request.POST.get("is_active") == "true"
+        selected_project_ids = request.POST.getlist("project_access")
+
+        if not user_id:
+            return HttpResponse("User ID is required", status=400)
+
+        # Get the user to be edited
+        try:
+            user_to_edit = User.objects.get(
+                id=user_id, 
+                organization=request.user.organization
+            )
+        except User.DoesNotExist:
+            return HttpResponse("User not found", status=400)
+
+        # Prevent editing yourself
+        if user_to_edit.id == request.user.id:
+            return HttpResponse("You cannot edit your own account", status=400)
+
+        # Validate project selection for regular users
+        if not is_admin and not selected_project_ids:
+            return HttpResponse("Please select at least one project for regular users", status=400)
+
+        # Validate that selected projects exist and belong to the organization
+        if not is_admin and selected_project_ids:
+            valid_projects = Project.objects.filter(
+                object_id__in=selected_project_ids,
+                organization=request.user.organization
+            )
+            if len(valid_projects) != len(selected_project_ids):
+                return HttpResponse("Invalid project selection", status=400)
+
+        try:
+            with transaction.atomic():
+                # Update user role
+                user_role = UserRole.ADMIN if is_admin else UserRole.REGULAR_USER
+                user_to_edit.role = user_role
+                
+                # Update user active status
+                user_to_edit.is_active = is_active
+                
+                user_to_edit.save()
+
+                # Update project access for regular users
+                if not is_admin:
+                    # Remove all existing project access
+                    ProjectAccess.objects.filter(user=user_to_edit).delete()
+                    
+                    # Add new project access entries
+                    for project_id in selected_project_ids:
+                        project_obj = Project.objects.get(
+                            object_id=project_id, 
+                            organization=request.user.organization
+                        )
+                        ProjectAccess.objects.create(project=project_obj, user=user_to_edit)
+                else:
+                    # If user is now admin, remove all project access entries
+                    # since admins have access to all projects
+                    ProjectAccess.objects.filter(user=user_to_edit).delete()
+
+                # Return success response
+                status_text = "active" if is_active else "disabled"
+                role_text = "administrator" if is_admin else "regular user"
+                return HttpResponse(
+                    f"User {user_to_edit.email} has been updated successfully. "
+                    f"Role: {role_text}, Status: {status_text}.", 
+                    status=200
+                )
+
+        except Exception as e:
+            logger.error(f"Error updating user: {str(e)}")
+            return HttpResponse("An error occurred while updating the user", status=500)
 
 
 class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
