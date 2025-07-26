@@ -474,7 +474,7 @@ class ProjectProjectView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_project.html", context)
 
 
-class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 
@@ -483,6 +483,8 @@ class ProjectTeamView(LoginRequiredMixin, ProjectUrlContextMixin, View):
 
         context = self.get_project_context(object_id, project)
         context["users"] = users
+        # Needed for the checkbox list for choosing which products a user can access
+        context["projects"] = request.user.organization.projects.all()
         return render(request, "projects/project_team.html", context)
 
 
@@ -495,6 +497,8 @@ class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
         get_project_for_user(user=request.user, project_object_id=object_id)
         email = request.POST.get("email")
+        is_admin = request.POST.get("is_admin") == "true"
+        selected_project_ids = request.POST.getlist("project_access")
 
         if not email:
             return HttpResponse("Email is required", status=400)
@@ -503,10 +507,37 @@ class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
         if User.objects.filter(email=email).exists():
             return HttpResponse("A user with this email already exists", status=400)
 
+        # Validate project selection for regular users
+        if not is_admin and not selected_project_ids:
+            return HttpResponse("Please select at least one project for regular users", status=400)
+
+        # Validate that selected projects exist and belong to the organization
+        if not is_admin and selected_project_ids:
+            valid_projects = Project.objects.filter(
+                object_id__in=selected_project_ids,
+                organization=request.user.organization
+            )
+            if len(valid_projects) != len(selected_project_ids):
+                return HttpResponse("Invalid project selection", status=400)
+
         try:
             with transaction.atomic():
-                # Create the user
-                user = User.objects.create_user(email=email, username=str(uuid.uuid4()), organization=request.user.organization, invited_by=request.user, is_active=True)
+                # Create the user with appropriate role
+                user_role = UserRole.ADMIN if is_admin else UserRole.REGULAR_USER
+                user = User.objects.create_user(
+                    email=email, 
+                    username=str(uuid.uuid4()), 
+                    organization=request.user.organization, 
+                    invited_by=request.user, 
+                    is_active=True,
+                    role=user_role
+                )
+
+                # Create project access entries for regular users
+                if not is_admin and selected_project_ids:
+                    for project_id in selected_project_ids:
+                        project = Project.objects.get(object_id=project_id, organization=request.user.organization)
+                        ProjectAccess.objects.create(project=project, user=user)
 
                 # Send verification email
                 send_email_confirmation(request, user, email=email)
@@ -555,7 +586,7 @@ class DeleteWebhookView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         return render(request, "projects/project_webhooks.html", context)
 
 
-class ProjectBillingView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+class ProjectBillingView(AdminRequiredMixin, ProjectUrlContextMixin, ListView):
     template_name = "projects/project_billing.html"
     context_object_name = "transactions"
     paginate_by = 20

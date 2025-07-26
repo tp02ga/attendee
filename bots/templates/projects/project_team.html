@@ -33,6 +33,7 @@
             <thead>
               <tr>
                 <th>Email</th>
+                <th>Role</th>
                 <th>Date Joined</th>
                 <th>Status</th>
                 <th>Invited By</th>
@@ -42,6 +43,13 @@
               {% for user in users %}
                 <tr>
                   <td>{{ user.email }}</td>
+                  <td>
+                    {% if user.role == 'admin' %}
+                      <span class="badge bg-primary">Administrator</span>
+                    {% else %}
+                      <span class="badge bg-secondary">Regular User</span>
+                    {% endif %}
+                  </td>
                   <td>{{ user.date_joined|date:"M d, Y" }}</td>
                   <td>
                     {% if not user.is_active %}
@@ -88,8 +96,37 @@
           <div class="mb-3">
             <label for="inviteEmail" class="form-label">Email Address</label>
             <input type="email" class="form-control" id="inviteEmail" name="email" required placeholder="Enter email address">
-            <div class="form-text">This user will have access to all the projects in your account.</div>
           </div>
+          
+          <div class="mb-3">
+            <label class="form-label">User Role</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="roleToggle" name="is_admin" value="true">
+              <label class="form-check-label" for="roleToggle">
+                <span id="roleLabel">Regular User</span>
+              </label>
+            </div>
+            <div class="form-text" id="roleDescription">This user will have access only to selected projects.</div>
+          </div>
+
+          <div id="projectAccessSection" class="mb-3">
+            <label class="form-label">Project Access <span class="text-danger">*</span></label>
+            <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+              {% for project in projects %}
+                <div class="form-check">
+                  <input class="form-check-input project-checkbox" type="checkbox" name="project_access" value="{{ project.object_id }}" id="project_{{ project.object_id }}">
+                  <label class="form-check-label" for="project_{{ project.object_id }}">
+                    {{ project.name }}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+            <div class="form-text">Select at least one project that this user can access.</div>
+            <div id="projectSelectionError" class="text-danger d-none" style="font-size: 0.875em;">
+              Please select at least one project.
+            </div>
+          </div>
+
           <div id="inviteError" class="alert alert-danger d-none" role="alert"></div>
         </div>
         <div class="modal-footer">
@@ -112,6 +149,55 @@
     const inviteError = document.getElementById('inviteError');
     const successAlert = document.getElementById('successAlert');
     const errorAlert = document.getElementById('errorAlert');
+    const roleToggle = document.getElementById('roleToggle');
+    const roleLabel = document.getElementById('roleLabel');
+    const roleDescription = document.getElementById('roleDescription');
+    const projectAccessSection = document.getElementById('projectAccessSection');
+    const projectCheckboxes = document.querySelectorAll('.project-checkbox');
+    const projectSelectionError = document.getElementById('projectSelectionError');
+    
+    function updateRoleUI() {
+        if (roleToggle.checked) {
+            // Admin role selected
+            roleLabel.textContent = 'Administrator';
+            roleDescription.textContent = 'This user will have access to all projects in your account.';
+            projectAccessSection.style.display = 'none';
+            projectSelectionError.classList.add('d-none');
+            // Clear all project selections
+            projectCheckboxes.forEach(checkbox => checkbox.checked = false);
+        } else {
+            // Regular user selected
+            roleLabel.textContent = 'Regular User';
+            roleDescription.textContent = 'This user will have access only to selected projects.';
+            projectAccessSection.style.display = 'block';
+        }
+    }
+    
+    function validateProjectSelection() {
+        if (!roleToggle.checked) {
+            // Only validate for regular users
+            const hasSelectedProject = Array.from(projectCheckboxes).some(checkbox => checkbox.checked);
+            if (!hasSelectedProject) {
+                projectSelectionError.classList.remove('d-none');
+                return false;
+            } else {
+                projectSelectionError.classList.add('d-none');
+                return true;
+            }
+        }
+        return true;
+    }
+    
+    // Initialize role UI
+    updateRoleUI();
+    
+    // Handle role toggle changes
+    roleToggle.addEventListener('change', updateRoleUI);
+    
+    // Handle project selection changes for validation
+    projectCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', validateProjectSelection);
+    });
     
     function showAlert(type, message) {
         const alert = type === 'success' ? successAlert : errorAlert;
@@ -128,6 +214,7 @@
     
     function hideInlineError() {
         inviteError.classList.add('d-none');
+        projectSelectionError.classList.add('d-none');
     }
     
     function showInlineError(message) {
@@ -149,6 +236,12 @@
         e.preventDefault();
         
         hideInlineError();
+        
+        // Validate project selection
+        if (!validateProjectSelection()) {
+            return;
+        }
+        
         setLoading(true);
         
         const formData = new FormData(inviteForm);
@@ -177,6 +270,7 @@
             
             // Reset form
             inviteForm.reset();
+            updateRoleUI(); // Reset the UI state
             
             // Show success alert
             showAlert('success', result.message);
@@ -202,6 +296,9 @@
         successAlert.classList.add('d-none');
         errorAlert.classList.add('d-none');
         hideInlineError();
+        // Reset form and UI when modal opens
+        inviteForm.reset();
+        updateRoleUI();
     });
     };
 
