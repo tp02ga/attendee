@@ -37,7 +37,6 @@
                 <th>Project Access</th>
                 <th>Date Joined</th>
                 <th>Status</th>
-                <th>Invited By</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -53,8 +52,10 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if user.role == 'admin' %}
-                      <span class="badge bg-light text-dark">All</span>
+                    {% if not user.is_active %}
+                      <span>-</span>
+                    {% elif user.role == 'admin' %}
+                      <span>-</span>
                     {% else %}
                       {% for access in user.project_accesses.all %}
                         <span class="badge bg-light text-dark">{{ access.project.name }}</span>
@@ -72,13 +73,6 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if user.invited_by %}
-                      {{ user.invited_by.email }}
-                    {% else %}
-                      -
-                    {% endif %}
-                  </td>
-                  <td>
                     {% if user.id != request.user.id %}
                       <button type="button" class="btn btn-sm btn-outline-primary edit-user-btn" 
                               data-user-id="{{ user.id }}"
@@ -90,8 +84,6 @@
                               data-bs-target="#editUserModal">
                         <i class="fas fa-edit"></i> Edit
                       </button>
-                    {% else %}
-                      <span class="text-muted">You</span>
                     {% endif %}
                   </td>
                 </tr>

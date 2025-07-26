@@ -478,7 +478,7 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 
         # Get all users in the organization with invited_by data and their project access
-        users = request.user.organization.users.select_related("invited_by").prefetch_related("project_accesses__project").order_by("id")
+        users = request.user.organization.users.select_related("invited_by").prefetch_related("project_accesses__project").order_by("-is_active", "id")
 
         context = self.get_project_context(object_id, project)
         context["users"] = users
