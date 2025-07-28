@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import math
 import os
@@ -492,8 +493,6 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
 class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        project = get_project_for_user(user=request.user, project_object_id=object_id)
-        
         user_id = request.POST.get("user_id")
         is_admin = request.POST.get("is_admin") == "true"
         is_active = request.POST.get("is_active") == "true"
@@ -504,10 +503,7 @@ class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
         # Get the user to be edited
         try:
-            user_to_edit = User.objects.get(
-                id=user_id, 
-                organization=request.user.organization
-            )
+            user_to_edit = User.objects.get(id=user_id, organization=request.user.organization)
         except User.DoesNotExist:
             return HttpResponse("User not found", status=400)
 
@@ -521,10 +517,7 @@ class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
         # Validate that selected projects exist and belong to the organization
         if not is_admin and selected_project_ids:
-            valid_projects = Project.objects.filter(
-                object_id__in=selected_project_ids,
-                organization=request.user.organization
-            )
+            valid_projects = Project.objects.filter(object_id__in=selected_project_ids, organization=request.user.organization)
             if len(valid_projects) != len(selected_project_ids):
                 return HttpResponse("Invalid project selection", status=400)
 
@@ -533,23 +526,20 @@ class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
                 # Update user role
                 user_role = UserRole.ADMIN if is_admin else UserRole.REGULAR_USER
                 user_to_edit.role = user_role
-                
+
                 # Update user active status
                 user_to_edit.is_active = is_active
-                
+
                 user_to_edit.save()
 
                 # Update project access for regular users
                 if not is_admin:
                     # Remove all existing project access
                     ProjectAccess.objects.filter(user=user_to_edit).delete()
-                    
+
                     # Add new project access entries
                     for project_id in selected_project_ids:
-                        project_obj = Project.objects.get(
-                            object_id=project_id, 
-                            organization=request.user.organization
-                        )
+                        project_obj = Project.objects.get(object_id=project_id, organization=request.user.organization)
                         ProjectAccess.objects.create(project=project_obj, user=user_to_edit)
                 else:
                     # If user is now admin, remove all project access entries
@@ -559,11 +549,7 @@ class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
                 # Return success response
                 status_text = "active" if is_active else "disabled"
                 role_text = "administrator" if is_admin else "regular user"
-                return HttpResponse(
-                    f"User {user_to_edit.email} has been updated successfully. "
-                    f"Role: {role_text}, Status: {status_text}.", 
-                    status=200
-                )
+                return HttpResponse(f"User {user_to_edit.email} has been updated successfully. Role: {role_text}, Status: {status_text}.", status=200)
 
         except Exception as e:
             logger.error(f"Error updating user: {str(e)}")
@@ -595,10 +581,7 @@ class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
         # Validate that selected projects exist and belong to the organization
         if not is_admin and selected_project_ids:
-            valid_projects = Project.objects.filter(
-                object_id__in=selected_project_ids,
-                organization=request.user.organization
-            )
+            valid_projects = Project.objects.filter(object_id__in=selected_project_ids, organization=request.user.organization)
             if len(valid_projects) != len(selected_project_ids):
                 return HttpResponse("Invalid project selection", status=400)
 
@@ -607,12 +590,12 @@ class InviteUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
                 # Create the user with appropriate role
                 user_role = UserRole.ADMIN if is_admin else UserRole.REGULAR_USER
                 user = User.objects.create_user(
-                    email=email, 
-                    username=str(uuid.uuid4()), 
-                    organization=request.user.organization, 
-                    invited_by=request.user, 
+                    email=email,
+                    username=str(uuid.uuid4()),
+                    organization=request.user.organization,
+                    invited_by=request.user,
                     is_active=True,
-                    role=user_role
+                    role=user_role,
                 )
 
                 # Create project access entries for regular users
