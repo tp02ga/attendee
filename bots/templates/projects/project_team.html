@@ -171,6 +171,7 @@
       <form id="editUserForm" action="{% url 'projects:edit-user' project.object_id %}" method="post">
         {% csrf_token %}
         <input type="hidden" id="editUserId" name="user_id" value="">
+        <input type="hidden" id="editUserActiveInput" name="is_active" value="">
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Email Address</label>
@@ -206,20 +207,13 @@
             </div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Account Status</label>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="editActiveToggle" name="is_active" value="true">
-              <label class="form-check-label" for="editActiveToggle">
-                <span id="editActiveLabel">Disabled</span>
-              </label>
-            </div>
-            <div class="form-text" id="editActiveDescription">When disabled, the user cannot access their account.</div>
-          </div>
-
           <div id="editError" class="alert alert-danger d-none" role="alert"></div>
         </div>
         <div class="modal-footer">
+          <button type="button" class="btn btn-danger" id="editActiveBtn">
+            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+            <span id="editActiveButtonText">Disable</span>
+          </button>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary" id="editSubmitBtn">
             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -405,9 +399,12 @@
         const editProjectAccessSection = document.getElementById('editProjectAccessSection');
         const editProjectCheckboxes = document.querySelectorAll('.edit-project-checkbox');
         const editProjectSelectionError = document.getElementById('editProjectSelectionError');
-        const editActiveToggle = document.getElementById('editActiveToggle');
-        const editActiveLabel = document.getElementById('editActiveLabel');
-        const editActiveDescription = document.getElementById('editActiveDescription');
+        const editActiveBtn = document.getElementById('editActiveBtn');
+        const editActiveButtonText = document.getElementById('editActiveButtonText');
+        const editActiveSpinner = editActiveBtn.querySelector('.spinner-border');
+        const editUserActiveInput = document.getElementById('editUserActiveInput');
+        
+        let currentUserActive = false; // Track current user active status
         
         function updateEditRoleUI() {
             if (editRoleToggle.checked) {
@@ -426,13 +423,13 @@
             }
         }
         
-        function updateEditActiveUI() {
-            if (editActiveToggle.checked) {
-                editActiveLabel.textContent = 'Active';
-                editActiveDescription.textContent = 'The user can access their assigned projects.';
+        function updateActiveButton() {
+            if (currentUserActive) {
+                editActiveButtonText.textContent = 'Disable';
+                editActiveBtn.className = 'btn btn-danger';
             } else {
-                editActiveLabel.textContent = 'Disabled';
-                editActiveDescription.textContent = 'When disabled, the user cannot access any projects.';
+                editActiveButtonText.textContent = 'Activate';
+                editActiveBtn.className = 'btn btn-success';
             }
         }
         
@@ -453,9 +450,6 @@
         
         // Handle role toggle changes
         editRoleToggle.addEventListener('change', updateEditRoleUI);
-        
-        // Handle active toggle changes
-        editActiveToggle.addEventListener('change', updateEditActiveUI);
         
         // Handle project selection changes for validation
         editProjectCheckboxes.forEach(checkbox => {
@@ -482,6 +476,68 @@
             }
         }
         
+        function setActiveLoading(loading) {
+            if (loading) {
+                editActiveBtn.disabled = true;
+                editActiveSpinner.classList.remove('d-none');
+            } else {
+                editActiveBtn.disabled = false;
+                editActiveSpinner.classList.add('d-none');
+            }
+        }
+        
+        // Handle activate/deactivate button click
+        editActiveBtn.addEventListener('click', function() {
+            hideEditInlineError();
+            
+            // Validate project selection if changing to active and user is not admin
+            if (!currentUserActive && !editRoleToggle.checked && !validateEditProjectSelection()) {
+                return;
+            }
+            
+            setActiveLoading(true);
+            
+            // Set the active status to the opposite of current status
+            editUserActiveInput.value = currentUserActive ? 'false' : 'true';
+            
+            const formData = new FormData(editForm);
+            
+            fetch(editForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text().then(text => ({ success: true, message: text }));
+                } else {
+                    return response.text().then(text => ({ success: false, message: text }));
+                }
+            })
+            .then(result => {
+                setActiveLoading(false);
+                
+                if (result.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+                    modal.hide();
+                    
+                    // Refresh page immediately
+                    window.location.reload();
+                } else {
+                    // Show error in modal
+                    showEditInlineError(result.message);
+                }
+            })
+            .catch(error => {
+                setActiveLoading(false);
+                console.error('Error:', error);
+                showEditInlineError('An unexpected error occurred. Please try again.');
+            });
+        });
+        
         // Handle edit button clicks
         document.querySelectorAll('.edit-user-btn').forEach(button => {
             button.addEventListener('click', function() {
@@ -491,15 +547,19 @@
                 const userActive = this.dataset.userActive === 'true';
                 const userProjectAccess = this.dataset.userProjectAccess || '';
                 
+                // Store current user active status
+                currentUserActive = userActive;
+                
                 // Populate modal with user data
                 document.getElementById('editUserId').value = userId;
                 document.getElementById('editUserEmail').textContent = userEmail;
                 editRoleToggle.checked = userRole === 'admin';
-                editActiveToggle.checked = userActive;
+                // Initialize hidden input with current active status
+                editUserActiveInput.value = userActive ? 'true' : 'false';
                 
                 // Update UI
                 updateEditRoleUI();
-                updateEditActiveUI();
+                updateActiveButton();
                 
                 // Clear all project checkboxes first
                 editProjectCheckboxes.forEach(checkbox => checkbox.checked = false);
@@ -530,6 +590,9 @@
             }
             
             setEditLoading(true);
+            
+            // For normal save, ensure the hidden input has the current active status
+            editUserActiveInput.value = currentUserActive ? 'true' : 'false';
             
             const formData = new FormData(editForm);
             

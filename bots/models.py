@@ -35,12 +35,14 @@ class Project(models.Model):
 
     @classmethod
     def accessible_to(cls, user):
+        if not user.is_active:
+            return cls.objects.none()
         if user.role == UserRole.ADMIN:
             return cls.objects.filter(organization=user.organization)
         return cls.objects.filter(organization=user.organization).filter(project_accesses__user=user)
 
     def users_with_access(self):
-        return self.organization.users.filter(
+        return self.organization.users.filter(is_active=True).filter(
             Q(project_accesses__project=self) | Q(role=UserRole.ADMIN)
         )
 
