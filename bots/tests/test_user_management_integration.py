@@ -60,7 +60,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "true",
                 "is_active": "true",
             },
@@ -98,7 +98,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id, self.project3.object_id],
@@ -134,7 +134,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "false",
                 "project_access": [self.project1.object_id],
@@ -166,7 +166,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project2.object_id, self.project3.object_id],
@@ -198,7 +198,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project3.object_id],  # Only project3
@@ -223,7 +223,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id],
@@ -241,7 +241,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.admin_user.id,  # Trying to edit self
+                "user_object_id": self.admin_user.object_id,  # Trying to edit self
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id],
@@ -252,15 +252,15 @@ class UserManagementIntegrationTest(TransactionTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("You cannot edit your own account", response.content.decode())
 
-    def test_edit_user_missing_user_id(self):
-        """Test that missing user_id returns error"""
+    def test_edit_user_missing_user_object_id(self):
+        """Test that missing user_object_id returns error"""
         self.client.force_login(self.admin_user)
 
         edit_url = reverse("projects:edit-user", kwargs={"object_id": self.project1.object_id})
         response = self.client.post(
             edit_url,
             {
-                # No user_id provided
+                # No user_object_id provided
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id],
@@ -279,7 +279,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": 99999,  # Non-existent user ID
+                "user_object_id": "usr_nonexistent",  # Non-existent user ID
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id],
@@ -287,8 +287,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         )
 
         # Should fail
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("User not found", response.content.decode())
+        self.assertEqual(response.status_code, 404)
 
     def test_edit_user_regular_without_project_access(self):
         """Test that demoting to regular user without project access fails"""
@@ -298,7 +297,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 # No project_access provided
@@ -317,7 +316,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": ["invalid_project_id"],
@@ -342,7 +341,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": other_user.id,
+                "user_object_id": other_user.object_id,
                 "is_admin": "false",
                 "is_active": "true",
                 "project_access": [self.project1.object_id],
@@ -350,8 +349,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         )
 
         # Should fail
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("User not found", response.content.decode())
+        self.assertEqual(response.status_code, 404)
 
     def test_project_team_view_admin_access(self):
         """Test that admin can access the project team view"""
@@ -414,7 +412,7 @@ class UserManagementIntegrationTest(TransactionTestCase):
         response = self.client.post(
             edit_url,
             {
-                "user_id": self.target_user.id,
+                "user_object_id": self.target_user.object_id,
                 "is_admin": "false",
                 "is_active": "false",
                 "project_access": [self.project1.object_id, self.project2.object_id],
