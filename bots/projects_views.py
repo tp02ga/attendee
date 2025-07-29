@@ -493,17 +493,17 @@ class ProjectTeamView(AdminRequiredMixin, ProjectUrlContextMixin, View):
 
 class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
     def post(self, request, object_id):
-        user_id = request.POST.get("user_id")
+        user_object_id = request.POST.get("user_object_id")
         is_admin = request.POST.get("is_admin") == "true"
         is_active = request.POST.get("is_active") == "true"
         selected_project_ids = request.POST.getlist("project_access")
 
-        if not user_id:
+        if not user_object_id:
             return HttpResponse("User ID is required", status=400)
 
         # Get the user to be edited
         try:
-            user_to_edit = User.objects.get(id=user_id, organization=request.user.organization)
+            user_to_edit = User.objects.get(object_id=user_object_id, organization=request.user.organization)
         except User.DoesNotExist:
             return HttpResponse("User not found", status=400)
 
