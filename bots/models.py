@@ -17,7 +17,7 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-from accounts.models import Organization
+from accounts.models import Organization, User, UserRole
 from bots.webhook_utils import trigger_webhook
 
 # Create your models here.
@@ -33,6 +33,17 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @classmethod
+    def accessible_to(cls, user):
+        if not user.is_active:
+            return cls.objects.none()
+        if user.role == UserRole.ADMIN:
+            return cls.objects.filter(organization=user.organization)
+        return cls.objects.filter(organization=user.organization).filter(project_accesses__user=user)
+
+    def users_with_access(self):
+        return self.organization.users.filter(is_active=True).filter(Q(project_accesses__project=self) | Q(role=UserRole.ADMIN))
+
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
@@ -42,6 +53,11 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProjectAccess(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="project_accesses")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="project_accesses")
 
 
 class ApiKey(models.Model):
@@ -613,7 +629,7 @@ class BotEventSubTypes(models.IntegerChoices):
     )
     COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP = (
         5,
-        "Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/blog/prepare-meeting-sdk-app-for-review",
+        "Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/docs/distribute/sdk-feature-review-requirements/",
     )
     FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, "Fatal error - RTMP Connection Failed"
     COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR = (
