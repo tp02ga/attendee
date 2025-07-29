@@ -171,7 +171,7 @@ class AdminRoleIntegrationTest(TransactionTestCase):
         """Test that admin users can edit other users"""
         self.client.force_login(self.admin_user)
 
-        response = self.client.post(reverse("bots:edit-user", kwargs={"object_id": self.project.object_id}), data={"user_id": self.target_user.id, "is_admin": "false", "is_active": "true", "project_access": [self.project.object_id]})
+        response = self.client.post(reverse("bots:edit-user", kwargs={"object_id": self.project.object_id}), data={"user_object_id": self.target_user.object_id, "is_admin": "false", "is_active": "true", "project_access": [self.project.object_id]})
 
         self.assertEqual(response.status_code, 200)
 
@@ -179,7 +179,7 @@ class AdminRoleIntegrationTest(TransactionTestCase):
         """Test that non-admin users cannot edit other users"""
         self.client.force_login(self.regular_user)
 
-        response = self.client.post(reverse("bots:edit-user", kwargs={"object_id": self.project.object_id}), data={"user_id": self.target_user.id, "is_admin": "false", "is_active": "true", "project_access": [self.project.object_id]})
+        response = self.client.post(reverse("bots:edit-user", kwargs={"object_id": self.project.object_id}), data={"user_object_id": self.target_user.object_id, "is_admin": "false", "is_active": "true", "project_access": [self.project.object_id]})
 
         self.assertEqual(response.status_code, 403)
 
