@@ -502,10 +502,7 @@ class EditUserView(AdminRequiredMixin, ProjectUrlContextMixin, View):
             return HttpResponse("User ID is required", status=400)
 
         # Get the user to be edited
-        try:
-            user_to_edit = User.objects.get(object_id=user_object_id, organization=request.user.organization)
-        except User.DoesNotExist:
-            return HttpResponse("User not found", status=400)
+        user_to_edit = get_object_or_404(User, object_id=user_object_id, organization=request.user.organization)
 
         # Prevent editing yourself
         if user_to_edit.id == request.user.id:
