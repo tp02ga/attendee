@@ -629,7 +629,7 @@ class BotEventSubTypes(models.IntegerChoices):
     )
     COULD_NOT_JOIN_MEETING_UNPUBLISHED_ZOOM_APP = (
         5,
-        "Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/blog/prepare-meeting-sdk-app-for-review",
+        "Bot could not join meeting - Unpublished Zoom Apps cannot join external meetings. See https://developers.zoom.us/docs/distribute/sdk-feature-review-requirements/",
     )
     FATAL_ERROR_RTMP_CONNECTION_FAILED = 6, "Fatal error - RTMP Connection Failed"
     COULD_NOT_JOIN_MEETING_ZOOM_SDK_INTERNAL_ERROR = (
