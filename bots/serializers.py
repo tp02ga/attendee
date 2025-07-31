@@ -878,8 +878,8 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate format if provided
         format = value.get("format")
-        if format not in [RecordingFormats.MP4, RecordingFormats.MP3, None]:
-            raise serializers.ValidationError({"format": "Format must be mp4 or mp3"})
+        if format not in [RecordingFormats.MP4, RecordingFormats.MP3, RecordingFormats.NONE, None]:
+            raise serializers.ValidationError({"format": "Format must be mp4 or mp3 or 'none'"})
 
         # Validate view if provided
         view = value.get("view")

@@ -456,6 +456,12 @@ class BotController:
             else:
                 return PipelineConfiguration.audio_recorder_bot()
 
+        if self.bot_in_db.recording_type() == RecordingTypes.NO_RECORDING:
+            if self.bot_in_db.websocket_audio_url():
+                return PipelineConfiguration.pure_transcription_bot_with_websocket_audio()
+            else:
+                return PipelineConfiguration.pure_transcription_bot()
+
         if self.bot_in_db.websocket_audio_url():
             return PipelineConfiguration.recorder_bot_with_websocket_audio()
 
@@ -473,13 +479,15 @@ class BotController:
 
         if self.bot_in_db.recording_format() == RecordingFormats.WEBM:
             return GstreamerPipeline.OUTPUT_FORMAT_WEBM
-        elif self.bot_in_db.recording_format() == RecordingFormats.MP3:
+        elif self.bot_in_db.recording_format() == RecordingFormats.MP3 or self.bot_in_db.recording_format() == RecordingFormats.NONE:
             return GstreamerPipeline.OUTPUT_FORMAT_MP3
         else:
             return GstreamerPipeline.OUTPUT_FORMAT_MP4
 
     def get_recording_file_location(self):
         if self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.rtmp_stream_video:
+            return None
+        elif not self.pipeline_configuration.record_audio and not self.pipeline_configuration.record_video:
             return None
         else:
             return os.path.join("/tmp", self.get_recording_filename())
