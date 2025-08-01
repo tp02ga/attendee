@@ -147,6 +147,7 @@ class RecordingFormats(models.TextChoices):
     MP4 = "mp4"
     WEBM = "webm"
     MP3 = "mp3"
+    NONE = "none"
 
 
 class RecordingViews(models.TextChoices):
@@ -268,6 +269,7 @@ class Bot(models.Model):
         recording_mode_env_var_substring = {
             RecordingTypes.AUDIO_AND_VIDEO: "AUDIO_AND_VIDEO",
             RecordingTypes.AUDIO_ONLY: "AUDIO_ONLY",
+            RecordingTypes.NO_RECORDING: "NO_RECORDING",
         }.get(self.recording_type(), "UNKNOWN")
 
         env_var_name = f"{meeting_type_env_var_substring}_{recording_mode_env_var_substring}_BOT_CPU_REQUEST"
@@ -411,6 +413,8 @@ class Bot(models.Model):
             return RecordingTypes.AUDIO_AND_VIDEO
         elif recording_format == RecordingFormats.MP3:
             return RecordingTypes.AUDIO_ONLY
+        elif recording_format == RecordingFormats.NONE:
+            return RecordingTypes.NO_RECORDING
         else:
             raise ValueError(f"Invalid recording format: {recording_format}")
 
@@ -436,7 +440,7 @@ class Bot(models.Model):
 
         # Temporarily enabling this for all google meet meetings
         bot_meeting_type = meeting_type_from_url(self.meeting_url)
-        if (bot_meeting_type == MeetingTypes.GOOGLE_MEET or bot_meeting_type == MeetingTypes.TEAMS or (bot_meeting_type == MeetingTypes.ZOOM and self.use_zoom_web_adapter)) and not self.recording_type() == RecordingTypes.AUDIO_ONLY:
+        if (bot_meeting_type == MeetingTypes.GOOGLE_MEET or bot_meeting_type == MeetingTypes.TEAMS or (bot_meeting_type == MeetingTypes.ZOOM and self.use_zoom_web_adapter)) and self.recording_type() == RecordingTypes.AUDIO_AND_VIDEO:
             return True
 
         debug_settings = self.settings.get("debug_settings", {})
@@ -1165,6 +1169,7 @@ class RecordingTranscriptionStates(models.IntegerChoices):
 class RecordingTypes(models.IntegerChoices):
     AUDIO_AND_VIDEO = 1, "Audio and Video"
     AUDIO_ONLY = 2, "Audio Only"
+    NO_RECORDING = 3, "No Recording"
 
 
 class RecordingResolutions(models.TextChoices):
@@ -1267,8 +1272,8 @@ class RecordingManager:
     @classmethod
     def terminate_recording(cls, recording: Recording):
         if recording.state == RecordingStates.IN_PROGRESS or recording.state == RecordingStates.PAUSED:
-            # If we don't have a recording file, then it failed.
-            if recording.file:
+            # If we don't have a recording file AND we intended to generate one, then it failed.
+            if recording.file or recording.bot.recording_type() == RecordingTypes.NO_RECORDING:
                 RecordingManager.set_recording_complete(recording)
             else:
                 RecordingManager.set_recording_failed(recording)

@@ -245,29 +245,31 @@
                                         </div>
                                     {% endif %}
                                 </div>
-                                
-                                <div class="video-column">
-                                    {% if recording.state == RecordingStates.COMPLETE %}
-                                        <video preload="auto" width="100%" controls id="recording-video">
-                                            <source src="{{ recording.url }}">
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    {% else %}
-                                        <div class="d-flex align-items-center justify-content-center bg-light border rounded" style="height: 300px;">
-                                            <div class="text-center">
-                                                <span class="visually-hidden">Recording...</span>
-                                                <p class="text-muted mb-0">
-                                                    {% if recording.state == RecordingStates.IN_PROGRESS %}
-                                                        Recording in progress...
-                                                    {% elif recording.state == RecordingStates.PAUSED %}
-                                                        Recording paused...
-                                                    {% endif %}
-                                                </p>
-                                                <small class="text-muted">Media will be available when the recording is finished.</small>
+                                                                
+                                {% if recording.recording_type != RecordingTypes.NO_RECORDING %}
+                                    <div class="video-column">
+                                        {% if recording.state == RecordingStates.COMPLETE %}
+                                            <video preload="auto" width="100%" controls id="recording-video">
+                                                <source src="{{ recording.url }}">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        {% else %}
+                                            <div class="d-flex align-items-center justify-content-center bg-light border rounded" style="height: 300px;">
+                                                <div class="text-center">
+                                                    <span class="visually-hidden">Recording...</span>
+                                                    <p class="text-muted mb-0">
+                                                        {% if recording.state == RecordingStates.IN_PROGRESS %}
+                                                            Recording in progress...
+                                                        {% elif recording.state == RecordingStates.PAUSED %}
+                                                            Recording paused...
+                                                        {% endif %}
+                                                    </p>
+                                                    <small class="text-muted">Media will be available when the recording is finished.</small>
+                                                </div>
                                             </div>
-                                        </div>
-                                    {% endif %}
-                                </div>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
                             </div>
                         {% elif recording.state == RecordingStates.FAILED %}
                             <div class="alert alert-danger">

@@ -1188,11 +1188,14 @@ components:
                   items:
                     type: string
                     enum:
-                      - pci
-                      - pii
-                      - numbers
+                    - pci
+                    - pii
+                    - numbers
                   uniqueItems: true
-                  description: "Array of redaction types to apply to transcription. Automatically removes or masks sensitive information like PII, PCI data, and numbers from transcripts. See here for details: https://developers.deepgram.com/docs/redaction"
+                  description: 'Array of redaction types to apply to transcription.
+                    Automatically removes or masks sensitive information like PII,
+                    PCI data, and numbers from transcripts. See here for details:
+                    https://developers.deepgram.com/docs/redaction'
               additionalProperties: false
             gladia:
               type: object
@@ -1396,7 +1399,7 @@ components:
             format:
               type: string
               description: The format of the recording to save. The supported formats
-                are 'mp4' and 'mp3'.
+                are 'mp4', 'mp3' and 'none'.
             view:
               type: string
               description: The view to use for the recording. The supported views
