@@ -201,8 +201,8 @@ class BotController:
             zoom_client_id=zoom_oauth_credentials["client_id"],
             zoom_client_secret=zoom_oauth_credentials["client_secret"],
             meeting_url=self.bot_in_db.meeting_url,
-            add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame,
-            wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames,
+            add_video_frame_callback=self.gstreamer_pipeline.on_new_video_frame if self.gstreamer_pipeline else None,
+            wants_any_video_frames_callback=self.gstreamer_pipeline.wants_any_video_frames if self.gstreamer_pipeline else lambda: False,
             add_mixed_audio_chunk_callback=self.add_mixed_audio_chunk_callback,
             upsert_chat_message_callback=self.on_new_chat_message,
             add_participant_event_callback=self.add_participant_event,
@@ -493,6 +493,10 @@ class BotController:
             return os.path.join("/tmp", self.get_recording_filename())
 
     def should_create_gstreamer_pipeline(self):
+        # if we're not recording audio or video and not doing rtmp streaming, then we don't need to create a gstreamer pipeline
+        if not self.pipeline_configuration.record_audio and not self.pipeline_configuration.record_video and not self.pipeline_configuration.rtmp_stream_audio and not self.pipeline_configuration.rtmp_stream_video:
+            return False
+
         # For google meet / teams, we're doing a media recorder based recording technique that does the video processing in the browser
         # so we don't need to create a gstreamer pipeline here
         meeting_type = self.get_meeting_type()
