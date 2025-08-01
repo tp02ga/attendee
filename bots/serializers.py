@@ -250,7 +250,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
         "properties": {
             "format": {
                 "type": "string",
-                "description": "The format of the recording to save. The supported formats are 'mp4' and 'mp3'.",
+                "description": "The format of the recording to save. The supported formats are 'mp4', 'mp3' and 'none'.",
             },
             "view": {
                 "type": "string",
