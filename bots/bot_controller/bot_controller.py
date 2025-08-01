@@ -479,7 +479,7 @@ class BotController:
 
         if self.bot_in_db.recording_format() == RecordingFormats.WEBM:
             return GstreamerPipeline.OUTPUT_FORMAT_WEBM
-        elif self.bot_in_db.recording_format() == RecordingFormats.MP3 or self.bot_in_db.recording_format() == RecordingFormats.NONE:
+        elif self.bot_in_db.recording_format() == RecordingFormats.MP3:
             return GstreamerPipeline.OUTPUT_FORMAT_MP3
         else:
             return GstreamerPipeline.OUTPUT_FORMAT_MP4
