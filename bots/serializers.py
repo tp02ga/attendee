@@ -19,6 +19,9 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    Calendar,
+    CalendarPlatform,
+    CalendarStates,
     ChatMessageToOptions,
     MediaBlob,
     MeetingTypes,
@@ -1312,3 +1315,125 @@ class PatchBotSerializer(serializers.Serializer):
             raise serializers.ValidationError("join_at cannot be in the past")
 
         return value
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Create Google Calendar",
+            value={
+                "client_id": "123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
+                "client_secret": "GOCSPX-abcdefghijklmnopqrstuvwxyz",
+                "refresh_token": "1//04abcdefghijklmnopqrstuvwxyz",
+                "platform": "google",
+                "metadata": {"department": "engineering", "team": "backend"},
+                "deduplication_key": "engineering-main-calendar"
+            },
+            description="Example of creating a Google calendar connection",
+        ),
+        OpenApiExample(
+            "Create Microsoft Calendar",
+            value={
+                "client_id": "12345678-1234-1234-1234-123456789abc",
+                "client_secret": "abcdefghijklmnopqrstuvwxyz123456",
+                "refresh_token": "0.AXA1234567890abcdef",
+                "platform": "microsoft",
+                "metadata": {"department": "sales"},
+            },
+            description="Example of creating a Microsoft calendar connection",
+        )
+    ]
+)
+class CreateCalendarSerializer(serializers.Serializer):
+    client_id = serializers.CharField(help_text="The client ID for the calendar platform authentication")
+    client_secret = serializers.CharField(help_text="The client secret for the calendar platform authentication")
+    refresh_token = serializers.CharField(help_text="The refresh token for accessing the calendar platform")
+    platform = serializers.ChoiceField(choices=CalendarPlatform.choices, help_text="The calendar platform (google or microsoft)")
+    metadata = serializers.JSONField(help_text="JSON object containing metadata to associate with the calendar", required=False, default=None)
+    deduplication_key = serializers.CharField(help_text="Optional key for deduplicating calendars. If a calendar with this key already exists in the project, the new calendar will not be created and an error will be returned.", required=False, default=None)
+
+    def validate_metadata(self, value):
+        if value is None:
+            return value
+
+        # Check if it's a dict
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Metadata must be an object not an array or other type")
+
+        # Make sure there is at least one key
+        if not value:
+            raise serializers.ValidationError("Metadata must have at least one key")
+
+        # Check if all values are strings
+        for key, val in value.items():
+            if not isinstance(val, str):
+                raise serializers.ValidationError(f"Value for key '{key}' must be a string")
+
+        # Check if all keys are strings
+        for key in value.keys():
+            if not isinstance(key, str):
+                raise serializers.ValidationError("All keys in metadata must be strings")
+
+        # Make sure the total length of the stringified metadata is less than 1000 characters
+        if len(json.dumps(value)) > 1000:
+            raise serializers.ValidationError("Metadata must be less than 1000 characters")
+
+        return value
+
+    def validate_deduplication_key(self, value):
+        if value is not None and len(value.strip()) == 0:
+            raise serializers.ValidationError("Deduplication key cannot be empty")
+        return value
+
+    def validate_client_id(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Client ID cannot be empty")
+        return value.strip()
+
+    def validate_client_secret(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Client secret cannot be empty")
+        return value.strip()
+
+    def validate_refresh_token(self, value):
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("Refresh token cannot be empty")
+        return value.strip()
+
+
+class CalendarSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source="object_id")
+    state = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
+
+    @extend_schema_field(
+        {
+            "type": "string",
+            "enum": ["connected", "disconnected"],
+        }
+    )
+    def get_state(self, obj):
+        """Convert calendar state to API code"""
+        mapping = {
+            CalendarStates.CONNECTED: "connected",
+            CalendarStates.DISCONNECTED: "disconnected",
+        }
+        return mapping.get(obj.state)
+
+    @extend_schema_field({"type": "object", "description": "Metadata associated with the calendar"})
+    def get_metadata(self, obj):
+        return obj.metadata
+
+    class Meta:
+        model = Calendar
+        fields = [
+            "id",
+            "platform",
+            "state",
+            "metadata",
+            "deduplication_key",
+            "connection_failure_data",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
