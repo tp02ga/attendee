@@ -82,10 +82,11 @@ class Calendar(models.Model):
     client_id = models.CharField(max_length=255)
     platform_uuid = models.CharField(max_length=1024, null=True, blank=True)
 
-    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_attempted_sync_at = models.DateTimeField(null=True, blank=True)
     last_successful_sync_at = models.DateTimeField(null=True, blank=True)
-    synced_until = models.BigIntegerField(null=True, blank=True)
-    
+    last_successful_sync_time_window_start = models.DateTimeField(null=True, blank=True)
+    last_successful_sync_time_window_end = models.DateTimeField(null=True, blank=True)
+
     _encrypted_data = models.BinaryField(
         null=True,
         editable=False,  # Prevents editing through admin/forms
@@ -1894,6 +1895,8 @@ class WebhookTriggerTypes(models.IntegerChoices):
     TRANSCRIPT_UPDATE = 2, "Transcript Update"
     CHAT_MESSAGES_UPDATE = 3, "Chat Messages Update"
     PARTICIPANT_EVENTS_JOIN_LEAVE = 4, "Participant Join/Leave"
+    CALENDAR_EVENTS_UPDATE = 5, "Calendar Events Update"
+    CALENDAR_STATE_CHANGE = 6, "Calendar State Change"
     # add other event types here
 
     @classmethod
@@ -1904,6 +1907,8 @@ class WebhookTriggerTypes(models.IntegerChoices):
             cls.TRANSCRIPT_UPDATE: "transcript.update",
             cls.CHAT_MESSAGES_UPDATE: "chat_messages.update",
             cls.PARTICIPANT_EVENTS_JOIN_LEAVE: "participant_events.join_leave",
+            cls.CALENDAR_EVENTS_UPDATE: "calendar.events_update",
+            cls.CALENDAR_STATE_CHANGE: "calendar.state_change",
         }
 
     @classmethod
