@@ -54,6 +54,98 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+class CalendarPlatform(models.TextChoices):
+    GOOGLE = "google"
+    MICROSOFT = "microsoft"
+
+class CalendarStates(models.IntegerChoices):
+    CONNECTED=1
+    DISCONNECTED=2
+
+class Calendar(models.Model):
+    
+    OBJECT_ID_PREFIX = "cal_"
+
+    object_id = models.CharField(max_length=32, unique=True, editable=False)
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="calendars")
+    platform = models.CharField(max_length=255, choices=CalendarPlatform.choices)
+    state = models.IntegerField(choices=CalendarStates.choices, default=CalendarStates.CONNECTED)
+    connection_failure_data = models.JSONField(null=True, default=None)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    version = IntegerVersionField()
+
+    metadata = models.JSONField(null=True, blank=True)
+    deduplication_key = models.CharField(max_length=1024, null=True, blank=True, help_text="Optional key for deduplicating calendars")
+
+    client_id = models.CharField(max_length=255)
+    
+    _encrypted_data = models.BinaryField(
+        null=True,
+        editable=False,  # Prevents editing through admin/forms
+    )
+
+    def set_credentials(self, credentials_dict):
+        """Encrypt and save credentials"""
+        f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
+        json_data = json.dumps(credentials_dict)
+        self._encrypted_data = f.encrypt(json_data.encode())
+        self.save()
+
+    def get_credentials(self):
+        """Decrypt and return credentials"""
+        if not self._encrypted_data:
+            return None
+        f = Fernet(settings.CREDENTIALS_ENCRYPTION_KEY)
+        decrypted_data = f.decrypt(bytes(self._encrypted_data))
+        return json.loads(decrypted_data.decode())
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
+    class Meta:
+        # Within a project, we don't want to allow calendars in the same project with the same deduplication key
+        constraints = [
+            models.UniqueConstraint(fields=["project", "deduplication_key"], name="unique_calendar_deduplication_key"),
+        ]
+
+class CalendarEvent(models.Model):
+    OBJECT_ID_PREFIX = "evt_"
+    
+    object_id = models.CharField(max_length=255, unique=True, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE, related_name="events")
+
+    platform_uuid = models.CharField(max_length=1024)
+
+    meeting_url = models.CharField(max_length=511, null=True, blank=True)
+
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    is_deleted = models.BooleanField(default=False)
+    attendees = models.JSONField(null=True, blank=True)
+
+    raw = models.JSONField()
+
+    def save(self, *args, **kwargs):
+        if not self.object_id:
+            # Generate a random 16-character string
+            random_string = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            self.object_id = f"{self.OBJECT_ID_PREFIX}{random_string}"
+        super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["calendar", "platform_uuid"], name="unique_calendar_event_platform_uuid"),
+        ]
 
 class ProjectAccess(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="project_accesses")
@@ -180,6 +272,7 @@ class Bot(models.Model):
 
     join_at = models.DateTimeField(null=True, blank=True, help_text="The time the bot should join the meeting")
     deduplication_key = models.CharField(max_length=1024, null=True, blank=True, help_text="Optional key for deduplicating bots")
+    calendar_event = models.ForeignKey(CalendarEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name="bots")
 
     def delete_data(self):
         # Check if bot is in a state where the data deleted event can be created
@@ -1907,3 +2000,5 @@ class BotResourceSnapshot(models.Model):
 
     def __str__(self):
         return f"Resource snapshot for {self.bot.object_id} at {self.created_at}"
+
+    
