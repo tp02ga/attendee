@@ -34,7 +34,7 @@ def create_calendar(data, project):
                 client_id=validated_data['client_id'],
                 state=CalendarStates.CONNECTED,
                 metadata=validated_data.get('metadata'),
-                deduplication_key=deduplication_key
+                deduplication_key=validated_data.get('deduplication_key')
             )
             
             # Set encrypted credentials (client_secret and refresh_token)
@@ -60,12 +60,12 @@ def create_calendar(data, project):
         else:
             return None, {
                 'non_field_errors': [
-                    'An error occurred while creating the calendar. Please try again.'
+                    'An error occurred while creating the calendar: ' + str(e)
                 ]
             }
     except Exception as e:
         return None, {
             'non_field_errors': [
-                'An unexpected error occurred while creating the calendar.'
+                'An unexpected error occurred while creating the calendar: ' + str(e)
             ]
         }
