@@ -80,6 +80,7 @@ class Calendar(models.Model):
     deduplication_key = models.CharField(max_length=1024, null=True, blank=True, help_text="Optional key for deduplicating calendars")
 
     client_id = models.CharField(max_length=255)
+    platform_calendar_id = models.CharField(max_length=512, null=True, blank=True)
 
     last_sync_at = models.DateTimeField(null=True, blank=True)
     last_successful_sync_at = models.DateTimeField(null=True, blank=True)

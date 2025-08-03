@@ -1345,6 +1345,7 @@ class PatchBotSerializer(serializers.Serializer):
     ]
 )
 class CreateCalendarSerializer(serializers.Serializer):
+    platform_calendar_id = serializers.CharField(help_text="The calendar ID for the calendar platform. Specify only for non-primary calendars.", required=False, default=None)
     client_id = serializers.CharField(help_text="The client ID for the calendar platform authentication")
     client_secret = serializers.CharField(help_text="The client secret for the calendar platform authentication")
     refresh_token = serializers.CharField(help_text="The refresh token for accessing the calendar platform")
@@ -1429,6 +1430,7 @@ class CalendarSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "platform",
+            "platform_calendar_id",
             "state",
             "metadata",
             "deduplication_key",
