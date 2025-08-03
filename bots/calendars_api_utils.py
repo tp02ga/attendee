@@ -35,7 +35,7 @@ def create_calendar(data, project):
                 state=CalendarStates.CONNECTED,
                 metadata=validated_data.get('metadata'),
                 deduplication_key=validated_data.get('deduplication_key'),
-                platform_calendar_id=validated_data.get('platform_calendar_id')
+                platform_uuid=validated_data.get('platform_uuid')
             )
             
             # Set encrypted credentials (client_secret and refresh_token)
