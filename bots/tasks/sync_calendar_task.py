@@ -72,21 +72,17 @@ class CalendarSyncHandler:
         except requests.RequestException as e:
             raise GoogleCalendarAPIError(f"Failed to refresh access token: {str(e)}")
 
-    def _make_gcal_request(self, url: str, access_token: str) -> dict:
-        """Make a request to Google Calendar API."""
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-        }
+    def _make_gcal_request(self, url: str, access_token: str, params: dict = None) -> dict:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # Optional: log the fully encoded URL
+        req = requests.Request("GET", url, headers=headers, params=params).prepare()
+        logger.info("Fetching Google Calendar events: %s", req.url)
 
-        try:
-            response = requests.get(url, headers=headers, timeout=30)
-            print(response.json())
-            response.raise_for_status()
-            return response.json()
-
-        except requests.RequestException as e:
-            raise GoogleCalendarAPIError(f"Google Calendar API request failed: {str(e)}")
+        # Send the request
+        with requests.Session() as s:
+            resp = s.send(req, timeout=25)
+        resp.raise_for_status()
+        return resp.json()
 
     def _list_google_events(self, access_token: str) -> List[dict]:
         """List all events from Google Calendar within the time window."""
@@ -97,7 +93,7 @@ class CalendarSyncHandler:
         time_max = self.time_window_end.isoformat()
 
         base_url = f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
-        params = {
+        base_params = {
             "timeMin": time_min,
             "timeMax": time_max,
             "singleEvents": "true",  # Expand recurring events
@@ -109,15 +105,12 @@ class CalendarSyncHandler:
         next_page_token = None
 
         while True:
-            # Build URL with parameters
-            param_list = [f"{k}={v}" for k, v in params.items()]
+            params = dict(base_params)                  # copy base params
             if next_page_token:
-                param_list.append(f"pageToken={next_page_token}")
+                params["pageToken"] = next_page_token
 
-            url = f"{base_url}?{'&'.join(param_list)}"
-
-            logger.info(f"Fetching Google Calendar events: {url}")
-            response_data = self._make_gcal_request(url, access_token)
+            logger.info(f"Fetching Google Calendar events: {base_url} with params: {params}")
+            response_data = self._make_gcal_request(base_url, access_token, params)
 
             events = response_data.get("items", [])
             all_events.extend(events)
