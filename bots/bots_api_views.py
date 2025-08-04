@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, send_sync_command
+from .bots_api_utils import BotCreationSource, create_bot, create_bot_chat_message_request, create_bot_media_request_for_image, patch_bot, send_sync_command
 from .launch_bot_utils import launch_bot
 from .models import (
     Bot,
@@ -751,25 +751,12 @@ class BotDetailView(APIView):
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if bot is in scheduled state
-        if bot.state != BotStates.SCHEDULED:
-            return Response(
-                {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be updated when in scheduled state"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Use the utility function to patch the bot
+        updated_bot, error = patch_bot(bot, request.data)
+        if error:
+            return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate the request data
-        serializer = PatchBotSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        validated_data = serializer.validated_data
-
-        bot.join_at = validated_data["join_at"]
-
-        bot.save()
-
-        return Response(BotSerializer(bot).data, status=status.HTTP_200_OK)
+        return Response(BotSerializer(updated_bot).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         operation_id="Delete scheduled Bot",

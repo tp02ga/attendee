@@ -62,6 +62,31 @@ BOT_IMAGE_SCHEMA = {
 }
 
 
+class BotValidationMixin:
+    """Mixin class providing meeting URL validation for serializers."""
+
+    def validate_meeting_url(self, value):
+        meeting_type = meeting_type_from_url(value)
+        if meeting_type is None:
+            raise serializers.ValidationError("Invalid meeting URL")
+
+        if meeting_type == MeetingTypes.GOOGLE_MEET:
+            if not value.startswith("https://meet.google.com/"):
+                raise serializers.ValidationError("Google Meet URL must start with https://meet.google.com/")
+
+        return value
+
+    def validate_join_at(self, value):
+        """Validate that join_at cannot be in the past."""
+        if value is None:
+            return value
+
+        if value < timezone.now():
+            raise serializers.ValidationError("join_at cannot be in the past")
+
+        return value
+
+
 @extend_schema_field(BOT_IMAGE_SCHEMA)
 class ImageJSONField(serializers.JSONField):
     """Field for images with validation"""
@@ -524,7 +549,7 @@ class CallbackSettingsJSONField(serializers.JSONField):
         )
     ]
 )
-class CreateBotSerializer(serializers.Serializer):
+class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
     meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456")
     bot_name = serializers.CharField(help_text="The name of the bot to create, e.g. 'My Bot'")
     bot_image = BotImageSerializer(help_text="The image for the bot", required=False, default=None)
@@ -710,17 +735,6 @@ class CreateBotSerializer(serializers.Serializer):
         "required": [],
         "additionalProperties": False,
     }
-
-    def validate_meeting_url(self, value):
-        meeting_type = meeting_type_from_url(value)
-        if meeting_type is None:
-            raise serializers.ValidationError("Invalid meeting URL")
-
-        if meeting_type == MeetingTypes.GOOGLE_MEET:
-            if not value.startswith("https://meet.google.com/"):
-                raise serializers.ValidationError("Google Meet URL must start with https://meet.google.com/")
-
-        return value
 
     def validate_transcription_settings(self, value):
         meeting_url = self.initial_data.get("meeting_url")
@@ -1045,16 +1059,6 @@ class CreateBotSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Bot name cannot contain emojis or rare script characters.")
         return value
 
-    def validate_join_at(self, value):
-        """Validate that join_at cannot be in the past."""
-        if value is None:
-            return value
-
-        if value < timezone.now():
-            raise serializers.ValidationError("join_at cannot be in the past")
-
-        return value
-
     def validate(self, data):
         """Validate that no unexpected fields are provided."""
         # Get all the field names defined in this serializer
@@ -1305,18 +1309,9 @@ class ParticipantEventSerializer(serializers.Serializer):
         )
     ]
 )
-class PatchBotSerializer(serializers.Serializer):
+class PatchBotSerializer(BotValidationMixin, serializers.Serializer):
     join_at = serializers.DateTimeField(help_text="The time the bot should join the meeting. ISO 8601 format, e.g. 2025-06-13T12:00:00Z", required=False)
-
-    def validate_join_at(self, value):
-        """Validate that join_at cannot be in the past."""
-        if value is None:
-            return value
-
-        if value < timezone.now():
-            raise serializers.ValidationError("join_at cannot be in the past")
-
-        return value
+    meeting_url = serializers.CharField(help_text="The URL of the meeting to join, e.g. https://zoom.us/j/123?pwd=456", required=False)
 
 
 @extend_schema_serializer(

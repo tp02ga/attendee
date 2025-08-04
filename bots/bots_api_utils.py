@@ -29,6 +29,7 @@ from .models import (
 )
 from .serializers import (
     CreateBotSerializer,
+    PatchBotSerializer,
 )
 from .utils import meeting_type_from_url, transcription_provider_from_bot_creation_data
 
@@ -230,6 +231,44 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             return None, {"error": "Deduplication key already in use. A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."}
 
         logger.error(f"Error creating bot: {e}")
+        return None, {"error": str(e)}
+
+
+def patch_bot(bot: Bot, data: dict) -> tuple[Bot | None, dict | None]:
+    """
+    Updates a scheduled bot with the provided data.
+
+    Args:
+        bot: The Bot instance to update
+        data: Dictionary containing the fields to update
+
+    Returns:
+        tuple: (updated_bot, error) where one is None
+    """
+    # Check if bot is in scheduled state
+    if bot.state != BotStates.SCHEDULED:
+        return None, {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be updated when in scheduled state"}
+
+    # Validate the request data
+    serializer = PatchBotSerializer(data=data)
+    if not serializer.is_valid():
+        return None, serializer.errors
+
+    validated_data = serializer.validated_data
+
+    try:
+        # Update the bot
+        bot.join_at = validated_data.get("join_at", bot.join_at)
+        bot.meeting_url = validated_data.get("meeting_url", bot.meeting_url)
+        bot.save()
+
+        return bot, None
+
+    except ValidationError as e:
+        logger.error(f"ValidationError patching bot: {e}")
+        return None, {"error": e.messages[0]}
+    except Exception as e:
+        logger.error(f"Error patching bot: {e}")
         return None, {"error": str(e)}
 
 
