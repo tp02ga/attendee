@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
 from .calendars_api_utils import create_calendar
-from .models import Calendar
-from .serializers import CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
+from .models import Calendar, CalendarEvent
+from .serializers import CalendarEventSerializer, CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -253,3 +253,98 @@ class CalendarDetailView(APIView):
             return Response({"message": "Calendar deleted successfully"}, status=status.HTTP_200_OK)
         except Calendar.DoesNotExist:
             return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CalendarEventCursorPagination(CursorPagination):
+    ordering = "-updated_at"
+    page_size = 100
+
+
+class CalendarEventListView(GenericAPIView):
+    authentication_classes = [ApiKeyAuthentication]
+    pagination_class = CalendarEventCursorPagination
+    serializer_class = CalendarEventSerializer
+
+    @extend_schema(
+        operation_id="List Calendar Events",
+        summary="List all calendar events",
+        description="Returns a list of all calendar events for the authenticated project. Results are paginated using cursor pagination.",
+        responses={
+            200: OpenApiResponse(
+                response=CalendarEventSerializer(many=True),
+                description="List of calendar events",
+            ),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="cursor",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Cursor for pagination",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="calendar_id",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter events by calendar ID",
+                required=False,
+                examples=[OpenApiExample("Calendar ID Example", value="cal_abcdef1234567890")],
+            ),
+            OpenApiParameter(
+                name="calendar_deduplication_key",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter events by calendar deduplication key",
+                required=False,
+                examples=[OpenApiExample("Deduplication Key Example", value="user@customer-domain.com")],
+            ),
+            OpenApiParameter(
+                name="updated_after",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter events updated after this timestamp (ISO 8601 format)",
+                required=False,
+                examples=[OpenApiExample("Updated After Example", value="2025-01-13T10:30:00Z")],
+            ),
+        ],
+        tags=["Calendars"],
+    )
+    def get(self, request):
+        # Start with all events for calendars in the authenticated project
+        events = CalendarEvent.objects.filter(calendar__project=request.auth.project).select_related("calendar")
+
+        # Apply calendar_id filter if provided
+        calendar_id = request.query_params.get("calendar_id")
+        if calendar_id is not None:
+            events = events.filter(calendar__object_id=calendar_id)
+
+        # Apply calendar_deduplication_key filter if provided
+        calendar_deduplication_key = request.query_params.get("calendar_deduplication_key")
+        if calendar_deduplication_key is not None:
+            events = events.filter(calendar__deduplication_key=calendar_deduplication_key)
+
+        # Apply updated_after filter if provided
+        updated_after = request.query_params.get("updated_after")
+        if updated_after is not None:
+            try:
+                from django.utils.dateparse import parse_datetime
+
+                updated_after_dt = parse_datetime(updated_after)
+                if updated_after_dt is None:
+                    return Response({"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2025-01-13T10:30:00Z)"}, status=status.HTTP_400_BAD_REQUEST)
+                events = events.filter(updated_at__gte=updated_after_dt)
+            except ValueError:
+                return Response({"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2025-01-13T10:30:00Z)"}, status=status.HTTP_400_BAD_REQUEST)
+
+        events = events.order_by("-updated_at")
+
+        # Let the pagination class handle the rest
+        page = self.paginate_queryset(events)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(events, many=True)
+        return Response(serializer.data)

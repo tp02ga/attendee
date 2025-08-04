@@ -20,6 +20,7 @@ from .models import (
     BotEventTypes,
     BotStates,
     Calendar,
+    CalendarEvent,
     CalendarPlatform,
     CalendarStates,
     ChatMessageToOptions,
@@ -1532,3 +1533,46 @@ class PatchCalendarSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. Allowed fields are: {', '.join(sorted(expected_fields))}")
 
         return data
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Calendar Event",
+            value={
+                "id": "evt_abcdef1234567890",
+                "calendar_id": "cal_abcdef1234567890",
+                "platform_uuid": "google_event_123456789",
+                "meeting_url": "https://meet.google.com/abc-defg-hij",
+                "start_time": "2025-01-15T14:00:00Z",
+                "end_time": "2025-01-15T15:00:00Z",
+                "is_deleted": False,
+                "attendees": [{"email": "user1@example.com", "name": "John Doe"}, {"email": "user2@example.com", "name": "Jane Smith"}],
+                "raw": {"google_event_data": "..."},
+                "created_at": "2025-01-13T10:30:00.123456Z",
+                "updated_at": "2025-01-13T10:30:00.123456Z",
+            },
+            description="Example of a calendar event",
+        )
+    ]
+)
+class CalendarEventSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source="object_id")
+    calendar_id = serializers.CharField(source="calendar.object_id")
+
+    class Meta:
+        model = CalendarEvent
+        fields = [
+            "id",
+            "calendar_id",
+            "platform_uuid",
+            "meeting_url",
+            "start_time",
+            "end_time",
+            "is_deleted",
+            "attendees",
+            "raw",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
