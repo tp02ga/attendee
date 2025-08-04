@@ -143,6 +143,7 @@ class CalendarEvent(models.Model):
     end_time = models.DateTimeField()
     is_deleted = models.BooleanField(default=False)
     attendees = models.JSONField(null=True, blank=True)
+    ical_uid = models.CharField(max_length=1024, null=True, blank=True)
 
     raw = models.JSONField()
 

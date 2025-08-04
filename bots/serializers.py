@@ -1571,6 +1571,7 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             "end_time",
             "is_deleted",
             "attendees",
+            "ical_uid",
             "raw",
             "created_at",
             "updated_at",

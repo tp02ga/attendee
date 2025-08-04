@@ -197,6 +197,7 @@ class CalendarSyncHandler:
             "attendees": attendees,
             "raw": google_event,
             "is_deleted": google_event.get("status") == "cancelled",
+            "ical_uid": google_event.get("iCalUID"),
         }
 
     def _upsert_calendar_event(self, google_event: dict) -> tuple[CalendarEvent, bool, bool]:
