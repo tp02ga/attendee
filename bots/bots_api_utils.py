@@ -272,6 +272,33 @@ def patch_bot(bot: Bot, data: dict) -> tuple[Bot | None, dict | None]:
         return None, {"error": str(e)}
 
 
+def delete_bot(bot: Bot) -> tuple[bool, dict | None]:
+    """
+    Deletes a scheduled bot.
+
+    Args:
+        bot: The Bot instance to delete
+
+    Returns:
+        tuple: (success, error) where success is True if deletion succeeded,
+               and error is None on success or error dict on failure
+    """
+    # Check if bot is in scheduled state
+    if bot.state != BotStates.SCHEDULED:
+        return False, {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} but can only be deleted when in scheduled state"}
+
+    try:
+        bot.delete()
+        return True, None
+
+    except ValidationError as e:
+        logger.error(f"ValidationError deleting bot: {e}")
+        return False, {"error": e.messages[0]}
+    except Exception as e:
+        logger.error(f"Error deleting bot: {e}")
+        return False, {"error": str(e)}
+
+
 def validate_webhook_data(url, triggers, project, bot=None):
     """
     Validates webhook URL and triggers for both project-level and bot-level webhooks.
