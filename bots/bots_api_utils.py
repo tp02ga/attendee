@@ -16,6 +16,7 @@ from .models import (
     BotMediaRequest,
     BotMediaRequestMediaTypes,
     BotStates,
+    CalendarEvent,
     Credentials,
     MediaBlob,
     MeetingTypes,
@@ -103,6 +104,27 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     return None
 
 
+# Returns a tuple of (calendar_event, error)
+# Side effect: sets the meeting_url and join_at in the data dictionary if the calendar event is found
+def initialize_bot_creation_data_from_calendar_event(data, project):
+    calendar_event = None
+    if data.get("calendar_event_id"):
+        try:
+            calendar_event = CalendarEvent.objects.get(object_id=data["calendar_event_id"], calendar__project=project)
+        except CalendarEvent.DoesNotExist:
+            return None, {"error": f"Calendar event with id {data['calendar_event_id']} does not exist in this project."}
+
+        if data.get("meeting_url"):
+            return None, {"error": "meeting_url should not be provided when calendar_event_id is specified. The meeting URL will be taken from the calendar event."}
+        data["meeting_url"] = calendar_event.meeting_url
+
+        if data.get("join_at"):
+            return None, {"error": "join_at should not be provided when calendar_event_id is specified. The join time will be taken from the calendar event."}
+        data["join_at"] = calendar_event.start_time
+
+    return calendar_event, None
+
+
 class BotCreationSource(str, Enum):
     API = "api"
     DASHBOARD = "dashboard"
@@ -114,6 +136,11 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     if project.organization.out_of_credits():
         logger.error(f"Organization {project.organization.id} has insufficient credits. Please add credits in the Account -> Billing page.")
         return None, {"error": "Organization has run out of credits. Please add more credits in the Account -> Billing page."}
+
+    # Do some initialization of the data if the calendar event id was provided
+    calendar_event, error = initialize_bot_creation_data_from_calendar_event(data, project)
+    if error:
+        return None, error
 
     serializer = CreateBotSerializer(data=data)
     if not serializer.is_valid():
@@ -167,6 +194,7 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
                 join_at=join_at,
                 deduplication_key=deduplication_key,
                 state=initial_state,
+                calendar_event=calendar_event,
             )
 
             Recording.objects.create(
