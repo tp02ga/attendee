@@ -89,6 +89,7 @@ class Calendar(models.Model):
     last_successful_sync_time_window_start = models.DateTimeField(null=True, blank=True)
     last_successful_sync_time_window_end = models.DateTimeField(null=True, blank=True)
     last_successful_sync_started_at = models.DateTimeField(null=True, blank=True)
+    sync_task_enqueued_at = models.DateTimeField(null=True, blank=True)
 
     _encrypted_data = models.BinaryField(
         null=True,

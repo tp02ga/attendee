@@ -12,6 +12,14 @@ from ..models import Calendar, CalendarEvent, CalendarStates
 logger = logging.getLogger(__name__)
 
 
+def enqueue_sync_calendar_task(calendar: Calendar):
+    """Enqueue a sync calendar task for a calendar."""
+    with transaction.atomic():
+        calendar.sync_task_enqueued_at = timezone.now()
+        calendar.save()
+        sync_calendar.delay(calendar.id)
+
+
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
@@ -105,7 +113,7 @@ class CalendarSyncHandler:
         next_page_token = None
 
         while True:
-            params = dict(base_params)                  # copy base params
+            params = dict(base_params)  # copy base params
             if next_page_token:
                 params["pageToken"] = next_page_token
 
@@ -329,4 +337,6 @@ class CalendarSyncHandler:
 
         except Exception as e:
             logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")
+            self.calendar.last_attempted_sync_at = timezone.now()
+            self.calendar.save()
             raise
