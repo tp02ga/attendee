@@ -1,5 +1,5 @@
 from drf_spectacular.openapi import OpenApiResponse
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, extend_schema_serializer
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.pagination import CursorPagination
@@ -88,14 +88,14 @@ class CalendarListCreateView(GenericAPIView):
     )
     def get(self, request):
         calendars = Calendar.objects.filter(project=request.auth.project)
-        
+
         # Apply deduplication_key filter if provided
-        deduplication_key = request.query_params.get('deduplication_key')
+        deduplication_key = request.query_params.get("deduplication_key")
         if deduplication_key is not None:
             calendars = calendars.filter(deduplication_key=deduplication_key)
-        
-        calendars = calendars.order_by('-created_at')
-        
+
+        calendars = calendars.order_by("-created_at")
+
         # Let the pagination class handle the rest
         page = self.paginate_queryset(calendars)
         if page is not None:
@@ -203,23 +203,23 @@ class CalendarDetailView(APIView):
         validated_data = serializer.validated_data
 
         # Update metadata if provided
-        if 'metadata' in validated_data:
-            calendar.metadata = validated_data['metadata']
+        if "metadata" in validated_data:
+            calendar.metadata = validated_data["metadata"]
 
         # Update credentials if provided
-        client_secret = validated_data.get('client_secret')
-        refresh_token = validated_data.get('refresh_token')
-        
+        client_secret = validated_data.get("client_secret")
+        refresh_token = validated_data.get("refresh_token")
+
         if client_secret is not None or refresh_token is not None:
             # Get existing credentials
             existing_credentials = calendar.get_credentials() or {}
-            
+
             # Update only the provided fields
             if client_secret is not None:
-                existing_credentials['client_secret'] = client_secret
+                existing_credentials["client_secret"] = client_secret
             if refresh_token is not None:
-                existing_credentials['refresh_token'] = refresh_token
-            
+                existing_credentials["refresh_token"] = refresh_token
+
             # Save updated credentials
             calendar.set_credentials(existing_credentials)
 

@@ -1394,6 +1394,22 @@ class CreateCalendarSerializer(serializers.Serializer):
             raise serializers.ValidationError("Refresh token cannot be empty")
         return value.strip()
 
+    def validate(self, data):
+        """Validate that no unexpected fields are provided."""
+        # Get all the field names defined in this serializer
+        expected_fields = set(self.fields.keys())
+
+        # Get all the fields provided in the input data
+        provided_fields = set(self.initial_data.keys())
+
+        # Check for unexpected fields
+        unexpected_fields = provided_fields - expected_fields
+
+        if unexpected_fields:
+            raise serializers.ValidationError(f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. Allowed fields are: {', '.join(sorted(expected_fields))}")
+
+        return data
+
 
 class CalendarSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
@@ -1439,24 +1455,17 @@ class CalendarSerializer(serializers.ModelSerializer):
     examples=[
         OpenApiExample(
             "Update credentials",
-            value={
-                "client_secret": "GOCSPX-NewClientSecret123",
-                "refresh_token": "1//05o3zfluegTFVCgYICGHGAUSNgF-L9Ir23dcclPCJW7KmzPhsQaNFcAzNwQkV6uM1gIGID8nBelYDPtbIr123"
-            },
+            value={"client_secret": "GOCSPX-NewClientSecret123", "refresh_token": "1//05o3zfluegTFVCgYICGHGAUSNgF-L9Ir23dcclPCJW7KmzPhsQaNFcAzNwQkV6uM1gIGID8nBelYDPtbIr123"},
             description="Example of updating calendar credentials",
         ),
         OpenApiExample(
             "Update metadata only",
-            value={
-                "metadata": {"department": "sales", "team": "frontend", "updated": "true"}
-            },
+            value={"metadata": {"department": "sales", "team": "frontend", "updated": "true"}},
             description="Example of updating only the calendar metadata",
         ),
         OpenApiExample(
             "Update refresh token only",
-            value={
-                "refresh_token": "1//05NewRefreshTokenHere"
-            },
+            value={"refresh_token": "1//05NewRefreshTokenHere"},
             description="Example of updating only the refresh token",
         ),
     ]
@@ -1507,3 +1516,19 @@ class PatchCalendarSerializer(serializers.Serializer):
             raise serializers.ValidationError("Metadata must be less than 1000 characters")
 
         return value
+
+    def validate(self, data):
+        """Validate that no unexpected fields are provided."""
+        # Get all the field names defined in this serializer
+        expected_fields = set(self.fields.keys())
+
+        # Get all the fields provided in the input data
+        provided_fields = set(self.initial_data.keys())
+
+        # Check for unexpected fields
+        unexpected_fields = provided_fields - expected_fields
+
+        if unexpected_fields:
+            raise serializers.ValidationError(f"Unexpected field(s): {', '.join(sorted(unexpected_fields))}. Allowed fields are: {', '.join(sorted(expected_fields))}")
+
+        return data
