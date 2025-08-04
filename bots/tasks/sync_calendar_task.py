@@ -7,7 +7,9 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import Calendar, CalendarEvent, CalendarStates
+from bots.models import Calendar, CalendarEvent, CalendarStates, WebhookTriggerTypes
+from bots.webhook_payloads import calendar_webhook_payload
+from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -323,10 +325,17 @@ class CalendarSyncHandler:
 
                 logger.info(f"Calendar sync completed successfully: {sync_results}")
 
+                trigger_webhook(
+                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
+                    calendar=self.calendar,
+                    payload=calendar_webhook_payload(self.calendar),
+                )
+
                 return sync_results
 
         except GoogleCalendarAPIError as e:
             # Update calendar state to indicate failure
+            calendar_original_state = self.calendar.state
             self.calendar.state = CalendarStates.DISCONNECTED
             self.calendar.connection_failure_data = {
                 "error": str(e),
@@ -335,6 +344,14 @@ class CalendarSyncHandler:
             self.calendar.save()
 
             logger.error(f"Calendar sync failed with GoogleCalendarAPIError for {self.calendar.object_id}: {e}")
+
+            # Create webhook event
+            if calendar_original_state != CalendarStates.DISCONNECTED:
+                trigger_webhook(
+                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE,
+                    calendar=self.calendar,
+                    payload=calendar_webhook_payload(self.calendar),
+                )
 
         except Exception as e:
             logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")

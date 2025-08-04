@@ -1448,6 +1448,8 @@ class CalendarSerializer(serializers.ModelSerializer):
             "connection_failure_data",
             "created_at",
             "updated_at",
+            "last_successful_sync_at",
+            "last_attempted_sync_at",
         ]
         read_only_fields = fields
 
