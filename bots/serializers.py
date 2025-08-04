@@ -1321,14 +1321,7 @@ class PatchBotSerializer(serializers.Serializer):
     examples=[
         OpenApiExample(
             "Create Google Calendar",
-            value={
-                "client_id": "123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-                "client_secret": "GOCSPX-abcdefghijklmnopqrstuvwxyz",
-                "refresh_token": "1//04abcdefghijklmnopqrstuvwxyz",
-                "platform": "google",
-                "metadata": {"department": "engineering", "team": "backend"},
-                "deduplication_key": "engineering-main-calendar"
-            },
+            value={"client_id": "123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com", "client_secret": "GOCSPX-abcdefghijklmnopqrstuvwxyz", "refresh_token": "1//04abcdefghijklmnopqrstuvwxyz", "platform": "google", "metadata": {"department": "engineering", "team": "backend"}, "deduplication_key": "engineering-main-calendar"},
             description="Example of creating a Google calendar connection",
         ),
         OpenApiExample(
@@ -1341,7 +1334,7 @@ class PatchBotSerializer(serializers.Serializer):
                 "metadata": {"department": "sales"},
             },
             description="Example of creating a Microsoft calendar connection",
-        )
+        ),
     ]
 )
 class CreateCalendarSerializer(serializers.Serializer):

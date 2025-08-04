@@ -1,12 +1,12 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
 from drf_spectacular.openapi import OpenApiResponse
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .serializers import CalendarSerializer, CreateCalendarSerializer
 from .authentication import ApiKeyAuthentication
 from .calendars_api_utils import create_calendar
+from .serializers import CalendarSerializer, CreateCalendarSerializer
 
 TokenHeaderParameter = [
     OpenApiParameter(

@@ -54,16 +54,18 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+
 class CalendarPlatform(models.TextChoices):
     GOOGLE = "google"
     MICROSOFT = "microsoft"
 
+
 class CalendarStates(models.IntegerChoices):
-    CONNECTED=1
-    DISCONNECTED=2
+    CONNECTED = 1
+    DISCONNECTED = 2
+
 
 class Calendar(models.Model):
-    
     OBJECT_ID_PREFIX = "cal_"
 
     object_id = models.CharField(max_length=32, unique=True, editable=False)
@@ -86,6 +88,7 @@ class Calendar(models.Model):
     last_successful_sync_at = models.DateTimeField(null=True, blank=True)
     last_successful_sync_time_window_start = models.DateTimeField(null=True, blank=True)
     last_successful_sync_time_window_end = models.DateTimeField(null=True, blank=True)
+    last_successful_sync_started_at = models.DateTimeField(null=True, blank=True)
 
     _encrypted_data = models.BinaryField(
         null=True,
@@ -120,9 +123,10 @@ class Calendar(models.Model):
             models.UniqueConstraint(fields=["project", "deduplication_key"], name="unique_calendar_deduplication_key"),
         ]
 
+
 class CalendarEvent(models.Model):
     OBJECT_ID_PREFIX = "evt_"
-    
+
     object_id = models.CharField(max_length=255, unique=True, editable=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -152,6 +156,7 @@ class CalendarEvent(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["calendar", "platform_uuid"], name="unique_calendar_event_platform_uuid"),
         ]
+
 
 class ProjectAccess(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="project_accesses")
@@ -2010,5 +2015,3 @@ class BotResourceSnapshot(models.Model):
 
     def __str__(self):
         return f"Resource snapshot for {self.bot.object_id} at {self.created_at}"
-
-    

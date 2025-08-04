@@ -1,0 +1,339 @@
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+import requests
+from celery import shared_task
+from django.db import transaction
+from django.utils import timezone
+
+from ..models import Calendar, CalendarEvent, CalendarStates
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,  # Enable exponential backoff
+    max_retries=6,
+)
+def sync_calendar(self, calendar_id):
+    """Celery task to sync calendar events with Google Calendar API."""
+    logger.info(f"Syncing calendar {calendar_id}")
+    sync_handler = CalendarSyncHandler(calendar_id)
+    return sync_handler.sync_events()
+
+
+class GoogleCalendarAPIError(Exception):
+    """Custom exception for Google Calendar API errors."""
+
+    pass
+
+
+class CalendarSyncHandler:
+    """Handler for syncing calendar events with Google Calendar API."""
+
+    def __init__(self, calendar_id: int):
+        self.calendar = Calendar.objects.get(id=calendar_id)
+        self.time_window_start: Optional[datetime] = None
+        self.time_window_end: Optional[datetime] = None
+
+    def _get_access_token(self) -> str:
+        """Get a fresh access token using the refresh token."""
+        credentials = self.calendar.get_credentials()
+        if not credentials:
+            raise GoogleCalendarAPIError("No credentials found for calendar")
+
+        refresh_token = credentials.get("refresh_token")
+        client_secret = credentials.get("client_secret")
+
+        if not refresh_token or not client_secret:
+            raise GoogleCalendarAPIError("Missing refresh_token or client_secret")
+
+        # Exchange refresh token for access token
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": self.calendar.client_id,
+            "client_secret": client_secret,
+        }
+
+        try:
+            response = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=30)
+            response.raise_for_status()
+            token_data = response.json()
+
+            if "access_token" not in token_data:
+                raise GoogleCalendarAPIError("No access_token in response")
+
+            return token_data["access_token"]
+
+        except requests.RequestException as e:
+            raise GoogleCalendarAPIError(f"Failed to refresh access token: {str(e)}")
+
+    def _make_gcal_request(self, url: str, access_token: str) -> dict:
+        """Make a request to Google Calendar API."""
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            print(response.json())
+            response.raise_for_status()
+            return response.json()
+
+        except requests.RequestException as e:
+            raise GoogleCalendarAPIError(f"Google Calendar API request failed: {str(e)}")
+
+    def _list_google_events(self, access_token: str) -> List[dict]:
+        """List all events from Google Calendar within the time window."""
+        calendar_id = self.calendar.platform_uuid or "primary"
+
+        # Format times for Google Calendar API (RFC3339)
+        time_min = self.time_window_start.isoformat()
+        time_max = self.time_window_end.isoformat()
+
+        base_url = f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
+        params = {
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "singleEvents": "true",  # Expand recurring events
+            "showDeleted": "true",
+            "maxResults": 2500,  # Google's max
+        }
+
+        all_events = []
+        next_page_token = None
+
+        while True:
+            # Build URL with parameters
+            param_list = [f"{k}={v}" for k, v in params.items()]
+            if next_page_token:
+                param_list.append(f"pageToken={next_page_token}")
+
+            url = f"{base_url}?{'&'.join(param_list)}"
+
+            logger.info(f"Fetching Google Calendar events: {url}")
+            response_data = self._make_gcal_request(url, access_token)
+
+            events = response_data.get("items", [])
+            all_events.extend(events)
+
+            next_page_token = response_data.get("nextPageToken")
+            if not next_page_token:
+                break
+
+        logger.info(f"Fetched {len(all_events)} events from Google Calendar")
+        return all_events
+
+    def _get_event_by_id(self, event_id: str, access_token: str) -> Optional[dict]:
+        """Get a specific event by ID from Google Calendar."""
+        calendar_id = self.calendar.platform_uuid or "primary"
+        url = f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events/{event_id}"
+
+        try:
+            return self._make_gcal_request(url, access_token)
+        except GoogleCalendarAPIError as e:
+            if "404" in str(e):
+                logger.info(f"Event {event_id} not found in Google Calendar")
+                # Event was deleted
+                return None
+            raise
+
+    def _parse_event_datetime(self, event_datetime: dict) -> datetime:
+        """Parse Google Calendar event datetime."""
+        if "dateTime" in event_datetime:
+            # Event with specific time
+            dt_str = event_datetime["dateTime"]
+            return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        elif "date" in event_datetime:
+            # All-day event
+            date_str = event_datetime["date"]
+            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        else:
+            raise ValueError(f"Invalid event datetime format: {event_datetime}")
+
+    def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
+        """Get all local calendar events within the time window."""
+        local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end)
+
+        # Return dict keyed by platform_uuid for easy lookup
+        return {event.platform_uuid: event for event in local_events}
+
+    def _google_event_to_calendar_event_data(self, google_event: dict) -> dict:
+        """Convert Google Calendar event data to CalendarEvent field data."""
+        start_time = self._parse_event_datetime(google_event["start"])
+        end_time = self._parse_event_datetime(google_event["end"])
+
+        # Extract meeting URL if present
+        meeting_url = None
+        if "conferenceData" in google_event:
+            entry_points = google_event["conferenceData"].get("entryPoints", [])
+            for entry_point in entry_points:
+                if entry_point.get("entryPointType") == "video":
+                    meeting_url = entry_point.get("uri")
+                    break
+
+        # Extract attendees
+        attendees = []
+        if "attendees" in google_event:
+            for attendee in google_event["attendees"]:
+                attendees.append(
+                    {
+                        "email": attendee.get("email"),
+                        "name": attendee.get("displayName"),
+                    }
+                )
+
+        return {
+            "platform_uuid": google_event["id"],
+            "meeting_url": meeting_url,
+            "start_time": start_time,
+            "end_time": end_time,
+            "attendees": attendees,
+            "raw": google_event,
+            "is_deleted": google_event.get("status") == "cancelled",
+        }
+
+    def _upsert_calendar_event(self, google_event: dict) -> tuple[CalendarEvent, bool, bool]:
+        """
+        Upsert a calendar event from Google Calendar data.
+
+        Returns:
+            tuple: (CalendarEvent instance, was_created, was_updated)
+        """
+        platform_uuid = google_event["id"]
+        event_data = self._google_event_to_calendar_event_data(google_event)
+
+        try:
+            # Try to get existing event
+            local_event = CalendarEvent.objects.get(calendar=self.calendar, platform_uuid=platform_uuid)
+
+            # Check if raw data has changed
+            if local_event.raw == event_data["raw"]:
+                return local_event, False, False
+
+            # Update the existing event
+            for field, value in event_data.items():
+                setattr(local_event, field, value)
+            local_event.save()
+
+            return local_event, False, True
+
+        except CalendarEvent.DoesNotExist:
+            # Create new event
+            local_event = CalendarEvent.objects.create(calendar=self.calendar, **event_data)
+            return local_event, True, False
+
+    def _mark_calendar_event_as_deleted(self, local_event: CalendarEvent):
+        """Mark an event as deleted in the local database."""
+        local_event.is_deleted = True
+        local_event.save()
+
+    def sync_events(self) -> dict:
+        """
+        Main sync method that coordinates the entire sync process.
+
+        Returns:
+            dict: Summary of sync results
+        """
+        try:
+            # Step 0: Set time window
+            now = timezone.now()
+            self.time_window_start = now - timedelta(days=1)
+            self.time_window_end = now + timedelta(days=28)
+            logger.info(f"Set time window for calendar {self.calendar.object_id}: {self.time_window_start.isoformat()} to {self.time_window_end.isoformat()}")
+
+            # Get access token
+            access_token = self._get_access_token()
+
+            # Set the sync start time
+            sync_started_at = timezone.now()
+
+            # Perform sync within transaction
+            with transaction.atomic():
+                # Step 1: Pull from Google Calendar
+
+                # Step 1a: List all events from Google Calendar within time window
+                remote_events = self._list_google_events(access_token)
+                remote_event_ids = {event["id"] for event in remote_events}
+
+                # Step 1b: Find local events not in the remote fetch and get them individually
+                local_events = self._get_local_events_in_window()
+                local_events_missing_from_remote = set(local_events.keys()) - remote_event_ids
+
+                checked_individually_count = 0
+                deleted_count = 0
+                for missing_event_id in local_events_missing_from_remote:
+                    try:
+                        individual_remote_event = self._get_event_by_id(missing_event_id, access_token)
+                        checked_individually_count += 1
+
+                        if individual_remote_event:
+                            remote_events.append(individual_remote_event)
+                        else:
+                            # Event was deleted from Google Calendar, mark as deleted
+                            self._mark_calendar_event_as_deleted(local_events[missing_event_id])
+                            logger.info(f"Marked event {missing_event_id} as deleted")
+                            deleted_count += 1
+                    except GoogleCalendarAPIError as e:
+                        logger.error(f"Failed to check individual event {missing_event_id}: {e}")
+
+                # Step 2: Diff against local DB - upsert all Google events
+                created_count = 0
+                updated_count = 0
+
+                for remote_event in remote_events:
+                    remote_event_id = remote_event["id"]
+                    local_event, was_created, was_updated = self._upsert_calendar_event(remote_event)
+
+                    if was_created:
+                        created_count += 1
+                        logger.info(f"Created event {remote_event_id}")
+                    elif was_updated:
+                        updated_count += 1
+                        logger.info(f"Updated event {remote_event_id}")
+
+                # Update calendar sync success timestamp and window
+                self.calendar.last_attempted_sync_at = timezone.now()
+                self.calendar.last_successful_sync_at = self.calendar.last_attempted_sync_at
+                self.calendar.last_successful_sync_time_window_start = self.time_window_start
+                self.calendar.last_successful_sync_time_window_end = self.time_window_end
+                self.calendar.last_successful_sync_started_at = sync_started_at
+                self.calendar.state = CalendarStates.CONNECTED
+                self.calendar.connection_failure_data = None
+                self.calendar.save()
+
+                sync_results = {
+                    "success": True,
+                    "created_count": created_count,
+                    "updated_count": updated_count,
+                    "deleted_count": deleted_count,
+                    "checked_individually_count": checked_individually_count,
+                    "total_remote_events": len(remote_events),
+                    "total_local_events": len(local_events),
+                    "time_window_start": self.time_window_start.isoformat(),
+                    "time_window_end": self.time_window_end.isoformat(),
+                }
+
+                logger.info(f"Calendar sync completed successfully: {sync_results}")
+
+                return sync_results
+
+        except GoogleCalendarAPIError as e:
+            # Update calendar state to indicate failure
+            self.calendar.state = CalendarStates.DISCONNECTED
+            self.calendar.connection_failure_data = {
+                "error": str(e),
+                "timestamp": timezone.now().isoformat(),
+            }
+            self.calendar.save()
+
+            logger.error(f"Calendar sync failed with GoogleCalendarAPIError for {self.calendar.object_id}: {e}")
+
+        except Exception as e:
+            logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")
+            raise
