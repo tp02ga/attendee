@@ -1,11 +1,14 @@
 from drf_spectacular.openapi import OpenApiResponse
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
+from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
 from .calendars_api_utils import create_calendar
+from .models import Calendar
 from .serializers import CalendarSerializer, CreateCalendarSerializer
 
 TokenHeaderParameter = [
@@ -43,8 +46,49 @@ NewlyCreatedCalendarExample = OpenApiExample(
 )
 
 
-class CalendarCreateView(APIView):
+class CalendarCursorPagination(CursorPagination):
+    ordering = "-created_at"
+    page_size = 25
+
+
+class CalendarListCreateView(GenericAPIView):
     authentication_classes = [ApiKeyAuthentication]
+    pagination_class = CalendarCursorPagination
+    serializer_class = CalendarSerializer
+
+    @extend_schema(
+        operation_id="List Calendars",
+        summary="List all calendars",
+        description="Returns a list of all calendars for the authenticated project. Results are paginated using cursor pagination.",
+        responses={
+            200: OpenApiResponse(
+                response=CalendarSerializer(many=True),
+                description="List of calendars",
+            ),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="cursor",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Cursor for pagination",
+                required=False,
+            ),
+        ],
+        tags=["Calendars"],
+    )
+    def get(self, request):
+        calendars = Calendar.objects.filter(project=request.auth.project).order_by('-created_at')
+        
+        # Let the pagination class handle the rest
+        page = self.paginate_queryset(calendars)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(calendars, many=True)
+        return Response(serializer.data)
 
     @extend_schema(
         operation_id="Create Calendar",
@@ -68,3 +112,66 @@ class CalendarCreateView(APIView):
             return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_201_CREATED)
+
+
+class CalendarDetailView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+
+    @extend_schema(
+        operation_id="Get Calendar",
+        summary="Get calendar details",
+        description="Returns the details of a specific calendar.",
+        responses={
+            200: OpenApiResponse(
+                response=CalendarSerializer,
+                description="Calendar details",
+                examples=[NewlyCreatedCalendarExample],
+            ),
+            404: OpenApiResponse(description="Calendar not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Calendar ID",
+                examples=[OpenApiExample("Calendar ID Example", value="cal_abcdef1234567890")],
+            ),
+        ],
+        tags=["Calendars"],
+    )
+    def get(self, request, object_id):
+        try:
+            calendar = Calendar.objects.get(object_id=object_id, project=request.auth.project)
+            return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
+        except Calendar.DoesNotExist:
+            return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        operation_id="Delete Calendar",
+        summary="Delete calendar",
+        description="Permanently deletes a calendar and all associated data.",
+        responses={
+            200: OpenApiResponse(description="Calendar deleted successfully"),
+            404: OpenApiResponse(description="Calendar not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Calendar ID",
+                examples=[OpenApiExample("Calendar ID Example", value="cal_abcdef1234567890")],
+            ),
+        ],
+        tags=["Calendars"],
+    )
+    def delete(self, request, object_id):
+        try:
+            calendar = Calendar.objects.get(object_id=object_id, project=request.auth.project)
+            calendar.delete()
+            return Response({"message": "Calendar deleted successfully"}, status=status.HTTP_200_OK)
+        except Calendar.DoesNotExist:
+            return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
