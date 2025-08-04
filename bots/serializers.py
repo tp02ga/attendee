@@ -1423,6 +1423,7 @@ class CalendarSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "platform",
+            "client_id",
             "platform_uuid",
             "state",
             "metadata",
@@ -1432,3 +1433,77 @@ class CalendarSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Update credentials",
+            value={
+                "client_secret": "GOCSPX-NewClientSecret123",
+                "refresh_token": "1//05o3zfluegTFVCgYICGHGAUSNgF-L9Ir23dcclPCJW7KmzPhsQaNFcAzNwQkV6uM1gIGID8nBelYDPtbIr123"
+            },
+            description="Example of updating calendar credentials",
+        ),
+        OpenApiExample(
+            "Update metadata only",
+            value={
+                "metadata": {"department": "sales", "team": "frontend", "updated": "true"}
+            },
+            description="Example of updating only the calendar metadata",
+        ),
+        OpenApiExample(
+            "Update refresh token only",
+            value={
+                "refresh_token": "1//05NewRefreshTokenHere"
+            },
+            description="Example of updating only the refresh token",
+        ),
+    ]
+)
+class PatchCalendarSerializer(serializers.Serializer):
+    client_secret = serializers.CharField(help_text="The client secret for the calendar platform authentication", required=False)
+    refresh_token = serializers.CharField(help_text="The refresh token for accessing the calendar platform", required=False)
+    metadata = serializers.JSONField(help_text="JSON object containing metadata to associate with the calendar", required=False)
+
+    def validate_client_secret(self, value):
+        if value is not None:
+            if not value or len(value.strip()) == 0:
+                raise serializers.ValidationError("Client secret cannot be empty")
+            return value.strip()
+        return value
+
+    def validate_refresh_token(self, value):
+        if value is not None:
+            if not value or len(value.strip()) == 0:
+                raise serializers.ValidationError("Refresh token cannot be empty")
+            return value.strip()
+        return value
+
+    def validate_metadata(self, value):
+        if value is None:
+            return value
+
+        # Check if it's a dict
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Metadata must be an object not an array or other type")
+
+        # Make sure there is at least one key
+        if not value:
+            raise serializers.ValidationError("Metadata must have at least one key")
+
+        # Check if all values are strings
+        for key, val in value.items():
+            if not isinstance(val, str):
+                raise serializers.ValidationError(f"Value for key '{key}' must be a string")
+
+        # Check if all keys are strings
+        for key in value.keys():
+            if not isinstance(key, str):
+                raise serializers.ValidationError("All keys in metadata must be strings")
+
+        # Make sure the total length of the stringified metadata is less than 1000 characters
+        if len(json.dumps(value)) > 1000:
+            raise serializers.ValidationError("Metadata must be less than 1000 characters")
+
+        return value

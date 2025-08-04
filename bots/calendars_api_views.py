@@ -1,5 +1,5 @@
 from drf_spectacular.openapi import OpenApiResponse
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, extend_schema_serializer
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.pagination import CursorPagination
@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from .authentication import ApiKeyAuthentication
 from .calendars_api_utils import create_calendar
 from .models import Calendar
-from .serializers import CalendarSerializer, CreateCalendarSerializer
+from .serializers import CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -75,11 +75,26 @@ class CalendarListCreateView(GenericAPIView):
                 description="Cursor for pagination",
                 required=False,
             ),
+            OpenApiParameter(
+                name="deduplication_key",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Filter calendars by deduplication key",
+                required=False,
+                examples=[OpenApiExample("Deduplication Key Example", value="engineering-main-calendar")],
+            ),
         ],
         tags=["Calendars"],
     )
     def get(self, request):
-        calendars = Calendar.objects.filter(project=request.auth.project).order_by('-created_at')
+        calendars = Calendar.objects.filter(project=request.auth.project)
+        
+        # Apply deduplication_key filter if provided
+        deduplication_key = request.query_params.get('deduplication_key')
+        if deduplication_key is not None:
+            calendars = calendars.filter(deduplication_key=deduplication_key)
+        
+        calendars = calendars.order_by('-created_at')
         
         # Let the pagination class handle the rest
         page = self.paginate_queryset(calendars)
@@ -147,6 +162,69 @@ class CalendarDetailView(APIView):
             return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
         except Calendar.DoesNotExist:
             return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        operation_id="Update Calendar",
+        summary="Update calendar",
+        description="Updates calendar credentials (client_secret, refresh_token) or metadata.",
+        request=PatchCalendarSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=CalendarSerializer,
+                description="Calendar updated successfully",
+                examples=[NewlyCreatedCalendarExample],
+            ),
+            400: OpenApiResponse(description="Invalid input"),
+            404: OpenApiResponse(description="Calendar not found"),
+        },
+        parameters=[
+            *TokenHeaderParameter,
+            OpenApiParameter(
+                name="object_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="Calendar ID",
+                examples=[OpenApiExample("Calendar ID Example", value="cal_abcdef1234567890")],
+            ),
+        ],
+        tags=["Calendars"],
+    )
+    def patch(self, request, object_id):
+        try:
+            calendar = Calendar.objects.get(object_id=object_id, project=request.auth.project)
+        except Calendar.DoesNotExist:
+            return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Validate the request data
+        serializer = PatchCalendarSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+
+        # Update metadata if provided
+        if 'metadata' in validated_data:
+            calendar.metadata = validated_data['metadata']
+
+        # Update credentials if provided
+        client_secret = validated_data.get('client_secret')
+        refresh_token = validated_data.get('refresh_token')
+        
+        if client_secret is not None or refresh_token is not None:
+            # Get existing credentials
+            existing_credentials = calendar.get_credentials() or {}
+            
+            # Update only the provided fields
+            if client_secret is not None:
+                existing_credentials['client_secret'] = client_secret
+            if refresh_token is not None:
+                existing_credentials['refresh_token'] = refresh_token
+            
+            # Save updated credentials
+            calendar.set_credentials(existing_credentials)
+
+        calendar.save()
+        return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         operation_id="Delete Calendar",
