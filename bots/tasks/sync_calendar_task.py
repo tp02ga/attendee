@@ -7,11 +7,51 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from bots.models import Calendar, CalendarEvent, CalendarStates, WebhookTriggerTypes
+from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarStates, WebhookTriggerTypes
+from bots.bots_api_utils import delete_bot, patch_bot
 from bots.webhook_payloads import calendar_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
+
+def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
+    """Sync a bot with a calendar event."""
+    # If the calendar event is deleted, delete the bot
+    if calendar_event.is_deleted:
+        logger.info(f"Calendar event {calendar_event.platform_uuid} is deleted, deleting bot {bot.object_id}")
+        success, error = delete_bot(bot)
+        if error:
+            logger.error(f"Failed to delete bot {bot.object_id}: {error}")
+        else:
+            logger.info(f"Successfully deleted bot {bot.object_id}")
+        return
+    
+    # Check if bot needs to be updated to match calendar event
+    update_data = {}
+    
+    # Check meeting_url
+    if bot.meeting_url != calendar_event.meeting_url:
+        logger.info(f"Bot {bot.object_id} meeting_url differs from calendar event: {bot.meeting_url} -> {calendar_event.meeting_url}")
+        update_data["meeting_url"] = calendar_event.meeting_url
+    
+    # Check join_at (bot.join_at should match calendar_event.start_time)
+    if bot.join_at != calendar_event.start_time:
+        logger.info(f"Bot {bot.object_id} join_at differs from calendar event start_time: {bot.join_at} -> {calendar_event.start_time}")
+        update_data["join_at"] = calendar_event.start_time
+    
+    # If updates are needed, patch the bot
+    if update_data:
+        logger.info(f"Patching bot {bot.object_id} to sync with calendar event {calendar_event.platform_uuid} with data {update_data}")
+        updated_bot, error = patch_bot(bot, update_data)
+        if error:
+            logger.error(f"Failed to patch bot {bot.object_id}: {error}")
+        else:
+            logger.info(f"Successfully patched bot {bot.object_id}")
+
+def sync_bots_for_calendar_event(calendar_event: CalendarEvent):
+    """Sync the scheduled bots of a calendar event. Bots for the event that are not in the scheduled state cannot be changed so will be ignored."""
+    for bot in calendar_event.bots.filter(state=BotStates.SCHEDULED):
+        sync_bot_with_calendar_event(bot, calendar_event)
 
 
 def enqueue_sync_calendar_task(calendar: Calendar):
@@ -224,6 +264,9 @@ class CalendarSyncHandler:
             for field, value in event_data.items():
                 setattr(local_event, field, value)
             local_event.save()
+            
+            # Sync the bots for the calendar event
+            sync_bots_for_calendar_event(local_event)
 
             return local_event, False, True
 
