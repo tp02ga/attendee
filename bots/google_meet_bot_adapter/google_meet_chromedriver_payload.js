@@ -285,6 +285,20 @@ class StyleManager {
         if (!botMinimizedElement)
             return;
         botMinimizedElement.style.display = 'none';
+
+        if (window.userManager.currentUserId)
+        {
+            // Create style element to hide elements with data-participant-id matching current user
+            let hideCurrentUserStyle = document.getElementById('hide-current-user-style');
+            if (!hideCurrentUserStyle) {
+                hideCurrentUserStyle = document.createElement('style');
+                hideCurrentUserStyle.id = 'hide-current-user-style';
+                document.head.appendChild(hideCurrentUserStyle);
+            }
+            
+            // Set CSS rule to hide elements with matching data-participant-id
+            hideCurrentUserStyle.textContent = `:has(> [data-participant-id="${window.userManager.currentUserId}"]) { display: none !important; }`;
+        }
     }
 
     hideBotVideoElementOld() {
