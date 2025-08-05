@@ -428,6 +428,13 @@ def get_transcription_via_sarvam(utterance):
     headers = {"api-subscription-key": api_key}
     base_url = "https://api.sarvam.ai/speech-to-text"
 
+    # If the audio blob is less than 50ms in duration, just return an empty transcription
+    # Audio clips this short are almost never generated, it almost certainly didn't have any speech
+    # and if we send it to the sarvam api, it will fail
+    if utterance.duration_ms < 50:
+        logger.info(f"Sarvam transcription skipped for utterance {utterance.id} because it's less than 50ms in duration")
+        return {"transcript": ""}, None
+
     # Sarvam says 16kHz sample rate works best
     payload_mp3 = pcm_to_mp3(utterance.audio_blob.tobytes(), sample_rate=utterance.sample_rate, output_sample_rate=16000)
 
