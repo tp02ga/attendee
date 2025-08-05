@@ -280,56 +280,77 @@ class StyleManager {
         this.showAllOfGMeetUI();
     }
 
-    hideBotVideoElement() {
-        const botMinimizedElement = document.querySelector('div[jsname="Qiayqc"]');
-        if (!botMinimizedElement)
-            return;
-        botMinimizedElement.style.display = 'none';
-
-        if (window.userManager.currentUserId)
-        {
-            // Create style element to hide elements with data-participant-id matching current user
-            let hideCurrentUserStyle = document.getElementById('hide-current-user-style');
-            if (!hideCurrentUserStyle) {
-                hideCurrentUserStyle = document.createElement('style');
-                hideCurrentUserStyle.id = 'hide-current-user-style';
-                document.head.appendChild(hideCurrentUserStyle);
-            }
-            
-            // Set CSS rule to hide elements with matching data-participant-id
-            hideCurrentUserStyle.textContent = `:has(> [data-participant-id="${window.userManager.currentUserId}"]) { display: none !important; }`;
-        }
-    }
-
-    hideBotVideoElementOld() {
-        const deviceIdOfBot = window.userManager.getUserByFullName(window.initialData.botName)?.deviceId;
-        console.log('deviceIdOfBot', deviceIdOfBot);
+    async hideBotVideoElement() {
+        const deviceIdOfBot = window.userManager.currentUserId;
         if (!deviceIdOfBot)
+        {
+            window.ws.sendJson({
+                type: 'Error',
+                message: 'In hideBotVideoElement, window.userManager.currentUserId was null.'
+            });
             return;
+        }
         const botVideoElement = document.querySelector(`[data-participant-id="${deviceIdOfBot}"]`);
-        console.log('botVideoElement', botVideoElement);
         if (!botVideoElement)
+        {
+            window.ws.sendJson({
+                type: 'Error',
+                message: 'In hideBotVideoElement, no bot video element found.'
+            });
             return;
-        const botOtherOptionsButton = botVideoElement.querySelector('.VfPpkd-kBDsod');
-        console.log('botOtherOptionsButton', botOtherOptionsButton);
+        }
+        const botOtherOptionsButton = botVideoElement.querySelector('button[aria-label="More options"]');
         if (!botOtherOptionsButton)
+        {
+            window.ws.sendJson({
+                type: 'Error',
+                message: 'In hideBotVideoElement, no bot other options button found.'
+            });
             return;
+        }
 
         botOtherOptionsButton.click();
-        setTimeout(() => {
-            const botMinimizeButton = document.querySelector('li[aria-label="Minimize"]');            
-            console.log('botMinimizeButton', botMinimizeButton);
-            if (!botMinimizeButton)
+        
+        // Wait for minimize button to appear with polling
+        const numAttempts = 5; // 1 second / 200ms = 5 attempts
+        let botMinimizeButton = null;
+        for (let i = 0; i < numAttempts; i++) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            botMinimizeButton = document.querySelector('li[aria-label="Minimize"]');
+            if (botMinimizeButton) {
+                break;
+            }
+            const wasLastAttempt = i === numAttempts - 1;
+            if (wasLastAttempt) {
+                window.ws.sendJson({
+                    type: 'Error',
+                    message: 'In hideBotVideoElement, no bot minimize button found after polling.'
+                });
                 return;
-            botMinimizeButton.click();
-            setTimeout(() => {
-                const botMinimizedElement = document.querySelector('div[jsname="Qiayqc"]');
-                console.log('botMinimizedElement', botMinimizedElement);
-                if (!botMinimizedElement)
-                    return;
-                botMinimizedElement.style.display = 'none';
-            }, 200);            
-        }, 200);
+            }
+        }
+        
+        botMinimizeButton.click();
+        
+        // Wait for minimized element to appear with polling
+        let botMinimizedElement = null;
+        for (let i = 0; i < numAttempts; i++) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            botMinimizedElement = document.querySelector('div[jsname="Qiayqc"]');
+            if (botMinimizedElement) {
+                break;
+            }
+            const wasLastAttempt = i === numAttempts - 1;
+            if (wasLastAttempt) {
+                window.ws.sendJson({
+                    type: 'Error',
+                    message: 'In hideBotVideoElement, no bot minimized element found after polling.'
+                });
+                return;
+            }
+        }
+        
+        botMinimizedElement.style.display = 'none';
     }
 
     showAllOfGMeetUI() {
@@ -354,7 +375,7 @@ class StyleManager {
         console.log('Restored all hidden elements to their original display values');
     }
 
-    onlyShowSubsetofGMeetUI() {
+    async onlyShowSubsetofGMeetUI() {
         try {
             // Find the main element that contains all the video elements
             this.mainElement = document.querySelector('main');
@@ -383,7 +404,7 @@ class StyleManager {
                 }
             });
 
-            this.hideBotVideoElement();
+            await this.hideBotVideoElement();
         } catch (error) {
             console.error('Error in onlyShowSubsetofGMeetUI:', error);
             window.ws.sendJson({
@@ -513,7 +534,7 @@ class StyleManager {
 
         await this.openChatPanel();
 
-        this.onlyShowSubsetofGMeetUI();
+        await this.onlyShowSubsetofGMeetUI();
         
 
         if (window.initialData.recordingView === 'gallery_view')
