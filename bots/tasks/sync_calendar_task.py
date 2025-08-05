@@ -7,7 +7,7 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarStates, WebhookTriggerTypes
+from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
 from bots.bots_api_utils import delete_bot, patch_bot
 from bots.webhook_payloads import calendar_webhook_payload
 from bots.webhook_utils import trigger_webhook
@@ -69,25 +69,206 @@ def enqueue_sync_calendar_task(calendar: Calendar):
     max_retries=6,
 )
 def sync_calendar(self, calendar_id):
-    """Celery task to sync calendar events with Google Calendar API."""
+    """Celery task to sync calendar events with a remote calendar."""
     logger.info(f"Syncing calendar {calendar_id}")
-    sync_handler = CalendarSyncHandler(calendar_id)
+    calendar = Calendar.objects.get(id=calendar_id)
+    if calendar.platform == CalendarPlatform.GOOGLE:
+        sync_handler = GoogleCalendarSyncHandler(calendar_id)
+    else:
+        raise ValueError(f"Unsupported calendar platform: {calendar.platform}")
     return sync_handler.sync_events()
 
 
-class GoogleCalendarAPIError(Exception):
+class RemoteCalendarAPIError(Exception):
+    """Custom exception for Remote Calendar API errors."""
+
+    pass
+
+
+class GoogleCalendarAPIError(RemoteCalendarAPIError):
     """Custom exception for Google Calendar API errors."""
 
     pass
 
 
 class CalendarSyncHandler:
-    """Handler for syncing calendar events with Google Calendar API."""
+    """Handler for syncing calendar events with a remote calendar."""
 
     def __init__(self, calendar_id: int):
         self.calendar = Calendar.objects.get(id=calendar_id)
         self.time_window_start: Optional[datetime] = None
         self.time_window_end: Optional[datetime] = None
+
+    def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
+        """Get all local calendar events within the time window."""
+        local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end)
+
+        # Return dict keyed by platform_uuid for easy lookup
+        return {event.platform_uuid: event for event in local_events}
+
+    def _upsert_calendar_event(self, remote_event: dict) -> tuple[CalendarEvent, bool, bool]:
+        """
+        Upsert a calendar event from remote calendar data.
+
+        Returns:
+            tuple: (CalendarEvent instance, was_created, was_updated)
+        """
+        platform_uuid = remote_event["id"]
+        event_data = self._remote_event_to_calendar_event_data(remote_event)
+
+        try:
+            # Try to get existing event
+            local_event = CalendarEvent.objects.get(calendar=self.calendar, platform_uuid=platform_uuid)
+
+            # Check if raw data has changed
+            if local_event.raw == event_data["raw"]:
+                return local_event, False, False
+
+            # Update the existing event
+            for field, value in event_data.items():
+                setattr(local_event, field, value)
+            local_event.save()
+            
+            # Sync the bots for the calendar event
+            sync_bots_for_calendar_event(local_event)
+
+            return local_event, False, True
+
+        except CalendarEvent.DoesNotExist:
+            # Create new event
+            local_event = CalendarEvent.objects.create(calendar=self.calendar, **event_data)
+            return local_event, True, False
+
+    def _mark_calendar_event_as_deleted(self, local_event: CalendarEvent):
+        """Mark an event as deleted in the local database."""
+        local_event.is_deleted = True
+        local_event.save()
+
+    def sync_events(self) -> dict:
+        """
+        Main sync method that coordinates the entire sync process.
+
+        Returns:
+            dict: Summary of sync results
+        """
+        try:
+            # Step 0: Set time window
+            now = timezone.now()
+            self.time_window_start = now - timedelta(days=1)
+            self.time_window_end = now + timedelta(days=28)
+            logger.info(f"Set time window for calendar {self.calendar.object_id}: {self.time_window_start.isoformat()} to {self.time_window_end.isoformat()}")
+
+            # Get access token
+            access_token = self._get_access_token()
+
+            # Set the sync start time
+            sync_started_at = timezone.now()
+
+            # Perform sync within transaction
+            with transaction.atomic():
+                # Step 1: Pull from Remote Calendar
+
+                # Step 1a: List all events from Remote Calendar within time window
+                remote_events = self._list_events(access_token)
+                remote_event_ids = {event["id"] for event in remote_events}
+
+                # Step 1b: Find local events not in the remote fetch and get them individually
+                local_events = self._get_local_events_in_window()
+                local_events_missing_from_remote = set(local_events.keys()) - remote_event_ids
+
+                checked_individually_count = 0
+                deleted_count = 0
+                for missing_event_id in local_events_missing_from_remote:
+                    try:
+                        individual_remote_event = self._get_event_by_id(missing_event_id, access_token)
+                        checked_individually_count += 1
+
+                        if individual_remote_event:
+                            remote_events.append(individual_remote_event)
+                        else:
+                            # Event was deleted from Remote Calendar, mark as deleted
+                            self._mark_calendar_event_as_deleted(local_events[missing_event_id])
+                            logger.info(f"Marked event {missing_event_id} as deleted")
+                            deleted_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to check individual event {missing_event_id}: {e}")
+
+                # Step 2: Diff against local DB - upsert all Remote events
+                created_count = 0
+                updated_count = 0
+
+                for remote_event in remote_events:
+                    remote_event_id = remote_event["id"]
+                    local_event, was_created, was_updated = self._upsert_calendar_event(remote_event)
+
+                    if was_created:
+                        created_count += 1
+                        logger.info(f"Created event {remote_event_id}")
+                    elif was_updated:
+                        updated_count += 1
+                        logger.info(f"Updated event {remote_event_id}")
+
+                # Update calendar sync success timestamp and window
+                self.calendar.last_attempted_sync_at = timezone.now()
+                self.calendar.last_successful_sync_at = self.calendar.last_attempted_sync_at
+                self.calendar.last_successful_sync_time_window_start = self.time_window_start
+                self.calendar.last_successful_sync_time_window_end = self.time_window_end
+                self.calendar.last_successful_sync_started_at = sync_started_at
+                self.calendar.state = CalendarStates.CONNECTED
+                self.calendar.connection_failure_data = None
+                self.calendar.save()
+
+                sync_results = {
+                    "success": True,
+                    "created_count": created_count,
+                    "updated_count": updated_count,
+                    "deleted_count": deleted_count,
+                    "checked_individually_count": checked_individually_count,
+                    "total_remote_events": len(remote_events),
+                    "total_local_events": len(local_events),
+                    "time_window_start": self.time_window_start.isoformat(),
+                    "time_window_end": self.time_window_end.isoformat(),
+                }
+
+                logger.info(f"Calendar sync completed successfully: {sync_results}")
+
+                trigger_webhook(
+                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
+                    calendar=self.calendar,
+                    payload=calendar_webhook_payload(self.calendar),
+                )
+
+                return sync_results
+
+        except RemoteCalendarAPIError as e:
+            # Update calendar state to indicate failure
+            calendar_original_state = self.calendar.state
+            self.calendar.state = CalendarStates.DISCONNECTED
+            self.calendar.connection_failure_data = {
+                "error": str(e),
+                "timestamp": timezone.now().isoformat(),
+            }
+            self.calendar.save()
+
+            logger.error(f"Calendar sync failed with RemoteCalendarAPIError for {self.calendar.object_id}: {e}")
+
+            # Create webhook event
+            if calendar_original_state != CalendarStates.DISCONNECTED:
+                trigger_webhook(
+                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE,
+                    calendar=self.calendar,
+                    payload=calendar_webhook_payload(self.calendar),
+                )
+
+        except Exception as e:
+            logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")
+            self.calendar.last_attempted_sync_at = timezone.now()
+            self.calendar.save()
+            raise
+
+
+class GoogleCalendarSyncHandler(CalendarSyncHandler):
+    """Handler for syncing calendar events with Google Calendar API."""
 
     def _get_access_token(self) -> str:
         """Get a fresh access token using the refresh token."""
@@ -134,7 +315,7 @@ class CalendarSyncHandler:
         resp.raise_for_status()
         return resp.json()
 
-    def _list_google_events(self, access_token: str) -> List[dict]:
+    def _list_events(self, access_token: str) -> List[dict]:
         """List all events from Google Calendar within the time window."""
         calendar_id = self.calendar.platform_uuid or "primary"
 
@@ -199,14 +380,7 @@ class CalendarSyncHandler:
         else:
             raise ValueError(f"Invalid event datetime format: {event_datetime}")
 
-    def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
-        """Get all local calendar events within the time window."""
-        local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end)
-
-        # Return dict keyed by platform_uuid for easy lookup
-        return {event.platform_uuid: event for event in local_events}
-
-    def _google_event_to_calendar_event_data(self, google_event: dict) -> dict:
+    def _remote_event_to_calendar_event_data(self, google_event: dict) -> dict:
         """Convert Google Calendar event data to CalendarEvent field data."""
         start_time = self._parse_event_datetime(google_event["start"])
         end_time = self._parse_event_datetime(google_event["end"])
@@ -241,163 +415,3 @@ class CalendarSyncHandler:
             "is_deleted": google_event.get("status") == "cancelled",
             "ical_uid": google_event.get("iCalUID"),
         }
-
-    def _upsert_calendar_event(self, google_event: dict) -> tuple[CalendarEvent, bool, bool]:
-        """
-        Upsert a calendar event from Google Calendar data.
-
-        Returns:
-            tuple: (CalendarEvent instance, was_created, was_updated)
-        """
-        platform_uuid = google_event["id"]
-        event_data = self._google_event_to_calendar_event_data(google_event)
-
-        try:
-            # Try to get existing event
-            local_event = CalendarEvent.objects.get(calendar=self.calendar, platform_uuid=platform_uuid)
-
-            # Check if raw data has changed
-            if local_event.raw == event_data["raw"]:
-                return local_event, False, False
-
-            # Update the existing event
-            for field, value in event_data.items():
-                setattr(local_event, field, value)
-            local_event.save()
-            
-            # Sync the bots for the calendar event
-            sync_bots_for_calendar_event(local_event)
-
-            return local_event, False, True
-
-        except CalendarEvent.DoesNotExist:
-            # Create new event
-            local_event = CalendarEvent.objects.create(calendar=self.calendar, **event_data)
-            return local_event, True, False
-
-    def _mark_calendar_event_as_deleted(self, local_event: CalendarEvent):
-        """Mark an event as deleted in the local database."""
-        local_event.is_deleted = True
-        local_event.save()
-
-    def sync_events(self) -> dict:
-        """
-        Main sync method that coordinates the entire sync process.
-
-        Returns:
-            dict: Summary of sync results
-        """
-        try:
-            # Step 0: Set time window
-            now = timezone.now()
-            self.time_window_start = now - timedelta(days=1)
-            self.time_window_end = now + timedelta(days=28)
-            logger.info(f"Set time window for calendar {self.calendar.object_id}: {self.time_window_start.isoformat()} to {self.time_window_end.isoformat()}")
-
-            # Get access token
-            access_token = self._get_access_token()
-
-            # Set the sync start time
-            sync_started_at = timezone.now()
-
-            # Perform sync within transaction
-            with transaction.atomic():
-                # Step 1: Pull from Google Calendar
-
-                # Step 1a: List all events from Google Calendar within time window
-                remote_events = self._list_google_events(access_token)
-                remote_event_ids = {event["id"] for event in remote_events}
-
-                # Step 1b: Find local events not in the remote fetch and get them individually
-                local_events = self._get_local_events_in_window()
-                local_events_missing_from_remote = set(local_events.keys()) - remote_event_ids
-
-                checked_individually_count = 0
-                deleted_count = 0
-                for missing_event_id in local_events_missing_from_remote:
-                    try:
-                        individual_remote_event = self._get_event_by_id(missing_event_id, access_token)
-                        checked_individually_count += 1
-
-                        if individual_remote_event:
-                            remote_events.append(individual_remote_event)
-                        else:
-                            # Event was deleted from Google Calendar, mark as deleted
-                            self._mark_calendar_event_as_deleted(local_events[missing_event_id])
-                            logger.info(f"Marked event {missing_event_id} as deleted")
-                            deleted_count += 1
-                    except GoogleCalendarAPIError as e:
-                        logger.error(f"Failed to check individual event {missing_event_id}: {e}")
-
-                # Step 2: Diff against local DB - upsert all Google events
-                created_count = 0
-                updated_count = 0
-
-                for remote_event in remote_events:
-                    remote_event_id = remote_event["id"]
-                    local_event, was_created, was_updated = self._upsert_calendar_event(remote_event)
-
-                    if was_created:
-                        created_count += 1
-                        logger.info(f"Created event {remote_event_id}")
-                    elif was_updated:
-                        updated_count += 1
-                        logger.info(f"Updated event {remote_event_id}")
-
-                # Update calendar sync success timestamp and window
-                self.calendar.last_attempted_sync_at = timezone.now()
-                self.calendar.last_successful_sync_at = self.calendar.last_attempted_sync_at
-                self.calendar.last_successful_sync_time_window_start = self.time_window_start
-                self.calendar.last_successful_sync_time_window_end = self.time_window_end
-                self.calendar.last_successful_sync_started_at = sync_started_at
-                self.calendar.state = CalendarStates.CONNECTED
-                self.calendar.connection_failure_data = None
-                self.calendar.save()
-
-                sync_results = {
-                    "success": True,
-                    "created_count": created_count,
-                    "updated_count": updated_count,
-                    "deleted_count": deleted_count,
-                    "checked_individually_count": checked_individually_count,
-                    "total_remote_events": len(remote_events),
-                    "total_local_events": len(local_events),
-                    "time_window_start": self.time_window_start.isoformat(),
-                    "time_window_end": self.time_window_end.isoformat(),
-                }
-
-                logger.info(f"Calendar sync completed successfully: {sync_results}")
-
-                trigger_webhook(
-                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
-                    calendar=self.calendar,
-                    payload=calendar_webhook_payload(self.calendar),
-                )
-
-                return sync_results
-
-        except GoogleCalendarAPIError as e:
-            # Update calendar state to indicate failure
-            calendar_original_state = self.calendar.state
-            self.calendar.state = CalendarStates.DISCONNECTED
-            self.calendar.connection_failure_data = {
-                "error": str(e),
-                "timestamp": timezone.now().isoformat(),
-            }
-            self.calendar.save()
-
-            logger.error(f"Calendar sync failed with GoogleCalendarAPIError for {self.calendar.object_id}: {e}")
-
-            # Create webhook event
-            if calendar_original_state != CalendarStates.DISCONNECTED:
-                trigger_webhook(
-                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE,
-                    calendar=self.calendar,
-                    payload=calendar_webhook_payload(self.calendar),
-                )
-
-        except Exception as e:
-            logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")
-            self.calendar.last_attempted_sync_at = timezone.now()
-            self.calendar.save()
-            raise
