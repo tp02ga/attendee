@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as python_timezone
 from typing import Dict, List, Optional
 
 import requests
@@ -74,6 +74,8 @@ def sync_calendar(self, calendar_id):
     calendar = Calendar.objects.get(id=calendar_id)
     if calendar.platform == CalendarPlatform.GOOGLE:
         sync_handler = GoogleCalendarSyncHandler(calendar_id)
+    elif calendar.platform == CalendarPlatform.MICROSOFT:
+        sync_handler = MicrosoftCalendarSyncHandler(calendar_id)
     else:
         raise ValueError(f"Unsupported calendar platform: {calendar.platform}")
     return sync_handler.sync_events()
@@ -359,8 +361,9 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         url = f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events/{event_id}"
 
         try:
+            logger.info(f"Fetching individual event {event_id} from Google Calendar")
             return self._make_gcal_request(url, access_token)
-        except GoogleCalendarAPIError as e:
+        except Exception as e:
             if "404" in str(e):
                 logger.info(f"Event {event_id} not found in Google Calendar")
                 # Event was deleted
@@ -376,7 +379,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         elif "date" in event_datetime:
             # All-day event
             date_str = event_datetime["date"]
-            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=python_timezone.utc)
         else:
             raise ValueError(f"Invalid event datetime format: {event_datetime}")
 
@@ -414,4 +417,245 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             "raw": google_event,
             "is_deleted": google_event.get("status") == "cancelled",
             "ical_uid": google_event.get("iCalUID"),
+        }
+
+
+class MicrosoftCalendarAPIError(RemoteCalendarAPIError):
+    """Custom exception for Microsoft Graph Calendar API errors."""
+
+    pass
+
+class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
+    """
+    Handler for syncing calendar events with Microsoft Graph Calendar API.
+
+    Notes:
+    - We use /me/calendarView to get expanded instances within a time window.
+    - We set Prefer: outlook.timezone="UTC" so all dateTimes are returned in UTC.
+    - Microsoft rotates the refresh_token on each refresh. We update the stored
+      credentials with the new refresh_token when present.
+    """
+
+    TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    GRAPH_BASE = "https://graph.microsoft.com/v1.0"
+
+    # ---------------------------
+    # Auth
+    # ---------------------------
+    def _get_access_token(self) -> str:
+        """
+        Exchange the stored refresh token for a new access token.
+        Microsoft returns a new refresh_token on each successful refresh.
+        Persist it so we don't lose the chain.
+        """
+        credentials = self.calendar.get_credentials()
+        if not credentials:
+            raise MicrosoftCalendarAPIError("No credentials found for calendar")
+
+        refresh_token = credentials.get("refresh_token")
+        client_secret = credentials.get("client_secret")
+        if not refresh_token or not client_secret:
+            raise MicrosoftCalendarAPIError("Missing refresh_token or client_secret")
+
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": self.calendar.client_id,
+            "client_secret": client_secret,
+        }
+
+        try:
+            response = requests.post(self.TOKEN_URL, data=data, timeout=30)
+            response.raise_for_status()
+            token_data = response.json()
+
+            access_token = token_data.get("access_token")
+            if not access_token:
+                raise MicrosoftCalendarAPIError("No access_token in refresh response")
+
+            # IMPORTANT: Microsoft rotates refresh tokens. Save the new one if provided.
+            new_refresh = token_data.get("refresh_token")
+            if new_refresh and new_refresh != refresh_token:
+                credentials["refresh_token"] = new_refresh
+                self.calendar.set_credentials(credentials)
+                logger.info("Stored rotated Microsoft refresh_token for calendar %s", self.calendar.object_id)
+
+            return access_token
+
+        except requests.RequestException as e:
+            raise MicrosoftCalendarAPIError(f"Failed to refresh Microsoft access token: {str(e)}")
+
+    # ---------------------------
+    # HTTP helpers
+    # ---------------------------
+    def _make_graph_request(self, url: str, access_token: str, params: dict | None = None) -> dict:
+        """
+        Make a Microsoft Graph request with proper headers. If url is a full @odata.nextLink,
+        we pass it as-is and ignore params.
+        """
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            # Ensure dateTimes are emitted in UTC so we can parse deterministically.
+            "Prefer": 'outlook.timezone="UTC"',
+        }
+
+        # Build request
+        if params is None:
+            req = requests.Request("GET", url, headers=headers).prepare()
+        else:
+            req = requests.Request("GET", url, headers=headers, params=params).prepare()
+
+        logger.info("Fetching Microsoft Graph: %s", req.url)
+        with requests.Session() as s:
+            resp = s.send(req, timeout=25)
+        resp.raise_for_status()
+        return resp.json()
+
+    # ---------------------------
+    # Listing & single fetch
+    # ---------------------------
+    def _format_dt_for_graph(self, dt: datetime) -> str:
+        """Return RFC3339 UTC format the Graph likes: YYYY-MM-DDTHH:MM:SSZ"""
+        dt_utc = dt.astimezone(python_timezone.utc)
+        return dt_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    def _list_events(self, access_token: str) -> List[dict]:
+        """
+        Use /me/calendarView to enumerate events (including expanded recurrences)
+        within the time window, with paging via @odata.nextLink.
+        """
+        start = self._format_dt_for_graph(self.time_window_start)
+        end = self._format_dt_for_graph(self.time_window_end)
+
+        base_url = f"{self.GRAPH_BASE}/me/calendarView"
+        params = {
+            "startDateTime": start,
+            "endDateTime": end,
+            # Order helps with pagination sanity; Graph supports this on calendarView.
+            "$orderby": "start/dateTime",
+            # Keep payload lean but include what we need. We try to get the joinUrl via $expand.
+            "$select": (
+                "id,subject,start,end,attendees,iCalUId,isCancelled,"
+                "isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,"
+                "location,bodyPreview,webLink"
+            ),
+            # You can tune page size with $top (Graph may cap it). We let Graph decide for reliability.
+            # "$top": "200",
+        }
+
+        events: list[dict] = []
+        data = self._make_graph_request(base_url, access_token, params)
+
+        events.extend(data.get("value", []))
+        next_link = data.get("@odata.nextLink")
+
+        while next_link:
+            # next_link already includes all parameters and skip tokens
+            data = self._make_graph_request(next_link, access_token)
+            events.extend(data.get("value", []))
+            next_link = data.get("@odata.nextLink")
+
+        logger.info("Fetched %d events from Microsoft Graph", len(events))
+        return events
+
+    def _get_event_by_id(self, event_id: str, access_token: str) -> Optional[dict]:
+        """
+        Fetch a specific event by id. If it's been deleted, Graph returns 404.
+        """
+        url = f"{self.GRAPH_BASE}/me/events/{event_id}"
+        params = {
+            "$select": (
+                "id,subject,start,end,attendees,iCalUId,isCancelled,"
+                "isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,"
+                "location,bodyPreview,webLink"
+            ),
+        }
+        try:
+            return self._make_graph_request(url, access_token, params)
+        except Exception as e:
+            if "404" in str(e):
+                logger.info("Event %s not found in Microsoft Graph", event_id)
+                return None # Event was deleted
+            raise
+
+    # ---------------------------
+    # Mapping helpers
+    # ---------------------------
+    def _parse_ms_datetime(self, dt_str: str, tz_name: Optional[str]) -> datetime:
+        """
+        Parse Graph dateTime strings robustly:
+        - We set Prefer: outlook.timezone="UTC", so tz_name should be 'UTC' and dt_str has no offset.
+        - Graph can return 7-digit fractional seconds; Python supports up to 6, so truncate.
+        """
+        if not dt_str:
+            raise ValueError("Empty dateTime")
+
+        s = dt_str.replace("Z", "+00:00")  # handle Z form if present
+        # If offset is present, let fromisoformat handle it directly
+        if ("+" in s[10:] or "-" in s[10:]) and s[-3] == ":":
+            # offset like +00:00
+            return datetime.fromisoformat(s)
+
+        # No offset: trim fractional seconds to 6 digits if present
+        if "." in s:
+            main, frac = s.split(".", 1)
+            frac_digits = "".join(ch for ch in frac if ch.isdigit())
+            if len(frac_digits) > 6:
+                frac_digits = frac_digits[:6]
+            else:
+                frac_digits = frac_digits.ljust(6, "0")
+            s = f"{main}.{frac_digits}"
+        dt = datetime.fromisoformat(s)
+        # Attach UTC if no tzinfo (should be, given our Prefer header)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=python_timezone.utc)
+        return dt
+
+    def _extract_meeting_url(self, ev: dict) -> Optional[str]:
+        """
+        Try to extract a join URL for online meetings.
+        Priority:
+          1) onlineMeeting.joinUrl (expanded)
+          2) onlineMeetingUrl (legacy)
+          3) (fallback) None
+        """
+        online_meeting = ev.get("onlineMeeting") or {}
+        join_url = online_meeting.get("joinUrl")
+        if join_url:
+            return join_url
+        legacy = ev.get("onlineMeetingUrl")
+        if legacy:
+            return legacy
+        return None
+
+    def _remote_event_to_calendar_event_data(self, ms_event: dict) -> dict:
+        """Convert Microsoft Graph event into our CalendarEvent fields."""
+        start_info = ms_event.get("start") or {}
+        end_info = ms_event.get("end") or {}
+
+        start_time = self._parse_ms_datetime(start_info.get("dateTime"), start_info.get("timeZone"))
+        end_time = self._parse_ms_datetime(end_info.get("dateTime"), end_info.get("timeZone"))
+
+        # Attendees
+        attendees_out: list[dict] = []
+        for att in ms_event.get("attendees", []) or []:
+            email_obj = att.get("emailAddress") or {}
+            attendees_out.append(
+                {
+                    "email": email_obj.get("address"),
+                    "name": email_obj.get("name"),
+                }
+            )
+
+        meeting_url = self._extract_meeting_url(ms_event)
+
+        return {
+            "platform_uuid": ms_event.get("id"),
+            "meeting_url": meeting_url,
+            "start_time": start_time,
+            "end_time": end_time,
+            "attendees": attendees_out,
+            "raw": ms_event,
+            "is_deleted": bool(ms_event.get("isCancelled")),
+            "ical_uid": ms_event.get("iCalUId"),
         }
