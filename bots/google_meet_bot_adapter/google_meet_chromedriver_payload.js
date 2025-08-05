@@ -312,10 +312,10 @@ class StyleManager {
         botOtherOptionsButton.click();
         
         // Wait for minimize button to appear with polling
-        const numAttempts = 5; // 1 second / 200ms = 5 attempts
+        const numAttempts = 10; // 1 second / 100ms = 10 attempts
         let botMinimizeButton = null;
         for (let i = 0; i < numAttempts; i++) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 100));
             botMinimizeButton = document.querySelector('li[aria-label="Minimize"]');
             if (botMinimizeButton) {
                 break;
@@ -335,7 +335,7 @@ class StyleManager {
         // Wait for minimized element to appear with polling
         let botMinimizedElement = null;
         for (let i = 0; i < numAttempts; i++) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 100));
             botMinimizedElement = document.querySelector('div[jsname="Qiayqc"]');
             if (botMinimizedElement) {
                 break;
