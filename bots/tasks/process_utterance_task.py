@@ -403,7 +403,7 @@ def get_transcription_via_assemblyai(utterance):
 
             if error and "language_detection cannot be performed on files with no spoken audio" in error:
                 logger.info(f"AssemblyAI transcription skipped for utterance {utterance.id} because it did not have any spoken audio and we tried to detect language")
-                return {"transcript": ""}, None
+                return {"transcript": "", "words": []}, None
 
             return None, {"reason": TranscriptionFailureReasons.TRANSCRIPTION_REQUEST_FAILED, "step": "transcribe_result_poll", "error": error}
 
