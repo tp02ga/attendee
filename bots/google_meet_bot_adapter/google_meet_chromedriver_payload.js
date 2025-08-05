@@ -281,6 +281,13 @@ class StyleManager {
     }
 
     hideBotVideoElement() {
+        const botMinimizedElement = document.querySelector('div[jsname="Qiayqc"]');
+        if (!botMinimizedElement)
+            return;
+        botMinimizedElement.style.display = 'none';
+    }
+
+    hideBotVideoElementOld() {
         const deviceIdOfBot = window.userManager.getUserByFullName(window.initialData.botName)?.deviceId;
         console.log('deviceIdOfBot', deviceIdOfBot);
         if (!deviceIdOfBot)
@@ -362,7 +369,7 @@ class StyleManager {
                 }
             });
 
-            // this.hideBotVideoElement();
+            this.hideBotVideoElement();
         } catch (error) {
             console.error('Error in onlyShowSubsetofGMeetUI:', error);
             window.ws.sendJson({
