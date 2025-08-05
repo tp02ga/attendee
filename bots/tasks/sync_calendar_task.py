@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone as python_timezone
+from datetime import datetime, timedelta
+from datetime import timezone as python_timezone
 from typing import Dict, List, Optional
 
 import requests
@@ -7,12 +8,13 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
 from bots.bots_api_utils import delete_bot, patch_bot
+from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
 from bots.webhook_payloads import calendar_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
+
 
 def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
     """Sync a bot with a calendar event."""
@@ -25,20 +27,20 @@ def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
         else:
             logger.info(f"Successfully deleted bot {bot.object_id}")
         return
-    
+
     # Check if bot needs to be updated to match calendar event
     update_data = {}
-    
+
     # Check meeting_url
     if bot.meeting_url != calendar_event.meeting_url:
         logger.info(f"Bot {bot.object_id} meeting_url differs from calendar event: {bot.meeting_url} -> {calendar_event.meeting_url}")
         update_data["meeting_url"] = calendar_event.meeting_url
-    
+
     # Check join_at (bot.join_at should match calendar_event.start_time)
     if bot.join_at != calendar_event.start_time:
         logger.info(f"Bot {bot.object_id} join_at differs from calendar event start_time: {bot.join_at} -> {calendar_event.start_time}")
         update_data["join_at"] = calendar_event.start_time
-    
+
     # If updates are needed, patch the bot
     if update_data:
         logger.info(f"Patching bot {bot.object_id} to sync with calendar event {calendar_event.platform_uuid} with data {update_data}")
@@ -47,6 +49,7 @@ def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
             logger.error(f"Failed to patch bot {bot.object_id}: {error}")
         else:
             logger.info(f"Successfully patched bot {bot.object_id}")
+
 
 def sync_bots_for_calendar_event(calendar_event: CalendarEvent):
     """Sync the scheduled bots of a calendar event. Bots for the event that are not in the scheduled state cannot be changed so will be ignored."""
@@ -130,7 +133,7 @@ class CalendarSyncHandler:
             for field, value in event_data.items():
                 setattr(local_event, field, value)
             local_event.save()
-            
+
             # Sync the bots for the calendar event
             sync_bots_for_calendar_event(local_event)
 
@@ -425,6 +428,7 @@ class MicrosoftCalendarAPIError(RemoteCalendarAPIError):
 
     pass
 
+
 class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     """
     Handler for syncing calendar events with Microsoft Graph Calendar API.
@@ -438,6 +442,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
 
     TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     GRAPH_BASE = "https://graph.microsoft.com/v1.0"
+    CALENDAR_EVENT_SELECT_FIELDS = "id,subject,start,end,attendees,organizer,iCalUId,isCancelled,isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,location,bodyPreview,webLink"
 
     # ---------------------------
     # Auth
@@ -534,11 +539,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             # Order helps with pagination sanity; Graph supports this on calendarView.
             "$orderby": "start/dateTime",
             # Keep payload lean but include what we need. We try to get the joinUrl via $expand.
-            "$select": (
-                "id,subject,start,end,attendees,iCalUId,isCancelled,"
-                "isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,"
-                "location,bodyPreview,webLink"
-            ),
+            "$select": self.CALENDAR_EVENT_SELECT_FIELDS,
             # You can tune page size with $top (Graph may cap it). We let Graph decide for reliability.
             # "$top": "200",
         }
@@ -564,18 +565,14 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         """
         url = f"{self.GRAPH_BASE}/me/events/{event_id}"
         params = {
-            "$select": (
-                "id,subject,start,end,attendees,iCalUId,isCancelled,"
-                "isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,"
-                "location,bodyPreview,webLink"
-            ),
+            "$select": self.CALENDAR_EVENT_SELECT_FIELDS,
         }
         try:
             return self._make_graph_request(url, access_token, params)
         except Exception as e:
             if "404" in str(e):
                 logger.info("Event %s not found in Microsoft Graph", event_id)
-                return None # Event was deleted
+                return None  # Event was deleted
             raise
 
     # ---------------------------
