@@ -104,9 +104,6 @@ class CalendarSyncHandler:
         self.time_window_start: Optional[datetime] = None
         self.time_window_end: Optional[datetime] = None
 
-    def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
-        return
-
     def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
         """Get all local calendar events within the time window."""
         local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end, is_deleted=False)
@@ -278,6 +275,11 @@ class CalendarSyncHandler:
 class GoogleCalendarSyncHandler(CalendarSyncHandler):
     """Handler for syncing calendar events with Google Calendar API."""
 
+    def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
+        if e.response.json().get("error") == "invalid_grant":
+            raise CalendarAPIAuthenticationError(f"Google Authentication error: {e.response.json()}")
+        return
+
     def _get_access_token(self) -> str:
         """Get a fresh access token using the refresh token."""
         credentials = self.calendar.get_credentials()
@@ -444,6 +446,11 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     GRAPH_BASE = "https://graph.microsoft.com/v1.0"
     CALENDAR_EVENT_SELECT_FIELDS = "id,subject,start,end,attendees,organizer,iCalUId,isCancelled,isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,location,bodyPreview,webLink"
+
+    def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
+        if e.response.json().get("error") == "invalid_grant":
+            raise CalendarAPIAuthenticationError(f"Microsoft Authentication error: {e.response.json()}")
+        return
 
     # ---------------------------
     # Auth
