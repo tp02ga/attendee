@@ -106,7 +106,7 @@ class CalendarSyncHandler:
 
     def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
         """Get all local calendar events within the time window."""
-        local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end)
+        local_events = CalendarEvent.objects.filter(calendar=self.calendar, start_time__gte=self.time_window_start, start_time__lt=self.time_window_end, is_deleted=False)
 
         # Return dict keyed by platform_uuid for easy lookup
         return {event.platform_uuid: event for event in local_events}
