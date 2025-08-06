@@ -255,7 +255,7 @@ class CalendarSyncHandler:
             }
             self.calendar.save()
 
-            logger.error(f"Calendar sync failed with CalendarAPIAuthenticationError for {self.calendar.object_id}: {e}")
+            logger.exception(f"Calendar sync failed with CalendarAPIAuthenticationError for {self.calendar.object_id}: {e}")
 
             # Create webhook event
             if calendar_original_state != CalendarStates.DISCONNECTED:
@@ -266,7 +266,7 @@ class CalendarSyncHandler:
                 )
 
         except Exception as e:
-            logger.error(f"Calendar sync failed with {type(e).__name__} for {self.calendar.object_id}: {e}")
+            logger.exception(f"Calendar sync failed with {type(e).__name__} for {self.calendar.object_id}: {e}")
             self.calendar.last_attempted_sync_at = timezone.now()
             self.calendar.save()
             raise
@@ -278,6 +278,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
     def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
         if e.response.json().get("error") == "invalid_grant":
             raise CalendarAPIAuthenticationError(f"Google Authentication error: {e.response.json()}")
+
         return
 
     def _get_access_token(self) -> str:
@@ -328,6 +329,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             return resp.json()
         except requests.RequestException as e:
             self._raise_if_error_is_authentication_error(e)
+            logger.exception(f"Failed to make Google Calendar request. Response body: {e.response.json()}")
             raise e
 
     def _list_events(self, access_token: str) -> List[dict]:
@@ -450,6 +452,9 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
         if e.response.json().get("error") == "invalid_grant":
             raise CalendarAPIAuthenticationError(f"Microsoft Authentication error: {e.response.json()}")
+        
+        if "ErrorAccessDenied" in e.response.text:
+            raise CalendarAPIAuthenticationError(f"Microsoft Authentication error: {e.response.json()}")
         return
 
     # ---------------------------
@@ -529,6 +534,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             return resp.json()
         except requests.RequestException as e:
             self._raise_if_error_is_authentication_error(e)
+            logger.exception(f"Failed to make Microsoft Graph request. Response body: {e.response.json()}")
             raise e
 
     # ---------------------------
