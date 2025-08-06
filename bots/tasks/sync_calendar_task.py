@@ -84,13 +84,13 @@ def sync_calendar(self, calendar_id):
     return sync_handler.sync_events()
 
 
-class RemoteCalendarAPIError(Exception):
+class CalendarAPIError(Exception):
     """Custom exception for Remote Calendar API errors."""
 
     pass
 
 
-class GoogleCalendarAPIError(RemoteCalendarAPIError):
+class CalendarAPIAuthenticationError(CalendarAPIError):
     """Custom exception for Google Calendar API errors."""
 
     pass
@@ -103,6 +103,9 @@ class CalendarSyncHandler:
         self.calendar = Calendar.objects.get(id=calendar_id)
         self.time_window_start: Optional[datetime] = None
         self.time_window_end: Optional[datetime] = None
+
+    def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
+        return
 
     def _get_local_events_in_window(self) -> Dict[str, CalendarEvent]:
         """Get all local calendar events within the time window."""
@@ -245,7 +248,7 @@ class CalendarSyncHandler:
 
                 return sync_results
 
-        except RemoteCalendarAPIError as e:
+        except CalendarAPIAuthenticationError as e:
             # Update calendar state to indicate failure
             calendar_original_state = self.calendar.state
             self.calendar.state = CalendarStates.DISCONNECTED
@@ -255,7 +258,7 @@ class CalendarSyncHandler:
             }
             self.calendar.save()
 
-            logger.error(f"Calendar sync failed with RemoteCalendarAPIError for {self.calendar.object_id}: {e}")
+            logger.error(f"Calendar sync failed with CalendarAPIAuthenticationError for {self.calendar.object_id}: {e}")
 
             # Create webhook event
             if calendar_original_state != CalendarStates.DISCONNECTED:
@@ -266,7 +269,7 @@ class CalendarSyncHandler:
                 )
 
         except Exception as e:
-            logger.error(f"Calendar sync failed for {self.calendar.object_id}: {e}")
+            logger.error(f"Calendar sync failed with {type(e).__name__} for {self.calendar.object_id}: {e}")
             self.calendar.last_attempted_sync_at = timezone.now()
             self.calendar.save()
             raise
@@ -279,13 +282,13 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         """Get a fresh access token using the refresh token."""
         credentials = self.calendar.get_credentials()
         if not credentials:
-            raise GoogleCalendarAPIError("No credentials found for calendar")
+            raise CalendarAPIAuthenticationError("No credentials found for calendar")
 
         refresh_token = credentials.get("refresh_token")
         client_secret = credentials.get("client_secret")
 
         if not refresh_token or not client_secret:
-            raise GoogleCalendarAPIError("Missing refresh_token or client_secret")
+            raise CalendarAPIAuthenticationError("Missing refresh_token or client_secret")
 
         # Exchange refresh token for access token
         data = {
@@ -301,12 +304,13 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             token_data = response.json()
 
             if "access_token" not in token_data:
-                raise GoogleCalendarAPIError("No access_token in response")
+                raise CalendarAPIError(f"No access_token in response. Response body: {response.json()}")
 
             return token_data["access_token"]
 
         except requests.RequestException as e:
-            raise GoogleCalendarAPIError(f"Failed to refresh access token: {str(e)}")
+            self._raise_if_error_is_authentication_error(e)
+            raise CalendarAPIError(f"Failed to refresh Google access token. Response body: {e.response.json()}")
 
     def _make_gcal_request(self, url: str, access_token: str, params: dict = None) -> dict:
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -314,11 +318,15 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         req = requests.Request("GET", url, headers=headers, params=params).prepare()
         logger.info("Fetching Google Calendar events: %s", req.url)
 
-        # Send the request
-        with requests.Session() as s:
-            resp = s.send(req, timeout=25)
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            # Send the request
+            with requests.Session() as s:
+                resp = s.send(req, timeout=25)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as e:
+            self._raise_if_error_is_authentication_error(e)
+            raise e
 
     def _list_events(self, access_token: str) -> List[dict]:
         """List all events from Google Calendar within the time window."""
@@ -422,13 +430,6 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             "ical_uid": google_event.get("iCalUID"),
         }
 
-
-class MicrosoftCalendarAPIError(RemoteCalendarAPIError):
-    """Custom exception for Microsoft Graph Calendar API errors."""
-
-    pass
-
-
 class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     """
     Handler for syncing calendar events with Microsoft Graph Calendar API.
@@ -455,12 +456,12 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         """
         credentials = self.calendar.get_credentials()
         if not credentials:
-            raise MicrosoftCalendarAPIError("No credentials found for calendar")
+            raise CalendarAPIAuthenticationError("No credentials found for calendar")
 
         refresh_token = credentials.get("refresh_token")
         client_secret = credentials.get("client_secret")
         if not refresh_token or not client_secret:
-            raise MicrosoftCalendarAPIError("Missing refresh_token or client_secret")
+            raise CalendarAPIAuthenticationError("Missing refresh_token or client_secret")
 
         data = {
             "grant_type": "refresh_token",
@@ -476,7 +477,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
 
             access_token = token_data.get("access_token")
             if not access_token:
-                raise MicrosoftCalendarAPIError("No access_token in refresh response")
+                raise CalendarAPIError(f"No access_token in refresh response. Response body: {response.json()}")
 
             # IMPORTANT: Microsoft rotates refresh tokens. Save the new one if provided.
             new_refresh = token_data.get("refresh_token")
@@ -488,7 +489,8 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             return access_token
 
         except requests.RequestException as e:
-            raise MicrosoftCalendarAPIError(f"Failed to refresh Microsoft access token: {str(e)}")
+            self._raise_if_error_is_authentication_error(e)
+            raise CalendarAPIError(f"Failed to refresh Microsoft access token. Response body: {e.response.json()}")
 
     # ---------------------------
     # HTTP helpers
@@ -511,10 +513,16 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             req = requests.Request("GET", url, headers=headers, params=params).prepare()
 
         logger.info("Fetching Microsoft Graph: %s", req.url)
-        with requests.Session() as s:
-            resp = s.send(req, timeout=25)
-        resp.raise_for_status()
-        return resp.json()
+
+        try:
+            # Send the request
+            with requests.Session() as s:
+                resp = s.send(req, timeout=25)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as e:
+            self._raise_if_error_is_authentication_error(e)
+            raise e
 
     # ---------------------------
     # Listing & single fetch
