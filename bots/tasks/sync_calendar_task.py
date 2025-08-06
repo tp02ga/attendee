@@ -278,6 +278,8 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
     def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
         if e.response.json().get("error") == "invalid_grant":
             raise CalendarAPIAuthenticationError(f"Google Authentication error: {e.response.json()}")
+        if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in e.response.text:
+            raise CalendarAPIAuthenticationError(f"Google Authentication error: {e.response.json()}")
 
         return
 
@@ -434,6 +436,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             "ical_uid": google_event.get("iCalUID"),
         }
 
+
 class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     """
     Handler for syncing calendar events with Microsoft Graph Calendar API.
@@ -452,7 +455,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
         if e.response.json().get("error") == "invalid_grant":
             raise CalendarAPIAuthenticationError(f"Microsoft Authentication error: {e.response.json()}")
-        
+
         if "ErrorAccessDenied" in e.response.text:
             raise CalendarAPIAuthenticationError(f"Microsoft Authentication error: {e.response.json()}")
         return
