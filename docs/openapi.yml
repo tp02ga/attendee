@@ -1416,8 +1416,7 @@ components:
             format: mp4
             view: speaker_view
             resolution: 1080p
-          description: The settings for the bot's recording. Currently the only setting
-            is 'view' which can be 'speaker_view', 'gallery_view' or 'speaker_view_no_sidebar'.
+          description: The settings for the bot's recording.
         teams_settings:
           type: object
           properties:
