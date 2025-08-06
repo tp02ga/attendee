@@ -1403,7 +1403,7 @@ components:
             view:
               type: string
               description: The view to use for the recording. The supported views
-                are 'speaker_view' and 'gallery_view'.
+                are 'speaker_view', 'gallery_view' and 'speaker_view_no_sidebar'.
             resolution:
               type: string
               description: The resolution to use for the recording. The supported
@@ -1416,8 +1416,7 @@ components:
             format: mp4
             view: speaker_view
             resolution: 1080p
-          description: The settings for the bot's recording. Currently the only setting
-            is 'view' which can be 'speaker_view' or 'gallery_view'.
+          description: The settings for the bot's recording.
         teams_settings:
           type: object
           properties:

@@ -254,7 +254,7 @@ class RTMPSettingsJSONField(serializers.JSONField):
             },
             "view": {
                 "type": "string",
-                "description": "The view to use for the recording. The supported views are 'speaker_view' and 'gallery_view'.",
+                "description": "The view to use for the recording. The supported views are 'speaker_view', 'gallery_view' and 'speaker_view_no_sidebar'.",
             },
             "resolution": {
                 "type": "string",
@@ -840,7 +840,7 @@ class CreateBotSerializer(serializers.Serializer):
         return value
 
     recording_settings = RecordingSettingsJSONField(
-        help_text="The settings for the bot's recording. Currently the only setting is 'view' which can be 'speaker_view' or 'gallery_view'.",
+        help_text="The settings for the bot's recording.",
         required=False,
         default={"format": RecordingFormats.MP4, "view": RecordingViews.SPEAKER_VIEW, "resolution": RecordingResolutions.HD_1080P},
     )
@@ -883,8 +883,8 @@ class CreateBotSerializer(serializers.Serializer):
 
         # Validate view if provided
         view = value.get("view")
-        if view not in [RecordingViews.SPEAKER_VIEW, RecordingViews.GALLERY_VIEW, None]:
-            raise serializers.ValidationError({"view": "View must be speaker_view or gallery_view"})
+        if view not in [RecordingViews.SPEAKER_VIEW, RecordingViews.GALLERY_VIEW, RecordingViews.SPEAKER_VIEW_NO_SIDEBAR, None]:
+            raise serializers.ValidationError({"view": "View must be speaker_view or gallery_view or speaker_view_no_sidebar"})
 
         return value
 
