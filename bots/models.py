@@ -258,6 +258,7 @@ class RecordingFormats(models.TextChoices):
 class RecordingViews(models.TextChoices):
     SPEAKER_VIEW = "speaker_view"
     GALLERY_VIEW = "gallery_view"
+    SPEAKER_VIEW_NO_SIDEBAR = "speaker_view_no_sidebar"
 
 
 class Bot(models.Model):
