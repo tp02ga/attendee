@@ -102,6 +102,7 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 
     return None
 
+
 def validate_external_media_storage_settings(external_media_storage_settings, project):
     if not external_media_storage_settings:
         return None
@@ -112,6 +113,7 @@ def validate_external_media_storage_settings(external_media_storage_settings, pr
         return {"error": f"External media storage credentials are required to upload recordings to an external storage bucket. Please add external media storage credentials at {settings_url}."}
 
     return None
+
 
 class BotCreationSource(str, Enum):
     API = "api"

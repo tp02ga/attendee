@@ -454,7 +454,7 @@ class Bot(models.Model):
         if external_media_storage_settings is None:
             external_media_storage_settings = {}
         return external_media_storage_settings.get("bucket_name", None)
-    
+
     def external_media_storage_recording_file_name(self):
         external_media_storage_settings = self.settings.get("external_media_storage_settings", {})
         if external_media_storage_settings is None:

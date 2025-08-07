@@ -347,7 +347,7 @@ class BotController:
         if not external_media_storage_credentials_record:
             logger.error(f"No external media storage credentials found for bot {self.bot_in_db.id}")
             return
-        
+
         external_media_storage_credentials = external_media_storage_credentials_record.get_credentials()
         if not external_media_storage_credentials:
             logger.error(f"External media storage credentials data not found for bot {self.bot_in_db.id}")
