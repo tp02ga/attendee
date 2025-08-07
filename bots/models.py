@@ -449,6 +449,18 @@ class Bot(models.Model):
             debug_settings = {}
         return debug_settings.get("create_debug_recording", False)
 
+    def external_media_storage_bucket_name(self):
+        external_media_storage_settings = self.settings.get("external_media_storage_settings", {})
+        if external_media_storage_settings is None:
+            external_media_storage_settings = {}
+        return external_media_storage_settings.get("bucket_name", None)
+    
+    def external_media_storage_recording_file_name(self):
+        external_media_storage_settings = self.settings.get("external_media_storage_settings", {})
+        if external_media_storage_settings is None:
+            external_media_storage_settings = {}
+        return external_media_storage_settings.get("recording_file_name", None)
+
     def last_bot_event(self):
         return self.bot_events.order_by("-created_at").first()
 
