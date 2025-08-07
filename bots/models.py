@@ -1454,6 +1454,7 @@ class Credentials(models.Model):
         ASSEMBLY_AI = 6, "Assembly AI"
         SARVAM = 7, "Sarvam"
         TEAMS_BOT_LOGIN = 8, "Teams Bot Login"
+        EXTERNAL_MEDIA_STORAGE = 9, "External Media Storage"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
