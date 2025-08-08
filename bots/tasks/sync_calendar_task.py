@@ -1,21 +1,22 @@
 import logging
+import re
 from datetime import datetime, timedelta
 from datetime import timezone as python_timezone
 from typing import Dict, List, Optional
-import re
 
 import requests
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from bots.utils import meeting_type_from_url
 from bots.bots_api_utils import delete_bot, patch_bot
 from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
+from bots.utils import meeting_type_from_url
 from bots.webhook_payloads import calendar_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
+
 
 def extract_meeting_url_from_text(text: str) -> Optional[str]:
     if not text:
@@ -417,9 +418,9 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         """Truncate large text fields in a Google Calendar event. Return a copy of the event with the fields truncated."""
         event_copy = google_event.copy()
         if event_copy.get("description"):
-            event_copy["description"] = event_copy.get("description")[:1000]
+            event_copy["description"] = event_copy.get("description")[:8000]
         if event_copy.get("summary"):
-            event_copy["summary"] = event_copy.get("summary")[:1000]
+            event_copy["summary"] = event_copy.get("summary")[:8000]
         return event_copy
 
     def _remote_event_to_calendar_event_data(self, google_event: dict) -> dict:
@@ -436,7 +437,6 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
                     meeting_url = entry_point.get("uri")
                     break
         meeting_url = meeting_url or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
-
 
         # Extract attendees
         attendees = []
@@ -686,7 +686,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         """Truncate large text fields in a Microsoft Graph event. Return a copy of the event with the fields truncated."""
         event_copy = ms_event.copy()
         if event_copy.get("body") and event_copy.get("body").get("content"):
-            event_copy["body"]["content"] = event_copy.get("body").get("content")[:1000]
+            event_copy["body"]["content"] = event_copy.get("body").get("content")[:8000]
         return event_copy
 
     def _remote_event_to_calendar_event_data(self, ms_event: dict) -> dict:
