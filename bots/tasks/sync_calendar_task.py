@@ -2,18 +2,31 @@ import logging
 from datetime import datetime, timedelta
 from datetime import timezone as python_timezone
 from typing import Dict, List, Optional
+import re
 
 import requests
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
+from bots.utils import meeting_type_from_url
 from bots.bots_api_utils import delete_bot, patch_bot
 from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
 from bots.webhook_payloads import calendar_webhook_payload
 from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
+
+def extract_meeting_url_from_text(text: str) -> Optional[str]:
+    if not text:
+        return None
+
+    # Split text by space, newlines, quotes, and angle brackets
+    words = re.split(r'[\s\n"\'<>]+', text)
+    for word in words:
+        if word and meeting_type_from_url(word):
+            return word
+    return None
 
 
 def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
@@ -125,8 +138,8 @@ class CalendarSyncHandler:
             # Try to get existing event
             local_event = CalendarEvent.objects.get(calendar=self.calendar, platform_uuid=platform_uuid)
 
-            # Check if raw data has changed
-            if local_event.raw == event_data["raw"]:
+            # Check if raw data has changed or meeting url has changed due to changed extraction logic
+            if local_event.raw == event_data["raw"] and local_event.meeting_url == event_data["meeting_url"]:
                 return local_event, False, False
 
             # Update the existing event
@@ -413,6 +426,8 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
                 if entry_point.get("entryPointType") == "video":
                     meeting_url = entry_point.get("uri")
                     break
+        meeting_url = meeting_url or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
+
 
         # Extract attendees
         attendees = []
