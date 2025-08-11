@@ -514,7 +514,7 @@ class CallbackSettingsJSONField(serializers.JSONField):
         "properties": {
             "bucket_name": {
                 "type": "string",
-                "description": "The name of the external storage bucket to use for media files",
+                "description": "The name of the external storage bucket to use for media files.",
             },
             "recording_file_name": {
                 "type": "string",
@@ -562,7 +562,7 @@ class CreateBotSerializer(serializers.Serializer):
     )
 
     external_media_storage_settings = ExternalMediaStorageSettingsJSONField(
-        help_text="Settings for Attendee to upload the recording to an external storage bucket.",
+        help_text="Settings that allow Attendee to upload the recording to an external storage bucket controlled by you. This relieves you from needing to download the recording from Attendee and then upload it to your own storage. To use this feature you must add credentials to your project that provide access to the external storage.",
         required=False,
         default=None,
     )
