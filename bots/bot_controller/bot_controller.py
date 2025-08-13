@@ -178,7 +178,7 @@ class BotController:
             zoom_client_id=zoom_oauth_credentials["client_id"],
             zoom_client_secret=zoom_oauth_credentials["client_secret"],
             zoom_closed_captions_language=self.bot_in_db.zoom_closed_captions_language(),
-            should_ask_for_recording_permission=self.bot_in_db.recording_type() != RecordingTypes.NO_RECORDING,
+            should_ask_for_recording_permission=self.pipeline_configuration.record_audio or self.pipeline_configuration.rtmp_stream_audio or self.pipeline_configuration.websocket_stream_audio or self.pipeline_configuration.record_video or self.pipeline_configuration.rtmp_stream_video,
         )
 
     def get_zoom_bot_adapter(self):
