@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import ApiKeyAuthentication
-from .calendars_api_utils import create_calendar
+from .calendars_api_utils import create_calendar, delete_calendar
 from .models import Calendar, CalendarEvent
 from .serializers import CalendarEventSerializer, CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
 
@@ -129,7 +129,7 @@ class CalendarListCreateView(GenericAPIView):
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_201_CREATED)
 
 
-class CalendarDetailView(APIView):
+class CalendarDetailPatchDeleteView(APIView):
     authentication_classes = [ApiKeyAuthentication]
 
     @extend_schema(
@@ -249,8 +249,10 @@ class CalendarDetailView(APIView):
     def delete(self, request, object_id):
         try:
             calendar = Calendar.objects.get(object_id=object_id, project=request.auth.project)
-            calendar.delete()
-            return Response({"message": "Calendar deleted successfully"}, status=status.HTTP_200_OK)
+            success, error = delete_calendar(calendar)
+            if error:
+                return Response(error, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_200_OK)
         except Calendar.DoesNotExist:
             return Response({"error": "Calendar not found"}, status=status.HTTP_404_NOT_FOUND)
 

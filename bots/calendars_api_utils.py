@@ -67,3 +67,21 @@ def remove_bots_from_calendar(calendar: Calendar):
         logger.info(f"remove_bots_from_calendar deleted {deleted_count} scheduled bots from calendar {calendar.id}")
     except Exception as e:
         logger.exception(f"remove_bots_from_calendar failed to delete scheduled bots from calendar {calendar.id}: {e}")
+
+
+def delete_calendar(calendar: Calendar) -> tuple[bool, dict]:
+    """
+    Delete a calendar and all associated data.
+
+    Args:
+        calendar: Calendar instance to delete
+    """
+    try:
+        with transaction.atomic():
+            remove_bots_from_calendar(calendar)
+            calendar.delete()
+
+        return True, None
+    except Exception as e:
+        logger.exception(f"delete_calendar failed to delete calendar {calendar.id}: {e}")
+        return False, {"non_field_errors": ["An unexpected error occurred while deleting the calendar: " + str(e)]}
