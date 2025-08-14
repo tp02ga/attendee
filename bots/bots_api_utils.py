@@ -125,6 +125,7 @@ def initialize_bot_creation_data_from_calendar_event(data, project):
 
     return calendar_event, None
 
+
 def validate_external_media_storage_settings(external_media_storage_settings, project):
     if not external_media_storage_settings:
         return None

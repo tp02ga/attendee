@@ -6,8 +6,8 @@ from django.utils import timezone
 
 from accounts.models import Organization
 from bots.bots_api_utils import BotCreationSource, create_bot, create_webhook_subscription, validate_meeting_url_and_credentials
-from bots.models import Bot, BotEventTypes, BotStates, Credentials, Project, TranscriptionProviders, WebhookSubscription, WebhookTriggerTypes, Calendar, CalendarEvent, CalendarPlatform, CalendarStates
 from bots.calendars_api_utils import create_calendar
+from bots.models import Bot, BotEventTypes, BotStates, CalendarEvent, CalendarPlatform, Credentials, Project, TranscriptionProviders, WebhookSubscription, WebhookTriggerTypes
 
 
 class TestValidateMeetingUrlAndCredentials(TestCase):
@@ -339,32 +339,17 @@ class TestCalendarIntegration(TestCase):
     def test_create_bot_with_calendar_event_id(self):
         """Test creating a bot using a calendar event ID."""
         # First create a calendar
-        calendar_data = {
-            "platform": CalendarPlatform.GOOGLE,
-            "client_id": "test_client_id",
-            "client_secret": "test_client_secret",
-            "refresh_token": "test_refresh_token"
-        }
+        calendar_data = {"platform": CalendarPlatform.GOOGLE, "client_id": "test_client_id", "client_secret": "test_client_secret", "refresh_token": "test_refresh_token"}
         calendar, error = create_calendar(calendar_data, self.project)
         self.assertIsNotNone(calendar)
         self.assertIsNone(error)
 
         # Create a calendar event
         future_time = timezone.now() + timedelta(hours=1)
-        calendar_event = CalendarEvent.objects.create(
-            calendar=calendar,
-            platform_uuid="test_event_123",
-            meeting_url="https://meet.google.com/calendar-event-test",
-            start_time=future_time,
-            end_time=future_time + timedelta(hours=1),
-            raw={"event": "data"}
-        )
+        calendar_event = CalendarEvent.objects.create(calendar=calendar, platform_uuid="test_event_123", meeting_url="https://meet.google.com/calendar-event-test", start_time=future_time, end_time=future_time + timedelta(hours=1), raw={"event": "data"})
 
         # Create bot using calendar event ID
-        bot_data = {
-            "calendar_event_id": calendar_event.object_id,
-            "bot_name": "Calendar Test Bot"
-        }
+        bot_data = {"calendar_event_id": calendar_event.object_id, "bot_name": "Calendar Test Bot"}
         bot, error = create_bot(data=bot_data, source=BotCreationSource.API, project=self.project)
 
         self.assertIsNotNone(bot)
@@ -376,10 +361,7 @@ class TestCalendarIntegration(TestCase):
 
     def test_create_bot_with_invalid_calendar_event_id(self):
         """Test creating a bot with a non-existent calendar event ID."""
-        bot_data = {
-            "calendar_event_id": "evt_nonexistent123456",
-            "bot_name": "Test Bot"
-        }
+        bot_data = {"calendar_event_id": "evt_nonexistent123456", "bot_name": "Test Bot"}
         bot, error = create_bot(data=bot_data, source=BotCreationSource.API, project=self.project)
 
         self.assertIsNone(bot)
@@ -389,31 +371,15 @@ class TestCalendarIntegration(TestCase):
     def test_create_bot_with_calendar_event_validation_errors(self):
         """Test validation errors when using calendar event ID with conflicting data."""
         # Create a calendar and event
-        calendar_data = {
-            "platform": CalendarPlatform.GOOGLE,
-            "client_id": "test_client_id",
-            "client_secret": "test_client_secret",
-            "refresh_token": "test_refresh_token"
-        }
+        calendar_data = {"platform": CalendarPlatform.GOOGLE, "client_id": "test_client_id", "client_secret": "test_client_secret", "refresh_token": "test_refresh_token"}
         calendar, error = create_calendar(calendar_data, self.project)
         self.assertIsNotNone(calendar)
 
         future_time = timezone.now() + timedelta(hours=1)
-        calendar_event = CalendarEvent.objects.create(
-            calendar=calendar,
-            platform_uuid="test_event_456",
-            meeting_url="https://meet.google.com/calendar-validation-test",
-            start_time=future_time,
-            end_time=future_time + timedelta(hours=1),
-            raw={"event": "data"}
-        )
+        calendar_event = CalendarEvent.objects.create(calendar=calendar, platform_uuid="test_event_456", meeting_url="https://meet.google.com/calendar-validation-test", start_time=future_time, end_time=future_time + timedelta(hours=1), raw={"event": "data"})
 
         # Test: providing both calendar_event_id and meeting_url should fail
-        bot_data = {
-            "calendar_event_id": calendar_event.object_id,
-            "meeting_url": "https://meet.google.com/conflicting-url",
-            "bot_name": "Test Bot"
-        }
+        bot_data = {"calendar_event_id": calendar_event.object_id, "meeting_url": "https://meet.google.com/conflicting-url", "bot_name": "Test Bot"}
         bot, error = create_bot(data=bot_data, source=BotCreationSource.API, project=self.project)
 
         self.assertIsNone(bot)
@@ -421,11 +387,7 @@ class TestCalendarIntegration(TestCase):
         self.assertIn("meeting_url should not be provided when calendar_event_id is specified", error["error"])
 
         # Test: providing both calendar_event_id and join_at should fail
-        bot_data = {
-            "calendar_event_id": calendar_event.object_id,
-            "join_at": (timezone.now() + timedelta(hours=2)).isoformat(),
-            "bot_name": "Test Bot"
-        }
+        bot_data = {"calendar_event_id": calendar_event.object_id, "join_at": (timezone.now() + timedelta(hours=2)).isoformat(), "bot_name": "Test Bot"}
         bot, error = create_bot(data=bot_data, source=BotCreationSource.API, project=self.project)
 
         self.assertIsNone(bot)
