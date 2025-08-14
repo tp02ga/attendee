@@ -193,7 +193,7 @@ class TestSyncBotsForCalendarEvent(TestCase):
         scheduled_bot1 = Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/111", state=BotStates.SCHEDULED, calendar_event=self.calendar_event)
         scheduled_bot2 = Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/222", state=BotStates.SCHEDULED, calendar_event=self.calendar_event)
         # This bot should not be synced
-        non_scheduled_bot = Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/333", state=BotStates.READY, calendar_event=self.calendar_event)
+        Bot.objects.create(project=self.project, meeting_url="https://zoom.us/j/333", state=BotStates.READY, calendar_event=self.calendar_event)
 
         sync_bots_for_calendar_event(self.calendar_event)
 
@@ -299,8 +299,8 @@ class TestCalendarSyncHandler(TestCase):
 
         # Create events within and outside the window
         event_in_window = CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="event_in_window", start_time=now, end_time=now + timedelta(hours=1), raw={"test": "data"})
-        event_outside_window = CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="event_outside_window", start_time=now + timedelta(days=2), end_time=now + timedelta(days=2, hours=1), raw={"test": "data"})
-        deleted_event = CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="deleted_event", start_time=now, end_time=now + timedelta(hours=1), is_deleted=True, raw={"test": "data"})
+        CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="event_outside_window", start_time=now + timedelta(days=2), end_time=now + timedelta(days=2, hours=1), raw={"test": "data"})
+        CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="deleted_event", start_time=now, end_time=now + timedelta(hours=1), is_deleted=True, raw={"test": "data"})
 
         local_events = handler._get_local_events_in_window()
 
@@ -338,7 +338,7 @@ class TestCalendarSyncHandler(TestCase):
     def test_upsert_calendar_event_update_existing(self, mock_sync_bots):
         """Test _upsert_calendar_event updates existing event."""
         handler = CalendarSyncHandler(self.calendar.id)
-        existing_event = CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="existing_event_123", meeting_url="https://zoom.us/j/111", start_time=timezone.now(), end_time=timezone.now() + timedelta(hours=1), raw={"old": "data"})
+        CalendarEvent.objects.create(calendar=self.calendar, platform_uuid="existing_event_123", meeting_url="https://zoom.us/j/111", start_time=timezone.now(), end_time=timezone.now() + timedelta(hours=1), raw={"old": "data"})
 
         handler._remote_event_to_calendar_event_data = Mock(return_value={"platform_uuid": "existing_event_123", "meeting_url": "https://zoom.us/j/222", "start_time": timezone.now() + timedelta(minutes=30), "end_time": timezone.now() + timedelta(hours=1, minutes=30), "raw": {"new": "data"}})
 
@@ -538,7 +538,11 @@ class TestGoogleCalendarSyncHandler(TestCase):
         handler = GoogleCalendarSyncHandler(self.calendar.id)
         mock_response = Mock()
         mock_response.json.return_value = {"error": "invalid_grant"}
-        mock_response.raise_for_status.side_effect = requests.RequestException()
+
+        # Create a proper RequestException with a response attribute
+        exception = requests.RequestException()
+        exception.response = mock_response
+        mock_response.raise_for_status.side_effect = exception
         mock_post.return_value = mock_response
 
         with self.assertRaises(CalendarAPIAuthenticationError):
