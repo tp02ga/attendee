@@ -428,3 +428,124 @@ class TestCreateWebhookSubscription(TestCase):
             create_webhook_subscription(f"https://example{i}.com", ["bot.state_change"], self.project)
         with self.assertRaises(ValidationError):
             create_webhook_subscription("https://example3.com", ["bot.state_change"], self.project)
+
+
+class TestPatchBot(TestCase):
+    def setUp(self):
+        organization = Organization.objects.create(name="Test Organization")
+        self.project = Project.objects.create(name="Test Project", organization=organization)
+
+    def test_patch_scheduled_bot_both_fields(self):
+        """Test successfully patching both join_at and meeting_url of a scheduled bot."""
+        from bots.bots_api_utils import patch_bot
+
+        # Create a scheduled bot
+        future_time = timezone.now() + timedelta(hours=1)
+        bot, error = create_bot(
+            data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "join_at": future_time.isoformat()},
+            source=BotCreationSource.API,
+            project=self.project,
+        )
+        self.assertIsNotNone(bot)
+        self.assertEqual(bot.state, BotStates.SCHEDULED)
+
+        # Update both fields
+        new_join_time = timezone.now() + timedelta(hours=3)
+        new_meeting_url = "https://meet.google.com/new-meeting-url"
+        updated_bot, patch_error = patch_bot(bot, {"join_at": new_join_time.isoformat(), "meeting_url": new_meeting_url})
+
+        self.assertIsNotNone(updated_bot)
+        self.assertIsNone(patch_error)
+        self.assertEqual(updated_bot.join_at.replace(microsecond=0), new_join_time.replace(microsecond=0))
+        self.assertEqual(updated_bot.meeting_url, new_meeting_url)
+
+    def test_patch_bot_not_in_scheduled_state(self):
+        """Test that patching a bot not in scheduled state fails."""
+        from bots.bots_api_utils import patch_bot
+
+        # Create a ready bot (not scheduled)
+        bot, error = create_bot(
+            data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot"},
+            source=BotCreationSource.API,
+            project=self.project,
+        )
+        self.assertIsNotNone(bot)
+        self.assertIsNone(error)
+        self.assertEqual(bot.state, BotStates.JOINING)  # Should be in JOINING state after creation
+
+        # Try to patch the bot
+        future_time = timezone.now() + timedelta(hours=1)
+        updated_bot, patch_error = patch_bot(bot, {"join_at": future_time.isoformat()})
+
+        self.assertIsNone(updated_bot)
+        self.assertIsNotNone(patch_error)
+        self.assertEqual(patch_error["error"], "Bot is in state joining but can only be updated when in scheduled state")
+
+    def test_patch_bot_with_invalid_join_at(self):
+        """Test that patching with invalid join_at fails validation."""
+        from bots.bots_api_utils import patch_bot
+
+        # Create a scheduled bot
+        future_time = timezone.now() + timedelta(hours=1)
+        bot, error = create_bot(
+            data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "join_at": future_time.isoformat()},
+            source=BotCreationSource.API,
+            project=self.project,
+        )
+        self.assertIsNotNone(bot)
+        self.assertEqual(bot.state, BotStates.SCHEDULED)
+
+        # Try to patch with a join_at time in the past
+        past_time = timezone.now() - timedelta(hours=1)
+        updated_bot, patch_error = patch_bot(bot, {"join_at": past_time.isoformat()})
+
+        self.assertIsNone(updated_bot)
+        self.assertIsNotNone(patch_error)
+        self.assertIn("join_at", patch_error)
+        self.assertIn("cannot be in the past", str(patch_error["join_at"]))
+
+    def test_patch_bot_with_invalid_meeting_url(self):
+        """Test that patching with invalid meeting_url fails validation."""
+        from bots.bots_api_utils import patch_bot
+
+        # Create a scheduled bot
+        future_time = timezone.now() + timedelta(hours=1)
+        bot, error = create_bot(
+            data={"meeting_url": "https://meet.google.com/abc-defg-hij", "bot_name": "Test Bot", "join_at": future_time.isoformat()},
+            source=BotCreationSource.API,
+            project=self.project,
+        )
+        self.assertIsNotNone(bot)
+        self.assertEqual(bot.state, BotStates.SCHEDULED)
+
+        # Try to patch with an invalid meeting URL (http instead of https for Google Meet)
+        updated_bot, patch_error = patch_bot(bot, {"meeting_url": "http://meet.google.com/invalid-url"})
+
+        self.assertIsNone(updated_bot)
+        self.assertIsNotNone(patch_error)
+        self.assertIn("meeting_url", patch_error)
+        self.assertIn("Google Meet URL must start with https://meet.google.com/", str(patch_error["meeting_url"]))
+
+    def test_patch_bot_with_empty_data(self):
+        """Test that patching with empty data works (no changes made)."""
+        from bots.bots_api_utils import patch_bot
+
+        # Create a scheduled bot
+        future_time = timezone.now() + timedelta(hours=1)
+        original_meeting_url = "https://meet.google.com/abc-defg-hij"
+        bot, error = create_bot(
+            data={"meeting_url": original_meeting_url, "bot_name": "Test Bot", "join_at": future_time.isoformat()},
+            source=BotCreationSource.API,
+            project=self.project,
+        )
+        self.assertIsNotNone(bot)
+        self.assertEqual(bot.state, BotStates.SCHEDULED)
+        original_join_at = bot.join_at
+
+        # Patch with empty data
+        updated_bot, patch_error = patch_bot(bot, {})
+
+        self.assertIsNotNone(updated_bot)
+        self.assertIsNone(patch_error)
+        self.assertEqual(updated_bot.join_at, original_join_at)
+        self.assertEqual(updated_bot.meeting_url, original_meeting_url)
