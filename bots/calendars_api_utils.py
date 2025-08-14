@@ -1,7 +1,11 @@
+import logging
+
 from django.db import IntegrityError, transaction
 
-from .models import Calendar, CalendarStates
+from .models import Bot, BotStates, Calendar, CalendarStates
 from .serializers import CreateCalendarSerializer
+
+logger = logging.getLogger(__name__)
 
 
 def create_calendar(data, project):
@@ -46,3 +50,20 @@ def create_calendar(data, project):
             return None, {"non_field_errors": ["An error occurred while creating the calendar: " + str(e)]}
     except Exception as e:
         return None, {"non_field_errors": ["An unexpected error occurred while creating the calendar: " + str(e)]}
+
+
+def remove_bots_from_calendar(calendar: Calendar):
+    """
+    Remove all scheduled bots from a calendar using bulk delete.
+
+    Args:
+        calendar: Calendar instance to remove bots from
+    """
+
+    # Bulk delete all scheduled bots for this calendar
+    try:
+        deleted_count, _ = Bot.objects.filter(calendar_event__calendar=calendar, state=BotStates.SCHEDULED).delete()
+
+        logger.info(f"remove_bots_from_calendar deleted {deleted_count} scheduled bots from calendar {calendar.id}")
+    except Exception as e:
+        logger.exception(f"remove_bots_from_calendar failed to delete scheduled bots from calendar {calendar.id}: {e}")

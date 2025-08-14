@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from bots.bots_api_utils import delete_bot, patch_bot
+from bots.calendars_api_utils import remove_bots_from_calendar
 from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, WebhookTriggerTypes
 from bots.utils import meeting_type_from_url
 from bots.webhook_payloads import calendar_webhook_payload
@@ -261,23 +262,23 @@ class CalendarSyncHandler:
 
         except CalendarAPIAuthenticationError as e:
             # Update calendar state to indicate failure
-            calendar_original_state = self.calendar.state
-            self.calendar.state = CalendarStates.DISCONNECTED
-            self.calendar.connection_failure_data = {
-                "error": str(e),
-                "timestamp": timezone.now().isoformat(),
-            }
-            self.calendar.save()
+            with transaction.atomic():
+                remove_bots_from_calendar(self.calendar)
+                self.calendar.state = CalendarStates.DISCONNECTED
+                self.calendar.connection_failure_data = {
+                    "error": str(e),
+                    "timestamp": timezone.now().isoformat(),
+                }
+                self.calendar.save()
 
             logger.exception(f"Calendar sync failed with CalendarAPIAuthenticationError for {self.calendar.object_id}: {e}")
 
             # Create webhook event
-            if calendar_original_state != CalendarStates.DISCONNECTED:
-                trigger_webhook(
-                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE,
-                    calendar=self.calendar,
-                    payload=calendar_webhook_payload(self.calendar),
-                )
+            trigger_webhook(
+                webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE,
+                calendar=self.calendar,
+                payload=calendar_webhook_payload(self.calendar),
+            )
 
         except Exception as e:
             logger.exception(f"Calendar sync failed with {type(e).__name__} for {self.calendar.object_id}: {e}")
@@ -474,7 +475,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
 
     TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-    CALENDAR_EVENT_SELECT_FIELDS = "id,subject,start,end,attendees,organizer,iCalUId,isCancelled,isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,location,body,webLink"
+    CALENDAR_EVENT_SELECT_FIELDS = "id,subject,start,end,attendees,organizer,iCalUId,seriesMasterId,isCancelled,isOnlineMeeting,onlineMeetingProvider,onlineMeeting,onlineMeetingUrl,location,body,webLink"
 
     def _raise_if_error_is_authentication_error(self, e: requests.RequestException):
         if e.response.json().get("error") == "invalid_grant":

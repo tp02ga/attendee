@@ -6,7 +6,7 @@ from django.utils import timezone as django_timezone
 
 from accounts.models import Organization
 from bots.management.commands.run_scheduler import Command
-from bots.models import Bot, BotStates, Project, Calendar, CalendarStates, CalendarPlatform
+from bots.models import Bot, BotStates, Calendar, CalendarPlatform, CalendarStates, Project
 
 
 class RunSchedulerCommandTestCase(TestCase):
@@ -78,13 +78,7 @@ class RunSchedulerCommandTestCase(TestCase):
         """Test that _run_periodic_calendar_syncs handles the case when no calendars need syncing"""
         # Create a calendar that was synced recently
         recent_sync_time = self.now - django_timezone.timedelta(hours=12)
-        Calendar.objects.create(
-            project=self.project,
-            platform=CalendarPlatform.GOOGLE,
-            state=CalendarStates.CONNECTED,
-            sync_task_enqueued_at=recent_sync_time,
-            client_id="test_client_id"
-        )
+        Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=recent_sync_time, client_id="test_client_id")
 
         command = Command()
 
@@ -99,23 +93,11 @@ class RunSchedulerCommandTestCase(TestCase):
         """Test calendar sync with calendars exactly at the 24-hour boundary"""
         # Calendar synced exactly 24 hours ago (should be included)
         exactly_24h_ago = self.now - django_timezone.timedelta(hours=24)
-        calendar_boundary = Calendar.objects.create(
-            project=self.project,
-            platform=CalendarPlatform.GOOGLE,
-            state=CalendarStates.CONNECTED,
-            sync_task_enqueued_at=exactly_24h_ago,
-            client_id="test_client_id_boundary"
-        )
+        calendar_boundary = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_24h_ago, client_id="test_client_id_boundary")
 
         # Calendar synced just under 24 hours ago (should be excluded)
         just_under_24h_ago = self.now - django_timezone.timedelta(hours=23, minutes=59)
-        calendar_just_under = Calendar.objects.create(
-            project=self.project,
-            platform=CalendarPlatform.MICROSOFT,
-            state=CalendarStates.CONNECTED,
-            sync_task_enqueued_at=just_under_24h_ago,
-            client_id="test_client_id_under"
-        )
+        calendar_just_under = Calendar.objects.create(project=self.project, platform=CalendarPlatform.MICROSOFT, state=CalendarStates.CONNECTED, sync_task_enqueued_at=just_under_24h_ago, client_id="test_client_id_under")
 
         command = Command()
 
