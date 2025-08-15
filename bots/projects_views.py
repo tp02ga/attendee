@@ -412,15 +412,6 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
                 Bot.objects.select_related()
                 .prefetch_related(
                     "bot_events__debug_screenshots",
-                    models.Prefetch(
-                        "recordings",
-                        queryset=Recording.objects.prefetch_related(
-                            models.Prefetch(
-                                "utterances",
-                                queryset=Utterance.objects.select_related("participant"),
-                            ),
-                        ),
-                    ),
                 )
                 .get(object_id=bot_object_id, project=project)
             )
@@ -459,10 +450,6 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
             {
                 "bot": bot,
                 "BotStates": BotStates,
-                "RecordingStates": RecordingStates,
-                "RecordingTypes": RecordingTypes,
-                "RecordingTranscriptionStates": RecordingTranscriptionStates,
-                "recordings": generate_recordings_json_for_bot_detail_view(bot),
                 "webhook_delivery_attempts": webhook_delivery_attempts,
                 "chat_messages": chat_messages,
                 "participants": participants,
@@ -476,6 +463,40 @@ class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
         )
 
         return render(request, "projects/project_bot_detail.html", context)
+
+
+class ProjectBotRecordingsView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id, bot_object_id):
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+
+        try:
+            bot = (
+                Bot.objects.select_related()
+                .prefetch_related(
+                    models.Prefetch(
+                        "recordings",
+                        queryset=Recording.objects.prefetch_related(
+                            models.Prefetch(
+                                "utterances",
+                                queryset=Utterance.objects.select_related("participant"),
+                            ),
+                        ),
+                    ),
+                )
+                .get(object_id=bot_object_id, project=project)
+            )
+        except Bot.DoesNotExist:
+            # Redirect to bots list if bot not found
+            return redirect("bots:project-bots", object_id=object_id)
+
+        context = {
+            "RecordingStates": RecordingStates,
+            "RecordingTypes": RecordingTypes,
+            "RecordingTranscriptionStates": RecordingTranscriptionStates,
+            "recordings": generate_recordings_json_for_bot_detail_view(bot),
+        }
+
+        return render(request, "projects/partials/project_bot_recordings.html", context)
 
 
 class ProjectWebhooksView(LoginRequiredMixin, ProjectUrlContextMixin, View):
