@@ -101,6 +101,7 @@ class ProjectUrlContextMixin:
             "charge_credits_for_bots_setting": settings.CHARGE_CREDITS_FOR_BOTS,
             "user_projects": Project.accessible_to(self.request.user),
             "UserRole": UserRole,
+            "debug_mode": settings.DEBUG == True,
         }
 
 
