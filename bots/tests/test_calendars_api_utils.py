@@ -1,8 +1,8 @@
 from django.test import TestCase
 
 from accounts.models import Organization
-from bots.calendars_api_utils import create_calendar
-from bots.models import Calendar, CalendarPlatform, CalendarStates, Project
+from bots.calendars_api_utils import create_calendar, delete_calendar
+from bots.models import Bot, BotStates, Calendar, CalendarEvent, CalendarPlatform, CalendarStates, Project
 
 
 class TestCreateCalendar(TestCase):
@@ -113,3 +113,53 @@ class TestCreateCalendar(TestCase):
         self.assertIsNone(error3)
         self.assertEqual(calendar3.deduplication_key, deduplication_key)
         self.assertEqual(Calendar.objects.count(), 2)
+
+    def test_delete_calendar_success(self):
+        """Test successful calendar deletion with associated calendar events and bots."""
+        # First create a calendar
+        calendar_data = {"platform": CalendarPlatform.GOOGLE, "client_id": "test_client_id_123", "client_secret": "test_client_secret_456", "refresh_token": "test_refresh_token_789", "deduplication_key": "calendar_to_delete"}
+
+        calendar, error = create_calendar(calendar_data, self.project)
+
+        # Verify calendar was created
+        self.assertIsNotNone(calendar)
+        self.assertIsNone(error)
+        calendar_id = calendar.id
+
+        # Create a calendar event associated with this calendar
+        calendar_event = CalendarEvent.objects.create(calendar=calendar, platform_uuid="test_event_uuid", start_time="2024-01-01T10:00:00Z", end_time="2024-01-01T11:00:00Z", raw={"title": "Test Meeting"})
+        calendar_event_id = calendar_event.id
+
+        # Create a scheduled bot associated with this calendar event
+        scheduled_bot = Bot.objects.create(project=self.project, name="Test Bot", meeting_url="https://example.com/meeting", state=BotStates.SCHEDULED, calendar_event=calendar_event)
+        scheduled_bot_id = scheduled_bot.id
+
+        # Create another bot in different state to verify it's not deleted
+        other_bot = Bot.objects.create(project=self.project, name="Other Bot", meeting_url="https://example.com/other", state=BotStates.READY, calendar_event=calendar_event)
+        other_bot_id = other_bot.id
+
+        # Verify all objects exist in database
+        self.assertTrue(Calendar.objects.filter(id=calendar_id).exists())
+        self.assertTrue(CalendarEvent.objects.filter(id=calendar_event_id).exists())
+        self.assertTrue(Bot.objects.filter(id=scheduled_bot_id).exists())
+        self.assertTrue(Bot.objects.filter(id=other_bot_id).exists())
+
+        # Delete the calendar
+        success, error = delete_calendar(calendar)
+
+        # Verify successful deletion
+        self.assertTrue(success)
+        self.assertIsNone(error)
+
+        # Verify calendar no longer exists in database
+        self.assertFalse(Calendar.objects.filter(id=calendar_id).exists())
+
+        # Verify calendar event is deleted (CASCADE relationship)
+        self.assertFalse(CalendarEvent.objects.filter(id=calendar_event_id).exists())
+
+        # Verify scheduled bot is deleted (removed by remove_bots_from_calendar)
+        self.assertFalse(Bot.objects.filter(id=scheduled_bot_id).exists())
+
+        # Verify non-scheduled bot still exists but calendar_event is set to NULL
+        other_bot.refresh_from_db()
+        self.assertIsNone(other_bot.calendar_event)
