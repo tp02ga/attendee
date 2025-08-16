@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta
 from datetime import timezone as python_timezone
 from typing import Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import dateutil.parser
 import requests
@@ -403,18 +404,25 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
                 return None
             raise
 
-    def _parse_event_datetime(self, event_datetime: dict) -> datetime:
-        """Parse Google Calendar event datetime."""
+    def _parse_event_datetime(self, event_datetime: dict, default_tz: str = "UTC", normalize_to_utc: bool = False) -> datetime:
+        """Parse Google Calendar event datetime dict (start/end)."""
+        if not event_datetime:
+            raise ValueError("Invalid event datetime")
+
+        tzname = event_datetime.get("timeZone") or default_tz
+
         if "dateTime" in event_datetime:
-            # Event with specific time
-            dt_str = event_datetime["dateTime"]
-            return dateutil.parser.isoparse(dt_str.replace("Z", "+00:00"))
+            dt = dateutil.parser.isoparse(event_datetime["dateTime"])  # handles Z, offsets, subsecond
+            if dt.tzinfo is None:  # just in case a "floating" time arrives
+                dt = dt.replace(tzinfo=ZoneInfo(tzname))
         elif "date" in event_datetime:
-            # All-day event
-            date_str = event_datetime["date"]
-            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=python_timezone.utc)
+            # All-day: interpret as midnight at the event's timezone
+            d = datetime.strptime(event_datetime["date"], "%Y-%m-%d").date()
+            dt = datetime(d.year, d.month, d.day, tzinfo=ZoneInfo(tzname))
         else:
             raise ValueError(f"Invalid event datetime format: {event_datetime}")
+
+        return dt.astimezone(python_timezone.utc) if normalize_to_utc else dt
 
     def _truncate_large_text_fields_in_gcal_event(self, google_event: dict) -> dict:
         """Truncate large text fields in a Google Calendar event. Return a copy of the event with the fields truncated."""
@@ -628,34 +636,29 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     # ---------------------------
     # Mapping helpers
     # ---------------------------
-    def _parse_ms_datetime(self, dt_str: str, tz_name: Optional[str]) -> datetime:
+    def _parse_ms_datetime(self, dt_str: str, tz_name: str | None) -> datetime:
         """
-        Parse Graph dateTime strings robustly:
-        - We set Prefer: outlook.timezone="UTC", so tz_name should be 'UTC' and dt_str has no offset.
-        - Graph can return 7-digit fractional seconds; Python supports up to 6, so truncate.
+        Parse Microsoft Graph dateTime strings.
+
+        - Works with 'Z', offsets, and >6-digit fractional seconds.
+        - If the string is naive, attach tz_name (usually 'UTC' when using
+        Prefer: outlook.timezone="UTC"), else default to UTC.
         """
         if not dt_str:
             raise ValueError("Empty dateTime")
 
-        s = dt_str.replace("Z", "+00:00")  # handle Z form if present
-        # If offset is present, let isoparse handle it directly
-        if ("+" in s[10:] or "-" in s[10:]) and s[-3] == ":":
-            # offset like +00:00
-            return dateutil.parser.isoparse(s)
+        dt = dateutil.parser.isoparse(dt_str)  # handles Z, offsets, long fractions
 
-        # No offset: trim fractional seconds to 6 digits if present
-        if "." in s:
-            main, frac = s.split(".", 1)
-            frac_digits = "".join(ch for ch in frac if ch.isdigit())
-            if len(frac_digits) > 6:
-                frac_digits = frac_digits[:6]
-            else:
-                frac_digits = frac_digits.ljust(6, "0")
-            s = f"{main}.{frac_digits}"
-        dt = dateutil.parser.isoparse(s)
-        # Attach UTC if no tzinfo (should be, given our Prefer header)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=python_timezone.utc)
+            if tz_name:
+                try:
+                    dt = dt.replace(tzinfo=ZoneInfo(tz_name))
+                except Exception:
+                    # Fallback if tz_name is unknown on the system
+                    dt = dt.replace(tzinfo=python_timezone.utc)
+            else:
+                dt = dt.replace(tzinfo=python_timezone.utc)
+
         return dt
 
     def _extract_meeting_url(self, ev: dict) -> Optional[str]:
