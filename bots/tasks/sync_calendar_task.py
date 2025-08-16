@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as python_timezone
 from typing import Dict, List, Optional
 
+import dateutil.parser
 import requests
 from celery import shared_task
 from django.db import transaction
@@ -407,7 +408,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         if "dateTime" in event_datetime:
             # Event with specific time
             dt_str = event_datetime["dateTime"]
-            return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+            return dateutil.parser.isoparse(dt_str.replace("Z", "+00:00"))
         elif "date" in event_datetime:
             # All-day event
             date_str = event_datetime["date"]
@@ -637,10 +638,10 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             raise ValueError("Empty dateTime")
 
         s = dt_str.replace("Z", "+00:00")  # handle Z form if present
-        # If offset is present, let fromisoformat handle it directly
+        # If offset is present, let isoparse handle it directly
         if ("+" in s[10:] or "-" in s[10:]) and s[-3] == ":":
             # offset like +00:00
-            return datetime.fromisoformat(s)
+            return dateutil.parser.isoparse(s)
 
         # No offset: trim fractional seconds to 6 digits if present
         if "." in s:
@@ -651,7 +652,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             else:
                 frac_digits = frac_digits.ljust(6, "0")
             s = f"{main}.{frac_digits}"
-        dt = datetime.fromisoformat(s)
+        dt = dateutil.parser.isoparse(s)
         # Attach UTC if no tzinfo (should be, given our Prefer header)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=python_timezone.utc)
