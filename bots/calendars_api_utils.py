@@ -48,7 +48,9 @@ def create_calendar(data, project):
         if "deduplication_key" in str(e).lower():
             return None, {"deduplication_key": ["A calendar with this deduplication key already exists in this project."]}
         else:
-            return None, {"non_field_errors": ["An error occurred while creating the calendar: " + str(e)]}
+            error_id = str(uuid.uuid4())
+            logger.error(f"Error creating calendar (error_id={error_id}): {e}")
+            return None, {"non_field_errors": ["An error occurred while creating the calendar. Error ID: " + error_id]}
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.error(f"Error creating calendar (error_id={error_id}): {e}")
