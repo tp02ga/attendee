@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.db import IntegrityError, transaction
 
@@ -49,7 +50,9 @@ def create_calendar(data, project):
         else:
             return None, {"non_field_errors": ["An error occurred while creating the calendar: " + str(e)]}
     except Exception as e:
-        return None, {"non_field_errors": ["An unexpected error occurred while creating the calendar: " + str(e)]}
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error creating calendar (error_id={error_id}): {e}")
+        return None, {"non_field_errors": ["An unexpected error occurred while creating the calendar. Error ID: " + error_id]}
 
 
 def remove_bots_from_calendar(calendar: Calendar):
@@ -83,5 +86,6 @@ def delete_calendar(calendar: Calendar) -> tuple[bool, dict]:
 
         return True, None
     except Exception as e:
-        logger.exception(f"delete_calendar failed to delete calendar {calendar.id}: {e}")
-        return False, {"non_field_errors": ["An unexpected error occurred while deleting the calendar: " + str(e)]}
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error deleting calendar (error_id={error_id}): {e}")
+        return False, {"non_field_errors": ["An unexpected error occurred while deleting the calendar. Error ID: " + error_id]}

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import uuid
 from enum import Enum
 
 import redis
@@ -248,8 +249,9 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
             logger.error(f"IntegrityError due to unique_bot_deduplication_key constraint violation creating bot: {e}")
             return None, {"error": "Deduplication key already in use. A bot in a non-terminal state with this deduplication key already exists. Please use a different deduplication key or wait for that bot to terminate."}
 
-        logger.error(f"Error creating bot: {e}")
-        return None, {"error": str(e)}
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error creating bot (error_id={error_id}): {e}")
+        return None, {"error": f"An error occurred while creating the bot. Error ID: {error_id}"}
 
 
 def patch_bot(bot: Bot, data: dict) -> tuple[Bot | None, dict | None]:
@@ -286,8 +288,9 @@ def patch_bot(bot: Bot, data: dict) -> tuple[Bot | None, dict | None]:
         logger.error(f"ValidationError patching bot: {e}")
         return None, {"error": e.messages[0]}
     except Exception as e:
-        logger.error(f"Error patching bot: {e}")
-        return None, {"error": str(e)}
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error patching bot (error_id={error_id}): {e}")
+        return None, {"error": f"An error occurred while patching the bot. Error ID: {error_id}"}
 
 
 def delete_bot(bot: Bot) -> tuple[bool, dict | None]:
@@ -313,8 +316,9 @@ def delete_bot(bot: Bot) -> tuple[bool, dict | None]:
         logger.error(f"ValidationError deleting bot: {e}")
         return False, {"error": e.messages[0]}
     except Exception as e:
-        logger.error(f"Error deleting bot: {e}")
-        return False, {"error": str(e)}
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error deleting bot (error_id={error_id}): {e}")
+        return False, {"error": f"An error occurred while deleting the bot. Error ID: {error_id}"}
 
 
 def validate_webhook_data(url, triggers, project, bot=None):
