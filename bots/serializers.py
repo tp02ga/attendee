@@ -343,7 +343,7 @@ class ZoomSettingsJSONField(serializers.JSONField):
             },
             "only_participant_in_meeting_timeout_seconds": {
                 "type": "integer",
-                "description": "Number of seconds to wait before leaving if bot is the only participant",
+                "description": "Number of seconds to wait before leaving if bot becomes the only participant in the meeting because everyone else left.",
                 "default": 60,
             },
             "wait_for_host_to_start_meeting_timeout_seconds": {
