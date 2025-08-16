@@ -1599,16 +1599,23 @@ class PatchCalendarSerializer(serializers.Serializer):
                 "is_deleted": False,
                 "attendees": [{"email": "user1@example.com", "name": "John Doe"}, {"email": "user2@example.com", "name": "Jane Smith"}],
                 "raw": {"google_event_data": "..."},
+                "bots": [{"id": "bot_abcdef1234567890", "metadata": {"customer_id": "abc123"}, "meeting_url": "https://meet.google.com/abc-defg-hij", "state": "joined_recording", "events": [], "transcription_state": "complete", "recording_state": "complete", "join_at": "2025-01-15T14:00:00Z"}],
                 "created_at": "2025-01-13T10:30:00.123456Z",
                 "updated_at": "2025-01-13T10:30:00.123456Z",
             },
-            description="Example of a calendar event",
+            description="Example of a calendar event with associated bots",
         )
     ]
 )
 class CalendarEventSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source="object_id")
     calendar_id = serializers.CharField(source="calendar.object_id")
+    bots = serializers.SerializerMethodField()
+
+    @extend_schema_field(BotSerializer(many=True))
+    def get_bots(self, obj):
+        """Get associated bots for this calendar event"""
+        return BotSerializer(obj.bots.all(), many=True).data
 
     class Meta:
         model = CalendarEvent
@@ -1623,6 +1630,7 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             "attendees",
             "ical_uid",
             "raw",
+            "bots",
             "created_at",
             "updated_at",
         ]
