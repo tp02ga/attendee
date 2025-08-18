@@ -80,7 +80,7 @@ class BotAdmin(admin.ModelAdmin):
     list_display = ("object_id", "name", "project", "state", "created_at", "updated_at", "view_logs_link")
     list_filter = ("state", "project")
     search_fields = ("object_id",)
-    readonly_fields = ("object_id", "created_at", "updated_at", "state", "view_logs_link")
+    readonly_fields = ("object_id", "created_at", "updated_at", "state", "view_logs_link", "calendar_event")
     inlines = [BotEventInline]  # Add the inline to the admin
 
     def has_add_permission(self, request):
@@ -108,7 +108,7 @@ class BotAdmin(admin.ModelAdmin):
     # Optional: if you want to organize the fields in the detail view
     fieldsets = (
         ("Basic Information", {"fields": ("object_id", "name", "project", "join_at", "deduplication_key")}),
-        ("Meeting Details", {"fields": ("meeting_url", "meeting_uuid")}),
+        ("Meeting Details", {"fields": ("meeting_url", "meeting_uuid", "calendar_event")}),
         ("Status", {"fields": ("state", "view_logs_link")}),
         ("Settings", {"fields": ("settings",)}),
         ("Metadata", {"fields": ("created_at", "updated_at", "version")}),
