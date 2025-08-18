@@ -78,6 +78,7 @@ def enqueue_sync_calendar_task(calendar: Calendar):
     """Enqueue a sync calendar task for a calendar."""
     with transaction.atomic():
         calendar.sync_task_enqueued_at = timezone.now()
+        calendar.sync_task_requested_at = None
         calendar.save()
         sync_calendar.delay(calendar.id)
 
@@ -462,6 +463,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         return {
             "platform_uuid": google_event["id"],
             "meeting_url": meeting_url,
+            "name": google_event.get("summary"),
             "start_time": start_time,
             "end_time": end_time,
             "attendees": attendees,
@@ -718,6 +720,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         return {
             "platform_uuid": ms_event.get("id"),
             "meeting_url": meeting_url,
+            "name": ms_event.get("subject"),
             "start_time": start_time,
             "end_time": end_time,
             "attendees": attendees_out,

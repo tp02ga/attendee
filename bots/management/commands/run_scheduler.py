@@ -79,7 +79,7 @@ class Command(BaseCommand):
         # Find connected calendars that haven't had a sync task enqueued in the last 24 hours
         calendars = Calendar.objects.filter(
             state=CalendarStates.CONNECTED,
-        ).filter(Q(sync_task_enqueued_at__isnull=True) | Q(sync_task_enqueued_at__lte=cutoff_time))
+        ).filter(Q(sync_task_enqueued_at__isnull=True) | Q(sync_task_enqueued_at__lte=cutoff_time) | Q(sync_task_requested_at__isnull=False))
 
         for calendar in calendars:
             last_enqueued = calendar.sync_task_enqueued_at.isoformat() if calendar.sync_task_enqueued_at else "never"

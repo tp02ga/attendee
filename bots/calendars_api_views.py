@@ -1,3 +1,4 @@
+from django.utils import timezone
 from drf_spectacular.openapi import OpenApiResponse
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
@@ -223,6 +224,7 @@ class CalendarDetailPatchDeleteView(APIView):
             # Save updated credentials
             calendar.set_credentials(existing_credentials)
 
+        calendar.sync_task_requested_at = timezone.now()
         calendar.save()
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
 
