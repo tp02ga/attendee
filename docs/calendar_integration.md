@@ -4,7 +4,7 @@ Attendee's Calendar integration feature schedules bots to join meetings on your 
 
 Many meeting bot based applications build a calendar integration in order to automatically send bots to meetings. Attendee's calendar integration can reduce the amount of time you need to implement this integration, by abstracting away the complexity of interfacing with the Google and Microsoft Calendar APIs.
 
-Below, we'll walk through the steps to implement the calendar integration feature in your application.
+Below, we'll cover the steps to implement the calendar integration feature in your application. For a simple example application that implements these steps, see the [ Attendee Calendar Integration Example](https://github.com/attendee-labs/calendar-integration-example).
 
 ## Create a new Google Calendar OAuth Application
 
@@ -45,8 +45,40 @@ You'll need to add code to your application to handle the OAuth flow used to let
 
 ## Add Webhook processing logic to your application for the calendar.events_update trigger
 
-When you receive a webhook with trigger type `calendar.events_update`, it means that new calendar events for this user has been synced or updated. The webhook payload itself does not contain the calendar events. Instead after you receive the webhook, you'll need to make a GET request to the Attendee API to retrieve the newly created or updated calendar events. Here are the steps for doing that:
+When you receive a webhook with trigger type `calendar.events_update`, it means that events for this calendar have been created or updated. The webhook payload itself does not contain the calendar events. Instead after you receive the webhook, you'll need to make a GET request to the Attendee API to retrieve the newly created or updated calendar events. Here are the steps for doing that:
 
 1. Ensure that your database has a column for each calendar to keep track of the last time you've synced it with Attendee.
-2. In your GET request to the /calendar_events endpoint, pass the `calendar_id` parameter to filter it to events for that calendar. Also pass the `updated_after` parameter to filter it to events that have been updated since the last time you synced it with Attendee.
-3. Paginate through the events returned by the Attendee API.
+2. In your GET request to the /calendar_events endpoint, pass the `calendar_id` parameter to filter for events belonging to that calendar. Also pass the `updated_after` parameter to filter for events that have been updated since the last time you synced the calendar with Attendee.
+3. Paginate through the results and save each event to your database.
+
+## Add code to schedule bots for the calendar events to your application
+
+Now that you're syncing the calendar events from Attendee, you'll need to add code to schedule bots for them. To schedule a bot for a calendar event, just use the normal POST /bots endpoint, but include the calendar_event_id to associate the bot with the calendar event. The resulting bot will be a scheduled bot with a `join_at` time, but unlike normal scheduled bots, the `join_at` will be a read-only property determined by the event's start time. Also, if the calendar event is cancelled, the bot will be deleted.
+
+If you want to unschedule a bot for a calendar event, make a DELETE request to the /bots/{bot_id} endpoint.
+
+The question of which calendar events get bots scheduled for them will depend on your application's business logic. It is possible to schedule multiple bots for a single event. To add an additional safeguard to prevent scheduling duplicate bots for the same event, you can pass the `deduplication_key` parameter in the bot creation request. You can set this value equal to the event's id.
+
+We recommend you add a column to your database to keep track of which calendar events have bots scheduled for them.
+
+## Add Webhook processing logic to your application for the calendar.state_change trigger
+
+When you receive a webhook with trigger type `calendar.state_change`, it means that the calendar has moved to the `disconnected` state. This can happen if the user revokes access to the calendar or their calendar's account is deleted.
+
+On Attendee's side, if a calendar is disconnected, all the scheduled bots associated with the calendar's events will be deleted.
+
+In your application, you should update the calendar in your database to reflect the disconnected state.
+
+## FAQ
+
+### How often does Attendee sync calendar events?
+
+Currently, Attendee syncs calendar events every 30 minutes. This a temporary solution. In the near future we will use webhook-based syncing to sync events as soon as the Google or Microsoft Calendar APIs notifies us of changes. There will be no changes required to your implementation once we move to webhook-based syncing.
+
+### Which events does Attendee sync?
+
+Attendee syncs all events in the calendar that are between 1 day in the past and 28 days in the future. If this window is too small for your application, please reach out.
+
+### Which of a user's calendars does Attendee sync?
+
+This is determined by the `platform_uuid` parameter you pass when creating the calendar via the POST /calendars request. By default, this parameter is null, which means we sync the user's primary calendar. You can set the parameter to a non-null value to sync a non-primary calendar.
