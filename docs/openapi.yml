@@ -1006,6 +1006,7 @@ paths:
                       calendar_id: cal_abcdef1234567890
                       platform_uuid: google_event_123456789
                       meeting_url: https://meet.google.com/abc-defg-hij
+                      name: Event Name
                       start_time: '2025-01-15T14:00:00Z'
                       end_time: '2025-01-15T15:00:00Z'
                       is_deleted: false
@@ -1541,6 +1542,10 @@ components:
           type: string
           readOnly: true
           nullable: true
+        name:
+          type: string
+          readOnly: true
+          nullable: true
         raw:
           readOnly: true
         bots:
@@ -1566,6 +1571,7 @@ components:
       - id
       - is_deleted
       - meeting_url
+      - name
       - platform_uuid
       - raw
       - start_time
