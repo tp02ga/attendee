@@ -37,8 +37,8 @@ NewlyCreatedCalendarExample = OpenApiExample(
         "id": "cal_abcdef1234567890",
         "platform": "google",
         "state": "connected",
-        "metadata": {"department": "engineering", "team": "backend"},
-        "deduplication_key": "engineering-main-calendar",
+        "metadata": {"tenant_id": "1234567890"},
+        "deduplication_key": "user-abcd",
         "connection_failure_data": None,
         "created_at": "2025-01-13T10:30:00.123456Z",
         "updated_at": "2025-01-13T10:30:00.123456Z",
@@ -82,7 +82,7 @@ class CalendarListCreateView(GenericAPIView):
                 location=OpenApiParameter.QUERY,
                 description="Filter calendars by deduplication key",
                 required=False,
-                examples=[OpenApiExample("Deduplication Key Example", value="engineering-main-calendar")],
+                examples=[OpenApiExample("Deduplication Key Example", value="user-abcd")],
             ),
         ],
         tags=["Calendars"],
@@ -224,6 +224,7 @@ class CalendarDetailPatchDeleteView(APIView):
             # Save updated credentials
             calendar.set_credentials(existing_credentials)
 
+        # Request an immediate sync of the calendar
         calendar.sync_task_requested_at = timezone.now()
         calendar.save()
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
@@ -302,7 +303,7 @@ class CalendarEventListView(GenericAPIView):
                 location=OpenApiParameter.QUERY,
                 description="Filter events by calendar deduplication key",
                 required=False,
-                examples=[OpenApiExample("Deduplication Key Example", value="user@customer-domain.com")],
+                examples=[OpenApiExample("Deduplication Key Example", value="user-abcd")],
             ),
             OpenApiParameter(
                 name="updated_after",
@@ -342,7 +343,7 @@ class CalendarEventListView(GenericAPIView):
             except ValueError:
                 return Response({"error": "Invalid updated_after format. Use ISO 8601 format (e.g., 2025-01-13T10:30:00Z)"}, status=status.HTTP_400_BAD_REQUEST)
 
-        events = events.order_by("-updated_at")
+        events = events.order_by("-created_at")
 
         # Let the pagination class handle the rest
         page = self.paginate_queryset(events)
