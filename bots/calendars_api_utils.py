@@ -3,7 +3,7 @@ import uuid
 
 from django.db import IntegrityError, transaction
 
-from .models import Bot, BotStates, Calendar, CalendarStates
+from .models import Bot, BotStates, Calendar, CalendarStates, Project
 from .serializers import CreateCalendarSerializer
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def create_calendar(data, project):
         return None, {"non_field_errors": ["An unexpected error occurred while creating the calendar. Error ID: " + error_id]}
 
 
-def remove_bots_from_calendar(calendar: Calendar):
+def remove_bots_from_calendar(calendar: Calendar, project: Project):
     """
     Remove all scheduled bots from a calendar using bulk delete.
 
@@ -67,7 +67,7 @@ def remove_bots_from_calendar(calendar: Calendar):
 
     # Bulk delete all scheduled bots for this calendar
     try:
-        deleted_count, _ = Bot.objects.filter(calendar_event__calendar=calendar, state=BotStates.SCHEDULED).delete()
+        deleted_count, _ = Bot.objects.filter(calendar_event__calendar=calendar, state=BotStates.SCHEDULED, project=project).delete()
 
         logger.info(f"remove_bots_from_calendar deleted {deleted_count} scheduled bots from calendar {calendar.id}")
     except Exception as e:
@@ -83,7 +83,7 @@ def delete_calendar(calendar: Calendar) -> tuple[bool, dict]:
     """
     try:
         with transaction.atomic():
-            remove_bots_from_calendar(calendar)
+            remove_bots_from_calendar(calendar=calendar, project=calendar.project)
             calendar.delete()
 
         return True, None

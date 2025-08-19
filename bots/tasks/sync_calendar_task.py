@@ -266,7 +266,7 @@ class CalendarSyncHandler:
         except CalendarAPIAuthenticationError as e:
             # Update calendar state to indicate failure
             with transaction.atomic():
-                remove_bots_from_calendar(self.calendar)
+                remove_bots_from_calendar(calendar=self.calendar, project=self.calendar.project)
                 self.calendar.state = CalendarStates.DISCONNECTED
                 self.calendar.connection_failure_data = {
                     "error": str(e),
