@@ -90,14 +90,14 @@ class RunSchedulerCommandTestCase(TestCase):
             mock_enqueue.assert_not_called()
 
     def test_run_periodic_calendar_syncs_handles_boundary_conditions(self):
-        """Test calendar sync with calendars exactly at the 24-hour boundary"""
-        # Calendar synced exactly 24 hours ago (should be included)
-        exactly_24h_ago = self.now - django_timezone.timedelta(hours=24)
-        calendar_boundary = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_24h_ago, client_id="test_client_id_boundary")
+        """Test calendar sync with calendars exactly at the 30 min boundary"""
+        # Calendar synced exactly 30 minutes ago (should be included)
+        exactly_30_minutes_ago = self.now - django_timezone.timedelta(minutes=30)
+        calendar_boundary = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_30_minutes_ago, client_id="test_client_id_boundary")
 
-        # Calendar synced just under 24 hours ago (should be excluded)
-        just_under_24h_ago = self.now - django_timezone.timedelta(hours=23, minutes=59)
-        calendar_just_under = Calendar.objects.create(project=self.project, platform=CalendarPlatform.MICROSOFT, state=CalendarStates.CONNECTED, sync_task_enqueued_at=just_under_24h_ago, client_id="test_client_id_under")
+        # Calendar synced just under 30 minutes ago (should be excluded)
+        just_under_30_minutes_ago = self.now - django_timezone.timedelta(minutes=29)
+        calendar_just_under = Calendar.objects.create(project=self.project, platform=CalendarPlatform.MICROSOFT, state=CalendarStates.CONNECTED, sync_task_enqueued_at=just_under_30_minutes_ago, client_id="test_client_id_under")
 
         command = Command()
 
@@ -112,4 +112,26 @@ class RunSchedulerCommandTestCase(TestCase):
         calendar_boundary.refresh_from_db()
         calendar_just_under.refresh_from_db()
         self.assertEqual(calendar_boundary.sync_task_enqueued_at, self.now)
-        self.assertEqual(calendar_just_under.sync_task_enqueued_at, just_under_24h_ago)
+        self.assertEqual(calendar_just_under.sync_task_enqueued_at, just_under_30_minutes_ago)
+        self.assertEqual(calendar_just_under.sync_task_requested_at, None)
+
+    def test_run_periodic_calendar_syncs_handles_requested_syncs(self):
+        """Test calendar sync with calendars that have a requested sync"""
+        # Calendar synced recently, but with a requested sync (should be included)
+        exactly_five_minutes_ago = self.now - django_timezone.timedelta(minutes=5)
+        exactly_24_hours_ago = self.now - django_timezone.timedelta(hours=24)
+        calendar_with_requested_sync = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_five_minutes_ago, sync_task_requested_at=exactly_five_minutes_ago, client_id="test_client_id_boundary")
+
+        command = Command()
+
+        with patch("bots.tasks.sync_calendar_task.sync_calendar.delay") as mock_delay:
+            with patch("django.utils.timezone.now", return_value=self.now):
+                command._run_periodic_calendar_syncs()
+
+            # Verify only the boundary calendar had a sync task enqueued
+            mock_delay.assert_called_once_with(calendar_with_requested_sync.id)
+
+        # Verify the sync_task_enqueued_at field was updated for the boundary calendar
+        calendar_with_requested_sync.refresh_from_db()
+        self.assertEqual(calendar_with_requested_sync.sync_task_enqueued_at, self.now)
+        self.assertEqual(calendar_with_requested_sync.sync_task_requested_at, None)
