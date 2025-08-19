@@ -12,7 +12,7 @@ You'll need to create a Google OAuth Application that users integrate with so th
 
 1. Follow the directions [here](https://support.google.com/googleapi/answer/6158849?hl=en) to create a new Google Cloud project that uses OAuth.
 2. Enable the Google Calendar API.
-3. Use the scopes `['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/userinfo.email']` when creating the OAuth client.
+3. Use the scopes `https://www.googleapis.com/auth/calendar.readonly` and `https://www.googleapis.com/auth/userinfo.email` when creating the OAuth client.
 4. Google will need to approve your application before external users can authorize it. See [here](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification) for more information. Until your app is approved, only users that are on an allow-list can authorize it. To edit the allow-list navigate to APIs & Services -> OAuth Consent Screen -> Audience and go to the 'Test Users' section.
 
 ## Create a new Microsoft Calendar OAuth Application
@@ -20,18 +20,18 @@ You'll need to create a Google OAuth Application that users integrate with so th
 You'll need to create a Microsoft Calendar OAuth Application that users integrate with so that Attendee can access their calendar events. You can skip this step if your application won't support Microsoft Calendar. We recommend creating separate apps for development and production.
 
 1. Follow the directions [here](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) to create a new Microsoft Azure Active Directory application. When it asks you to choose 'Supported account types' select 'Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)'.
-2. For the API permissions, add these scopes: 'Calendars.Read', 'User.Read'.
+2. For the API permissions, add these scopes: `Calendars.Read`, `User.Read`.
 3. Microsoft will need to verify your application before external users can authorize it. See [here](https://learn.microsoft.com/en-us/entra/identity-platform/publisher-verification-overview) for more information. This process is entirely automated and should take less than an hour. The steps to get verified are:
-    a. [Join the Microsoft AI Cloud Partner Program](https://partner.microsoft.com/en-us/partnership).
-    b. [Configure your app's publisher domain](https://learn.microsoft.com/en-us/entra/identity-platform/howto-configure-publisher-domain).
-    c. [Mark your app as publisher verified](https://learn.microsoft.com/en-us/entra/identity-platform/mark-app-as-publisher-verified).
+    - [Join the Microsoft AI Cloud Partner Program](https://partner.microsoft.com/en-us/partnership).
+    - [Configure your app's publisher domain](https://learn.microsoft.com/en-us/entra/identity-platform/howto-configure-publisher-domain).
+    - [Mark your app as publisher verified](https://learn.microsoft.com/en-us/entra/identity-platform/mark-app-as-publisher-verified).
 
 ## Add calendar webhooks to your Attendee project
 
 If you haven't done so already, we recommend using separate Attendee projects for development and production. These projects will correspond to your development and production OAuth applications.
 
 1. Open your Attendee project and go to Settings -> Webhooks.
-2. Click on 'Create Webhook' and select the 'calendar.events_update' and 'calendar.state_change' triggers. The first will be triggered when new calendar events have been updated or created. The second will be triggered if the calendar becomes disconnected.
+2. Click on 'Create Webhook' and select the `calendar.events_update` and `calendar.state_change` triggers. The first will be triggered when new calendar events have been updated or created. The second will be triggered if the calendar becomes disconnected.
 
 ## Add OAuth flow logic to your application
 
