@@ -120,7 +120,7 @@ class RunSchedulerCommandTestCase(TestCase):
         # Calendar synced recently, but with a requested sync (should be included)
         exactly_five_minutes_ago = self.now - django_timezone.timedelta(minutes=5)
         exactly_24_hours_ago = self.now - django_timezone.timedelta(hours=24)
-        calendar_with_requested_sync = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_five_minutes_ago, sync_task_requested_at=exactly_five_minutes_ago, client_id="test_client_id_boundary")
+        calendar_with_requested_sync = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, state=CalendarStates.CONNECTED, sync_task_enqueued_at=exactly_five_minutes_ago, sync_task_requested_at=exactly_24_hours_ago, client_id="test_client_id_boundary")
 
         command = Command()
 
