@@ -74,6 +74,55 @@ class TestExtractMeetingUrlFromText(TestCase):
         result = extract_meeting_url_from_text(text)
         self.assertEqual(result, "https://zoom.us/j/123456789")
 
+    def test_html_href_attribute(self):
+        # URL appears inside an HTML attribute
+        text = '<a href="https://teams.microsoft.com/l/meetup-join/19%3ameeting?tenantId=abc#frag">Join</a>'
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://teams.microsoft.com/l/meetup-join/19%3ameeting?tenantId=abc#frag")
+
+    def test_url_with_query_and_fragment(self):
+        text = "Join: https://meet.google.com/xyz-abcd-efg?hs=122&pli=1#anchor"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://meet.google.com/xyz-abcd-efg?hs=122&pli=1#anchor")
+
+    def test_scheme_less_url(self):
+        # Some folks paste zoom links without scheme. We currently don't handle this case.
+        text = "Dial in at zoom.us/j/123456789"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, None)
+
+    def test_mixed_case_scheme_and_host(self):
+        text = "Use HTTPS://ZOOM.US/j/123456789 to join"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, None)
+
+    def test_newlines_tabs_and_angle_brackets(self):
+        text = "Join\n\t<https://meet.google.com/xyz-abcd-efg>\nright now"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://meet.google.com/xyz-abcd-efg")
+
+    def test_ignores_non_meeting_urls_until_valid_found(self):
+        text = "See https://example.com/page then https://teams.microsoft.com/l/meetup-join/19%3ameeting"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://teams.microsoft.com/l/meetup-join/19%3ameeting")
+
+    # --- desirable behavior (enable after you add URL normalization/stripping) ---
+
+    def test_trailing_punctuation_stripped(self):
+        text = "Join here: https://meet.google.com/xyz-abcd-efg."
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://meet.google.com/xyz-abcd-efg")
+
+    def test_wrapped_in_parentheses(self):
+        text = "Join (https://zoom.us/j/123456789)"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://zoom.us/j/123456789")
+
+    def test_markdown_link(self):
+        text = "Click [Join](https://teams.microsoft.com/l/meetup-join/19%3ameeting)"
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://teams.microsoft.com/l/meetup-join/19%3ameeting")
+
 
 class TestSyncBotWithCalendarEvent(TestCase):
     """Test the sync_bot_with_calendar_event function."""
