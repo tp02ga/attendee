@@ -34,6 +34,15 @@ def extract_meeting_url_from_text(text: str) -> Optional[str]:
     return None
 
 
+def _exception_is_404(e: Exception) -> bool:
+    """Check if an exception is a 404."""
+    # Check if it's a requests HTTPError with status code 404
+    if isinstance(e, requests.HTTPError) and hasattr(e, "response") and e.response is not None:
+        return e.response.status_code == 404
+
+    return False
+
+
 def sync_bot_with_calendar_event(bot: Bot, calendar_event: CalendarEvent):
     """Sync a bot with a calendar event."""
     # If the calendar event is deleted, delete the bot
@@ -406,7 +415,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
             logger.info(f"Fetching individual event {event_id} from Google Calendar")
             return self._make_gcal_request(url, access_token)
         except Exception as e:
-            if "404" in str(e):
+            if _exception_is_404(e):
                 logger.info(f"Event {event_id} not found in Google Calendar")
                 # Event was deleted
                 return None
@@ -593,6 +602,15 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             raise ValueError("Naive datetime passed to _format_dt_for_graph")
         return dt.astimezone(python_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    def _calendar_base_url(self) -> str:
+        """
+        Return the base path for calendar-scoped calls.
+        If platform_uuid is set, scope to that calendar; otherwise use the user's primary.
+        """
+        if self.calendar.platform_uuid:
+            return f"{self.GRAPH_BASE}/me/calendars/{self.calendar.platform_uuid}"
+        return f"{self.GRAPH_BASE}/me"
+
     def _list_events(self, access_token: str) -> List[dict]:
         """
         Use /me/calendarView to enumerate events (including expanded recurrences)
@@ -601,7 +619,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         start = self._format_dt_for_graph(self.time_window_start)
         end = self._format_dt_for_graph(self.time_window_end)
 
-        base_url = f"{self.GRAPH_BASE}/me/calendarView"
+        base_url = f"{self._calendar_base_url()}/calendarView"
         params = {
             "startDateTime": start,
             "endDateTime": end,
@@ -633,14 +651,14 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
         """
         Fetch a specific event by id. If it's been deleted, Graph returns 404.
         """
-        url = f"{self.GRAPH_BASE}/me/events/{event_id}"
+        url = f"{self._calendar_base_url()}/events/{event_id}"
         params = {
             "$select": self.CALENDAR_EVENT_SELECT_FIELDS,
         }
         try:
             return self._make_graph_request(url, access_token, params)
         except Exception as e:
-            if "404" in str(e):
+            if _exception_is_404(e):
                 logger.info("Event %s not found in Microsoft Graph", event_id)
                 return None  # Event was deleted
             raise
