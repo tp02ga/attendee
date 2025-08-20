@@ -440,14 +440,14 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
         end_time = self._parse_event_datetime(google_event["end"])
 
         # Extract meeting URL if present
-        meeting_url = None
+        meeting_url_from_conference_data = None
         if "conferenceData" in google_event:
             entry_points = google_event["conferenceData"].get("entryPoints", [])
             for entry_point in entry_points:
                 if entry_point.get("entryPointType") == "video":
-                    meeting_url = entry_point.get("uri")
+                    meeting_url_from_conference_data = entry_point.get("uri")
                     break
-        meeting_url = meeting_url or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
+        meeting_url = extract_meeting_url_from_text(meeting_url_from_conference_data) or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
 
         # Extract attendees
         attendees = []
@@ -672,10 +672,10 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
           3) (fallback) None
         """
         online_meeting = ev.get("onlineMeeting") or {}
-        join_url = online_meeting.get("joinUrl")
+        join_url = extract_meeting_url_from_text(online_meeting.get("joinUrl"))
         if join_url:
             return join_url
-        legacy = ev.get("onlineMeetingUrl")
+        legacy = extract_meeting_url_from_text(ev.get("onlineMeetingUrl"))
         if legacy:
             return legacy
 
