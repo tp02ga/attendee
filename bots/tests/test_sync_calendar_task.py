@@ -37,34 +37,26 @@ class TestExtractMeetingUrlFromText(TestCase):
     def test_extract_zoom_url(self):
         """Test extracting Zoom meeting URL from text."""
         text = "Join the meeting at https://zoom.us/j/123456789"
-        with patch("bots.utils.meeting_type_from_url") as mock_meeting_type:
-            mock_meeting_type.return_value = "zoom"
-            result = extract_meeting_url_from_text(text)
-            self.assertEqual(result, "https://zoom.us/j/123456789")
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://zoom.us/j/123456789")
 
     def test_extract_google_meet_url(self):
         """Test extracting Google Meet URL from text."""
         text = "Meeting link: https://meet.google.com/xyz-abcd-efg"
-        with patch("bots.utils.meeting_type_from_url") as mock_meeting_type:
-            mock_meeting_type.return_value = "google_meet"
-            result = extract_meeting_url_from_text(text)
-            self.assertEqual(result, "https://meet.google.com/xyz-abcd-efg")
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://meet.google.com/xyz-abcd-efg")
 
     def test_extract_teams_url(self):
         """Test extracting Microsoft Teams URL from text."""
         text = "Join <https://teams.microsoft.com/l/meetup-join/19%3ameeting>"
-        with patch("bots.utils.meeting_type_from_url") as mock_meeting_type:
-            mock_meeting_type.return_value = "teams"
-            result = extract_meeting_url_from_text(text)
-            self.assertEqual(result, "https://teams.microsoft.com/l/meetup-join/19%3ameeting")
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://teams.microsoft.com/l/meetup-join/19%3ameeting")
 
     def test_no_meeting_url_found(self):
         """Test when no meeting URL is found in text."""
         text = "This is just regular text with no meeting links"
-        with patch("bots.utils.meeting_type_from_url") as mock_meeting_type:
-            mock_meeting_type.return_value = None
-            result = extract_meeting_url_from_text(text)
-            self.assertIsNone(result)
+        result = extract_meeting_url_from_text(text)
+        self.assertIsNone(result)
 
     def test_empty_text(self):
         """Test with empty text."""
@@ -79,16 +71,8 @@ class TestExtractMeetingUrlFromText(TestCase):
     def test_multiple_urls_returns_first_valid(self):
         """Test with multiple URLs, returns first valid meeting URL."""
         text = "Here's a regular link https://example.com and a meeting link https://zoom.us/j/123456789"
-        with patch("bots.utils.meeting_type_from_url") as mock_meeting_type:
-
-            def side_effect(url):
-                if "zoom.us" in url:
-                    return "zoom"
-                return None
-
-            mock_meeting_type.side_effect = side_effect
-            result = extract_meeting_url_from_text(text)
-            self.assertEqual(result, "https://zoom.us/j/123456789")
+        result = extract_meeting_url_from_text(text)
+        self.assertEqual(result, "https://zoom.us/j/123456789")
 
 
 class TestSyncBotWithCalendarEvent(TestCase):
@@ -215,7 +199,7 @@ class TestEnqueueSyncCalendarTask(TransactionTestCase):
     def setUp(self):
         self.organization = Organization.objects.create(name="Test Org")
         self.project = Project.objects.create(name="Test Project", organization=self.organization)
-        self.calendar = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, client_id="test_client_id")
+        self.calendar = Calendar.objects.create(project=self.project, platform=CalendarPlatform.GOOGLE, client_id="test_client_id", sync_task_requested_at=timezone.now() - timedelta(days=1))
 
     @patch("bots.tasks.sync_calendar_task.sync_calendar.delay")
     def test_enqueue_sync_calendar_task(self, mock_delay):
@@ -227,6 +211,7 @@ class TestEnqueueSyncCalendarTask(TransactionTestCase):
         self.calendar.refresh_from_db()
         self.assertIsNotNone(self.calendar.sync_task_enqueued_at)
         self.assertNotEqual(self.calendar.sync_task_enqueued_at, initial_sync_task_enqueued_at)
+        self.assertEqual(self.calendar.sync_task_requested_at, None)
         mock_delay.assert_called_once_with(self.calendar.id)
 
 
