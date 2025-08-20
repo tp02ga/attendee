@@ -268,14 +268,11 @@ class CalendarSyncHandler:
 
                 logger.info(f"Calendar sync completed successfully: {sync_results}")
 
-                if created_count > 0 or updated_count > 0 or deleted_count > 0:
-                    trigger_webhook(
-                        webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
-                        calendar=self.calendar,
-                        payload=calendar_webhook_payload(self.calendar),
-                    )
-                else:
-                    logger.info(f"No events were created, updated, or deleted for calendar {self.calendar.object_id}, so no webhook will be triggered")
+                trigger_webhook(
+                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
+                    calendar=self.calendar,
+                    payload=calendar_webhook_payload(self.calendar),
+                )
 
                 return sync_results
 
