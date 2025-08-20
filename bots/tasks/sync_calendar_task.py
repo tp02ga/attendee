@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 from datetime import datetime, timedelta
@@ -20,16 +21,16 @@ from bots.webhook_utils import trigger_webhook
 
 logger = logging.getLogger(__name__)
 
+URL_CANDIDATE = re.compile(r"https?://[^\s<>\"']+")
+
 
 def extract_meeting_url_from_text(text: str) -> Optional[str]:
     if not text:
         return None
-
-    # Split text by space, newlines, quotes, and angle brackets
-    words = re.split(r'[\s\n"\'<>]+', text)
-    for word in words:
-        if word and meeting_type_from_url(word):
-            return word
+    for m in URL_CANDIDATE.finditer(text):
+        url = m.group(0).rstrip(").,;]}>")
+        if meeting_type_from_url(url):
+            return url
     return None
 
 
@@ -167,6 +168,9 @@ class CalendarSyncHandler:
         local_event.is_deleted = True
         local_event.save()
 
+        # Sync the bots for the calendar event
+        sync_bots_for_calendar_event(local_event)
+
     def sync_events(self) -> dict:
         """
         Main sync method that coordinates the entire sync process.
@@ -187,14 +191,14 @@ class CalendarSyncHandler:
             # Set the sync start time
             sync_started_at = timezone.now()
 
-            # Perform sync within transaction
+            # Step 1: Pull from Remote Calendar
+
+            # Step 1a: List all events from Remote Calendar within time window
+            remote_events = self._list_events(access_token)
+            remote_event_ids = {event["id"] for event in remote_events}
+
+            # Start transaction
             with transaction.atomic():
-                # Step 1: Pull from Remote Calendar
-
-                # Step 1a: List all events from Remote Calendar within time window
-                remote_events = self._list_events(access_token)
-                remote_event_ids = {event["id"] for event in remote_events}
-
                 # Step 1b: Find local events not in the remote fetch and get them individually
                 local_events = self._get_local_events_in_window()
                 local_events_missing_from_remote = set(local_events.keys()) - remote_event_ids
@@ -450,7 +454,7 @@ class GoogleCalendarSyncHandler(CalendarSyncHandler):
                 if entry_point.get("entryPointType") == "video":
                     meeting_url_from_conference_data = entry_point.get("uri")
                     break
-        meeting_url = extract_meeting_url_from_text(meeting_url_from_conference_data) or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
+        meeting_url = extract_meeting_url_from_text(meeting_url_from_conference_data) or extract_meeting_url_from_text(google_event.get("hangoutLink")) or extract_meeting_url_from_text(google_event.get("location")) or extract_meeting_url_from_text(google_event.get("description")) or extract_meeting_url_from_text(google_event.get("summary"))
 
         # Extract attendees
         attendees = []
@@ -605,6 +609,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             "$orderby": "start/dateTime",
             # Keep payload lean but include what we need. We try to get the joinUrl via $expand.
             "$select": self.CALENDAR_EVENT_SELECT_FIELDS,
+            "$expand": "onlineMeeting($select=joinUrl)",
             # You can tune page size with $top (Graph may cap it). We let Graph decide for reliability.
             # "$top": "200",
         }
@@ -696,7 +701,7 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
 
     def _truncate_large_text_fields_in_ms_event(self, ms_event: dict) -> dict:
         """Truncate large text fields in a Microsoft Graph event. Return a copy of the event with the fields truncated."""
-        event_copy = ms_event.copy()
+        event_copy = copy.deepcopy(ms_event)
         if event_copy.get("body") and event_copy.get("body").get("content"):
             event_copy["body"]["content"] = event_copy.get("body").get("content")[:8000]
         return event_copy
