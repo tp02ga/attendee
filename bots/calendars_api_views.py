@@ -1,4 +1,3 @@
-from django.utils import timezone
 from drf_spectacular.openapi import OpenApiResponse
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
@@ -11,6 +10,7 @@ from .authentication import ApiKeyAuthentication
 from .calendars_api_utils import create_calendar, delete_calendar
 from .models import Calendar, CalendarEvent
 from .serializers import CalendarEventSerializer, CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
+from .tasks.sync_calendar_task import enqueue_sync_calendar_task
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -127,6 +127,9 @@ class CalendarListCreateView(GenericAPIView):
         if error:
             return Response(error, status=status.HTTP_400_BAD_REQUEST)
 
+        # Immediately sync the calendar
+        enqueue_sync_calendar_task(calendar)
+
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_201_CREATED)
 
 
@@ -224,9 +227,11 @@ class CalendarDetailPatchDeleteView(APIView):
             # Save updated credentials
             calendar.set_credentials(existing_credentials)
 
-        # Request an immediate sync of the calendar
-        calendar.sync_task_requested_at = timezone.now()
         calendar.save()
+
+        # Request an immediate sync of the calendar
+        enqueue_sync_calendar_task(calendar)
+
         return Response(CalendarSerializer(calendar).data, status=status.HTTP_200_OK)
 
     @extend_schema(
