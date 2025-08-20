@@ -424,7 +424,7 @@ class TestCalendarSyncHandlerSyncEvents(TransactionTestCase):
         self.assertIn("Auth failed", self.calendar.connection_failure_data["error"])
 
         # Verify bots are removed and webhook is triggered
-        mock_remove_bots.assert_called_once_with(self.calendar)
+        mock_remove_bots.assert_called_once_with(calendar=self.calendar, project=self.calendar.project)
         mock_trigger_webhook.assert_called_once_with(webhook_trigger_type=WebhookTriggerTypes.CALENDAR_STATE_CHANGE, calendar=self.calendar, payload=calendar_webhook_payload(self.calendar))
 
     def test_sync_events_general_exception(self):
@@ -491,11 +491,9 @@ class TestGoogleCalendarSyncHandler(TestCase):
         # Verify original is not modified
         self.assertEqual(len(google_event["description"]), 10000)
 
-    @patch("bots.tasks.sync_calendar_task.extract_meeting_url_from_text")
-    def test_remote_event_to_calendar_event_data(self, mock_extract_url):
+    def test_remote_event_to_calendar_event_data(self):
         """Test converting Google Calendar event to CalendarEvent data."""
         handler = GoogleCalendarSyncHandler(self.calendar.id)
-        mock_extract_url.return_value = "https://extracted.url"
 
         google_event = {"id": "google_event_123", "start": {"dateTime": "2023-12-01T10:00:00Z"}, "end": {"dateTime": "2023-12-01T11:00:00Z"}, "status": "confirmed", "iCalUID": "ical_uid_123", "description": "Event description", "summary": "Event summary", "attendees": [{"email": "user1@example.com", "displayName": "User One"}, {"email": "user2@example.com", "displayName": "User Two"}], "conferenceData": {"entryPoints": [{"entryPointType": "video", "uri": "https://meet.google.com/abc-def-ghi"}]}}
 

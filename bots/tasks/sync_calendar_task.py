@@ -136,8 +136,8 @@ class CalendarSyncHandler:
         Returns:
             tuple: (CalendarEvent instance, was_created, was_updated)
         """
-        platform_uuid = remote_event["id"]
         event_data = self._remote_event_to_calendar_event_data(remote_event)
+        platform_uuid = event_data["platform_uuid"]
 
         try:
             # Try to get existing event
@@ -255,11 +255,14 @@ class CalendarSyncHandler:
 
                 logger.info(f"Calendar sync completed successfully: {sync_results}")
 
-                trigger_webhook(
-                    webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
-                    calendar=self.calendar,
-                    payload=calendar_webhook_payload(self.calendar),
-                )
+                if created_count > 0 or updated_count > 0 or deleted_count > 0:
+                    trigger_webhook(
+                        webhook_trigger_type=WebhookTriggerTypes.CALENDAR_EVENTS_UPDATE,
+                        calendar=self.calendar,
+                        payload=calendar_webhook_payload(self.calendar),
+                    )
+                else:
+                    logger.info(f"No events were created, updated, or deleted for calendar {self.calendar.object_id}, so no webhook will be triggered")
 
                 return sync_results
 
@@ -580,9 +583,11 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
     # Listing & single fetch
     # ---------------------------
     def _format_dt_for_graph(self, dt: datetime) -> str:
-        """Return RFC3339 UTC format the Graph likes: YYYY-MM-DDTHH:MM:SSZ"""
-        dt_utc = dt.astimezone(python_timezone.utc)
-        return dt_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        """Return RFC3339 UTC like 2025-08-20T15:30:00Z (seconds precision)."""
+        if dt.tzinfo is None:
+            # If you *know* your inputs are always aware, you can assert instead.
+            raise ValueError("Naive datetime passed to _format_dt_for_graph")
+        return dt.astimezone(python_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _list_events(self, access_token: str) -> List[dict]:
         """
