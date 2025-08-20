@@ -71,7 +71,7 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
   "idempotency_key": < UUID that uniquely identifies this webhook delivery >,
   "bot_id": < Id of the bot associated with the webhook delivery >,
   "bot_metadata": < Any metadata associated with the bot >,
-  "trigger": < Trigger for the webhook >,
+  "trigger": < Trigger for the webhook. Currently, the four bot-related triggers are bot.state_change, which is fired whenever the bot changes its state, transcript.update which is fired when the transcript is updated, chat_messages.update which is fired when a chat message is sent and participant_events.join_leave which is fired when a participant joins or leaves the meeting. >,
   "data": < Trigger-specific data >
 }
 ```
@@ -84,7 +84,7 @@ When a webhook is delivered, Attendee will send an HTTP POST request to your web
   "calendar_id": < Id of the calendar associated with the webhook delivery >,
   "calendar_deduplication_key": < Deduplication key of the calendar (if set) >,
   "calendar_metadata": < Any metadata associated with the calendar >,
-  "trigger": < Trigger for the webhook >,
+  "trigger": < Trigger for the webhook. Currently, the two calendar-related triggers are calendar.events_update which is fired when the calendar events have been updated and calendar.state_change which is fired when the calendar becomes disconnected. >,
   "data": < Trigger-specific data >
 }
 ```
