@@ -627,7 +627,6 @@ class MicrosoftCalendarSyncHandler(CalendarSyncHandler):
             "$orderby": "start/dateTime",
             # Keep payload lean but include what we need. We try to get the joinUrl via $expand.
             "$select": self.CALENDAR_EVENT_SELECT_FIELDS,
-            "$expand": "onlineMeeting($select=joinUrl)",
             # You can tune page size with $top (Graph may cap it). We let Graph decide for reliability.
             # "$top": "200",
         }
