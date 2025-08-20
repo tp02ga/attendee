@@ -107,7 +107,12 @@
             <p><strong>Name:</strong> {{ bot.name }}</p>
             <p><strong>Created:</strong> {{ bot.created_at|date:"M d, Y H:i" }}</p>
             {% if bot.join_at %}
-                <p><strong>Join at:</strong> {{ bot.join_at|date:"M d, Y H:i" }}</p>
+                <p><strong>Join at:</strong> {{ bot.join_at|date:"M d, Y H:i" }}
+
+                {% if bot.calendar_event %}
+                through {{ bot.calendar_event.name }}
+            {% endif %}
+                </p>
             {% endif %}
         </div>
         <div class="col-md-6">
