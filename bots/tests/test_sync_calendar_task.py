@@ -621,8 +621,17 @@ class TestGoogleCalendarSyncHandler(TestCase):
         """Test individual event retrieval when event not found."""
         handler = GoogleCalendarSyncHandler(self.calendar.id)
 
+        # Create a real Response object with 404 status
+        response = requests.Response()
+        response.status_code = 404
+        response._content = b'{"error": {"code": 404, "message": "Not Found"}}'
+        response.headers["content-type"] = "application/json"
+
+        # Create a real HTTPError with the response
+        http_error = requests.HTTPError("404 Client Error: Not Found for url: https://www.googleapis.com/calendar/v3/calendars/primary/events/nonexistent_event", response=response)
+
         mock_session = Mock()
-        mock_session.send.side_effect = Exception("404")
+        mock_session.send.side_effect = http_error
         mock_session_class.return_value.__enter__.return_value = mock_session
 
         result = handler._get_event_by_id("nonexistent_event", "mock_token")
