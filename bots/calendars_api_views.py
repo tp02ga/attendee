@@ -59,8 +59,8 @@ class CalendarListCreateView(GenericAPIView):
 
     @extend_schema(
         operation_id="List Calendars",
-        summary="List all calendars",
-        description="Returns a list of all calendars for the authenticated project. Results are paginated using cursor pagination.",
+        summary="List calendars",
+        description="Returns a list of calendars for the authenticated project. Results are paginated using cursor pagination.",
         responses={
             200: OpenApiResponse(
                 response=CalendarSerializer(many=True),
@@ -277,8 +277,8 @@ class CalendarEventListView(GenericAPIView):
 
     @extend_schema(
         operation_id="List Calendar Events",
-        summary="List all calendar events",
-        description="Returns a list of all calendar events for the authenticated project. Results are paginated using cursor pagination.",
+        summary="List calendar events",
+        description="Returns a list of calendar events for the authenticated project. Results are paginated using cursor pagination.",
         responses={
             200: OpenApiResponse(
                 response=CalendarEventSerializer(many=True),
