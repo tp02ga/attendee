@@ -1,6 +1,6 @@
 # Calendar Integration
 
-Attendee's calendar integration lets you schedule bots to automatically join meetings from your users' Google or Microsoft calendars. You store your users' calendar credentials in Attendee, which then syncs events through the Google and Microsoft calendar APIs. Your application's logic decides which events the bots should join.
+Attendee's calendar integration lets you automatically schedule bots to join meetings from your users' Google or Microsoft calendars. You store your users' calendar credentials in Attendee, which then syncs events through the Google and Microsoft calendar APIs. Your application's logic decides which events the bots should join.
 
 This feature reduces the time it takes to build a calendar integration for your application, by hiding the complexity of the Google and Microsoft APIs and handling event reschedules and cancellations.
 
