@@ -35,7 +35,7 @@ If you haven't done so already, we recommend using separate Attendee projects fo
 
 ## Add OAuth flow logic to your application
 
-You'll need to add code to your application to handle the OAuth flow used to let uses authorization your Calendar OAuth Applications. For both Google and Microsoft the flow is essentially the same.
+You'll need to add code to handle the OAuth flow for users to authorize your Calendar OAuth Applications. The flow is essentially the same for both Google and Microsoft. Follow these steps for each application:
 
 1. Add an `auth` endpoint that your application will use to redirect users to the OAuth flow.
 2. Add a `callback` endpoint that your application will use to handle the OAuth callback.
@@ -43,7 +43,7 @@ You'll need to add code to your application to handle the OAuth flow used to let
 4. In your callback endpoint, after you've retrieved the refresh token, make a [POST /calendars](https://docs.attendee.dev/api-reference#tag/calendars/post/api/v1/calendars) request to the Attendee API to create a new calendar for the user who just authorized your application. In the request, you'll pass the client id and secret of your application as well as the refresh token. We recommend you pass a deduplication key to prevent duplicate calendars from being created. This could be be the user's email address or internal id.
 5. After you make the API request to Attendee, you'll receive a [calendar object](https://docs.attendee.dev/api-reference#model/calendar) in the response. Save this calendar object to your database.
 
-See the `completeOAuthLogin` function in the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js) for an example implementation. 
+See the `completeOAuthLogin` function in the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js) for an example implementation of these steps.
 
 ## Add Webhook processing logic to your application for the calendar.events_update trigger
 
