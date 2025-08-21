@@ -1,10 +1,10 @@
 # Calendar Integration
 
-Attendee's Calendar integration feature schedules bots to join meetings on your user's calendars. To use this feature you save your users' calendar credentials in Attendee. Attendee uses these credentials to sync calendar events from the Google or Microsoft Calendar APIs. You can then decide which calendar events the bots should join according to your application's business logic.
+Attendee's calendar integration lets you schedule bots to automatically join meetings from your users' Google or Microsoft calendars. To enable this, you store user calendar credentials in Attendee, which then syncs events through the Google and Microsoft calendar APIs. Your application's logic decides which events the bots should join.
 
-Many meeting bot based applications build a calendar integration in order to automatically send bots to meetings. Attendee's calendar integration can reduce the amount of time you need to implement this integration, by abstracting away the complexity of interfacing with the Google and Microsoft Calendar APIs.
+This feature reduces the time it takes to build a calendar integration for your application, by hiding the complexity of the Google and Microsoft APIs and handling event reschedules and cancellations.
 
-Below, we'll cover the steps to implement the calendar integration feature in your application. For a simple example application that implements these steps, see the [ Attendee Calendar Integration Example](https://github.com/attendee-labs/calendar-integration-example).
+The guide below walks through how to set up the calendar integration in your app. For a reference implementation, see the [Attendee Calendar Integration Example](https://github.com/attendee-labs/calendar-integration-example).
 
 ## Create a new Google Calendar OAuth Application
 
@@ -43,7 +43,7 @@ You'll need to add code to your application to handle the OAuth flow used to let
 4. In your callback endpoint, after you've retrieved the refresh token, make a [POST /calendars](https://docs.attendee.dev/api-reference#tag/calendars/post/api/v1/calendars) request to the Attendee API to create a new calendar for the user who just authorized your application. In the request, you'll pass the client id and secret of your application as well as the refresh token. We recommend you pass a deduplication key to prevent duplicate calendars from being created. This could be be the user's email address or internal id.
 5. After you make the API request to Attendee, you'll receive a [calendar object](https://docs.attendee.dev/api-reference#model/calendar) in the response. Save this calendar object to your database.
 
-Example code that implements these steps can be found in the `completeOAuthLogin` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js). 
+See the `completeOAuthLogin` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js) for an example implementation. 
 
 ## Add Webhook processing logic to your application for the calendar.events_update trigger
 
@@ -53,7 +53,7 @@ When you receive a webhook with trigger type `calendar.events_update`, it means 
 2. In your GET request to the [/calendar_events](https://docs.attendee.dev/api-reference#tag/calendars/get/api/v1/calendar_events) endpoint, pass the `calendar_id` parameter to filter for events belonging to that calendar. Also pass the `updated_after` parameter to filter for events that have been updated since the last time you synced the calendar with Attendee.
 3. Paginate through the results and save each event to your database.
 
-Example code that implements this logic can be found in the `handleCalendarEventsUpdate` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js).
+See the `handleCalendarEventsUpdate` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js) for an example implementation.
 
 ## Add code to schedule bots for the calendar events to your application
 
@@ -73,7 +73,7 @@ On Attendee's side, if a calendar is disconnected, all the scheduled bots associ
 
 In your application, you should update the calendar in your database to reflect the disconnected state.
 
-Example code that implements this logic can be found in the `handleCalendarStateChange` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js).
+See the `handleCalendarStateChange` function of the [example app](https://github.com/attendee-labs/calendar-integration-example/blob/main/server.js) for an example implementation.
 
 ## FAQ
 
