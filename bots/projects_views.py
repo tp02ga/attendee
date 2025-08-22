@@ -28,6 +28,9 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    Calendar,
+    CalendarPlatform,
+    CalendarStates,
     ChatMessage,
     Credentials,
     CreditTransaction,
@@ -399,6 +402,78 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
 
         # Check if any bots in the current page have a join_at value
         context["has_scheduled_bots"] = any(bot.join_at is not None for bot in context["bots"])
+
+        return context
+
+
+class ProjectCalendarsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_calendars.html"
+    context_object_name = "calendars"
+    paginate_by = 20
+
+    def get_queryset(self):
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+
+        # Start with the base queryset
+        queryset = Calendar.objects.filter(project=project)
+
+        # Apply date filters if provided
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+
+        if start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        if end_date:
+            # Add 1 day to include the end date fully
+            from datetime import datetime, timedelta
+
+            try:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+                end_date_obj = end_date_obj + timedelta(days=1)
+                queryset = queryset.filter(created_at__lt=end_date_obj)
+            except (ValueError, TypeError):
+                # Handle invalid date format
+                pass
+
+        # Apply state filters if provided
+        states = self.request.GET.getlist("states")
+        if states:
+            # Convert string values to integers
+            try:
+                state_values = [int(state) for state in states if state.isdigit()]
+                if state_values:
+                    queryset = queryset.filter(state__in=state_values)
+            except (ValueError, TypeError):
+                # Handle invalid state values
+                pass
+
+        # Apply deduplication key filter if provided
+        deduplication_key = self.request.GET.get("deduplication_key")
+        if deduplication_key:
+            # Filter for calendars with specific deduplication key
+            queryset = queryset.filter(deduplication_key__icontains=deduplication_key)
+
+        # Order by most recently created
+        queryset = queryset.order_by("-created_at")
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
+
+        # Add CalendarStates and CalendarPlatform for the template
+        context["CalendarStates"] = CalendarStates
+        context["CalendarPlatform"] = CalendarPlatform
+
+        # Add filter parameters to context for maintaining state
+        context["filter_params"] = {
+            "start_date": self.request.GET.get("start_date", ""),
+            "end_date": self.request.GET.get("end_date", ""),
+            "states": self.request.GET.getlist("states"),
+            "deduplication_key": self.request.GET.get("deduplication_key", ""),
+        }
 
         return context
 
