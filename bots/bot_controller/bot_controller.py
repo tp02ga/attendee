@@ -974,12 +974,7 @@ class BotController:
         self.cleanup()
 
     def get_recording_in_progress(self):
-        recordings_in_progress = Recording.objects.filter(bot=self.bot_in_db, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
-        if recordings_in_progress.count() == 0:
-            return None
-        if recordings_in_progress.count() > 1:
-            raise Exception(f"Expected at most one recording in progress for bot {self.bot_in_db.object_id}, but found {recordings_in_progress.count()}")
-        return recordings_in_progress.first()
+        return RecordingManager.get_recording_in_progress(self.bot_in_db)
 
     def save_closed_caption_utterance(self, message):
         participant, _ = Participant.objects.get_or_create(
@@ -1198,6 +1193,17 @@ class BotController:
             self.websocket_audio_error_ticker += 1
 
     def take_action_based_on_message_from_adapter(self, message):
+
+        if message.get("message") == BotAdapter.Messages.JOINING_BREAKOUT_ROOM:
+            logger.info("Received message that bot is joining breakout room")
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_BEGAN_JOINING_BREAKOUT_ROOM)
+            return
+
+        if message.get("message") == BotAdapter.Messages.LEAVING_BREAKOUT_ROOM:
+            logger.info("Received message that bot is leaving breakout room")
+            BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_BEGAN_LEAVING_BREAKOUT_ROOM)
+            return
+
         if message.get("message") == BotAdapter.Messages.REQUEST_TO_JOIN_DENIED:
             logger.info("Received message that request to join was denied")
             BotEventManager.create_event(
@@ -1417,6 +1423,17 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_JOINED_MEETING:
+
+            if self.bot_in_db.state == BotStates.JOINING_BREAKOUT_ROOM:
+                logger.info("Received message that bot joined breakout room")
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_BREAKOUT_ROOM)
+                return
+
+            if self.bot_in_db.state == BotStates.LEAVING_BREAKOUT_ROOM:
+                logger.info("Received message that bot left breakout room")
+                BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_LEFT_BREAKOUT_ROOM)
+                return
+
             logger.info("Received message that bot joined meeting")
             BotEventManager.create_event(bot=self.bot_in_db, event_type=BotEventTypes.BOT_JOINED_MEETING)
             return
@@ -1434,6 +1451,10 @@ class BotController:
             return
 
         if message.get("message") == BotAdapter.Messages.BOT_RECORDING_PERMISSION_GRANTED:
+            if self.bot_in_db.state == BotStates.JOINED_RECORDING:
+                logger.info("Received message that bot recording permission granted, but bot is already in joined recording state, so not creating event")
+                return
+
             logger.info("Received message that bot recording permission granted")
             BotEventManager.create_event(
                 bot=self.bot_in_db,

@@ -224,6 +224,8 @@ class BotStates(models.IntegerChoices):
     SCHEDULED = 11, "Scheduled"
     STAGED = 12, "Staged"
     JOINED_RECORDING_PAUSED = 13, "Joined - Recording Paused"
+    JOINING_BREAKOUT_ROOM = 14, "Joining Breakout Room"
+    LEAVING_BREAKOUT_ROOM = 15, "Leaving Breakout Room"
 
     @classmethod
     def state_to_api_code(cls, value):
@@ -242,6 +244,8 @@ class BotStates(models.IntegerChoices):
             cls.SCHEDULED: "scheduled",
             cls.STAGED: "staged",
             cls.JOINED_RECORDING_PAUSED: "joined_recording_paused",
+            cls.JOINING_BREAKOUT_ROOM: "joining_breakout_room",
+            cls.LEAVING_BREAKOUT_ROOM: "leaving_breakout_room",
         }
         return mapping.get(value)
 
@@ -704,6 +708,10 @@ class BotEventTypes(models.IntegerChoices):
     STAGED = 12, "Bot staged"
     RECORDING_PAUSED = 13, "Recording Paused"
     RECORDING_RESUMED = 14, "Recording Resumed"
+    BOT_JOINED_BREAKOUT_ROOM = 15, "Bot joined breakout room"
+    BOT_LEFT_BREAKOUT_ROOM = 16, "Bot left breakout room"
+    BOT_BEGAN_JOINING_BREAKOUT_ROOM = 17, "Bot began joining breakout room"
+    BOT_BEGAN_LEAVING_BREAKOUT_ROOM = 18, "Bot began leaving breakout room"
 
     @classmethod
     def type_to_api_code(cls, value):
@@ -723,6 +731,10 @@ class BotEventTypes(models.IntegerChoices):
             cls.STAGED: "staged",
             cls.RECORDING_PAUSED: "recording_paused",
             cls.RECORDING_RESUMED: "recording_resumed",
+            cls.BOT_JOINED_BREAKOUT_ROOM: "joined_breakout_room",
+            cls.BOT_LEFT_BREAKOUT_ROOM: "left_breakout_room",
+            cls.BOT_BEGAN_JOINING_BREAKOUT_ROOM: "began_joining_breakout_room",
+            cls.BOT_BEGAN_LEAVING_BREAKOUT_ROOM: "began_leaving_breakout_room",
         }
         return mapping.get(value)
 
@@ -868,6 +880,19 @@ class BotEvent(models.Model):
         ]
 
 
+
+class BotEventTransitionFunctions:
+    @classmethod
+    def get_to_state_for_bot_breakout_room_event(cls, bot: Bot):
+        recording_in_progress = RecordingManager.get_recording_in_progress(bot)
+        if recording_in_progress is None:
+            return BotStates.JOINED_NOT_RECORDING
+        if recording_in_progress.state == RecordingStates.IN_PROGRESS:
+            return BotStates.JOINED_RECORDING
+        if recording_in_progress.state == RecordingStates.PAUSED:
+            return BotStates.JOINED_RECORDING_PAUSED
+        raise Exception(f"In get_to_state_for_bot_breakout_room_event unexpected recording state for recording in progress: {recording_in_progress.state}")
+
 class BotEventManager:
     # Define valid state transitions for each event type
     VALID_TRANSITIONS = {
@@ -894,6 +919,8 @@ class BotEventManager:
                 BotStates.POST_PROCESSING,
                 BotStates.STAGED,
                 BotStates.SCHEDULED,
+                BotStates.JOINING_BREAKOUT_ROOM,
+                BotStates.LEAVING_BREAKOUT_ROOM,
             ],
             "to": BotStates.FATAL_ERROR,
         },
@@ -917,6 +944,8 @@ class BotEventManager:
                 BotStates.WAITING_ROOM,
                 BotStates.JOINING,
                 BotStates.LEAVING,
+                BotStates.JOINING_BREAKOUT_ROOM,
+                BotStates.LEAVING_BREAKOUT_ROOM,
             ],
             "to": BotStates.POST_PROCESSING,
         },
@@ -927,6 +956,8 @@ class BotEventManager:
                 BotStates.JOINED_NOT_RECORDING,
                 BotStates.WAITING_ROOM,
                 BotStates.JOINING,
+                BotStates.JOINING_BREAKOUT_ROOM,
+                BotStates.LEAVING_BREAKOUT_ROOM,
             ],
             "to": BotStates.LEAVING,
         },
@@ -949,6 +980,22 @@ class BotEventManager:
         BotEventTypes.RECORDING_RESUMED: {
             "from": BotStates.JOINED_RECORDING_PAUSED,
             "to": BotStates.JOINED_RECORDING,
+        },
+        BotEventTypes.BOT_JOINED_BREAKOUT_ROOM: {
+            "from": BotStates.JOINING_BREAKOUT_ROOM,
+            "to": BotEventTransitionFunctions.get_to_state_for_bot_breakout_room_event,
+        },
+        BotEventTypes.BOT_LEFT_BREAKOUT_ROOM: {
+            "from": BotStates.LEAVING_BREAKOUT_ROOM,
+            "to": BotEventTransitionFunctions.get_to_state_for_bot_breakout_room_event,
+        },
+        BotEventTypes.BOT_BEGAN_JOINING_BREAKOUT_ROOM: {
+            "from": [BotStates.JOINED_NOT_RECORDING, BotStates.JOINED_RECORDING, BotStates.JOINED_RECORDING_PAUSED],
+            "to": BotStates.JOINING_BREAKOUT_ROOM,
+        },
+        BotEventTypes.BOT_BEGAN_LEAVING_BREAKOUT_ROOM: {
+            "from": [BotStates.JOINED_NOT_RECORDING, BotStates.JOINED_RECORDING, BotStates.JOINED_RECORDING_PAUSED],
+            "to": BotStates.LEAVING_BREAKOUT_ROOM,
         },
     }
 
@@ -1017,9 +1064,11 @@ class BotEventManager:
         return q_filter
 
     @classmethod
-    def after_new_state_is_joined_recording(cls, bot: Bot, new_state: BotStates):
+    def after_new_state_is_joined_recording(cls, bot: Bot, event_type: BotEventTypes, new_state: BotStates):
         pending_recordings = bot.recordings.filter(state__in=[RecordingStates.NOT_STARTED, RecordingStates.PAUSED])
         if pending_recordings.count() != 1:
+            if event_type == BotEventTypes.BOT_JOINED_BREAKOUT_ROOM or event_type == BotEventTypes.BOT_LEFT_BREAKOUT_ROOM:
+                return
             raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {pending_recordings.count()}")
         pending_recording = pending_recordings.first()
         RecordingManager.set_recording_in_progress(pending_recording)
@@ -1123,7 +1172,12 @@ class BotEventManager:
                         raise ValidationError(f"Event {BotEventTypes.type_to_api_code(event_type)} not allowed when bot is in state {BotStates.state_to_api_code(old_state)}. It is only allowed in these states: {', '.join(valid_states_labels)}")
 
                     # Update bot state based on 'to' definition
-                    new_state = transition["to"]
+                    if callable(transition["to"]):
+                        # If 'to' is a function, call it with the bot to get the new state
+                        new_state = transition["to"](bot)
+                    else:
+                        # If 'to' is a constant, use it directly
+                        new_state = transition["to"]
                     bot.state = new_state
 
                     bot.save()  # This will raise RecordModifiedError if version mismatch
@@ -1139,7 +1193,7 @@ class BotEventManager:
 
                     # If we moved to the recording state
                     if new_state == BotStates.JOINED_RECORDING:
-                        cls.after_new_state_is_joined_recording(bot=bot, new_state=new_state)
+                        cls.after_new_state_is_joined_recording(bot=bot, event_type=event_type, new_state=new_state)
 
                     if new_state == BotStates.JOINED_RECORDING_PAUSED:
                         cls.after_new_state_is_joined_recording_paused(bot=bot, new_state=new_state)
@@ -1410,6 +1464,15 @@ class RecordingManager:
                 RecordingManager.set_recording_transcription_failed(recording, failure_data={"failure_reasons": failure_reasons})
             else:
                 RecordingManager.set_recording_transcription_complete(recording)
+
+    @classmethod
+    def get_recording_in_progress(cls, bot: Bot):
+        recordings_in_progress = Recording.objects.filter(bot=bot, state__in=[RecordingStates.IN_PROGRESS, RecordingStates.PAUSED])
+        if recordings_in_progress.count() == 0:
+            return None
+        if recordings_in_progress.count() > 1:
+            raise Exception(f"Expected at most one recording in progress for bot {bot.object_id}, but found {recordings_in_progress.count()}")
+        return recordings_in_progress.first()
 
     @classmethod
     def set_recording_in_progress(cls, recording: Recording):
