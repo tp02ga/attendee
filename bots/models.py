@@ -880,7 +880,6 @@ class BotEvent(models.Model):
         ]
 
 
-
 class BotEventTransitionFunctions:
     @classmethod
     def get_to_state_for_bot_breakout_room_event(cls, bot: Bot):
@@ -892,6 +891,7 @@ class BotEventTransitionFunctions:
         if recording_in_progress.state == RecordingStates.PAUSED:
             return BotStates.JOINED_RECORDING_PAUSED
         raise Exception(f"In get_to_state_for_bot_breakout_room_event unexpected recording state for recording in progress: {recording_in_progress.state}")
+
 
 class BotEventManager:
     # Define valid state transitions for each event type
@@ -1067,6 +1067,8 @@ class BotEventManager:
     def after_new_state_is_joined_recording(cls, bot: Bot, event_type: BotEventTypes, new_state: BotStates):
         pending_recordings = bot.recordings.filter(state__in=[RecordingStates.NOT_STARTED, RecordingStates.PAUSED])
         if pending_recordings.count() != 1:
+            # If bot was joining or leaving a breakout room, we don't expect there to be a recording that is ready to be started
+            # so we just return, and don't raise an exception
             if event_type == BotEventTypes.BOT_JOINED_BREAKOUT_ROOM or event_type == BotEventTypes.BOT_LEFT_BREAKOUT_ROOM:
                 return
             raise ValidationError(f"Expected exactly one pending recording for bot {bot.object_id} in state {BotStates.state_to_api_code(new_state)}, but found {pending_recordings.count()}")
