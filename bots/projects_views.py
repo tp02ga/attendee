@@ -79,6 +79,14 @@ def get_api_key_for_user(user, api_key_object_id):
     return api_key
 
 
+def get_calendar_for_user(user, calendar_object_id):
+    calendar = get_object_or_404(Calendar, object_id=calendar_object_id, project__organization=user.organization)
+    # If you're an admin you can access any calendar in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=calendar.project, user=user).exists():
+        raise PermissionDenied
+    return calendar
+
+
 class AdminRequiredMixin(LoginRequiredMixin):
     """
     Mixin for class-based views that can only be accessed by admin users.
@@ -474,6 +482,59 @@ class ProjectCalendarsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView)
             "states": self.request.GET.getlist("states"),
             "deduplication_key": self.request.GET.get("deduplication_key", ""),
         }
+
+        return context
+
+
+class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_calendar_detail.html"
+    context_object_name = "calendar_events"
+    paginate_by = 20
+
+    def get_calendar(self):
+        """Get the calendar object, cached for multiple calls"""
+        if not hasattr(self, '_calendar'):
+            try:
+                self._calendar = get_calendar_for_user(user=self.request.user, calendar_object_id=self.kwargs["calendar_object_id"])
+            except PermissionDenied:
+                self._calendar = None
+        return self._calendar
+
+    def get_queryset(self):
+        calendar = self.get_calendar()
+        if not calendar:
+            return []
+        
+        # Get calendar events for this calendar, ordered by start time (most recent first)
+        return calendar.events.all().order_by("-start_time")
+
+    def get(self, request, object_id, calendar_object_id):
+        # Check if calendar exists, if not redirect
+        calendar = self.get_calendar()
+        if not calendar:
+            return redirect("bots:project-calendars", object_id=object_id)
+        
+        # Continue with normal ListView processing
+        return super().get(request, object_id, calendar_object_id)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        calendar = self.get_calendar()
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+
+        # Get webhook delivery attempts for this calendar (from calendar-related webhook subscriptions)
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(calendar=calendar).select_related("webhook_subscription").order_by("-created_at")
+
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
+        context.update(
+            {
+                "calendar": calendar,
+                "CalendarStates": CalendarStates,
+                "CalendarPlatform": CalendarPlatform,
+                "webhook_delivery_attempts": webhook_delivery_attempts,
+                "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
+            }
+        )
 
         return context
 

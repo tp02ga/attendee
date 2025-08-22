@@ -120,6 +120,11 @@ urlpatterns = [
         projects_views.ProjectCalendarsView.as_view(),
         name="project-calendars",
     ),
+    path(
+        "<str:object_id>/calendars/<str:calendar_object_id>",
+        projects_views.ProjectCalendarDetailView.as_view(),
+        name="project-calendar-detail",
+    ),
     # Don't put anything after this, it will redirect to the dashboard
     path(
         "<str:object_id>/",
