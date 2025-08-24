@@ -11,6 +11,7 @@ from .calendars_api_utils import create_calendar, delete_calendar
 from .models import Calendar, CalendarEvent
 from .serializers import CalendarEventSerializer, CalendarSerializer, CreateCalendarSerializer, PatchCalendarSerializer
 from .tasks.sync_calendar_task import enqueue_sync_calendar_task
+from .throttling import ProjectPostThrottle
 
 TokenHeaderParameter = [
     OpenApiParameter(
@@ -54,6 +55,7 @@ class CalendarCursorPagination(CursorPagination):
 
 class CalendarListCreateView(GenericAPIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
     pagination_class = CalendarCursorPagination
     serializer_class = CalendarSerializer
 
