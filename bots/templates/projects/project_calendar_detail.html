@@ -105,6 +105,12 @@
             {% endif %}
         </div>
     </div>
+    {% if calendar.connection_failure_data %}
+        <div class="alert alert-warning">
+            <h6>Connection Failure Information</h6>
+            <pre class="mb-0">{{ calendar.connection_failure_data|pprint }}</pre>
+        </div>
+    {% endif %}
 
     <ul class="nav nav-tabs mb-3" role="tablist">
         <li class="nav-item" role="presentation">
@@ -126,14 +132,6 @@
             <button class="nav-link" id="metadata-tab" data-bs-toggle="tab" 
                     data-bs-target="#metadata" type="button" role="tab">
                 Metadata
-            </button>
-        </li>
-        {% endif %}
-        {% if calendar.connection_failure_data %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="connection-tab" data-bs-toggle="tab" 
-                    data-bs-target="#connection" type="button" role="tab">
-                Connection Issues
             </button>
         </li>
         {% endif %}
@@ -355,16 +353,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Connection Issues Tab -->
-        {% if calendar.connection_failure_data %}
-        <div class="tab-pane fade" id="connection" role="tabpanel">
-            <div class="alert alert-warning">
-                <h6>Connection Failure Information</h6>
-                <pre class="mb-0">{{ calendar.connection_failure_data|pprint }}</pre>
             </div>
         </div>
         {% endif %}
