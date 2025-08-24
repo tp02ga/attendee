@@ -469,7 +469,6 @@ class OutputImageView(APIView):
 
 class DeleteDataView(APIView):
     authentication_classes = [ApiKeyAuthentication]
-    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Delete Bot Data",
@@ -514,7 +513,6 @@ class DeleteDataView(APIView):
 
 class BotLeaveView(APIView):
     authentication_classes = [ApiKeyAuthentication]
-    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Leave Meeting",
