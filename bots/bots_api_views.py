@@ -49,6 +49,7 @@ from .serializers import (
     SpeechSerializer,
     TranscriptUtteranceSerializer,
 )
+from .throttling import ProjectPostThrottle
 from .utils import meeting_type_from_url
 
 TokenHeaderParameter = [
@@ -124,6 +125,7 @@ class NotFoundView(APIView):
 
 class BotCreateView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Create Bot",
@@ -155,6 +157,7 @@ class BotCreateView(APIView):
 
 class SpeechView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Output speech",
@@ -223,6 +226,7 @@ class SpeechView(APIView):
 
 class OutputVideoView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Output video",
@@ -307,6 +311,7 @@ class OutputVideoView(APIView):
 
 class OutputAudioView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Output Audio",
@@ -406,6 +411,7 @@ class OutputAudioView(APIView):
 
 class OutputImageView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Output Image",
@@ -883,6 +889,7 @@ class ChatMessagesView(GenericAPIView):
 
 class SendChatMessageView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Send Chat Message",
@@ -946,6 +953,7 @@ class SendChatMessageView(APIView):
 
 class PauseRecordingView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Pause Recording",
@@ -1020,6 +1028,7 @@ class PauseRecordingView(APIView):
 
 class ResumeRecordingView(APIView):
     authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
 
     @extend_schema(
         operation_id="Resume Recording",
