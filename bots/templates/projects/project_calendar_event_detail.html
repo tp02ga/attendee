@@ -50,6 +50,14 @@
         padding: 1rem;
         margin-bottom: 1rem;
     }
+    .truncated-field {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: top;
+    }
 </style>
 
 <div class="container mt-4">
@@ -76,10 +84,16 @@
                                 &nbsp;<span class="badge bg-danger">Deleted</span>
                             {% endif %}
                         </p>
-                        <p><strong>ID:</strong> {{ calendar_event.object_id }}</p>
-                        <p><strong>Platform UUID:</strong> {{ calendar_event.platform_uuid }}</p>
+                        <p><strong>ID:</strong> 
+                            <span class="truncated-field" title="{{ calendar_event.object_id }}">{{ calendar_event.object_id }}</span>
+                        </p>
+                        <p><strong>Platform UUID:</strong> 
+                            <span class="truncated-field" title="{{ calendar_event.platform_uuid }}">{{ calendar_event.platform_uuid }}</span>
+                        </p>
                         {% if calendar_event.ical_uid %}
-                            <p><strong>iCal UID:</strong> {{ calendar_event.ical_uid }}</p>
+                            <p><strong>iCal UID:</strong> 
+                                <span class="truncated-field" title="{{ calendar_event.ical_uid }}">{{ calendar_event.ical_uid }}</span>
+                            </p>
                         {% endif %}                        
                         {% if calendar_event.attendees %}
                         <p><strong>Attendees:</strong> 
