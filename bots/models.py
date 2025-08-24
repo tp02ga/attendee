@@ -990,10 +990,14 @@ class BotEventManager:
         },
         BotEventTypes.BOT_JOINED_BREAKOUT_ROOM: {
             "from": BotStates.JOINING_BREAKOUT_ROOM,
+            # This is a special case where the to state depends on the current recording's state, so we specify a function
+            # instead of a constant
             "to": BotEventTransitionFunctions.get_to_state_for_bot_breakout_room_event,
         },
         BotEventTypes.BOT_LEFT_BREAKOUT_ROOM: {
             "from": BotStates.LEAVING_BREAKOUT_ROOM,
+            # This is a special case where the to state depends on the current recording's state, so we specify a function
+            # instead of a constant
             "to": BotEventTransitionFunctions.get_to_state_for_bot_breakout_room_event,
         },
         BotEventTypes.BOT_BEGAN_JOINING_BREAKOUT_ROOM: {
