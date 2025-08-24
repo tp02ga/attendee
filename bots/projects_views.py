@@ -556,10 +556,7 @@ class ProjectCalendarEventDetailView(LoginRequiredMixin, ProjectUrlContextMixin,
     def get(self, request, object_id, calendar_object_id, event_object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
 
-        try:
-            calendar_event = get_calendar_event_for_user(user=request.user, calendar_event_object_id=event_object_id)
-        except PermissionDenied:
-            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+        calendar_event = get_calendar_event_for_user(user=request.user, calendar_event_object_id=event_object_id)
 
         # Verify the calendar event belongs to the specified calendar
         if calendar_event.calendar.object_id != calendar_object_id:
