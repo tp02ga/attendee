@@ -523,6 +523,10 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
         if not calendar:
             return redirect("bots:project-calendars", object_id=object_id)
 
+        # Check if project from url is the same as the calendar's project
+        if calendar.project.object_id != object_id:
+            return redirect("bots:project-calendars", object_id=object_id)
+
         # Continue with normal ListView processing
         return super().get(request, object_id, calendar_object_id)
 
@@ -559,6 +563,10 @@ class ProjectCalendarEventDetailView(LoginRequiredMixin, ProjectUrlContextMixin,
 
         # Verify the calendar event belongs to the specified calendar
         if calendar_event.calendar.object_id != calendar_object_id:
+            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+
+        # Check if project from url is the same as the calendar's project
+        if calendar_event.calendar.project.object_id != object_id:
             return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
 
         # Get any bots that were created for this calendar event
