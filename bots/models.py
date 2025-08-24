@@ -44,6 +44,9 @@ class Project(models.Model):
     def users_with_access(self):
         return self.organization.users.filter(is_active=True).filter(Q(project_accesses__project=self) | Q(role=UserRole.ADMIN))
 
+    def concurrent_bots_limit(self):
+        return int(os.getenv("CONCURRENT_BOTS_LIMIT", 2500))
+
     def save(self, *args, **kwargs):
         if not self.object_id:
             # Generate a random 16-character string
@@ -248,6 +251,10 @@ class BotStates(models.IntegerChoices):
     @classmethod
     def post_meeting_states(cls):
         return [cls.FATAL_ERROR, cls.ENDED, cls.DATA_DELETED]
+
+    @classmethod
+    def pre_meeting_states(cls):
+        return [cls.READY, cls.SCHEDULED, cls.STAGED]
 
 
 class RecordingFormats(models.TextChoices):
@@ -1015,6 +1022,22 @@ class BotEventManager:
         for state in BotStates.post_meeting_states():
             q_filter |= models.Q(state=state)
         return q_filter
+
+    @classmethod
+    def get_pre_meeting_states_q_filter(cls):
+        """Returns a Q object to filter for pre meeting states"""
+        q_filter = models.Q()
+        for state in BotStates.pre_meeting_states():
+            q_filter |= models.Q(state=state)
+        return q_filter
+
+    @classmethod
+    def get_in_meeting_states_q_filter(cls):
+        """Returns a Q object to filter for in meeting states"""
+        # In meeting states are all states that are not pre-meeting or post-meeting
+        pre_meeting_q = cls.get_pre_meeting_states_q_filter()
+        post_meeting_q = cls.get_post_meeting_states_q_filter()
+        return ~(pre_meeting_q | post_meeting_q)
 
     @classmethod
     def after_new_state_is_joined_recording(cls, bot: Bot, new_state: BotStates):
