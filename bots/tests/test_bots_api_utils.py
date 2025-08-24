@@ -591,7 +591,7 @@ class TestConcurrentBotLimit(TestCase):
 
         error = validate_bot_concurrency_limit(self.project)
         self.assertIsNotNone(error)
-        self.assertEqual(error["error"], "You have exceeded the maximum number of concurrent bots (25) for your account. Please reach out to customer support to increase the limit.")
+        self.assertEqual(error["error"], "You have exceeded the maximum number of concurrent bots (3) for your account. Please reach out to customer support to increase the limit.")
         mock_limit.assert_called_once()
 
     @patch("bots.models.Project.concurrent_bots_limit")

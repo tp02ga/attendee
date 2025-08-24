@@ -108,9 +108,10 @@ def validate_meeting_url_and_credentials(meeting_url, project):
 
 def validate_bot_concurrency_limit(project):
     active_bots_count = Bot.objects.filter(project=project).filter(BotEventManager.get_in_meeting_states_q_filter()).count()
-    if active_bots_count >= project.concurrent_bots_limit():
-        logger.error(f"Project {project.object_id} has exceeded the maximum number of concurrent bots ({project.concurrent_bots_limit()}).")
-        return {"error": f"You have exceeded the maximum number of concurrent bots ({project.concurrent_bots_limit()}) for your account. Please reach out to customer support to increase the limit."}
+    concurrent_bots_limit = project.concurrent_bots_limit()
+    if active_bots_count >= concurrent_bots_limit:
+        logger.error(f"Project {project.object_id} has exceeded the maximum number of concurrent bots ({concurrent_bots_limit}).")
+        return {"error": f"You have exceeded the maximum number of concurrent bots ({concurrent_bots_limit}) for your account. Please reach out to customer support to increase the limit."}
 
     return None
 
