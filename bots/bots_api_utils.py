@@ -106,6 +106,15 @@ def validate_meeting_url_and_credentials(meeting_url, project):
     return None
 
 
+def validate_bot_concurrency_limit(project):
+    active_bots_count = Bot.objects.filter(project=project).filter(BotEventManager.get_in_meeting_states_q_filter()).count()
+    if active_bots_count >= project.concurrent_bots_limit():
+        logger.error(f"Project {project.object_id} has exceeded the maximum number of concurrent bots (25).")
+        return {"error": "You have exceeded the maximum number of concurrent bots (25) for your account. Please reach out to customer support to increase the limit."}
+
+    return None
+
+
 # Returns a tuple of (calendar_event, error)
 # Side effect: sets the meeting_url and join_at in the data dictionary if the calendar event is found
 def initialize_bot_creation_data_from_calendar_event(data, project):
@@ -187,6 +196,10 @@ def create_bot(data: dict, source: BotCreationSource, project: Project) -> tuple
     initial_state = BotStates.SCHEDULED if join_at else BotStates.READY
 
     error = validate_external_media_storage_settings(external_media_storage_settings, project)
+    if error:
+        return None, error
+
+    error = validate_bot_concurrency_limit(project)
     if error:
         return None, error
 
