@@ -45,7 +45,7 @@ class Project(models.Model):
         return self.organization.users.filter(is_active=True).filter(Q(project_accesses__project=self) | Q(role=UserRole.ADMIN))
 
     def concurrent_bots_limit(self):
-        return 25
+        return int(os.getenv("CONCURRENT_BOTS_LIMIT", 2500))
 
     def save(self, *args, **kwargs):
         if not self.object_id:
