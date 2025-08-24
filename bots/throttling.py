@@ -20,7 +20,6 @@ class ProjectRateThrottle(SimpleRateThrottle):
 
 class ProjectPostThrottle(ProjectRateThrottle):
     scope = "project_post"
-    rate = "30/min"
 
     def allow_request(self, request, view):
         if request.method != "POST":
