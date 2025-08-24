@@ -48,6 +48,7 @@ from .models import (
     WebhookSecret,
     WebhookSubscription,
     WebhookTriggerTypes,
+    CalendarEvent,
 )
 from .stripe_utils import process_checkout_session_completed
 from .utils import generate_recordings_json_for_bot_detail_view
@@ -85,6 +86,14 @@ def get_calendar_for_user(user, calendar_object_id):
     if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=calendar.project, user=user).exists():
         raise PermissionDenied
     return calendar
+
+
+def get_calendar_event_for_user(user, calendar_event_object_id):
+    calendar_event = get_object_or_404(CalendarEvent, object_id=calendar_event_object_id, calendar__project__organization=user.organization)
+    # If you're an admin you can access any calendar event in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=calendar_event.calendar.project, user=user).exists():
+        raise PermissionDenied
+    return calendar_event
 
 
 class AdminRequiredMixin(LoginRequiredMixin):
@@ -537,6 +546,37 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
         )
 
         return context
+
+
+class ProjectCalendarEventDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id, calendar_object_id, event_object_id):
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+        
+        try:
+            calendar_event = get_calendar_event_for_user(user=request.user, calendar_event_object_id=event_object_id)
+        except PermissionDenied:
+            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+        
+        # Verify the calendar event belongs to the specified calendar
+        if calendar_event.calendar.object_id != calendar_object_id:
+            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+        
+        # Get any bots that were created for this calendar event
+        bots_for_event = Bot.objects.filter(calendar_event=calendar_event).order_by("-created_at")
+        
+        context = self.get_project_context(object_id, project)
+        context.update(
+            {
+                "calendar": calendar_event.calendar,
+                "calendar_event": calendar_event,
+                "bots_for_event": bots_for_event,
+                "CalendarStates": CalendarStates,
+                "CalendarPlatform": CalendarPlatform,
+                "BotStates": BotStates,
+            }
+        )
+
+        return render(request, "projects/project_calendar_event_detail.html", context)
 
 
 class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
