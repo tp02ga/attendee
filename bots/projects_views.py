@@ -29,6 +29,7 @@ from .models import (
     BotEventTypes,
     BotStates,
     Calendar,
+    CalendarEvent,
     CalendarPlatform,
     CalendarStates,
     ChatMessage,
@@ -48,7 +49,6 @@ from .models import (
     WebhookSecret,
     WebhookSubscription,
     WebhookTriggerTypes,
-    CalendarEvent,
 )
 from .stripe_utils import process_checkout_session_completed
 from .utils import generate_recordings_json_for_bot_detail_view
@@ -502,7 +502,7 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
 
     def get_calendar(self):
         """Get the calendar object, cached for multiple calls"""
-        if not hasattr(self, '_calendar'):
+        if not hasattr(self, "_calendar"):
             try:
                 self._calendar = get_calendar_for_user(user=self.request.user, calendar_object_id=self.kwargs["calendar_object_id"])
             except PermissionDenied:
@@ -513,7 +513,7 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
         calendar = self.get_calendar()
         if not calendar:
             return []
-        
+
         # Get calendar events for this calendar, ordered by start time (most recent first)
         return calendar.events.all().order_by("-start_time")
 
@@ -522,7 +522,7 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
         calendar = self.get_calendar()
         if not calendar:
             return redirect("bots:project-calendars", object_id=object_id)
-        
+
         # Continue with normal ListView processing
         return super().get(request, object_id, calendar_object_id)
 
@@ -551,19 +551,19 @@ class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, List
 class ProjectCalendarEventDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
     def get(self, request, object_id, calendar_object_id, event_object_id):
         project = get_project_for_user(user=request.user, project_object_id=object_id)
-        
+
         try:
             calendar_event = get_calendar_event_for_user(user=request.user, calendar_event_object_id=event_object_id)
         except PermissionDenied:
             return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
-        
+
         # Verify the calendar event belongs to the specified calendar
         if calendar_event.calendar.object_id != calendar_object_id:
             return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
-        
+
         # Get any bots that were created for this calendar event
         bots_for_event = Bot.objects.filter(calendar_event=calendar_event).order_by("-created_at")
-        
+
         context = self.get_project_context(object_id, project)
         context.update(
             {
