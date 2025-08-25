@@ -77,6 +77,7 @@ def autopay_charge(self, organization_id):
             description=f"Autopay charge for {credit_amount} Attendee credits",
             metadata={"organization_id": str(organization.id), "credit_amount": str(credit_amount), "autopay": "true"},
             api_key=os.getenv("STRIPE_SECRET_KEY"),
+            idempotency_key=self.request.id,
         )
 
         # Check if payment was not successful
