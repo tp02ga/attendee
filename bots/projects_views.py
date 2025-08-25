@@ -887,6 +887,23 @@ class ProjectBillingView(AdminRequiredMixin, ProjectUrlContextMixin, ListView):
         context = super().get_context_data(**kwargs)
         project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
         context.update(self.get_project_context(self.kwargs["object_id"], project))
+        
+        # Check if organization has a valid payment method
+        has_payment_method = False
+        if project.organization.autopay_stripe_customer_id:
+            try:
+                # Retrieve the customer to check for default payment method
+                customer = stripe.Customer.retrieve(
+                    project.organization.autopay_stripe_customer_id,
+                    api_key=os.getenv("STRIPE_SECRET_KEY"),
+                )
+                # Check if customer has a default payment method
+                has_payment_method = customer.invoice_settings.default_payment_method is not None
+            except stripe.error.StripeError:
+                # If there's an error querying Stripe, assume no payment method
+                has_payment_method = False
+        
+        context['has_payment_method'] = has_payment_method
         return context
 
 
@@ -1031,6 +1048,59 @@ class EditProjectView(AdminRequiredMixin, View):
         project.save()
 
         return HttpResponse("ok", status=200)
+
+
+class ProjectAutopayStripePortalView(AdminRequiredMixin, View):
+    def post(self, request, object_id):
+        """Create or update Stripe customer and redirect to billing portal for payment method setup."""
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+        organization = project.organization
+        
+        try:
+            # Check if organization already has a Stripe customer
+            if not organization.autopay_stripe_customer_id:
+                # Create a new Stripe customer
+                customer = stripe.Customer.create(
+                    email=request.user.email,
+                    name=organization.name,
+                    metadata={
+                        'organization_id': str(organization.id),
+                        'user_id': str(request.user.id),
+                    },
+                    api_key=os.getenv("STRIPE_SECRET_KEY"),
+                )
+                
+                # Save the customer ID to the organization
+                organization.autopay_stripe_customer_id = customer.id
+                organization.save()
+            
+            # Check if customer already has a default payment method
+            customer = stripe.Customer.retrieve(
+                organization.autopay_stripe_customer_id,
+                api_key=os.getenv("STRIPE_SECRET_KEY"),
+            )
+            has_default_payment_method = customer.invoice_settings.default_payment_method is not None
+            
+            # Create billing portal session with conditional flow_data
+            session_params = {
+                'customer': organization.autopay_stripe_customer_id,
+                'return_url': request.build_absolute_uri(reverse('projects:project-billing', args=[project.object_id])),
+                'api_key': os.getenv("STRIPE_SECRET_KEY"),
+            }
+            
+            # Only add flow_data if customer doesn't have a default payment method
+            if not has_default_payment_method:
+                session_params['flow_data'] = {"type": "payment_method_update"}
+            
+            session = stripe.billing_portal.Session.create(**session_params)
+            
+            # Redirect to the billing portal
+            return redirect(session.url)
+            
+        except stripe.error.StripeError as e:
+            return HttpResponse(f"Error setting up payment method: {e}", status=400)
+        except Exception as e:
+            return HttpResponse(f"An error occurred: {e}", status=500)
 
 
 class ProjectAutopayView(AdminRequiredMixin, View):

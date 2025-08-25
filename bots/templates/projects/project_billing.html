@@ -14,10 +14,35 @@
             
             
             {% if project.organization.autopay_enabled %}
-            <p class="text-success small mb-2"><i class="bi bi-check-circle me-1"></i>Autopay is enabled</p>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#autopayModal">
-                Modify Autopay
-            </button>
+            <div class="d-flex align-items-start mb-3">
+                <div>
+                    {% if not has_payment_method %}
+                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Please add a payment method for autopay.</p>
+                        <div class="d-flex gap-2">
+                            <form method="post" action="{% url 'projects:project-autopay-stripe-portal' project.object_id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-credit-card me-1"></i>Add Payment Method
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#autopayModal">
+                                Configure Autopay
+                            </button>
+                        </div>
+                    {% else %}
+                        <p class="text-success small mb-2"><i class="bi bi-check-circle me-1"></i>Autopay is enabled</p>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#autopayModal">
+                            Configure Autopay
+                        </button>
+                        <form method="post" action="{% url 'projects:project-autopay-stripe-portal' project.object_id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-credit-card me-1"></i>Edit Payment Method
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
             {% else %}
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#purchaseCreditsModal">
                 Purchase Credits
