@@ -1,5 +1,6 @@
 import logging
 import math
+import uuid
 
 from django.http import HttpResponse
 
@@ -73,8 +74,9 @@ def process_payment_intent_succeeded(payment_intent):
         organization.autopay_charge_failure_data = None
         organization.save()
     except Exception as e:
-        logger.error(f"Error creating credit transaction: {e}")
-        return HttpResponse(f"Error creating credit transaction: {e}", status=400)
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error creating credit transaction (error_id={error_id}): {e}")
+        return HttpResponse(f"Error creating credit transaction. Error ID: {error_id}", status=400)
 
 
 def process_checkout_session_completed(checkout_session):
@@ -118,5 +120,6 @@ def process_checkout_session_completed(checkout_session):
             description=f"Stripe payment of ${amount_usd:.2f}",
         )
     except Exception as e:
-        logger.error(f"Error creating credit transaction: {e}")
-        return HttpResponse(f"Error creating credit transaction: {e}", status=400)
+        error_id = str(uuid.uuid4())
+        logger.error(f"Error creating credit transaction (error_id={error_id}): {e}")
+        return HttpResponse(f"Error creating credit transaction. Error ID: {error_id}", status=400)

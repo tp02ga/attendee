@@ -1081,9 +1081,13 @@ class ProjectAutopayStripePortalView(AdminRequiredMixin, View):
             return redirect(session.url)
 
         except stripe.error.StripeError as e:
-            return HttpResponse(f"Error setting up payment method: {e}", status=400)
+            error_id = str(uuid.uuid4())
+            logger.error(f"Error setting up payment method (error_id={error_id}): {e}")
+            return HttpResponse(f"Error setting up payment method. Error ID: {error_id}", status=400)
         except Exception as e:
-            return HttpResponse(f"An error occurred: {e}", status=500)
+            error_id = str(uuid.uuid4())
+            logger.error(f"An error occurred setting up payment method (error_id={error_id}): {e}")
+            return HttpResponse(f"An error occurred. Error ID: {error_id}", status=500)
 
 
 class ProjectAutopayView(AdminRequiredMixin, View):
@@ -1122,8 +1126,8 @@ class ProjectAutopayView(AdminRequiredMixin, View):
                 return HttpResponse("autopay_amount_dollars must be a positive number", status=400)
             if amount_dollars < 1:
                 return HttpResponse("autopay_amount_dollars must be at least $1", status=400)
-            if amount_dollars > 100000:
-                return HttpResponse("autopay_amount_dollars cannot exceed $100,000", status=400)
+            if amount_dollars > 10000:
+                return HttpResponse("autopay_amount_dollars cannot exceed $10,000", status=400)
             # Convert dollars to cents
             organization.autopay_amount_to_purchase_cents = int(amount_dollars * 100)
 
