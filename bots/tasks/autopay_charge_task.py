@@ -5,10 +5,9 @@ import stripe
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
-from bots.stripe_utils import credit_amount_for_purchase_amount_dollars
 
 from accounts.models import Organization
-from bots.models import CreditTransaction, CreditTransactionManager
+from bots.stripe_utils import credit_amount_for_purchase_amount_dollars
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +75,7 @@ def autopay_charge(self, organization_id):
             off_session=True,
             confirm=True,
             description=f"Autopay charge for {credit_amount} Attendee credits",
-            metadata={
-                "organization_id": str(organization.id),
-                "credit_amount": str(credit_amount),
-                "autopay": "true"
-            },
+            metadata={"organization_id": str(organization.id), "credit_amount": str(credit_amount), "autopay": "true"},
             api_key=os.getenv("STRIPE_SECRET_KEY"),
         )
 
@@ -120,6 +115,7 @@ def autopay_charge(self, organization_id):
         error_msg = f"Unexpected error during autopay charge: {str(e)}"
         logger.error(f"Organization {organization.id}: {error_msg}")
         raise
+
 
 def enqueue_autopay_charge_task(organization: Organization):
     """Enqueue a create autopay charge task for an organization."""

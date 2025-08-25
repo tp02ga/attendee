@@ -9,6 +9,7 @@ from .models import CreditTransaction, CreditTransactionManager
 
 logger = logging.getLogger(__name__)
 
+
 # Compute how many Attendee credits you get for a given purchase amount in dollars
 def credit_amount_for_purchase_amount_dollars(purchase_amount_dollars):
     # Calculate credits based on tiered pricing
@@ -33,7 +34,6 @@ def credit_amount_for_purchase_amount_dollars(purchase_amount_dollars):
 
 
 def process_payment_intent_succeeded(payment_intent):
-
     if payment_intent.metadata.get("autopay") != "true":
         # This is not an autopay charge, so we don't need to do anything
         logger.info(f"Payment intent {payment_intent.id} is not an autopay charge, so we don't need to do anything")
@@ -75,7 +75,8 @@ def process_payment_intent_succeeded(payment_intent):
     except Exception as e:
         logger.error(f"Error creating credit transaction: {e}")
         return HttpResponse(f"Error creating credit transaction: {e}", status=400)
-        
+
+
 def process_checkout_session_completed(checkout_session):
     # Get the organization ID from the metadata
     organization_id = checkout_session.metadata.get("organization_id")

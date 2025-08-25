@@ -1,7 +1,6 @@
 import base64
 import json
 import logging
-import math
 import os
 import uuid
 
@@ -50,7 +49,7 @@ from .models import (
     WebhookSubscription,
     WebhookTriggerTypes,
 )
-from .stripe_utils import process_checkout_session_completed, credit_amount_for_purchase_amount_dollars
+from .stripe_utils import credit_amount_for_purchase_amount_dollars, process_checkout_session_completed
 from .utils import generate_recordings_json_for_bot_detail_view
 
 logger = logging.getLogger(__name__)
