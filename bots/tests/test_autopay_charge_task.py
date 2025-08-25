@@ -123,8 +123,7 @@ class AutopayChargeTaskTestCase(TestCase):
         mock_payment_intent_create.side_effect = card_error
 
         with patch.dict(os.environ, {"STRIPE_SECRET_KEY": "sk_test_key"}):
-            with self.assertRaises(stripe.error.CardError):
-                autopay_charge(self.org.id)
+            autopay_charge(self.org.id)
 
         # Refresh organization from database
         self.org.refresh_from_db()
@@ -152,10 +151,7 @@ class AutopayChargeTaskTestCase(TestCase):
         mock_payment_intent_create.return_value = mock_payment_intent
 
         with patch.dict(os.environ, {"STRIPE_SECRET_KEY": "sk_test_key"}):
-            with self.assertRaises(Exception) as context:
-                autopay_charge(self.org.id)
-
-            self.assertIn("Payment intent failed with status: requires_action", str(context.exception))
+            autopay_charge(self.org.id)
 
         # Refresh organization from database
         self.org.refresh_from_db()

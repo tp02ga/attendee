@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
     bind=True,
     retry_backoff=True,  # Enable exponential backoff
     max_retries=3,
-    autoretry_for=(Exception,),
+    autoretry_for=(stripe.error.RateLimitError, stripe.error.APIConnectionError, stripe.error.APIError, TimeoutError),
 )
 def autopay_charge(self, organization_id):
     """
@@ -94,7 +94,7 @@ def autopay_charge(self, organization_id):
                 "timestamp": timezone.now().isoformat(),
             }
             organization.save()
-            raise Exception(error_msg)
+            return
 
     except stripe.error.CardError as e:
         # Card was declined
@@ -108,7 +108,13 @@ def autopay_charge(self, organization_id):
             "timestamp": timezone.now().isoformat(),
         }
         organization.save()
-        raise
+        return
+
+    except stripe.error.InvalidRequestError as e:
+        # our params/Stripe state problem; don't retry blindly
+        organization.autopay_charge_failure_data = {"error": str(e), "error_type": "InvalidRequest", "timestamp": timezone.now().isoformat()}
+        organization.save()
+        return
 
     except Exception as e:
         # Any other unexpected error
