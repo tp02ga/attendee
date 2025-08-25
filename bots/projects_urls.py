@@ -101,6 +101,11 @@ urlpatterns = [
         name="checkout-success",
     ),
     path(
+        "<str:object_id>/billing/autopay/",
+        projects_views.ProjectAutopayView.as_view(),
+        name="project-autopay",
+    ),
+    path(
         "<str:object_id>/team/",
         projects_views.ProjectTeamView.as_view(),
         name="project-team",
