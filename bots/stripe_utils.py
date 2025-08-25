@@ -34,6 +34,31 @@ def credit_amount_for_purchase_amount_dollars(purchase_amount_dollars):
     return credit_amount
 
 
+def process_customer_updated(customer, customer_previous_attributes):
+    # Get the organization ID from the metadata
+    organization_id = customer.metadata.get("organization_id")
+    if not organization_id:
+        logger.error("No organization ID found in customer metadata")
+        return
+
+    organization = Organization.objects.get(id=organization_id)
+    if not organization:
+        logger.error(f"Organization {organization_id} not found")
+        return
+
+    # Check if their payment method was updated
+    logger.info(f"Customer {customer.id} updated")
+    logger.info(f"Customer previous attributes: {customer_previous_attributes}")
+    if customer_previous_attributes.get("invoice_settings", {}).get("default_payment_method"):
+        logger.info(f"Customer {customer.id} payment method updated so resetting autopay_charge_failure_data and autopay_charge_task_enqueued_at")
+        organization.autopay_charge_failure_data = None
+        organization.autopay_charge_task_enqueued_at = None
+        organization.save()
+        return
+
+    logger.info(f"Customer {customer.id} payment method not updated so not doing anything")
+
+
 def process_payment_intent_succeeded(payment_intent):
     if payment_intent.metadata.get("autopay") != "true":
         # This is not an autopay charge, so we don't need to do anything

@@ -29,6 +29,19 @@
                                 Configure Autopay
                             </button>
                         </div>
+                    {% elif project.organization.autopay_charge_failure_data %}
+                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Autopay failed. Please add a valid payment method.</p>
+                        <div class="d-flex gap-2">
+                            <form method="post" action="{% url 'projects:project-autopay-stripe-portal' project.object_id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-credit-card me-1"></i>Edit Payment Method
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#autopayModal">
+                                Configure Autopay
+                            </button>
+                        </div>
                     {% else %}
                         <p class="text-success small mb-2"><i class="bi bi-check-circle me-1"></i>Autopay is enabled</p>
                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#autopayModal">
@@ -129,7 +142,7 @@
                                             <span class="input-group-text">credits</span>
                                         </div>
                                         <div class="form-text">
-                                            Autopay will trigger when your balance drops to this level
+                                            Autopay will trigger when your balance drops below this level
                                         </div>
                                     </div>
                                     
