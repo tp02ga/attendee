@@ -466,7 +466,7 @@ class StripeBillingTestCase(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "autopay_threshold_credits must be a positive number")
+        self.assertEqual(response.content.decode(), "Credit threshold must be a positive number")
 
         # Test zero value
         data = {"autopay_threshold_credits": 0}
@@ -476,7 +476,7 @@ class StripeBillingTestCase(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "autopay_threshold_credits must be a positive number")
+        self.assertEqual(response.content.decode(), "Credit threshold must be a positive number")
 
         # Test too high value
         data = {"autopay_threshold_credits": 15000}
@@ -486,7 +486,7 @@ class StripeBillingTestCase(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "autopay_threshold_credits cannot exceed 10,000 credits")
+        self.assertEqual(response.content.decode(), "Credit threshold cannot exceed 10,000 credits")
 
         # Test non-numeric value
         data = {"autopay_threshold_credits": "not_a_number"}
@@ -496,7 +496,7 @@ class StripeBillingTestCase(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.content.decode(), "autopay_threshold_credits must be a positive number")
+        self.assertEqual(response.content.decode(), "Credit threshold must be a positive number")
 
     def test_autopay_regular_user_forbidden(self):
         """Test that regular users cannot access the autopay PATCH view"""
