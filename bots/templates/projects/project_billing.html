@@ -17,7 +17,7 @@
             <div class="d-flex align-items-start mb-3">
                 <div>
                     {% if not has_payment_method %}
-                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Please add a payment method for autopay.</p>
+                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Please add a payment method for Autopay.</p>
                         <div class="d-flex gap-2">
                             <form method="post" action="{% url 'projects:project-autopay-stripe-portal' project.object_id %}" class="d-inline">
                                 {% csrf_token %}
