@@ -222,9 +222,9 @@ class StripeBillingTestCase(TestCase):
         mock_payment_intent.id = "pi_test_autopay"
         mock_payment_intent.amount = 5000  # $50.00 in cents
         mock_payment_intent.metadata = {
-            "organization_id": str(self.org.id), 
+            "organization_id": str(self.org.id),
             "credit_amount": "100",
-            "autopay": "true"  # This marks it as an autopay charge
+            "autopay": "true",  # This marks it as an autopay charge
         }
 
         # Mock the Stripe event
@@ -255,10 +255,10 @@ class StripeBillingTestCase(TestCase):
         self.assertEqual(transaction.centicredits_delta, 10000, "Transaction should add 100 credits (10000 centicredits)")
         self.assertEqual(transaction.centicredits_before, initial_credits, "Before credits should match initial balance")
         self.assertEqual(transaction.centicredits_after, initial_credits + 10000, "After credits should be initial + 10000")
-        
+
         # Verify the description indicates this was an autopay charge
         self.assertIn("Autopay", transaction.description)
-        
+
         # Verify autopay failure data was cleared
         self.assertIsNone(self.org.autopay_charge_failure_data)
 
