@@ -137,7 +137,7 @@
                                         <label for="autopayThreshold" class="form-label">Credit Threshold</label>
                                         <div class="input-group">
                                             <input type="number" class="form-control" id="autopayThreshold" 
-                                                   min="1" max="10000" step="0.01" 
+                                                   min="1" max="10000" step="1" 
                                                    value="{{ project.organization.autopay_threshold_credits|floatformat:2 }}">
                                             <span class="input-group-text">credits</span>
                                         </div>
@@ -151,7 +151,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
                                             <input type="number" class="form-control" id="autopayAmount" 
-                                                   min="1" max="100000" step="0.01" 
+                                                   min="10" max="10000" step="1" 
                                                    value="{{ project.organization.autopay_amount_to_purchase_dollars|floatformat:2 }}">
                                         </div>
                                         <div class="form-text">
@@ -164,6 +164,10 @@
                                     </div>
                                 </div>
                             </form>
+                        </div>
+                        <div id="autopayErrorAlert" class="alert alert-danger d-none mx-3 mb-0" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <span id="autopayErrorMessage"></span>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -349,19 +353,41 @@
             autopayAmount.addEventListener('input', updateDisplayValues);
         }
         
+        // Function to show/hide error alert
+        function showAutopayError(message) {
+            const errorAlert = document.getElementById('autopayErrorAlert');
+            const errorMessage = document.getElementById('autopayErrorMessage');
+            if (errorAlert && errorMessage) {
+                errorMessage.textContent = message;
+                errorAlert.classList.remove('d-none');
+            }
+        }
+        
+        function hideAutopayError() {
+            const errorAlert = document.getElementById('autopayErrorAlert');
+            if (errorAlert) {
+                errorAlert.classList.add('d-none');
+            }
+        }
+        
+        // Hide error when modal is opened
+        const autopayModal = document.getElementById('autopayModal');
+        if (autopayModal) {
+            autopayModal.addEventListener('shown.bs.modal', function() {
+                hideAutopayError();
+            });
+        }
+        
         // Handle save button click
         if (saveAutopayBtn) {
             saveAutopayBtn.addEventListener('click', async function() {
+                // Hide any previous errors
+                hideAutopayError();
+                
                 const enabled = autopayEnabled.checked;
                 const threshold = parseFloat(autopayThreshold.value) || 0;
                 const amount = parseFloat(autopayAmount.value) || 0;
-                
-                // Validation
-                if (enabled && (threshold <= 0 || amount <= 0)) {
-                    alert('Please enter valid positive values for threshold and amount.');
-                    return;
-                }
-                
+                                
                 const data = {
                     autopay_enabled: enabled
                 };
@@ -388,10 +414,10 @@
                         location.reload();
                     } else {
                         const errorText = await response.text();
-                        alert('Error saving autopay settings: ' + errorText);
+                        showAutopayError(errorText);
                     }
                 } catch (error) {
-                    alert('Error saving autopay settings: ' + error.message);
+                    showAutopayError('Error saving autopay settings: ' + error.message);
                 }
             });
         }

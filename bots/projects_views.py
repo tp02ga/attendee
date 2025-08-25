@@ -1113,9 +1113,9 @@ class ProjectAutopayView(AdminRequiredMixin, View):
         if "autopay_threshold_credits" in data:
             threshold_credits = data["autopay_threshold_credits"]
             if not isinstance(threshold_credits, (int, float)) or threshold_credits <= 0:
-                return HttpResponse("autopay_threshold_credits must be a positive number", status=400)
+                return HttpResponse("Credit threshold must be a positive number", status=400)
             if threshold_credits > 10000:
-                return HttpResponse("autopay_threshold_credits cannot exceed 10,000 credits", status=400)
+                return HttpResponse("Credit threshold cannot exceed 10,000 credits", status=400)
             # Convert credits to centicredits
             organization.autopay_threshold_centricredits = int(threshold_credits * 100)
 
@@ -1123,11 +1123,11 @@ class ProjectAutopayView(AdminRequiredMixin, View):
         if "autopay_amount_dollars" in data:
             amount_dollars = data["autopay_amount_dollars"]
             if not isinstance(amount_dollars, (int, float)) or amount_dollars <= 0:
-                return HttpResponse("autopay_amount_dollars must be a positive number", status=400)
-            if amount_dollars < 1:
-                return HttpResponse("autopay_amount_dollars must be at least $1", status=400)
+                return HttpResponse("Purchase amount must be a positive number", status=400)
+            if amount_dollars < 10:
+                return HttpResponse("Purchase amount must be at least $10", status=400)
             if amount_dollars > 10000:
-                return HttpResponse("autopay_amount_dollars cannot exceed $10,000", status=400)
+                return HttpResponse("Purchase amount cannot exceed $10,000", status=400)
             # Convert dollars to cents
             organization.autopay_amount_to_purchase_cents = int(amount_dollars * 100)
 
