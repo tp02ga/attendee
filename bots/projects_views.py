@@ -28,6 +28,10 @@ from .models import (
     BotEventSubTypes,
     BotEventTypes,
     BotStates,
+    Calendar,
+    CalendarEvent,
+    CalendarPlatform,
+    CalendarStates,
     ChatMessage,
     Credentials,
     CreditTransaction,
@@ -74,6 +78,22 @@ def get_api_key_for_user(user, api_key_object_id):
     if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=api_key.project, user=user).exists():
         raise PermissionDenied
     return api_key
+
+
+def get_calendar_for_user(user, calendar_object_id):
+    calendar = get_object_or_404(Calendar, object_id=calendar_object_id, project__organization=user.organization)
+    # If you're an admin you can access any calendar in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=calendar.project, user=user).exists():
+        raise PermissionDenied
+    return calendar
+
+
+def get_calendar_event_for_user(user, calendar_event_object_id):
+    calendar_event = get_object_or_404(CalendarEvent, object_id=calendar_event_object_id, calendar__project__organization=user.organization)
+    # If you're an admin you can access any calendar event in the organization
+    if user.role != UserRole.ADMIN and not ProjectAccess.objects.filter(project=calendar_event.calendar.project, user=user).exists():
+        raise PermissionDenied
+    return calendar_event
 
 
 class AdminRequiredMixin(LoginRequiredMixin):
@@ -401,6 +421,167 @@ class ProjectBotsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
         context["has_scheduled_bots"] = any(bot.join_at is not None for bot in context["bots"])
 
         return context
+
+
+class ProjectCalendarsView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_calendars.html"
+    context_object_name = "calendars"
+    paginate_by = 20
+
+    def get_queryset(self):
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+
+        # Start with the base queryset
+        queryset = Calendar.objects.filter(project=project)
+
+        # Apply date filters if provided
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+
+        if start_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        if end_date:
+            # Add 1 day to include the end date fully
+            from datetime import datetime, timedelta
+
+            try:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+                end_date_obj = end_date_obj + timedelta(days=1)
+                queryset = queryset.filter(created_at__lt=end_date_obj)
+            except (ValueError, TypeError):
+                # Handle invalid date format
+                pass
+
+        # Apply state filters if provided
+        states = self.request.GET.getlist("states")
+        if states:
+            # Convert string values to integers
+            try:
+                state_values = [int(state) for state in states if state.isdigit()]
+                if state_values:
+                    queryset = queryset.filter(state__in=state_values)
+            except (ValueError, TypeError):
+                # Handle invalid state values
+                pass
+
+        # Apply deduplication key filter if provided
+        deduplication_key = self.request.GET.get("deduplication_key")
+        if deduplication_key:
+            # Filter for calendars with specific deduplication key
+            queryset = queryset.filter(deduplication_key__icontains=deduplication_key)
+
+        # Order by most recently created
+        queryset = queryset.order_by("-created_at")
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
+
+        # Add CalendarStates and CalendarPlatform for the template
+        context["CalendarStates"] = CalendarStates
+        context["CalendarPlatform"] = CalendarPlatform
+
+        # Add filter parameters to context for maintaining state
+        context["filter_params"] = {
+            "start_date": self.request.GET.get("start_date", ""),
+            "end_date": self.request.GET.get("end_date", ""),
+            "states": self.request.GET.getlist("states"),
+            "deduplication_key": self.request.GET.get("deduplication_key", ""),
+        }
+
+        return context
+
+
+class ProjectCalendarDetailView(LoginRequiredMixin, ProjectUrlContextMixin, ListView):
+    template_name = "projects/project_calendar_detail.html"
+    context_object_name = "calendar_events"
+    paginate_by = 20
+
+    def get_calendar(self):
+        """Get the calendar object, cached for multiple calls"""
+        if not hasattr(self, "_calendar"):
+            try:
+                self._calendar = get_calendar_for_user(user=self.request.user, calendar_object_id=self.kwargs["calendar_object_id"])
+            except PermissionDenied:
+                self._calendar = None
+        return self._calendar
+
+    def get_queryset(self):
+        calendar = self.get_calendar()
+        if not calendar:
+            return []
+
+        # Get calendar events for this calendar, ordered by start time (most recent first)
+        return calendar.events.all().order_by("-start_time")
+
+    def get(self, request, object_id, calendar_object_id):
+        # Check if calendar exists, if not redirect
+        calendar = self.get_calendar()
+        if not calendar:
+            return redirect("bots:project-calendars", object_id=object_id)
+
+        # Check if project from url is the same as the calendar's project
+        if calendar.project.object_id != object_id:
+            return redirect("bots:project-calendars", object_id=object_id)
+
+        # Continue with normal ListView processing
+        return super().get(request, object_id, calendar_object_id)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        calendar = self.get_calendar()
+        project = get_project_for_user(user=self.request.user, project_object_id=self.kwargs["object_id"])
+
+        # Get webhook delivery attempts for this calendar (from calendar-related webhook subscriptions)
+        webhook_delivery_attempts = WebhookDeliveryAttempt.objects.filter(calendar=calendar).select_related("webhook_subscription").order_by("-created_at")
+
+        context.update(self.get_project_context(self.kwargs["object_id"], project))
+        context.update(
+            {
+                "calendar": calendar,
+                "CalendarStates": CalendarStates,
+                "CalendarPlatform": CalendarPlatform,
+                "webhook_delivery_attempts": webhook_delivery_attempts,
+                "WebhookDeliveryAttemptStatus": WebhookDeliveryAttemptStatus,
+            }
+        )
+
+        return context
+
+
+class ProjectCalendarEventDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
+    def get(self, request, object_id, calendar_object_id, event_object_id):
+        project = get_project_for_user(user=request.user, project_object_id=object_id)
+
+        calendar_event = get_calendar_event_for_user(user=request.user, calendar_event_object_id=event_object_id)
+
+        # Verify the calendar event belongs to the specified calendar
+        if calendar_event.calendar.object_id != calendar_object_id:
+            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+
+        # Check if project from url is the same as the calendar's project
+        if calendar_event.calendar.project.object_id != object_id:
+            return redirect("bots:project-calendar-detail", object_id=object_id, calendar_object_id=calendar_object_id)
+
+        # Get any bots that were created for this calendar event
+        bots_for_event = Bot.objects.filter(calendar_event=calendar_event).order_by("-created_at")
+
+        context = self.get_project_context(object_id, project)
+        context.update(
+            {
+                "calendar": calendar_event.calendar,
+                "calendar_event": calendar_event,
+                "bots_for_event": bots_for_event,
+                "CalendarStates": CalendarStates,
+                "CalendarPlatform": CalendarPlatform,
+                "BotStates": BotStates,
+            }
+        )
+
+        return render(request, "projects/project_calendar_event_detail.html", context)
 
 
 class ProjectBotDetailView(LoginRequiredMixin, ProjectUrlContextMixin, View):
