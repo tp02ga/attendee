@@ -263,6 +263,57 @@ class StripeBillingTestCase(TestCase):
         self.assertIsNone(self.org.autopay_charge_failure_data)
 
     @patch("stripe.Webhook.construct_event")
+    def test_stripe_customer_updated_webhook_payment_method_changed(self, mock_construct_event):
+        """Test customer.updated webhook when payment method is changed"""
+        # Create a webhook client without CSRF protection
+        webhook_client = Client(enforce_csrf_checks=False)
+
+        # Set up organization with autopay failure data and task enqueued timestamp
+        from django.utils import timezone
+
+        self.org.autopay_stripe_customer_id = "cus_test123"
+        self.org.autopay_charge_failure_data = {"error": "card_declined", "attempts": 2}
+        self.org.autopay_charge_task_enqueued_at = timezone.now()
+        self.org.save()
+
+        # Create a mock customer with updated payment method
+        mock_customer = MagicMock()
+        mock_customer.id = "cus_test123"
+        mock_customer.metadata = {"organization_id": str(self.org.id)}
+
+        # Mock the Stripe event with previous_attributes indicating payment method change
+        mock_event = {
+            "type": "customer.updated",
+            "data": {
+                "object": mock_customer,
+                "previous_attributes": {
+                    "invoice_settings": {
+                        "default_payment_method": "pm_old123"  # This indicates payment method changed
+                    }
+                },
+            },
+        }
+
+        mock_construct_event.return_value = mock_event
+
+        # Test the webhook endpoint
+        response = webhook_client.post(
+            reverse("external-webhook-stripe"),
+            data=json.dumps({"type": "customer.updated"}),
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="test_signature",
+        )
+
+        # Check that the webhook processed successfully
+        self.assertEqual(response.status_code, 200)
+        mock_construct_event.assert_called_once()
+
+        # Verify that autopay failure data and task timestamp were cleared
+        self.org.refresh_from_db()
+        self.assertIsNone(self.org.autopay_charge_failure_data)
+        self.assertIsNone(self.org.autopay_charge_task_enqueued_at)
+
+    @patch("stripe.Webhook.construct_event")
     def test_stripe_webhook_error_handling(self, mock_construct_event):
         webhook_client = Client(enforce_csrf_checks=False)
 

@@ -116,7 +116,6 @@ class AutopayChargeTaskTestCase(TestCase):
 
         # Mock card declined error
         card_error = stripe.error.CardError("Your card was declined.", "card_declined", "card_declined")
-        card_error.user_message = "Your card was declined."
         card_error.error = MagicMock()
         card_error.error.message = "Your card was declined."
         card_error.error.code = "card_declined"

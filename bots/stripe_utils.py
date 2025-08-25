@@ -49,6 +49,11 @@ def process_customer_updated(customer, customer_previous_attributes):
     # Check if their payment method was updated
     logger.info(f"Customer {customer.id} updated")
     logger.info(f"Customer previous attributes: {customer_previous_attributes}")
+
+    if organization.autopay_charge_failure_data is None:
+        logger.info(f"Organization {organization.id} has no autopay charge failure data so not resetting")
+        return
+
     if customer_previous_attributes.get("invoice_settings", {}).get("default_payment_method"):
         logger.info(f"Customer {customer.id} payment method updated so resetting autopay_charge_failure_data and autopay_charge_task_enqueued_at")
         organization.autopay_charge_failure_data = None
