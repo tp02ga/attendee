@@ -1,4 +1,5 @@
-# Getting your Attendee-powered Zoom App Approved by Frazer Kearl ([MeetDoris](https://meetdoris.com/))
+# Getting your Attendee-powered Zoom App Approved
+*by Frazer Kearl ([MeetDoris](https://meetdoris.com/))*
 
 ## Basic Information
 
