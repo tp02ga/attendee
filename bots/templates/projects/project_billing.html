@@ -128,23 +128,13 @@
                                         </label>
                                     </div>
                                     <div class="form-text">
-                                        Automatically purchase credits when your balance drops below the threshold
+                                        Automatically purchase credits to refill your balance
                                     </div>
                                 </div>
                                 
                                 <div id="autopaySettings"{% if not project.organization.autopay_enabled %} style="display: none;"{% endif %}>
-                                    <div class="mb-3">
-                                        <label for="autopayThreshold" class="form-label">Credit Threshold</label>
-                                        <div class="input-group">
-                                            <input type="number" class="form-control" id="autopayThreshold" 
-                                                   min="1" max="10000" step="1" 
-                                                   value="{{ project.organization.autopay_threshold_credits|floatformat:2 }}">
-                                            <span class="input-group-text">credits</span>
-                                        </div>
-                                        <div class="form-text">
-                                            Autopay will trigger when your balance drops below this level
-                                        </div>
-                                    </div>
+                                    <!-- Hidden threshold field with fixed value of 10 credits -->
+                                    <input type="hidden" id="autopayThreshold" value="10">
                                     
                                     <div class="mb-3">
                                         <label for="autopayAmount" class="form-label">Purchase Amount</label>
@@ -160,7 +150,7 @@
                                     </div>
                                     
                                     <div class="alert alert-info">
-                                        When your credit balance drops to <b><span id="thresholdDisplay">{{ project.organization.autopay_threshold_credits|floatformat:2 }}</span> credits</b> or below, we'll automatically charge your payment method <b>$<span id="amountDisplay">{{ project.organization.autopay_amount_to_purchase_dollars|floatformat:2 }}</span></b> which will add <b><span id="autopayCalculatedCredits">0</span> credits</b> to your balance.
+                                        When your credit balance drops below <b>10 credits</b>, we'll automatically charge your payment method <b>$<span id="amountDisplay">{{ project.organization.autopay_amount_to_purchase_dollars|floatformat:2 }}</span></b> which will add <b><span id="autopayCalculatedCredits">0</span> credits</b> to your balance.
                                     </div>
                                 </div>
                             </form>
@@ -308,7 +298,6 @@
         const autopaySettings = document.getElementById('autopaySettings');
         const autopayThreshold = document.getElementById('autopayThreshold');
         const autopayAmount = document.getElementById('autopayAmount');
-        const thresholdDisplay = document.getElementById('thresholdDisplay');
         const amountDisplay = document.getElementById('amountDisplay');
         const autopayCalculatedCredits = document.getElementById('autopayCalculatedCredits');
         const saveAutopayBtn = document.getElementById('saveAutopayBtn');
@@ -327,9 +316,6 @@
         
         // Update display values
         function updateDisplayValues() {
-            if (thresholdDisplay && autopayThreshold) {
-                thresholdDisplay.textContent = parseFloat(autopayThreshold.value || 0).toFixed(2);
-            }
             if (amountDisplay && autopayAmount) {
                 amountDisplay.textContent = parseFloat(autopayAmount.value || 0).toFixed(2);
             }
@@ -343,10 +329,6 @@
         // Add event listeners
         if (autopayEnabled) {
             autopayEnabled.addEventListener('change', toggleAutopaySettings);
-        }
-        
-        if (autopayThreshold) {
-            autopayThreshold.addEventListener('input', updateDisplayValues);
         }
         
         if (autopayAmount) {
@@ -385,7 +367,7 @@
                 hideAutopayError();
                 
                 const enabled = autopayEnabled.checked;
-                const threshold = parseFloat(autopayThreshold.value) || 0;
+                const threshold = 10; // Fixed threshold value
                 const amount = parseFloat(autopayAmount.value) || 0;
                                 
                 const data = {
