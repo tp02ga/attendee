@@ -59,7 +59,18 @@ class AutopayChargeTaskTestCase(TestCase):
         # Verify Stripe calls
         mock_customer_retrieve.assert_called_once_with("cus_test123", api_key="sk_test_key")
 
-        mock_payment_intent_create.assert_called_once_with(amount=5000, currency="usd", customer="cus_test123", payment_method="pm_test123", off_session=True, confirm=True, description="Autopay charge for 100 Attendee credits", metadata={"organization_id": str(self.org.id), "credit_amount": "100", "autopay": "true"}, api_key="sk_test_key")
+        mock_payment_intent_create.assert_called_once_with(
+            amount=5000,
+            idempotency_key=None,
+            currency="usd",
+            customer="cus_test123",
+            payment_method="pm_test123",
+            off_session=True,
+            confirm=True,
+            description="Autopay charge for 100 Attendee credits",
+            metadata={"organization_id": str(self.org.id), "credit_amount": "100", "autopay": "true"},
+            api_key="sk_test_key",
+        )
 
     def test_autopay_disabled_organization(self):
         """Test that autopay charge exits early for disabled organization"""
