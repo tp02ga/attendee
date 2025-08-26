@@ -59,7 +59,7 @@ Once the app is approved:
 
 ### Architecture Diagram
 What we submitted:
-<img src="/static/images/zoom_app_review_architecture_diagram_example.png" alt="Architecture Diagram Example">
+<img src="https://raw.githubusercontent.com/attendee-labs/attendee/refs/heads/main/static/images/zoom_app_review_architecture_diagram_example.png" alt="Architecture Diagram Example">
 
 ### Application Development
 - **Do you have a SSDLC?**  
