@@ -38,6 +38,10 @@
           "type": "page"
         },
         {
+          "path": "docs/zoom_app_review.md",
+          "type": "page"
+        },
+        {
           "path": "docs/faq.md",
           "type": "page"
         }
