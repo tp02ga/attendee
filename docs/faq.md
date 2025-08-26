@@ -10,6 +10,10 @@ Zoom bots must be approved by Zoom to join external meetings. Unapproved Zoom bo
 
 One of our community members has created a guide on getting your bot approved [here](https://www.notion.so/Zoom-App-Publishing-for-Attendee-24db06b6bbc68042926df934997ffe49).
 
+## Why is my Zoom bot stuck in the 'Joined - Not Recording' state?
+
+The user likely needs to enable external participant recording privileges in their Zoom account. See [here](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0063640) for more information.
+
 ## Why is the bot having issues joining a Zoom meeting when running Attendee locally? 
 
 You may need to rebuild the docker image. You can do this in one of two ways: 
