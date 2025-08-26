@@ -1,5 +1,4 @@
-# Getting your Attendee-powered Zoom App Approved
-by Frazer Kearl ([MeetDoris](https://meetdoris.com/))
+# Getting your Attendee-powered Zoom App Approved by Frazer Kearl ([MeetDoris](https://meetdoris.com/))
 
 ## Basic Information
 
@@ -59,7 +58,7 @@ Once the app is approved:
 
 ### Architecture Diagram
 What we submitted:
-<img src="static/images/zoom_app_review_architecture_diagram_example.png" alt="Architecture Diagram Example">
+<img src="/static/images/zoom_app_review_architecture_diagram_example.png" alt="Architecture Diagram Example">
 
 ### Application Development
 - **Do you have a SSDLC?**  
