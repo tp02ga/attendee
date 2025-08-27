@@ -33,7 +33,7 @@ def get_transcription(utterance, recording):
         elif recording.transcription_provider == TranscriptionProviders.OPENAI:
             transcription, failure_data = get_transcription_via_openai(utterance)
         elif recording.transcription_provider == TranscriptionProviders.ASSEMBLY_AI:
-                transcription, failure_data = get_transcription_via_assemblyai(utterance)
+            transcription, failure_data = get_transcription_via_assemblyai(utterance)
         elif recording.transcription_provider == TranscriptionProviders.SARVAM:
             transcription, failure_data = get_transcription_via_sarvam(utterance)
         elif recording.transcription_provider == TranscriptionProviders.ELEVENLABS:
@@ -488,6 +488,7 @@ def get_transcription_via_sarvam(utterance):
         logger.error(f"Sarvam transcription unexpected error: {str(e)}")
         return None, {"reason": TranscriptionFailureReasons.INTERNAL_ERROR, "error": str(e)}
 
+
 def get_transcription_via_elevenlabs(utterance):
     recording = utterance.recording
     elevenlabs_credentials_record = recording.bot.project.credentials.filter(credential_type=Credentials.CredentialTypes.ELEVENLABS).first()
@@ -510,20 +511,18 @@ def get_transcription_via_elevenlabs(utterance):
     headers = {
         "xi-api-key": api_key,
     }
-    
+
     # Prepare multipart form data
-    files = {
-        "file": ("audio.mp3", payload_mp3, "audio/mpeg")
-    }
-    
+    files = {"file": ("audio.mp3", payload_mp3, "audio/mpeg")}
+
     # Add model_id if configured
     data = {}
     if recording.bot.elevenlabs_model_id():
         data["model_id"] = recording.bot.elevenlabs_model_id()
-    
+
     if recording.bot.elevenlabs_language_code():
         data["language_code"] = recording.bot.elevenlabs_language_code()
-    
+
     if recording.bot.elevenlabs_tag_audio_events():
         data["tag_audio_events"] = recording.bot.elevenlabs_tag_audio_events()
 
