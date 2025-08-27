@@ -541,7 +541,10 @@ def get_transcription_via_elevenlabs(utterance):
 
         result = response.json()
         logger.info("ElevenLabs transcription completed successfully")
-        logger.info(f"ElevenLabs transcription result: {result}")
+
+        if result.get("language_probability", 0.0) < 0.5:
+            logger.info(f"ElevenLabs transcription skipped for utterance {utterance.id} because the language probability was less than 0.5")
+            return {"transcript": "", "words": []}, None
 
         # Extract transcript and words from the response
         transcript_text = result.get("text", "")

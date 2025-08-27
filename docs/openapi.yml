@@ -1433,6 +1433,8 @@ components:
       - scheduled
       - staged
       - joined_recording_paused
+      - joining_breakout_room
+      - leaving_breakout_room
     Calendar:
       type: object
       properties:
@@ -1910,6 +1912,26 @@ components:
                   - gu-IN
                   description: The language code to use for transcription
               required: []
+              additionalProperties: false
+            elevenlabs:
+              type: object
+              properties:
+                model_id:
+                  type: string
+                  description: The ElevenLabs model to use for transcription
+                  enum:
+                  - scribe_v1
+                  - scribe_v1_experimental
+                language_code:
+                  type: string
+                  description: An ISO-639-1 or ISO-639-3 language_code corresponding
+                    to the language of the audio file.
+                tag_audio_events:
+                  type: boolean
+                  description: Whether to tag audio events like 'laughter' in the
+                    transcription.
+              required:
+              - model_id
               additionalProperties: false
           required: []
           description: 'The transcription settings for the bot, e.g. {''deepgram'':
