@@ -434,6 +434,15 @@ class Bot(models.Model):
     def sarvam_model(self):
         return self.settings.get("transcription_settings", {}).get("sarvam", {}).get("model", None)
 
+    def elevenlabs_model_id(self):
+        return self.settings.get("transcription_settings", {}).get("elevenlabs", {}).get("model_id", "scribe_v1")
+
+    def elevenlabs_language_code(self):
+        return self.settings.get("transcription_settings", {}).get("elevenlabs", {}).get("language_code", None)
+
+    def elevenlabs_tag_audio_events(self):
+        return self.settings.get("transcription_settings", {}).get("elevenlabs", {}).get("tag_audio_events", None)
+
     def deepgram_language(self):
         return self.settings.get("transcription_settings", {}).get("deepgram", {}).get("language", None)
 
@@ -1403,6 +1412,7 @@ class TranscriptionProviders(models.IntegerChoices):
     OPENAI = 4, "OpenAI"
     ASSEMBLY_AI = 5, "Assembly AI"
     SARVAM = 6, "Sarvam"
+    ELEVENLABS = 7, "ElevenLabs"
 
 
 from storages.backends.s3boto3 import S3Boto3Storage
@@ -1667,6 +1677,7 @@ class Credentials(models.Model):
         SARVAM = 7, "Sarvam"
         TEAMS_BOT_LOGIN = 8, "Teams Bot Login"
         EXTERNAL_MEDIA_STORAGE = 9, "External Media Storage"
+        ELEVENLABS = 10, "ElevenLabs"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="credentials")
     credential_type = models.IntegerField(choices=CredentialTypes.choices, null=False)
