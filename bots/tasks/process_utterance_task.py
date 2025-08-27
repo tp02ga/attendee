@@ -523,8 +523,7 @@ def get_transcription_via_elevenlabs(utterance):
     if recording.bot.elevenlabs_language_code():
         data["language_code"] = recording.bot.elevenlabs_language_code()
 
-    if recording.bot.elevenlabs_tag_audio_events():
-        data["tag_audio_events"] = recording.bot.elevenlabs_tag_audio_events()
+    data["tag_audio_events"] = recording.bot.elevenlabs_tag_audio_events()
 
     try:
         response = requests.post(url, headers=headers, files=files, data=data if data else None)
