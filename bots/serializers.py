@@ -245,6 +245,16 @@ class BotImageSerializer(serializers.Serializer):
                 "required": [],
                 "additionalProperties": False,
             },
+            "elevenlabs": {
+                "type": "object",
+                "properties": {
+                    "model_id": {"type": "string", "description": "The ElevenLabs model to use for transcription", "enum": ["scribe_v1", "scribe_v1_experimental"]},
+                    "language_code": {"type": "string", "description": "An ISO-639-1 or ISO-639-3 language_code corresponding to the language of the audio file."},
+                    "tag_audio_events": {"type": "boolean", "description": "Whether to tag audio events like 'laughter' in the transcription."},
+                },
+                "required": ["model_id"],
+                "additionalProperties": False,
+            },
         },
         "required": [],
     }
@@ -781,6 +791,16 @@ class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
                     },
                 },
                 "required": [],
+                "additionalProperties": False,
+            },
+            "elevenlabs": {
+                "type": "object",
+                "properties": {
+                    "model_id": {"type": "string", "description": "The ElevenLabs model to use for transcription", "enum": ["scribe_v1", "scribe_v1_experimental"]},
+                    "language_code": {"type": "string", "description": "An ISO-639-1 or ISO-639-3 language_code corresponding to the language of the audio file."},
+                    "tag_audio_events": {"type": "boolean", "description": "Whether to tag audio events like 'laughter' in the transcription."},
+                },
+                "required": ["model_id"],
                 "additionalProperties": False,
             },
         },
