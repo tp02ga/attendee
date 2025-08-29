@@ -417,6 +417,9 @@ class ZoomBotAdapter(BotAdapter):
         join_bo_result = attendee.JoinBo()
         logger.info(f"join_bo_result = {join_bo_result}")
 
+    def admit_from_waiting_room(self):
+        logger.info("admit_from_waiting_room called")
+
     def apply_meeting_settings(self):
         # Set various aspects of the meeting. Will only work if the bot has host privileges.
 

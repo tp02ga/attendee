@@ -950,6 +950,40 @@ class SendChatMessageView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+class AdmitFromWaitingRoomView(APIView):
+    authentication_classes = [ApiKeyAuthentication]
+    throttle_classes = [ProjectPostThrottle]
+
+    def post(self, request, object_id):
+        try:
+            bot = Bot.objects.get(object_id=object_id, project=request.auth.project)
+
+            # This functionality is only supported for zoom bots
+            meeting_type = meeting_type_from_url(bot.meeting_url)
+            if meeting_type != MeetingTypes.ZOOM:
+                return Response({"error": "Admitting from waiting room is not supported for this meeting type"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if bot is in a state that allows admitting from waiting room
+            if not BotEventManager.is_state_that_can_admit_from_waiting_room(bot.state):
+                return Response(
+                    {"error": f"Bot is in state {BotStates.state_to_api_code(bot.state)} and cannot admit from waiting room"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Call the utility method on the bot instance to admit from waiting room
+            try:
+                logging.info(f"Admitting from waiting room for bot {bot.object_id}")
+                send_sync_command(bot, "admit_from_waiting_room")
+                return Response(status=status.HTTP_200_OK)
+            except Exception as e:
+                logging.error(f"Error admitting from waiting room for bot {bot.object_id}: {str(e)}")
+                return Response(
+                    {"error": "Failed to admit from waiting room"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except Bot.DoesNotExist:
+            return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class PauseRecordingView(APIView):
     authentication_classes = [ApiKeyAuthentication]
