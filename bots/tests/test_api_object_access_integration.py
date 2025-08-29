@@ -145,7 +145,7 @@ class ApiObjectAccessIntegrationTest(TransactionTestCase):
         scheduled_bot_a = Bot.objects.create(project=self.project_a, name="Scheduled Bot A", meeting_url="https://meet.google.com/scheduled-a", state=BotStates.SCHEDULED, join_at=datetime.now(timezone.utc))
         scheduled_bot_b = Bot.objects.create(project=self.project_b, name="Scheduled Bot B", meeting_url="https://meet.google.com/scheduled-b", state=BotStates.SCHEDULED, join_at=datetime.now(timezone.utc))
 
-        patch_data = {"join_at": "2054-12-31T23:59:59Z"}
+        patch_data = {"join_at": "2026-12-31T23:59:59Z"}
 
         # API key A can patch bot A
         response = self._make_authenticated_request("PATCH", f"/api/v1/bots/{scheduled_bot_a.object_id}", self.api_key_a_plain, json.dumps(patch_data))

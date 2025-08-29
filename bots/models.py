@@ -499,6 +499,9 @@ class Bot(models.Model):
     def use_zoom_web_adapter(self):
         return self.settings.get("zoom_settings", {}).get("sdk", "native") == "web"
 
+    def zoom_meeting_settings(self):
+        return self.settings.get("zoom_settings", {}).get("meeting_settings", {})
+
     def rtmp_destination_url(self):
         rtmp_settings = self.settings.get("rtmp_settings")
         if not rtmp_settings:
