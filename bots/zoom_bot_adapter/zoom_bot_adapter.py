@@ -473,7 +473,7 @@ class ZoomBotAdapter(BotAdapter):
         for participant_id in participant_ids_list:
             self.get_participant(participant_id)
             self.send_participant_event(participant_id, event_type=ParticipantEventTypes.JOIN)
-        
+
         # Chats controller
         self.chat_ctrl = self.meeting_service.GetMeetingChatController()
         self.chat_ctrl_event = zoom.MeetingChatEventCallbacks(onChatMsgNotificationCallback=self.on_chat_msg_notification_callback)
