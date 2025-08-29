@@ -2039,6 +2039,10 @@ components:
                   type: boolean
                 allow_participants_to_request_local_recording:
                   type: boolean
+                allow_participants_to_share_screen:
+                  type: boolean
+                allow_participants_to_chat:
+                  type: boolean
                 enable_focus_mode:
                   type: boolean
               required: []

@@ -454,6 +454,11 @@ class ZoomBotAdapter(BotAdapter):
             lock_share_result = self.meeting_sharing_controller.LockShare(allow_participants_to_share_screen)
             logger.info(f"LockShare({allow_participants_to_share_screen}) returned {lock_share_result}")
 
+        allow_participants_to_chat = self.zoom_meeting_settings.get("allow_participants_to_chat", None)
+        if allow_participants_to_chat is not None:
+            allow_participants_to_chat_result = self.participants_ctrl.AllowParticipantsToChat(allow_participants_to_chat)
+            logger.info(f"AllowParticipantsToChat({allow_participants_to_chat}) returned {allow_participants_to_chat_result}")
+
     def on_join(self):
         # Reset breakout room transition flag
         self.is_joining_or_leaving_breakout_room = False
