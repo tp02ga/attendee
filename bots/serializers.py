@@ -4,6 +4,7 @@ import os
 from dataclasses import asdict
 
 import jsonschema
+from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -83,6 +84,9 @@ class BotValidationMixin:
 
         if value < timezone.now():
             raise serializers.ValidationError("join_at cannot be in the past")
+
+        if value > timezone.now() + relativedelta(years=3):
+            raise serializers.ValidationError("join_at cannot be more than 3 years in the future")
 
         return value
 
