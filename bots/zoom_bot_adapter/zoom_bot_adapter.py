@@ -192,6 +192,9 @@ class ZoomBotAdapter(BotAdapter):
         self.breakout_room_ctrl_event = None
         self.is_joining_or_leaving_breakout_room = False
 
+        # Waiting room controller
+        self.waiting_room_ctrl = None
+
     def on_user_join_callback(self, joined_user_ids, _):
         logger.info(f"on_user_join_callback called. joined_user_ids = {joined_user_ids}")
         for joined_user_id in joined_user_ids:
@@ -419,6 +422,8 @@ class ZoomBotAdapter(BotAdapter):
 
     def admit_from_waiting_room(self):
         logger.info("admit_from_waiting_room called")
+        admit_all_to_meeting_result = self.waiting_room_ctrl.AdmitAllToMeeting()
+        logger.info(f"admit_all_to_meeting_result = {admit_all_to_meeting_result}")
 
     def apply_meeting_settings(self):
         # Set various aspects of the meeting. Will only work if the bot has host privileges.
@@ -492,6 +497,9 @@ class ZoomBotAdapter(BotAdapter):
         self.breakout_room_ctrl = self.meeting_service.GetMeetingBOController()
         self.breakout_room_ctrl_event = zoom.MeetingBOEventCallbacks(onHasAttendeeRightsNotificationCallback=self.on_has_attendee_rights_notification)
         self.breakout_room_ctrl.SetEvent(self.breakout_room_ctrl_event)
+
+        # Waiting room controller
+        self.waiting_room_ctrl = self.meeting_service.GetMeetingWaitingRoomController()
 
         # Meeting sharing controller
         self.meeting_sharing_controller = self.meeting_service.GetMeetingShareController()
