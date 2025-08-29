@@ -950,6 +950,7 @@ class SendChatMessageView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
 class AdmitFromWaitingRoomView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     throttle_classes = [ProjectPostThrottle]
@@ -984,6 +985,7 @@ class AdmitFromWaitingRoomView(APIView):
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 class PauseRecordingView(APIView):
     authentication_classes = [ApiKeyAuthentication]
