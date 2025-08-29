@@ -360,6 +360,19 @@ class TeamsSettingsJSONField(serializers.JSONField):
                 "description": "The Zoom SDK to use for the bot. Use 'web' when you need closed caption based transcription.",
                 "default": "native",
             },
+            "meeting_settings": {
+                "type": "object",
+                "properties": {
+                    "allow_participants_to_unmute_self": {"type": "boolean"},
+                    "allow_participants_to_share_whiteboard": {"type": "boolean"},
+                    "allow_participants_to_request_cloud_recording": {"type": "boolean"},
+                    "allow_participants_to_request_local_recording": {"type": "boolean"},
+                    "enable_focus_mode": {"type": "boolean"},
+                },
+                "required": [],
+                "additionalProperties": False,
+                "description": "Settings for various aspects of the Zoom Meeting. To use these settings, the bot must have host privileges.",
+            },
         },
         "required": [],
         "additionalProperties": False,
@@ -1195,6 +1208,18 @@ class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
         "type": "object",
         "properties": {
             "sdk": {"type": "string", "enum": ["web", "native"]},
+            "meeting_settings": {
+                "type": "object",
+                "properties": {
+                    "allow_participants_to_unmute_self": {"type": "boolean"},
+                    "allow_participants_to_share_whiteboard": {"type": "boolean"},
+                    "allow_participants_to_request_cloud_recording": {"type": "boolean"},
+                    "allow_participants_to_request_local_recording": {"type": "boolean"},
+                    "enable_focus_mode": {"type": "boolean"},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
         },
         "required": [],
         "additionalProperties": False,

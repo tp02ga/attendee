@@ -209,6 +209,7 @@ class BotController:
             automatic_leave_configuration=self.automatic_leave_configuration,
             video_frame_size=self.bot_in_db.recording_dimensions(),
             zoom_tokens=zoom_tokens,
+            zoom_meeting_settings=self.bot_in_db.zoom_meeting_settings(),
         )
 
     def add_mixed_audio_chunk_callback(self, chunk: bytes):
