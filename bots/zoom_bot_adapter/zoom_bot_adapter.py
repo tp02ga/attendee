@@ -442,8 +442,17 @@ class ZoomBotAdapter(BotAdapter):
 
         enable_focus_mode = self.zoom_meeting_settings.get("enable_focus_mode", None)
         if enable_focus_mode is not None:
+            is_focus_mode_on = self.participants_ctrl.IsFocusModeOn()
+            logger.info(f"IsFocusModeOn() returned {is_focus_mode_on}")
+            is_focus_mode_enabled = self.participants_ctrl.IsFocusModeEnabled()
+            logger.info(f"IsFocusModeEnabled() returned {is_focus_mode_enabled}")
             turn_focus_mode_on_result = self.participants_ctrl.TurnFocusModeOn(enable_focus_mode)
             logger.info(f"TurnFocusModeOn({enable_focus_mode}) returned {turn_focus_mode_on_result}")
+
+        allow_participants_to_share_screen = self.zoom_meeting_settings.get("allow_participants_to_share_screen", None)
+        if allow_participants_to_share_screen is not None:
+            lock_share_result = self.meeting_sharing_controller.LockShare(allow_participants_to_share_screen)
+            logger.info(f"LockShare({allow_participants_to_share_screen}) returned {lock_share_result}")
 
     def on_join(self):
         # Reset breakout room transition flag
@@ -464,8 +473,7 @@ class ZoomBotAdapter(BotAdapter):
         for participant_id in participant_ids_list:
             self.get_participant(participant_id)
             self.send_participant_event(participant_id, event_type=ParticipantEventTypes.JOIN)
-        self.apply_meeting_settings()
-
+        
         # Chats controller
         self.chat_ctrl = self.meeting_service.GetMeetingChatController()
         self.chat_ctrl_event = zoom.MeetingChatEventCallbacks(onChatMsgNotificationCallback=self.on_chat_msg_notification_callback)
@@ -505,6 +513,9 @@ class ZoomBotAdapter(BotAdapter):
             self.recording_ctrl.SetEvent(self.recording_event)
 
             self.start_raw_recording()
+
+        # Apply meeting settings
+        self.apply_meeting_settings()
 
         # Set up media streams
         GLib.timeout_add_seconds(1, self.set_up_bot_audio_input)
