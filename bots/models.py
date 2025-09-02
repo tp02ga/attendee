@@ -231,9 +231,9 @@ class BotStates(models.IntegerChoices):
     LEAVING_BREAKOUT_ROOM = 15, "Leaving Breakout Room"
 
     @classmethod
-    def state_to_api_code(cls, value):
-        """Returns the API code for a given state value"""
-        mapping = {
+    def _get_state_to_api_code_mapping(cls):
+        """Get the trigger type to API code mapping"""
+        return {
             cls.READY: "ready",
             cls.JOINING: "joining",
             cls.JOINED_NOT_RECORDING: "joined_not_recording",
@@ -250,7 +250,17 @@ class BotStates(models.IntegerChoices):
             cls.JOINING_BREAKOUT_ROOM: "joining_breakout_room",
             cls.LEAVING_BREAKOUT_ROOM: "leaving_breakout_room",
         }
-        return mapping.get(value)
+
+    @classmethod
+    def state_to_api_code(cls, value):
+        """Returns the API code for a given state value"""
+        return cls._get_state_to_api_code_mapping().get(value)
+
+    @classmethod
+    def api_code_to_state(cls, api_code):
+        """Returns the state value for a given API code"""
+        reverse_mapping = {v: k for k, v in cls._get_state_to_api_code_mapping().items()}
+        return reverse_mapping.get(api_code)
 
     @classmethod
     def post_meeting_states(cls):

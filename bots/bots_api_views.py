@@ -164,6 +164,17 @@ class BotListCreateView(GenericAPIView):
                 examples=[OpenApiExample("Deduplication Key Example", value="my-unique-bot-key")],
             ),
             OpenApiParameter(
+                name="states",
+                type={"type": "array", "items": {"type": "string"}},
+                location=OpenApiParameter.QUERY,
+                description="Filter bots by state. Can specify multiple states.",
+                required=False,
+                examples=[
+                    OpenApiExample("Single State", value=["ended"]),
+                    OpenApiExample("Multiple States", value=["joined_recording", "ended", "fatal_error"]),
+                ],
+            ),
+            OpenApiParameter(
                 name="cursor",
                 type=str,
                 location=OpenApiParameter.QUERY,
@@ -186,6 +197,21 @@ class BotListCreateView(GenericAPIView):
         deduplication_key = request.query_params.get("deduplication_key")
         if deduplication_key:
             bots_query = bots_query.filter(deduplication_key=deduplication_key)
+
+        # Filter by states if provided
+        states = request.query_params.getlist("states")
+        if states:
+            # Convert API code strings to state integer values
+            state_values = []
+            for state_api_code in states:
+                state_value = BotStates.api_code_to_state(state_api_code)
+                if state_value is not None:
+                    state_values.append(state_value)
+                else:
+                    return Response({"error": f"Invalid state: {state_api_code}. Valid states are: {', '.join(BotStates.state_to_api_code(state) for state in BotStates)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if state_values:
+                bots_query = bots_query.filter(state__in=state_values)
 
         # Apply ordering for cursor pagination
         bots = bots_query.order_by("created_at")
