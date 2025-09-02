@@ -1360,6 +1360,7 @@ class BotSerializer(serializers.ModelSerializer):
     transcription_state = serializers.SerializerMethodField()
     recording_state = serializers.SerializerMethodField()
     join_at = serializers.DateTimeField()
+    deduplication_key = serializers.CharField()
 
     @extend_schema_field(
         {
@@ -1436,6 +1437,7 @@ class BotSerializer(serializers.ModelSerializer):
             "transcription_state",
             "recording_state",
             "join_at",
+            "deduplication_key",
         ]
         read_only_fields = fields
 
