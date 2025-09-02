@@ -165,14 +165,10 @@ class BotListCreateView(GenericAPIView):
             ),
             OpenApiParameter(
                 name="states",
-                type={"type": "array", "items": {"type": "string"}},
+                type={"type": "array", "items": {"type": "string", "enum": list(BotStates._get_state_to_api_code_mapping().values())}},
                 location=OpenApiParameter.QUERY,
                 description="Filter bots by state. Can specify multiple states.",
                 required=False,
-                examples=[
-                    OpenApiExample("Single State", value=["ended"]),
-                    OpenApiExample("Multiple States", value=["joined_recording", "ended", "fatal_error"]),
-                ],
             ),
             OpenApiParameter(
                 name="cursor",
