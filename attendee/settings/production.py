@@ -9,7 +9,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 DATABASES = {
     "default": dj_database_url.config(
-        env="DATABASE_URL",
+        default=os.environ.get("DATABASE_URL"),
         conn_max_age=600,
         conn_health_checks=True,
         ssl_require=True,
