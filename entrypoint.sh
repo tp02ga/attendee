@@ -10,3 +10,6 @@ pulseaudio -D --exit-idle-time=-1
 sleep 1
 
 echo "PulseAudio initialized"
+
+# Execute the main command passed to the script
+exec "$@"
