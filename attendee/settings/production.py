@@ -4,8 +4,8 @@ import dj_database_url
 
 from .base import *
 
-DEBUG = False
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 DATABASES = {
     "default": dj_database_url.config(
