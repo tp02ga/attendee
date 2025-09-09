@@ -34,8 +34,17 @@ def health_check(request):
     return HttpResponse(status=200)
 
 
+def ready_check(request):
+    """
+    Ready check endpoint - verifies the application is ready to serve requests.
+    Can be extended to check database, cache, etc.
+    """
+    return HttpResponse(status=200)
+
+
 urlpatterns = [
     path("health/", health_check, name="health-check"),
+    path("ready/", ready_check, name="ready-check"),
 ]
 
 if not os.environ.get("DISABLE_ADMIN"):

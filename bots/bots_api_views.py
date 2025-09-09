@@ -704,11 +704,11 @@ class TranscriptView(APIView):
     @extend_schema(
         operation_id="Get Bot Transcript",
         summary="Get the transcript for a bot",
-        description="If the meeting is still in progress, this returns the transcript so far.",
+        description="If the meeting is still in progress, this returns the transcript so far. Supports filtering by time window.",
         responses={
             200: OpenApiResponse(
                 response=TranscriptUtteranceSerializer(many=True),
-                description="List of transcribed utterances",
+                description="List of transcribed utterances or plain text",
             ),
             404: OpenApiResponse(description="Bot not found"),
         },
@@ -728,6 +728,31 @@ class TranscriptView(APIView):
                 description="Only return transcript entries updated or created after this time. Useful when polling for updates to the transcript.",
                 required=False,
                 examples=[OpenApiExample("DateTime Example", value="2024-01-18T12:34:56Z")],
+            ),
+            OpenApiParameter(
+                name="since_ms",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Only return segments with end_ms > since_ms",
+                required=False,
+                examples=[OpenApiExample("Timestamp Example", value=15000)],
+            ),
+            OpenApiParameter(
+                name="window_s",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                description="Return only last N seconds relative to latest transcript timestamp",
+                required=False,
+                examples=[OpenApiExample("Window Example", value=60)],
+            ),
+            OpenApiParameter(
+                name="format",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                description="Output format: 'json' (default) or 'plain' for joined text",
+                required=False,
+                enum=["json", "plain"],
+                examples=[OpenApiExample("Format Example", value="plain")],
             ),
         ],
         tags=["Bots"],
@@ -773,13 +798,83 @@ class TranscriptView(APIView):
                     "timestamp_ms": utterance.timestamp_ms,
                     "duration_ms": utterance.duration_ms,
                     "transcription": utterance.transcription,
+                    "end_ms": utterance.timestamp_ms + utterance.duration_ms,  # Calculate end time
                 }
                 for utterance in utterances
                 if utterance.transcription.get("transcript", "")
             ]
-
-            serializer = TranscriptUtteranceSerializer(transcript_data, many=True)
-            return Response(serializer.data)
+            
+            # Apply since_ms filter
+            since_ms = request.query_params.get("since_ms")
+            if since_ms:
+                try:
+                    since_ms = int(since_ms)
+                    transcript_data = [
+                        item for item in transcript_data
+                        if item["end_ms"] > since_ms
+                    ]
+                except (ValueError, TypeError):
+                    return Response(
+                        {"error": "Invalid since_ms format. Must be an integer."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            
+            # Apply window_s filter
+            window_s = request.query_params.get("window_s")
+            if window_s:
+                try:
+                    window_s = int(window_s)
+                    if transcript_data:
+                        # Get the latest timestamp
+                        latest_ms = max(item["end_ms"] for item in transcript_data)
+                        cutoff_ms = latest_ms - (window_s * 1000)
+                        transcript_data = [
+                            item for item in transcript_data
+                            if item["end_ms"] > cutoff_ms
+                        ]
+                except (ValueError, TypeError):
+                    return Response(
+                        {"error": "Invalid window_s format. Must be an integer."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            
+            # Calculate last_timestamp_ms
+            last_timestamp_ms = max(item["end_ms"] for item in transcript_data) if transcript_data else 0
+            
+            # Check output format
+            output_format = request.query_params.get("format", "json").lower()
+            
+            if output_format == "plain":
+                # Join all transcriptions into plain text
+                text_parts = []
+                for item in transcript_data:
+                    transcript_text = item["transcription"].get("transcript", "")
+                    if transcript_text:
+                        text_parts.append(transcript_text)
+                
+                return Response({
+                    "text": " ".join(text_parts),
+                    "last_timestamp_ms": last_timestamp_ms
+                })
+            else:
+                # Default JSON format with segments
+                # Convert to segments format
+                segments = [
+                    {
+                        "start_ms": item["timestamp_ms"],
+                        "end_ms": item["end_ms"],
+                        "text": item["transcription"].get("transcript", ""),
+                        "is_final": True,
+                        "speaker_name": item["speaker_name"],
+                        "speaker_uuid": item["speaker_uuid"],
+                    }
+                    for item in transcript_data
+                ]
+                
+                return Response({
+                    "segments": segments,
+                    "last_timestamp_ms": last_timestamp_ms
+                })
 
         except Bot.DoesNotExist:
             return Response({"error": "Bot not found"}, status=status.HTTP_404_NOT_FOUND)

@@ -213,3 +213,8 @@ if os.getenv("USE_IRSA_FOR_S3_STORAGE", "false") == "true":
     AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_RECORDING_STORAGE_BUCKET_NAME = os.getenv("AWS_RECORDING_STORAGE_BUCKET_NAME")
 CHARGE_CREDITS_FOR_BOTS = os.getenv("CHARGE_CREDITS_FOR_BOTS", "false") == "true"
+
+# ASR Provider Configuration
+ASR_PROVIDER = os.getenv("ASR_PROVIDER", "deepgram").lower()
+ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY", "")
+ASSEMBLYAI_REALTIME_URL = os.getenv("ASSEMBLYAI_REALTIME_URL", "wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000")

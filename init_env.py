@@ -20,6 +20,14 @@ def main():
     print("AWS_ACCESS_KEY_ID=")
     print("AWS_SECRET_ACCESS_KEY=")
     print("AWS_DEFAULT_REGION=us-east-1")
+    print()
+    print("# ASR Provider Configuration")
+    print("ASR_PROVIDER=assemblyai  # options: assemblyai | deepgram")
+    print("ASSEMBLYAI_API_KEY=")
+    print("ASSEMBLYAI_REALTIME_URL=wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000")
+    print()
+    print("# Redis URL")
+    print("REDIS_URL=redis://localhost:6379")
 
 
 if __name__ == "__main__":
