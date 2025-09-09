@@ -1,5 +1,4 @@
 import os
-import sys
 
 import dj_database_url
 
@@ -8,24 +7,14 @@ from .base import *
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
-# Debug: Print environment variable to stderr
-database_url = os.environ.get("DATABASE_URL")
-print(f"DATABASE_URL from environment: {database_url}", file=sys.stderr)
-
-if not database_url:
-    raise ValueError("DATABASE_URL environment variable is not set!")
-
 DATABASES = {
     "default": dj_database_url.config(
-        default=database_url,
+        default=os.environ.get("DATABASE_URL"),
         conn_max_age=600,
         conn_health_checks=True,
         ssl_require=True,
     ),
 }
-
-# Debug: Print parsed database config
-print(f"Parsed DATABASES config: {DATABASES}", file=sys.stderr)
 
 # PRESERVE CELERY TASKS IF WORKER IS SHUT DOWN
 CELERY_TASK_ACKS_LATE = True

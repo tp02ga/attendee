@@ -4,7 +4,7 @@ import ssl
 from celery import Celery
 
 # Set the default Django settings module
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "attendee.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "attendee.settings.production")
 
 # Create the Celery app
 if os.getenv("DISABLE_REDIS_SSL"):
